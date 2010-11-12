@@ -1,3 +1,17 @@
+
+# Junk that could exist anywhere:
 .DS_Store
+*.swp
+*.tmp
+
+# 
 .settings.xml
 .settings.xml.old
+
+# A handy place to put stuff that git should ignore:
+/ignore/
+
+# Editor junk
+/.project
+/.settings/
+
