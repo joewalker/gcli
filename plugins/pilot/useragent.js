@@ -37,27 +37,56 @@
 
 define(function(require, exports, module) {
 
-    var core = {};
-    var os = (navigator.platform.match(/mac|win|linux/i) || ["other"])[0].toLowerCase();
+var os = (navigator.platform.match(/mac|win|linux/i) || ["other"])[0].toLowerCase();
+var ua = navigator.userAgent;
+var av = navigator.appVersion;
 
-    core.isWin = (os == "win");
-    core.isMac = (os == "mac");
-    core.isLinux = (os == "linux");
-    core.isIE = ! + "\v1";
-    core.isGecko = window.controllers && window.navigator.product === "Gecko";
+/** Is the user using a browser that identifies itself as Windows */
+exports.isWin = (os == "win");
 
-    core.provide = function(namespace) {
-        var parts = namespace.split(".");
-        var obj = window;
-        for (var i=0; i<parts.length; i++) {
-            var part = parts[i];
-            if (!obj[part]) {
-                obj[part] = {};
-            }
-            obj = obj[part];
-        }
-    };
+/** Is the user using a browser that identifies itself as Mac OS */
+exports.isMac = (os == "mac");
 
-    return core;
+/** Is the user using a browser that identifies itself as Linux */
+exports.isLinux = (os == "linux");
+
+exports.isIE = ! + "\v1";
+
+/** Is this Firefox or related? */
+exports.isGecko = exports.isMozilla = window.controllers && window.navigator.product === "Gecko";
+
+/** Is this Opera */
+exports.isOpera = window.opera && Object.prototype.toString.call(window.opera) == "[object Opera]";
+
+/** Is the user using a browser that identifies itself as WebKit */
+exports.isWebKit = parseFloat(ua.split("WebKit/")[1]) || undefined;
+
+exports.isAIR = ua.indexOf("AdobeAIR") >= 0;
+
+/**
+ * I hate doing this, but we need some way to determine if the user is on a Mac
+ * The reason is that users have different expectations of their key combinations.
+ *
+ * Take copy as an example, Mac people expect to use CMD or APPLE + C
+ * Windows folks expect to use CTRL + C
+ */
+exports.OS = {
+    LINUX: 'LINUX',
+    MAC: 'MAC',
+    WINDOWS: 'WINDOWS'
+};
+
+/**
+ * Return an exports.OS constant
+ */
+exports.getOS = function() {
+    if (exports.isMac) {
+        return exports.OS['MAC'];
+    } else if (exports.isLinux) {
+        return exports.OS['LINUX'];
+    } else {
+        return exports.OS['WINDOWS'];
+    }
+};
 
 });

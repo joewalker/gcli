@@ -11,15 +11,15 @@
  * for the specific language governing rights and limitations under the
  * License.
  *
- * The Original Code is Ajax.org Code Editor (ACE).
+ * The Original Code is Mozilla Skywriter.
  *
  * The Initial Developer of the Original Code is
- * Ajax.org Services B.V.
- * Portions created by the Initial Developer are Copyright (C) 2010
+ * Mozilla.
+ * Portions created by the Initial Developer are Copyright (C) 2009
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
- *      Fabian Jakobs <fabian AT ajax DOT org>
+ *      Kevin Dangoor (kdangoor@mozilla.com)
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -35,51 +35,39 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-define(function(require, exports, module) {
+var deps = [
+    "pilot/fixoldbrowsers",
+    "pilot/types/basic",
+    "pilot/types/command",
+    "pilot/types/settings",
+    "pilot/commands/settings",
+    "pilot/commands/basic",
+    // "pilot/commands/history",
+    "pilot/settings/canon",
+    "pilot/canon"
+];
 
-    var lang = require("./lib/lang");
+var packages = deps.slice();
+packages.unshift("require", "exports", "module");
 
-    var MEventEmitter = {}
+define(packages, function(require, exports, module) {
 
-    MEventEmitter.$dispatchEvent = function(eventName, e) {
-        this.$eventRegistry = this.$eventRegistry || {};
-
-        var listeners = this.$eventRegistry[eventName];
-        if (!listeners || !listeners.length) return;
-
-        var e = e || {};
-        e.type = eventName;
-
-        for (var i=0; i<listeners.length; i++) {
-            listeners[i](e);
+exports.startup = function(data, reason) {
+    deps.forEach(function(dep) {
+        var module = require(dep);
+        if (typeof module.startup === "function") {
+            module.startup(data, reason);
         }
-    };
-
-    MEventEmitter.on =
-    MEventEmitter.addEventListener = function(eventName, callback) {
-        this.$eventRegistry = this.$eventRegistry || {};
-
-        var listeners = this.$eventRegistry[eventName];
-        if (!listeners) {
-          var listeners = this.$eventRegistry[eventName] = [];
+    });
+};
+/*
+exports.shutdown(data, reason) {
+    deps.forEach(function(dep) {
+        var module = require(dep);
+        if (typeof module.shutdown === "function") {
+            module.shutdown(data, reason);
         }
-        if (lang.arrayIndexOf(listeners, callback) == -1) {
-            listeners.push(callback);
-        }
-    };
-
-    MEventEmitter.removeEventListener = function(eventName, callback) {
-        this.$eventRegistry = this.$eventRegistry || {};
-
-        var listeners = this.$eventRegistry[eventName];
-        if (!listeners) {
-          return;
-        }
-        var index = lang.arrayIndexOf(listeners, callback);
-        if (index !== -1) {
-            listeners.splice(index, 1);
-        }
-    };
-
-    return MEventEmitter;
+    });
+};
+*/
 });
