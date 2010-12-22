@@ -22,67 +22,9 @@
     execModules: false,
     skipModuleInsertion: false,
 
-    modules: [
-        {
-            name: "ace/editor",
-            include: [
-                "ace/document",
-                "ace/undomanager",
-                "ace/virtual_renderer",
-
-                "ace/mode/javascript",
-                "ace/theme/textmate"
-            ],
-            includeRequire: false
-        },
-
-        {
-            name: "ace/theme/eclipse",
-            exclude: [
-                "pilot/lang",
-                "pilot/dom",
-                "pilot/oop"
-            ]
-        },
-        {
-            name: "ace/mode/xml",
-            exclude: [
-                "pilot/oop",
-                "ace/tokenizer",
-                "ace/mode/text"
-            ]
-        },
-        {
-            name: "ace/mode/css",
-            exclude: [
-                "pilot/oop",
-                "pilot/lang",
-                "ace/tokenizer",
-                "ace/range",
-                "ace/mode/text"
-            ]
-        },
-        {
-            name: "ace/mode/html",
-            exclude: [
-                "pilot/oop",
-                "pilot/lang",
-                "ace/tokenizer",
-                "ace/range",
-                "ace/mode/text",
-                "ace/mode/javascript",
-                "ace/mode/css",
-            ]
-        },
-        { 
-            name: "ace/mode/python",
-            exclude: [
-                "ace/lib/oop",
-                "ace/lib/lang",
-                "ace/tokenizer",
-                "ace/range",
-                "ace/mode/text"
-            ]
-        }
-    ]
+    modules: [{
+        name: "cockpit",
+        include: [ "cockpit" ],
+        includeRequire: false
+    }]
 }

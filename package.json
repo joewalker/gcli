@@ -1,17 +1,17 @@
 {
-    "name": "ace",
-    "description": "Ajax.org Code Editor is a full featured source code highlighting editor that powers the Cloud9 IDE",
+    "name": "cockpit",
+    "description": "Command line component for Skywriter/Ace/Cloud9/etc",
     "version": "0.1",
-    "homepage" : "http://github.com/ajaxorg/ace",
-    "engines": {"node": ">= 0.1.102"},
-    "author": "Fabian Jakobs <fabian@ajax.org>",
-    "main": "src/ace/ace",
+    "homepage" : "http://github.com/joewalker/cockpit",
+    "engines": { "node": ">= 0.1.102" },
+    "author": "Joe Walker <jwalker@mozilla.com>",
+    "main": "lib/cockpit",
     "repository" : {
         "type" : "git",
-         "url" : "http://github.com/ajaxorg/ace.git"
+         "url" : "http://github.com/joewalker/cockpit.git"
     },
     "licenses": [{
         "type": "LGPLv3",
-        "url": "http://www.gnu.org/licenses/lgpl-3.0.txt"}
-    ]
+        "url": "http://www.gnu.org/licenses/lgpl-3.0.txt"
+    }]
 }

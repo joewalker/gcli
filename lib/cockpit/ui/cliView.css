@@ -1,10 +1,12 @@
 
 #cockpit {
-  background: transparent;
+  background-color: transparent;
+  padding-left: 16px;
+  /*
   border: none; outline: none;
   font-family: consolas, courier, monospace;
   font-size: 120%;
-  padding-left: 16px;
+  */
 }
 
 .cptOutput {
