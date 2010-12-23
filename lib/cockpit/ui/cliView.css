@@ -1,49 +1,20 @@
 
-#cockpitInput {
-  padding-left: 16px;
-  /*
-  border: none; outline: none;
-  font-family: consolas, courier, monospace;
-  font-size: 120%;
-  */
-}
+#cockpitInput { padding-left: 16px; }
 
-#cockpitOutput {
-  overflow: auto;
-  /*
-  padding: 10px;
-  margin: 0 15px;
-  border: 1px solid #AAA;
-  -moz-border-radius-topleft: 10px;
-  -moz-border-radius-topright: 10px;
-  border-top-left-radius: 4px; border-top-right-radius: 4px;
-  background: #DDD; color: #000;
-  */
-}
+#cockpitOutput { overflow: auto; }
+#cockpitOutput.cptFocusPopup { position: absolute; z-index: 999; }
+
 .cptFocusPopup { display: none; }
 #cockpitInput:focus ~ .cptFocusPopup { display: block; }
 #cockpitInput:focus ~ .cptFocusPopup.cptNoPopup { display: none; }
 
-#cockpitOutput.cptFocusPopup {
-  position: absolute;
-  z-index: 999;
-}
-
-.cptCompletion {
-  padding: 0;
-  position: absolute;
-  z-index: -1000;
-  vertical-align: middle;
-}
-
+.cptCompletion { padding: 0; position: absolute; z-index: -1000; }
 .cptCompletion.VALID { background: #FFF; }
 .cptCompletion.INCOMPLETE { background: #DDD; }
 .cptCompletion.INVALID { background: #DDD; }
-
 .cptCompletion span { color: #FFF; }
 .cptCompletion span.INCOMPLETE { color: #DDD; border-bottom: 2px dotted #F80; }
 .cptCompletion span.INVALID { color: #DDD; border-bottom: 2px dotted #F00; }
-
 span.cptPrompt { color: #66F; font-weight: bold; }
 
 
@@ -59,54 +30,6 @@ span.cptPrompt { color: #66F; font-weight: bold; }
   padding: 8px;
   display: none;
 }
-
 .cptHints ul { margin: 0; padding: 0 15px; }
 
-.cptHints article {
-  margin-left: 25px;
-  padding: 8px;
-  z-index: 1;
-  color: @text;
-  display: block;
-  border: 2px @border_bg solid;
-  border-bottom: 0;
-  font-size: 90%;
-  -moz-border-top-colors: @border_bg @border_fg;
-  -moz-border-left-colors: @border_bg @border_fg;
-  -moz-border-right-colors: @border_bg @bg;
-  -moz-border-radius-topleft: 10px;
-  -moz-border-radius-topright: 10px;
-  border-top-left-radius: 10px; border-top-right-radius: 10px;
-  background: @input_bg2;
-  background: -moz-linear-gradient(top, @input_bg_light, @input_bg);
-  background: -webkit-gradient(linear, left top, left bottom, from(@input_bg_light), to(@input_bg));
-  -webkit-box-shadow: rgba(0, 0, 0, 0.5) 0px 1px 10px 3px;
-  -moz-box-shadow: rgba(0, 0, 0, 0.5) 0px 1px 10px 3px;
-  max-width: 500px;
-}
-.cptHints article h1 { font-size: 110%; text-align: center; }
-.cptHints article h2 { font-size: 95%; }
-.cptHints article h3 { font-size: 90%; }
-.cptHints article table th,
-.cptHints article label { color: @hi_text; }
-.cptHints article h1,
-.cptHints article h2,
-.cptHints article h3 { margin: 2px 0 1px 0; color: @hi_text; }
-.cptHints article p,
-.cptHints article pre,
-
-
-/* Global visual styles */
-.cptBrackets { color: @hi_text; }
-.cptGt { color: @theme_text; font-weight: bold; font-size: 120%; }
-
-/* Use absolute positioning to put all children 100%x100% */
-.cptStack {
-  position: relative;
-}
-.cptStack > * {
-  position: absolute;
-  top: 0; height: 100%; bottom: 0; left: 0; width: 100%; right: 0;
-}
-
-
+.cptGt { font-weight: bold; font-size: 120%; }
