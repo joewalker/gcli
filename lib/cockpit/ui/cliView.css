@@ -1,6 +1,5 @@
 
-#cockpit {
-  background-color: transparent;
+#cockpitInput {
   padding-left: 16px;
   /*
   border: none; outline: none;
@@ -9,32 +8,44 @@
   */
 }
 
-.cptOutput {
+#cockpitOutput {
+  overflow: auto;
+  /*
+  padding: 10px;
+  margin: 0 15px;
   border: 1px solid #AAA;
   -moz-border-radius-topleft: 10px;
   -moz-border-radius-topright: 10px;
   border-top-left-radius: 4px; border-top-right-radius: 4px;
-  padding: 10px;
-  margin: 0 15px;
   background: #DDD; color: #000;
-  overflow: auto;
+  */
+}
+.cptFocusPopup { display: none; }
+#cockpitInput:focus ~ .cptFocusPopup { display: block; }
+#cockpitInput:focus ~ .cptFocusPopup.cptNoPopup { display: none; }
+
+#cockpitOutput.cptFocusPopup {
   position: absolute;
   z-index: 999;
-  display: none;
-}
-
-#cockpit:focus ~ .cptOutput {
-  display: block;
 }
 
 .cptCompletion {
-  color: #999;
-  padding: 0 0 5px 2px;
+  padding: 0;
   position: absolute;
   z-index: -1000;
-  font-family: consolas, courier, monospace;
-  font-size: 120%;
+  vertical-align: middle;
 }
+
+.cptCompletion.VALID { background: #FFF; }
+.cptCompletion.INCOMPLETE { background: #DDD; }
+.cptCompletion.INVALID { background: #DDD; }
+
+.cptCompletion span { color: #FFF; }
+.cptCompletion span.INCOMPLETE { color: #DDD; border-bottom: 2px dotted #F80; }
+.cptCompletion span.INVALID { color: #DDD; border-bottom: 2px dotted #F00; }
+
+span.cptPrompt { color: #66F; font-weight: bold; }
+
 
 .cptHints {
   color: #000;
@@ -50,32 +61,6 @@
 }
 
 .cptHints ul { margin: 0; padding: 0 15px; }
-
-#cockpit:focus ~ .cptHints {
-  display: block;
-}
-
-#cockpit:focus ~ .cptHints.cptNoHints {
-  display: none;
-}
-
-.cptCompletion.VALID { background: #FFF; }
-.cptCompletion.INCOMPLETE { background: #DDD; }
-.cptCompletion.INVALID { background: #DDD; }
-
-.cptCompletion span { color: #FFF; }
-.cptCompletion span.INCOMPLETE { color: #DDD; border-bottom: 2px dotted #F80; }
-.cptCompletion span.INVALID { color: #DDD; border-bottom: 2px dotted #F00; }
-
-span.cptPrompt { color: #66F; font-weight: bold; }
-
-
-
-
-
-
-
-
 
 .cptHints article {
   margin-left: 25px;
@@ -111,9 +96,6 @@ span.cptPrompt { color: #66F; font-weight: bold; }
 .cptHints article pre,
 
 
-
-
-
 /* Global visual styles */
 .cptBrackets { color: @hi_text; }
 .cptGt { color: @theme_text; font-weight: bold; font-size: 120%; }
@@ -125,42 +107,6 @@ span.cptPrompt { color: #66F; font-weight: bold; }
 .cptStack > * {
   position: absolute;
   top: 0; height: 100%; bottom: 0; left: 0; width: 100%; right: 0;
-}
-
-
-
-
-
-
-
-
-/* The input area */
-.cptInput {
-  border-top: 1px solid @border_bg;
-  background: @input_bg;
-  background: -moz-linear-gradient(top, @input_bg, @input_bg2);
-  background: -webkit-gradient(linear, left top, left bottom, from(@input_bg), to(@input_bg2));
-
-  position: absolute;
-  height: 25px; right: 0; bottom: 0; left: 0;
-}
-
-.cptKbd {
-  position: absolute;
-  top: 0; right: 0; bottom: 0; left: 40px;  
-}
-
-.cptOutput input.cptCliInput {
-  color: @hi_text; font-size: 120%; font-family: @fonts; 
-  background: transparent;
-  outline: none; border: 0;
-  box-shadow: none; -moz-box-shadow: none; -webkit-box-shadow: none;
-  padding: 4px 0 0 0;
-  width: 100%;
-}
-.cptOutput input.cptCliInput:focus {
-  outline: none; border: 0;
-  box-shadow: none; -moz-box-shadow: none; -webkit-box-shadow: none;
 }
 
 

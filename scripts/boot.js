@@ -36,21 +36,27 @@
  * ***** END LICENSE BLOCK ***** */
 
 var config = {
-    waitSeconds: 1,
-    paths: {
-        pilot: '../lib/pilot',
-        cockpit: '../lib/cockpit'
+    waitSeconds: 2,
+    packagePaths: {
+        "../lib": [
+            { name: "pilot", main: "index", lib: "." },
+            { name: "cockpit", main: "index", lib: "." }
+        ],
+        "../plugins": [
+            /* { name: "pilot", main: "index", lib: "." } */
+        ]
     }
 };
 
-var deps = [ "pilot/index", "pilot/environment", "cockpit/index" ];
+var deps = [ "pilot/plugin_manager", "pilot/index", "pilot/environment", "cockpit/index" ];
 
 require(config, deps, function() {
 
     var catalog = require("pilot/plugin_manager").catalog;
-    catalog.registerPlugins(knownPlugins).then(function() {
+    catalog.registerPlugins([ "pilot/index", "cockpit/index" ]).then(function() {
         var environment = require("pilot/environment");
         var data = { env: environment.create() };
+        require("pilot/index").startup(data);
         require("cockpit/index").startup(data);
     });
 
