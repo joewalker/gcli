@@ -39,11 +39,10 @@ var config = {
     waitSeconds: 2,
     packagePaths: {
         "../lib": [
-            { name: "pilot", main: "index", lib: "." },
             { name: "cockpit", main: "index", lib: "." }
         ],
-        "../plugins": [
-            /* { name: "pilot", main: "index", lib: "." } */
+        "../support/pilot/lib": [
+            { name: "pilot", main: "index", lib: "." }
         ]
     }
 };

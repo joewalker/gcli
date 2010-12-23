@@ -1,3 +1,6 @@
 [submodule "support/requirejs"]
 	path = support/requirejs
 	url = git://github.com/jrburke/requirejs.git
+[submodule "support/pilot"]
+	path = support/pilot
+	url = git://github.com/joewalker/pilot.git
