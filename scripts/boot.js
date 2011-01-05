@@ -50,8 +50,6 @@ require(config, deps, function() {
     var catalog = require("pilot/plugin_manager").catalog;
     catalog.registerPlugins([ "pilot/index", "cockpit/index" ]).then(function() {
         var env = require("pilot/environment").create();
-        catalog.startupPlugins({ env: env }).then(function() {
-            require("demo_startup").launch(env);
-        });
+        catalog.startupPlugins({ env: env });
     });
 });
