@@ -38,25 +38,20 @@
 var config = {
     waitSeconds: 2,
     packagePaths: {
-        "../lib": [
-            { name: "cockpit", main: "index", lib: "." }
-        ],
-        "../support/pilot/lib": [
-            { name: "pilot", main: "index", lib: "." }
-        ]
+        "../lib": [ { name: "cockpit", main: "index", lib: "." } ],
+        "../support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ]
     }
 };
 
-var deps = [ "pilot/plugin_manager", "pilot/index", "pilot/environment", "cockpit/index" ];
+var deps = [ "pilot/plugin_manager", "pilot/index", "pilot/environment",
+             "cockpit/index" ];
 
 require(config, deps, function() {
-
     var catalog = require("pilot/plugin_manager").catalog;
     catalog.registerPlugins([ "pilot/index", "cockpit/index" ]).then(function() {
-        var environment = require("pilot/environment");
-        var data = { env: environment.create() };
-        require("pilot/index").startup(data);
-        require("cockpit/index").startup(data);
+        var env = require("pilot/environment").create();
+        catalog.startupPlugins({ env: env }).then(function() {
+            require("demo_startup").launch(env);
+        });
     });
-
 });
