@@ -3,4 +3,4 @@
 	url = git://github.com/jrburke/requirejs.git
 [submodule "support/pilot"]
 	path = support/pilot
-	url = git://github.com/joewalker/pilot.git
+	url = git://github.com/mozilla/pilot.git
