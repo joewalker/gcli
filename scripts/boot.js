@@ -36,10 +36,11 @@
  * ***** END LICENSE BLOCK ***** */
 
 var config = {
-    waitSeconds: 2,
+    waitSeconds: 1,
     packagePaths: {
         "../lib": [ { name: "cockpit", main: "index", lib: "." } ],
-        "../support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ]
+        "../support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ],
+        "../../pilot/lib": [ { name: "pilot", main: "index", lib: "." } ]
     }
 };
 
