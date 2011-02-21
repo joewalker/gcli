@@ -1,0 +1,23 @@
+
+<div class=cptRequisition save="${reqEle}">
+  <div>${cli.commandAssignment.value.getDescription()}</div>
+  <table class=cptParams>
+    <tbody foreach="assignment in ${cli.getAssignments(false)}">
+      <tr>
+        <td class=cptParamName>${assignment.param.name}</td>
+        <td class=cptParamInput>
+          <input type=text value="${assignment.arg.text}"
+            placeholder="${assignment.param.defaultValue || ''}"/>
+        </td>
+        <td class=cptParamDefault>*</td>
+      </tr>
+      <tr>
+        <td class=cptParamError colspan=3>${assignment.conversion.message}</td>
+      </tr>
+      <tr>
+        <td class=cptParamHelp colspan=3>${assignment.param.description}</td>
+      </tr>
+    </tbody>
+  </table>
+  <div save="${messageEle}"></div>
+</div>
