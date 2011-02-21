@@ -38,14 +38,18 @@
 var config = {
     waitSeconds: 1,
     packagePaths: {
-        "../lib": [ { name: "cockpit", main: "index", lib: "." } ],
-        "../support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ],
-        "../../pilot/lib": [ { name: "pilot", main: "index", lib: "." } ]
+        "lib": [ { name: "cockpit", main: "index", lib: "." } ],
+        "../pilot/lib": [ { name: "pilot", main: "index", lib: "." } ]
     }
 };
+//      "support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ],
 
-var deps = [ "pilot/plugin_manager", "pilot/index", "pilot/environment",
-             "cockpit/index" ];
+var deps = [
+    "pilot/plugin_manager",
+    "pilot/index",
+    "pilot/environment",
+    "cockpit/index"
+];
 
 require(config, deps, function() {
     var catalog = require("pilot/plugin_manager").catalog;
