@@ -1,23 +1,45 @@
 
-<div class=cptRequisition save="${reqEle}">
+<!--
+Template for the beginnings of a command menu.
+This will work with things other than a command - many things are a set of
+things with a name and description.
+In the command context it is evaluated once for every keypress in the cli
+when a command has not been entered.
+-->
+<div id=cptOptTempl>
+  <div class=cptOption foreach="item in ${items}">
+    <span class=cptOptName>${item.name}</span>
+    <span class=cptOptDesc>${item.description}</span>
+  </div>
+</div>
+
+<!--
+Template for an Assignment.
+Evaluated each time the commandAssignment changes
+-->
+<div id=cptReqTempl>
   <div>${cli.commandAssignment.value.getDescription()}</div>
   <table class=cptParams>
-    <tbody foreach="assignment in ${cli.getAssignments(false)}">
-      <tr>
+    <tbody class=cptAssignment foreach="assignment in ${cli.getAssignments()}">
+      <tr title="${assignment.param.description}">
         <td class=cptParamName>${assignment.param.name}</td>
         <td class=cptParamInput>
           <input type=text value="${assignment.arg.text}"
-            placeholder="${assignment.param.defaultValue || ''}"/>
+              placeholder="${assignment.param.defaultValue || ''}"/>
         </td>
         <td class=cptParamDefault>*</td>
+        <!--
+        // Hint if the param is required, but not provided
+        var argProvided = assignment.arg && assignment.arg.text !== '';
+        var dataProvided = assignment.value !== undefined || argProvided;
+        if (assignment.param.defaultValue === undefined && !dataProvided) {
+            message += '(Required) ';
+        }
+        -->
       </tr>
       <tr>
-        <td class=cptParamError colspan=3>${assignment.conversion.message}</td>
-      </tr>
-      <tr>
-        <td class=cptParamHelp colspan=3>${assignment.param.description}</td>
+        <td class=cptParamError colspan=3>${assignment.getMessage()}</td>
       </tr>
     </tbody>
   </table>
-  <div save="${messageEle}"></div>
 </div>

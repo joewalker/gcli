@@ -37,13 +37,7 @@ span.cptPrompt { color: #66F; font-weight: bold; }
 
 .cptGt { font-weight: bold; font-size: 120%; }
 
-.cptOption {
-  /*width: 250px;*/
-  overflow: hidden; white-space: nowrap;
-}
-.cptOptName {
-  padding-right: 5px;
-}
-.cptOptDesc {
-  font-size: 80%; color: #999;
-}
+/* The items in a menu. Used primarily for the command menu */
+.cptOption { overflow: hidden; white-space: nowrap; }
+.cptOptName { padding-right: 5px; }
+.cptOptDesc { font-size: 80%; color: #999; }
