@@ -23,10 +23,7 @@ Evaluated each time the commandAssignment changes
     <tbody class=cptAssignment foreach="assignment in ${cli.getAssignments()}">
       <tr title="${assignment.param.description}">
         <td class=cptParamName>${assignment.param.name}</td>
-        <td class=cptParamInput>
-          <input type=text value="${assignment.arg.text}"
-              placeholder="${assignment.param.defaultValue || ''}"/>
-        </td>
+        <td class=cptParamInput>${getInputFor(assignment)}</td>
         <td class=cptParamDefault>*</td>
         <!--
         // Hint if the param is required, but not provided
