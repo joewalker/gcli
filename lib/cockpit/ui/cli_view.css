@@ -38,6 +38,9 @@ span.cptPrompt { color: #66F; font-weight: bold; }
 .cptGt { font-weight: bold; font-size: 120%; }
 
 /* The items in a menu. Used primarily for the command menu */
-.cptOption { overflow: hidden; white-space: nowrap; }
+.cptOption { overflow: hidden; white-space: nowrap; cursor: pointer; }
+.cptOption:hover { background-color: rgb(230, 230, 230) }
 .cptOptName { padding-right: 5px; }
 .cptOptDesc { font-size: 80%; color: #999; }
+
+.cptParamSubmit { text-align: right; }

@@ -7,7 +7,7 @@ In the command context it is evaluated once for every keypress in the cli
 when a command has not been entered.
 -->
 <div id=cptOptTempl>
-  <div class=cptOption foreach="item in ${items}">
+  <div class=cptOption foreach="item in ${items}" onclick="${item.click}">
     <span class=cptOptName>${item.name}</span>
     <span class=cptOptDesc>${item.description}</span>
   </div>
@@ -38,5 +38,13 @@ Evaluated each time the commandAssignment changes
         <td class=cptParamError colspan=3>${assignment.getMessage()}</td>
       </tr>
     </tbody>
+    <tfoot>
+      <tr>
+        <td colspan=3 class=cptParamSubmit>
+          <input type=submit value="Cancel" onclick="${onFormCancel}">
+          <input type=submit value="OK" onclick="${onFormOk}">
+        </td>
+      </tr>
+    </tfoot>
   </table>
 </div>
