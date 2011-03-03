@@ -5,6 +5,9 @@
   - rename bool to boolean
   - rename Type to Converter
 
+Features
+--------
+
 - add array argument
 - add named argument
 - merge with ace
@@ -19,3 +22,10 @@
 - define prefs with:
   - scoping for projects, filetypes, etc
   - hiding for internal things, page owner things
+
+Bugs
+----
+
+- ensure canon.addCommands does as the docs say it should
+- Requisition._onAssignmentChange:~559 shouldn't fire events when bumping posn
+- give all arguments some position and a fill-with-default system
