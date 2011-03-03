@@ -1,0 +1,21 @@
+
+- documentation
+- breaking changes:
+  - rename text to string
+  - rename bool to boolean
+  - rename Type to Converter
+
+- add array argument
+- add named argument
+- merge with ace
+- expand unit tests
+- allow use without input element
+- add grouped parameters
+- add menu hierarchy
+- add typing to return values
+- add history retention
+- add URIs for reference to everything
+- define environment
+- define prefs with:
+  - scoping for projects, filetypes, etc
+  - hiding for internal things, page owner things
