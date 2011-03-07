@@ -1518,7 +1518,7 @@ var require, define;
     };
 
     /**
-     * Executes a module callack function. Broken out as a separate function
+     * Executes a module callback function. Broken out as a separate function
      * solely to allow the build system to sequence the files in the built
      * layer in the right sequence.
      *
