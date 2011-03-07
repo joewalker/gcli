@@ -1,15 +1,24 @@
 
+Next
+----
+- add array argument
+  ArrayField.prototype.onAppendElement
+
+
+Completed
+---------
+
 - documentation
 - breaking changes:
   - rename text to string
   - rename bool to boolean
   - rename Type to Converter
+- add named argument
+
 
 Features
 --------
 
-- add array argument
-- add named argument
 - merge with ace
 - expand unit tests
 - allow use without input element
@@ -18,10 +27,16 @@ Features
 - add typing to return values
 - add history retention
 - add URIs for reference to everything
+- add JS parser
 - define environment
 - define prefs with:
   - scoping for projects, filetypes, etc
   - hiding for internal things, page owner things
+- embed help as commands
+
+- incorporate buggerall
+- allow publishing of commands in pages (microdata?)
+
 
 Bugs
 ----
@@ -29,3 +44,11 @@ Bugs
 - ensure canon.addCommands does as the docs say it should
 - Requisition._onAssignmentChange:~559 shouldn't fire events when bumping posn
 - give all arguments some position and a fill-with-default system
+
+
+
+
+
+
+
+union types
