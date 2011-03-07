@@ -136,7 +136,7 @@ output contained within it's own display area.
 
 The PDP-7 had a teletype. There is something like 4 orders of magnitude more
 information that can be displayed on a modern display than a 80x24 character
-based console. We can use this flexibilty to provide better hints to the user
+based console. We can use this flexibility to provide better hints to the user
 in completing their command.
 
 Interaction - mouse clicks for new commands, continually updating output,
@@ -207,7 +207,7 @@ Writing Commands
 3 principles for writing commands:
 
 - Related commands should be sub-commands of a parent command. One of the goals
-  of Cockpit is to support a large number of commands without things becomming
+  of Cockpit is to support a large number of commands without things becoming
   confusing, this will require some sort of namespacing or there will be
   many people wanting to implement the ``add`` command. This style of
   writing commands has become common place in Unix as the number of commands
@@ -363,7 +363,7 @@ this - [function hoisting] [fh] and the ability to fetch the environment or a
 request from the canon.
 
 Function hoisting makes it possible to define function metadata before the
-funcion. This may look a little strange initially, but it's common for
+function. This may look a little strange initially, but it's common for
 documentation to come before the thing it documents.
 
     echo.metadata = {
@@ -490,7 +490,7 @@ As above, but display a number of messages in the output:
     });
     request.done('Finished!');
 
-If something has gone wrong, it can be signalled using:
+If something has gone wrong, it can be signaled using:
 
     request.error = true;
 
