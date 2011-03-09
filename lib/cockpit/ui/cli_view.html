@@ -18,7 +18,7 @@ Template for an Assignment.
 Evaluated each time the commandAssignment changes
 -->
 <div id=cptReqTempl>
-  <form>
+  <div>
     <div>${cli.commandAssignment.value.getDescription()}</div>
     <table class=cptParams>
       <tbody class=cptAssignment foreach="assignment in ${cli.getAssignments()}">
@@ -50,5 +50,5 @@ Evaluated each time the commandAssignment changes
         </tr>
       </tfoot>
     </table>
-  </form>
+  </div>
 </div>
