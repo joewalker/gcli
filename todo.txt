@@ -18,16 +18,18 @@ Completed
 
 Features
 --------
+- add grouped parameters
+- add JS parser
+- allow use without input element
+
 
 - merge with ace
 - expand unit tests
-- allow use without input element
-- add grouped parameters
+
 - add menu hierarchy
 - add typing to return values
 - add history retention
 - add URIs for reference to everything
-- add JS parser
 - define environment
 - define prefs with:
   - scoping for projects, filetypes, etc
@@ -45,10 +47,3 @@ Bugs
 - Requisition._onAssignmentChange:~559 shouldn't fire events when bumping posn
 - give all arguments some position and a fill-with-default system
 
-
-
-
-
-
-
-union types
