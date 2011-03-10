@@ -19,15 +19,15 @@ Evaluated each time the commandAssignment changes
 -->
 <div id=cptReqTempl>
   <div>
-    <div>${cli.commandAssignment.value.getDescription()}</div>
+    <div class=cptCmdDesc>${cli.commandAssignment.value.getDescription()}</div>
     <table class=cptParams>
       <tbody class=cptAssignment foreach="assignment in ${cli.getAssignments()}">
-        <tr title="${assignment.param.description}">
+        <tr>
           <td class=cptParamName>
-            <label>${assignment.param.name}</label>
+            <label>${assignment.param.name}:</label>
           </td>
           <td class=cptParamInput>${getInputFor(assignment)}</td>
-          <td class=cptParamDefault>*</td>
+          <td class=cptParamDescr>${assignment.param.description}</td>
           <!--
           // Hint if the param is required, but not provided
           var argProvided = assignment.arg && assignment.arg.text !== '';
@@ -38,7 +38,9 @@ Evaluated each time the commandAssignment changes
           -->
         </tr>
         <tr>
-          <td class=cptParamError colspan=3>${assignment.getMessage()}</td>
+          <td class=cptParamError colspan=3>
+            ${linkMessageElement(assignment, __element)}
+          </td>
         </tr>
       </tbody>
       <tfoot>

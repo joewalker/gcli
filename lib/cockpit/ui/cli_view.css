@@ -24,7 +24,7 @@ span.cptPrompt { color: #66F; font-weight: bold; }
 .cptHints {
   color: #000;
   position: absolute;
-  border: 1px solid rgba(230, 230, 230, 0.8);
+  border: 1px solid rgba(128, 128, 128, 0.8);
   background: rgba(250, 250, 250, 0.8);
   -moz-border-radius-topleft: 10px;
   -moz-border-radius-topright: 10px;
@@ -32,6 +32,7 @@ span.cptPrompt { color: #66F; font-weight: bold; }
   z-index: 1000;
   padding: 8px;
   display: none;
+  box-shadow: 0 -3px 6px #AAA;
 }
 .cptHints ul { margin: 0; padding: 0 15px; }
 
@@ -43,4 +44,8 @@ span.cptPrompt { color: #66F; font-weight: bold; }
 .cptOptName { padding-right: 5px; }
 .cptOptDesc { font-size: 80%; color: #999; }
 
-.cptParamSubmit { text-align: right; }
+.cptCmdDesc { font-weight: bold; text-align: center; }
+.cptParamSubmit { text-align: center; }
+.cptParamError { font-size: 80%; color: #900; }
+.cptParamDescr { font-size: 80%; color: #999; }
+.cptParamName { text-align: right; }
