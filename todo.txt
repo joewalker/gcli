@@ -1,31 +1,29 @@
 
 Next
 ----
-- add array argument
-  ArrayField.prototype.onAppendElement
+
+- Make it work again
+- Expand unit tests
 
 
-Completed
+This Week
 ---------
 
-- documentation
 - breaking changes:
   - rename text to string
   - rename bool to boolean
   - rename Type to Converter
-- add named argument
+- Embed in Ace again with find and replace and goto line, and prototype git
+- Begin embedding in WebConsole
+- Complete ArrayArgument
 
 
 Features
 --------
+
 - add grouped parameters
 - add JS parser
 - allow use without input element
-
-
-- merge with ace
-- expand unit tests
-
 - add menu hierarchy
 - add typing to return values
 - add history retention
