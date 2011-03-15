@@ -19,9 +19,9 @@ Evaluated each time the commandAssignment changes
 -->
 <div id=cptReqTempl>
   <div>
-    <div class=cptCmdDesc>${cli.commandAssignment.value.getDescription()}</div>
+    <div class=cptCmdDesc>${requ.commandAssignment.value.getDescription()}</div>
     <table class=cptParams>
-      <tbody class=cptAssignment foreach="assignment in ${cli.getAssignments()}">
+      <tbody class=cptAssignment foreach="assignment in ${requ.getAssignments()}">
         <tr>
           <td class=cptParamName>
             <label>${assignment.param.name}:</label>
