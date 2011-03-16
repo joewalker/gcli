@@ -19,7 +19,9 @@ Evaluated each time the commandAssignment changes
 -->
 <div id=cptReqTempl>
   <div>
-    <div class=cptCmdDesc>${requ.commandAssignment.value.getDescription()}</div>
+    <div class=cptCmdDesc>
+      ${requ.commandAssignment.getValue().getDescription()}
+    </div>
     <table class=cptParams>
       <tbody class=cptAssignment foreach="assignment in ${requ.getAssignments()}">
         <tr>
@@ -28,14 +30,6 @@ Evaluated each time the commandAssignment changes
           </td>
           <td class=cptParamInput>${getInputFor(assignment)}</td>
           <td class=cptParamDescr>${assignment.param.description}</td>
-          <!--
-          // Hint if the param is required, but not provided
-          var argProvided = assignment.arg && assignment.arg.text !== '';
-          var dataProvided = assignment.value !== undefined || argProvided;
-          if (assignment.param.defaultValue === undefined && !dataProvided) {
-              message += '(Required) ';
-          }
-          -->
         </tr>
         <tr>
           <td class=cptParamError colspan=3>
