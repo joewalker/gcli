@@ -25,14 +25,16 @@ Evaluated each time the commandAssignment changes
     <table class=cptParams>
       <tbody class=cptAssignment foreach="assignment in ${requ.getAssignments()}">
         <tr>
+          <td class=cptParamDescr colspan=2>${assignment.param.description}</td>
+        </tr>
+        <tr>
           <td class=cptParamName>
             <label>${assignment.param.name}:</label>
           </td>
           <td class=cptParamInput>${getInputFor(assignment)}</td>
-          <td class=cptParamDescr>${assignment.param.description}</td>
         </tr>
         <tr>
-          <td class=cptParamError colspan=3>
+          <td class=cptParamError colspan=2>
             ${linkMessageElement(assignment, __element)}
           </td>
         </tr>
