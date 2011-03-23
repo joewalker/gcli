@@ -290,13 +290,21 @@ parameter object should have the following 3 properties:
 
 Optionally each parameter can have these properties:
 
-- A ``defaultValue`` (which should normally be in the type specified in
-  ``type``). The defaultValue will be used when there is no argument supplied
-  for this parameter on the command line. If the parameter specifies
-  ``defaultValue: undefined`` (or the defaultValue property is missing) the
-  matching argument will have the value ``undefined`` when the function is
-  called. Using ``defaultValue: null`` indicates that a value must be supplied
-  by the user of the command line.
+- A ``defaultValue`` (which should be in the type specified in ``type``).
+  The defaultValue will be used when there is no argument supplied for this
+  parameter on the command line.
+  If the parameter has a ``defaultValue``, other than ``undefined`` then the
+  parameter is optional, and if unspecified on the command line, the matching
+  argument will have this value when the function is called.
+  If ``defaultValue`` is missing, or if it is set to ``undefined``, then the
+  system will ensure that a value is provided before anything is executed.
+  There are 2 special cases:
+  - If the type is ``selection``, then defaultValue must not be undefined.
+    The defaultValue must either be ``null`` (meaning that a value must be
+    supplied by the user) or one of the selection values.
+  - If the type is ``boolean``, then ``defaultValue:false`` is implied and
+    can't be changed. Boolean toggles are assumed to be off by default, and
+    should be named to match.
 - A ``manual`` property for parameters is exactly analogous to the ``manual``
   property for commands - descriptive text that is longer than than 40
   characters.
@@ -543,12 +551,34 @@ types this is enough detail. There are a number of exceptions:
 
 * Array types. We declare a parameter to be an array of things using ``[]``,
   for example: ``number[]``.
-* Selection types. This is an example of how to specify a custom selection:
+* Selection types. There are 3 ways to specify the options in a selection:
+  * Using a lookup map
 
     type: {
         name: 'selection',
-        data: [ 'no', 'normal', 'all' ]
-    },
+        lookup: { one:1, two:2, three:3 }
+    }
+
+    (The boolean type is effectively just a selection that uses
+    ``lookup:{ 'true': true, 'false': false }``)
+
+  * Using given strings
+
+    type: {
+        name: 'selection',
+        data: [ 'left', 'center', 'right' ]
+    }
+
+  * Using named objects, (objects with a ``name`` property)
+
+    type: {
+        name: 'selection',
+        data: [
+            { name: 'Google', url: 'http://www.google.com/' },
+            { name: 'Microsoft', url: 'http://www.microsoft.com/' },
+            { name: 'Yahoo', url: 'http://www.yahoo.com/' }
+        ]
+    }
 
 * Deferred type. It is generally best to inherit from Deferred in order to
   provide a customization of this type. See settingValue for an example.
@@ -559,15 +589,13 @@ See below for more information.
 Writing Types
 -------------
 
-TODO: Type is a bit of a misnomer - perhaps it should be called Converter?
-
 Commands are a fundamental building block because they are what the users
 directly interacts with, however they are built on ``Type``s. There are a
 number of built in types:
 
-* text. This is a JavaScript string (and will shortly be renamed to 'string')
+* string. This is a JavaScript string
 * number. A JavaScript number
-* bool. A Javascript boolean (and shortly to be renamed to 'boolean')
+* boolean. A Javascript boolean
 * selection. This is an selection from a number of alternatives
 * deferred. This type could change depending on other factors, but is well
   defined when one of the conversion routines is called.
