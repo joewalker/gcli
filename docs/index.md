@@ -1,6 +1,6 @@
 
-About Cockpit
-=============
+About GCLI (a.k.a. Cockpit)
+===========================
 
 Cockpit is a Graphical Command Line Interpreter.
 
@@ -16,14 +16,14 @@ today use purely graphical user interfaces, however in doing so, they lose some
 of the benefits of CLIs. CLIs are still used because generally, in the hands of
 a skilled user they are faster, and have a wider range of available options.
 
-Cockpit attempts to get the best of the GUI world and the CLI world to produce
+GCLI attempts to get the best of the GUI world and the CLI world to produce
 something that is both easy to use and learn as well as fast and powerful.
 
 
 Supported Environments
 ----------------------
 
-Cockpit is designed to work in a number of environments:
+GCLI is designed to work in a number of environments:
 
 1. As a component of Firefox developer tools. As such it should be capable of
    replacing the WebConsole command line, the Firebug command line and
@@ -36,7 +36,7 @@ Cockpit is designed to work in a number of environments:
 Currently only 1. and 2. of these is directly supported, support for other
 environments may follow.
 
-In order to support these environments Cockpit will need to:
+In order to support these environments GCLI will need to:
 
 - Be usable in modern browsers plus IE8
 - Make the UI fairly simple to re-implement (since some environments might have
@@ -46,7 +46,7 @@ In order to support these environments Cockpit will need to:
 User Guide
 ----------
 
-Cockpit prides itself on being easy to use, plus people don't read user guides,
+GCLI prides itself on being easy to use, plus people don't read user guides,
 therefore it seems pointless having a long users guide and self defeating to
 write one.
 
@@ -58,19 +58,19 @@ along.
 Design Goals
 ------------
 
-Cockpit should be:
+GCLI should be:
 
 - primarily for technical users.
 - as fast as a traditional CLI. It should be possible to put your head down,
-  and look at the keyboard and use Cockpit 'blind' at full speed without making
+  and look at the keyboard and use GCLI 'blind' at full speed without making
   mistakes.
 - mousable with similar gestures to a GUI. It should be possible to hide the
-  input area and use Cockpit in a similar way to a GUI.
+  input area and use GCLI in a similar way to a GUI.
 - principled about the way it encourages people to build commands. There is
   benefit from unifying the underlying concepts.
 - automatically helpful.
 
-Cockpit should not attempt to:
+GCLI should not attempt to:
 
 - convert existing GUI users to a CLI.
 - gain a touch based interface. Whilst it's possible (even probable) that touch
@@ -128,8 +128,8 @@ more importantly that output from parallel jobs frequently collides
     $ vi main.c
     // have a nice time editing that file
 
-Cockpit will allow commands to be asynchronous and will provide UI elements
-to inform the user of job completion. It will also keep asynchronous command
+GCLI will allow commands to be asynchronous and will provide UI elements to
+inform the user of job completion. It will also keep asynchronous command
 output contained within it's own display area.
 
 ### Output limitations
@@ -159,8 +159,8 @@ Inline help
 Syntax checking
 
 
-Embedding Cockpit
------------------
+Embedding GCLI
+--------------
 
 There are 3 basic steps in using cockpit in your system.
 
@@ -182,20 +182,20 @@ There are 3 basic steps in using cockpit in your system.
 
     <div id="cockpitOutput"></div>
 
-   If this element is not present, Cockpit will create its own output
-   element and show it above or below the input element whenever the command
-   line has keyboard focus.
+   If this element is not present, GCLI will create its own output element and
+   show it above or below the input element whenever the command line has
+   keyboard focus.
 
    TODO: Check this last part works
 
 3. Tell cockpit what commands to make available. See the sections on Writing
    Commands, Writing Types and Writing Fields for more information.
 
-   One important thing to note is that this must be done after Cockpit has
-   initialized. The easy way to do this is to ride on the onCockpitInit
-   ``event``.
+   One important thing to note is that this must be done after GCLI has
+   initialized. The easy way to do this is to ride on the onGCLIInit
+   ``event``. (This is not fully implemented yet)
 
-    window.onCockpitInit = function(require) {
+    window.onGCLIInit = function(require) {
       var canon = require('pilot/canon');
       canon.addCommand({ ... });
     };
@@ -207,14 +207,14 @@ Writing Commands
 3 principles for writing commands:
 
 - Related commands should be sub-commands of a parent command. One of the goals
-  of Cockpit is to support a large number of commands without things becoming
+  of GCLI is to support a large number of commands without things becoming
   confusing, this will require some sort of namespacing or there will be
   many people wanting to implement the ``add`` command. This style of
   writing commands has become common place in Unix as the number of commands
   has gone up.
   We plan to support some type of ``focus`` concept to allow a parent command
   to become a default, promoting its sub-commands above others.
-- Each command should do exactly and only one thing. An example of a unix
+- Each command should do exactly and only one thing. An example of a Unix
   command that breaks this principle is the ``tar`` command.
 
     $ tar -zcf foo.tar.gz .
@@ -258,10 +258,10 @@ the future.
 
 There are 3 different formats in which commands can be written.
 
-1. Object Literal syntax. This is the way Cockpit stores commands
-   internally, so it is to some extend the 'native' syntax.
+1. Object Literal syntax. This is the way GCLI stores commands internally,
+   so it is to some extend the 'native' syntax.
 2. Function Metadata Syntax. This is ideal for decorating existing functions
-   with the metadata to allow use with Cockpit.
+   with the metadata to allow use with GCLI.
 3. Object Metadata Syntax. This is ideal for grouping related commands
    together.
 
@@ -311,10 +311,10 @@ Optionally each parameter can have these properties:
 
 ### Object Literal Syntax
 
-This method is simplest and closest to how Cockpit works internally.
+This method is simplest and closest to how GCLI works internally.
 It is designed for situations when you are creating a single command
-specifically for Cockpit. The parameters to the exec function are designed to
-allow output without generating a request object first, or sepecially asking
+specifically for GCLI. The parameters to the exec function are designed to
+allow output without generating a request object first, or specifically asking
 for the environment.
 
     canon.addCommand({
@@ -323,16 +323,15 @@ for the environment.
       params: [
         {
           name: 'message',
-          type: 'text',
+          type: 'string',
           description: 'The message to display.'
         }
       ],
-      exec: function(env, args, request) {
-        request.done(args.message);
+      returnType: 'string',
+      exec: function(args, context) {
+        return args.message;
       }
     });
-
-TODO: The ``env`` object is improperly specified right now.
 
 The ``args`` object contains the values specified on the params section and
 provided on the command line. In this example it would contain the message for
@@ -341,6 +340,34 @@ display as ``args.message``.
 The ``request`` object contains methods for providing output to the system.
 See below for details on the functions available on a Request.
 
+Note: As of 25 March 2011 there is work to complete regarding output. The exec
+function above won't work as defined. The current definition is:
+
+      exec: function(env, args, request) {
+        request.done(args.message);
+      }
+
+See the section on **Request Object** (below) for more details on the request.
+
+It is expected that the signature of the exec function will soon change to be
+``(args, context)`` and that output will be done using return values. Plain
+strings will be distinguished from HTML using a simple wrapper for HTML.
+Something like ``new HTML('<p>Hello, World!</p>');``, or by using a return
+type of ``html`` rather than ``string``, or by returning a DOM object.
+However we will strongly discourage use of HTML directly because that makes
+it hard to use the output of one command as the input of another command.
+Instead we will encourage the use of 'typed JSON' where possible. The
+``returnType`` property will allow us to select a converter to convert the JSON
+to HTML, and will allow us to support a system of multi-part output much like
+an application clipboard which declares that data is available in a number of
+alternate formats.
+
+Asynchronous output will be achieved by allowing the return of some sort of
+promise. GCLI will provide a basic promise and be very conservative about use
+of promise features to allow interaction with other promise systems. We should
+support Q where possible.
+
+
 ### Function Metadata Syntax
 
 The Object Literal Syntax can't be used to decorate existing functions partly
@@ -348,14 +375,14 @@ because it could entail some confusing 're-parenting' but more seriously
 because it requires a specific signature in terms of parameters.
 
 The Function Metadata Syntax is designed for cases when you want to decorate
-an existing function. Which allows us to package window.alert as a Cockpit
+an existing function. Which allows us to package window.alert as a GCLI
 function:
 
     window.alert.metadata = {
       name: 'alert',
       context: window,
       description: 'Show an alert dialog',
-      params: [ { name: 'message', type: 'text', description: '...' } ]
+      params: [ { name: 'message', type: 'string', description: '...' } ]
     };
     canon.addCommand(window.alert);
 
@@ -366,7 +393,7 @@ Note: It's possible that requirements to support older browsers may conflict
 with how we are currently supporting Function Metadata Syntax. Stay tuned.
 
 It is possible to use Function Metadata Syntax more conventionally with
-functions designed for Cockpit. There are 2 useful features which can help in
+functions designed for GCLI. There are 2 useful features which can help in
 this - [function hoisting] [fh] and the ability to fetch the environment or a
 request from the canon.
 
@@ -380,7 +407,7 @@ documentation to come before the thing it documents.
       params: [
         {
           name: 'message',
-          type: 'text',
+          type: 'string',
           description: 'The message to display.'
         }
       ]
@@ -457,7 +484,7 @@ with metadata. This is a somewhat contrived example:
     var isemail = /^([a-z0-9_\.-]+)@([\da-z\.-]+)\.([a-z\.]{2,6})$/;
     isemail.test.metadata = {
       description: 'Tests to see if the address is an email',
-      params: [ name: 'email', type: 'text', description: 'The addr to test' ]
+      params: [ name: 'email', type: 'string', description: 'The addr to test' ]
     };
     isemail.toString.metadata = {
       description: 'Retrieve the regular expression used to test email addrs'
@@ -546,7 +573,7 @@ For example:
 
 ### Specifying Types
 
-Types are generally specified by a simple string, e.g. ``'text'``. For most
+Types are generally specified by a simple string, e.g. ``'string'``. For most
 types this is enough detail. There are a number of exceptions:
 
 * Array types. We declare a parameter to be an array of things using ``[]``,
@@ -600,14 +627,14 @@ number of built in types:
 * deferred. This type could change depending on other factors, but is well
   defined when one of the conversion routines is called.
 
-There are a number of additional types defined by Pilot and Cockpit as
+There are a number of additional types defined by Pilot and GCLI as
 extensions to the ``selection`` and ``deferred`` types
 
 * setting. One of the defined settings
 * settingValue. A value that can be applied to an associated setting.
 * command. One of the defined commands
 
-Most of our types are 'static' e.g. there is only one type of 'text', however
+Most of our types are 'static' e.g. there is only one type of 'string', however
 some types like 'selection' and 'deferred' are customizable.
 
 All types must inherit from Type and have the following methods:
@@ -664,14 +691,14 @@ Type, Conversion and Status are all declared by canon.js.
 The values produced by the parse function can be of any type, but if you are
 producing your own, you are strongly encouraged to include properties called
 ``name`` and ``description`` where it makes sense. There are a number of
-places in Cockpit where the UI will be able to provide better help to users
-if your values include these properties.
+places in GCLI where the UI will be able to provide better help to users if
+your values include these properties.
 
 
 Writing Fields
 --------------
 
-Fields are visual representations of types. For simple types like text it is
+Fields are visual representations of types. For simple types like string it is
 enough to use ``<input type=...>``, however more complex types we may wish to
 provide a custom widget to allow the user to enter values of the given type.
 
