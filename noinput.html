@@ -16,11 +16,12 @@
     
     var deps = [ "pilot/index", "cockpit/index", "pilot/environment" ];
 
-    require(config, deps, function(pilot, cockpit, environment) {
+    var cliView;
+    require(config, deps, function(pilot, gcli, environment) {
         var data = { env: environment.create() };
         pilot.startup(data);
-        cockpit.startup(data);
-        new cockpit.CliView(data.env);
+        gcli.startup(data);
+        cliView = new gcli.CliView(data.env);
     }.bind(this));
   </script>
   <title>Cockpit: Command Line</title>
@@ -40,10 +41,25 @@
 
 <body>
 
-  <div id="cockpitOutput">
-  </div>
+<p>
+This is an example of GCLI used without either an input or output element.
+(i.e. it's headless)
+</p>
 
-  <input id="cockpitInput" type="text"/>
+<input type="text" id="input"/>
+<button onclick="go()">Go</button>
+
+<script>
+function go() {
+  var input = document.getElementById('input').value;
+  gcli.exec(input);
+}
+
+
+
+
+
+</script>
 
 </body>
 </html>

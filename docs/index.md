@@ -201,6 +201,17 @@ There are 3 basic steps in using cockpit in your system.
     };
 
 
+    var gcli = new gcli.Commander({
+      input: ele,
+      output: ele
+    });
+    gcli.addCommand(...);
+    gcli.addType(...);
+    gcli.setArgFetcher(...);
+    gcli.exec('command');
+
+
+
 Writing Commands
 ----------------
 

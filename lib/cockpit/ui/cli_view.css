@@ -45,12 +45,3 @@ span.cptCompl { color: #999; }
 .cptOption:hover { background-color: rgb(230, 230, 230) }
 .cptOptName { padding-right: 5px; }
 .cptOptDesc { font-size: 80%; color: #999; }
-
-.cptParamGroup { font-weight: bold; }
-.cptCmdDesc { font-weight: bold; text-align: center; }
-.cptParamSubmit { text-align: center; }
-.cptParamError { font-size: 80%; color: #900; }
-.cptParamDescr { font-size: 80%; color: #999; }
-.cptParamName { text-align: right; }
-
-.cptAssignment.cptGroupHidden .cptGroupRow { display: none; }

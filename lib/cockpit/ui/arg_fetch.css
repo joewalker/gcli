@@ -1,0 +1,10 @@
+
+.cptCmdDesc { font-weight: bold; text-align: center; }
+
+.cptAssignment.cptGroupHidden .cptGroupRow { display: none; }
+
+.cptParamGroup { font-weight: bold; }
+.cptParamDescr { font-size: 80%; color: #999; }
+.cptParamName { text-align: right; }
+.cptParamError { font-size: 80%; color: #900; }
+.cptParamSubmit { text-align: center; }
