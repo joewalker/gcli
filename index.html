@@ -13,14 +13,13 @@
             "support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ]
         }
     };
-    
-    var deps = [ "pilot/index", "cockpit/index", "pilot/environment" ];
 
-    require(config, deps, function(pilot, cockpit, environment) {
-        var data = { env: environment.create() };
-        pilot.startup(data);
-        cockpit.startup(data);
-        new cockpit.CliView(data.env);
+    var deps = [ "pilot/index", "cockpit/index" ];
+
+    require(config, deps, function(pilot, cockpit) {
+        pilot.startup();
+        cockpit.startup();
+        new cockpit.CliView();
     }.bind(this));
   </script>
   <title>Cockpit: Command Line</title>
