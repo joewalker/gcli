@@ -6,20 +6,19 @@
   <meta name="author" content="Joe Walker">
   <script src="scripts/require.js" type="text/javascript"></script>
   <script type="text/javascript">
-    var config = {
+    require({
         waitSeconds: 1,
         packagePaths: {
             "lib": [ { name: "cockpit", main: "index", lib: "." } ],
             "support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ]
         }
-    };
+    });
 
-    var deps = [ "pilot/index", "cockpit/index" ];
+    var deps = [ "cockpit/index", "pilot/fixoldbrowsers" ];
 
-    require(config, deps, function(pilot, cockpit) {
-        pilot.startup();
-        cockpit.startup();
-        new cockpit.CliView();
+    require(deps, function(gcli) {
+        gcli.startup();
+        new gcli.CliView();
     }.bind(this));
   </script>
   <title>Cockpit: Command Line</title>

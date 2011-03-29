@@ -196,7 +196,7 @@ There are 3 basic steps in using cockpit in your system.
    ``event``. (This is not fully implemented yet)
 
     window.onGCLIInit = function(require) {
-      var canon = require('pilot/canon');
+      var canon = require('cockpit/canon');
       canon.addCommand({ ... });
     };
 
