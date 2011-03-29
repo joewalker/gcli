@@ -14,14 +14,13 @@
         }
     };
     
-    var deps = [ "pilot/index", "cockpit/index", "pilot/environment" ];
+    var deps = [ "pilot/index", "cockpit/index" ];
 
     var cliView;
-    require(config, deps, function(pilot, gcli, environment) {
-        var data = { env: environment.create() };
-        pilot.startup(data);
-        gcli.startup(data);
-        cliView = new gcli.CliView(data.env);
+    require(config, deps, function(pilot, gcli) {
+        pilot.startup();
+        gcli.startup();
+        cliView = new gcli.CliView();
     }.bind(this));
   </script>
   <title>Cockpit: Command Line</title>
