@@ -11,6 +11,7 @@
 
 # A handy place to put stuff that git should ignore:
 /ignore/
+/experiment/
 
 # Editor junk
 /.project
