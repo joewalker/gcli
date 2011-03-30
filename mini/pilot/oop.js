@@ -36,8 +36,10 @@
  * ***** END LICENSE BLOCK ***** */
 
 define(function(require, exports, module) {
+var oop = exports;
 
-exports.inherits = (function() {
+
+oop.inherits = (function() {
     var tempCtor = function() {};
     return function(ctor, superCtor) {
         tempCtor.prototype = superCtor.prototype;
@@ -47,14 +49,15 @@ exports.inherits = (function() {
     };
 }());
 
-exports.mixin = function(obj, mixin) {
+oop.mixin = function(obj, mixin) {
     for (var key in mixin) {
         obj[key] = mixin[key];
     }
 };
 
-exports.implement = function(proto, mixin) {
-    exports.mixin(proto, mixin);
+oop.implement = function(proto, mixin) {
+    oop.mixin(proto, mixin);
 };
+
 
 });

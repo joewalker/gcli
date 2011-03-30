@@ -36,45 +36,47 @@
  * ***** END LICENSE BLOCK ***** */
 
 define(function(require, exports, module) {
+var typecheck = exports;
 
-var objectToString = Object.prototype.toString;
 
 /**
  * Return true if it is a String
  */
-exports.isString = function(it) {
-    return it && objectToString.call(it) === "[object String]";
+typecheck.isString = function(it) {
+    return it && Object.prototype.toString.call(it) === "[object String]";
 };
 
 /**
  * Returns true if it is a Boolean.
  */
-exports.isBoolean = function(it) {
-    return it && objectToString.call(it) === "[object Boolean]";
+typecheck.isBoolean = function(it) {
+    return it && Object.prototype.toString.call(it) === "[object Boolean]";
 };
 
 /**
  * Returns true if it is a Number.
  */
-exports.isNumber = function(it) {
-    return it && objectToString.call(it) === "[object Number]" && isFinite(it);
+typecheck.isNumber = function(it) {
+    return it && Object.prototype.toString.call(it) === "[object Number]"
+          && isFinite(it);
 };
 
 /**
  * Hack copied from dojo.
  */
-exports.isObject = function(it) {
+typecheck.isObject = function(it) {
     return it !== undefined &&
         (it === null || typeof it == "object" ||
-        Array.isArray(it) || exports.isFunction(it));
+            Array.isArray(it) || typecheck.isFunction(it));
 };
 
 /**
  * Is the passed object a function?
  * From dojo.isFunction()
  */
-exports.isFunction = function(it) {
-    return it && objectToString.call(it) === "[object Function]";
+typecheck.isFunction = function(it) {
+    return it && Object.prototype.toString.call(it) === "[object Function]";
 };
+
 
 });

@@ -38,16 +38,18 @@
  * ***** END LICENSE BLOCK ***** */
 
 define(function(require, exports, module) {
+var dom = exports;
+
 
 var XHTML_NS = "http://www.w3.org/1999/xhtml";
 
-exports.createElement = function(tag, ns) {
+dom.createElement = function(tag, ns) {
     return document.createElementNS ?
            document.createElementNS(ns || XHTML_NS, tag) :
            document.createElement(tag);
 };
 
-exports.setText = function(elem, text) {
+dom.setText = function(elem, text) {
     if (elem.innerText !== undefined) {
         elem.innerText = text;
     }
@@ -56,83 +58,35 @@ exports.setText = function(elem, text) {
     }
 };
 
-if (!document.documentElement.classList) {
-    exports.hasCssClass = function(el, name) {
-        var classes = el.className.split(/\s+/g);
-        return classes.indexOf(name) !== -1;
-    };
+dom.hasCssClass = function(el, name) {
+    return el.classList.contains(name);
+};
 
-    /**
-    * Add a CSS class to the list of classes on the given node
-    */
-    exports.addCssClass = function(el, name) {
-        if (!exports.hasCssClass(el, name)) {
-            el.className += " " + name;
-        }
-    };
+dom.addCssClass = function(el, name) {
+    el.classList.add(name);
+};
 
-    /**
-    * Remove a CSS class from the list of classes on the given node
-    */
-    exports.removeCssClass = function(el, name) {
-        var classes = el.className.split(/\s+/g);
-        while (true) {
-            var index = classes.indexOf(name);
-            if (index == -1) {
-                break;
-            }
-            classes.splice(index, 1);
-        }
-        el.className = classes.join(" ");
-    };
+dom.removeCssClass = function(el, name) {
+    el.classList.remove(name);
+};
 
-    exports.toggleCssClass = function(el, name) {
-        var classes = el.className.split(/\s+/g), add = true;
-        while (true) {
-            var index = classes.indexOf(name);
-            if (index == -1) {
-                break;
-            }
-            add = false;
-            classes.splice(index, 1);
-        }
-        if(add)
-            classes.push(name);
-
-        el.className = classes.join(" ");
-        return add;
-    };
-} else {
-    exports.hasCssClass = function(el, name) {
-        return el.classList.contains(name);
-    };
-
-    exports.addCssClass = function(el, name) {
-        el.classList.add(name);
-    };
-
-    exports.removeCssClass = function(el, name) {
-        el.classList.remove(name);
-    };
-
-    exports.toggleCssClass = function(el, name) {
-        return el.classList.toggle(name);
-    };
-}
+dom.toggleCssClass = function(el, name) {
+    return el.classList.toggle(name);
+};
 
 /**
  * Add or remove a CSS class from the list of classes on the given node
  * depending on the value of <tt>include</tt>
  */
-exports.setCssClass = function(node, className, include) {
+dom.setCssClass = function(node, className, include) {
     if (include) {
-        exports.addCssClass(node, className);
+        dom.addCssClass(node, className);
     } else {
-        exports.removeCssClass(node, className);
+        dom.removeCssClass(node, className);
     }
 };
 
-exports.importCssString = function(cssText, doc){
+dom.importCssString = function(cssText, doc){
     doc = doc || document;
 
     if (doc.createStyleSheet) {
@@ -151,76 +105,37 @@ exports.importCssString = function(cssText, doc){
     }
 };
 
-exports.getInnerWidth = function(element) {
-    return (parseInt(exports.computedStyle(element, "paddingLeft"))
-            + parseInt(exports.computedStyle(element, "paddingRight")) + element.clientWidth);
+dom.getInnerWidth = function(element) {
+    return (parseInt(dom.computedStyle(element, "paddingLeft"))
+            + parseInt(dom.computedStyle(element, "paddingRight")) + element.clientWidth);
 };
 
-exports.getInnerHeight = function(element) {
-    return (parseInt(exports.computedStyle(element, "paddingTop"))
-            + parseInt(exports.computedStyle(element, "paddingBottom")) + element.clientHeight);
+dom.getInnerHeight = function(element) {
+    return (parseInt(dom.computedStyle(element, "paddingTop"))
+            + parseInt(dom.computedStyle(element, "paddingBottom")) + element.clientHeight);
 };
 
 if (window.pageYOffset !== undefined) {
-    exports.getPageScrollTop = function() {
+    dom.getPageScrollTop = function() {
         return window.pageYOffset;
     };
 
-    exports.getPageScrollLeft = function() {
+    dom.getPageScrollLeft = function() {
         return window.pageXOffset;
     };
 }
 else {
-    exports.getPageScrollTop = function() {
+    dom.getPageScrollTop = function() {
         return document.body.scrollTop;
     };
 
-    exports.getPageScrollLeft = function() {
+    dom.getPageScrollLeft = function() {
         return document.body.scrollLeft;
     };
 }
 
-exports.computedStyle = function(element, style) {
-    if (window.getComputedStyle) {
-        return (window.getComputedStyle(element, "") || {})[style] || "";
-    }
-    else {
-        return element.currentStyle[style];
-    }
-};
-
-exports.scrollbarWidth = function() {
-
-    var inner = exports.createElement("p");
-    inner.style.width = "100%";
-    inner.style.height = "200px";
-
-    var outer = exports.createElement("div");
-    var style = outer.style;
-
-    style.position = "absolute";
-    style.left = "-10000px";
-    style.overflow = "hidden";
-    style.width = "200px";
-    style.height = "150px";
-
-    outer.appendChild(inner);
-
-    var body = document.body || document.documentElement;
-    body.appendChild(outer);
-
-    var noScrollbar = inner.offsetWidth;
-
-    style.overflow = "scroll";
-    var withScrollbar = inner.offsetWidth;
-
-    if (noScrollbar == withScrollbar) {
-        withScrollbar = outer.clientWidth;
-    }
-
-    body.removeChild(outer);
-
-    return noScrollbar-withScrollbar;
+dom.computedStyle = function(element, style) {
+    return (window.getComputedStyle(element, "") || {})[style] || "";
 };
 
 /**
@@ -229,14 +144,14 @@ exports.scrollbarWidth = function() {
  *
  * See http://blog.stevenlevithan.com/archives/faster-than-innerhtml for details
  */
-exports.setInnerHtml = function(el, innerHtml) {
+dom.setInnerHtml = function(el, innerHtml) {
     var element = el.cloneNode(false);//document.createElement("div");
     element.innerHTML = innerHtml;
     el.parentNode.replaceChild(element, el);
     return element;
 };
 
-exports.setInnerText = function(el, innerText) {
+dom.setInnerText = function(el, innerText) {
     if (document.body && "textContent" in document.body)
         el.textContent = innerText;
     else
@@ -244,18 +159,18 @@ exports.setInnerText = function(el, innerText) {
 
 };
 
-exports.getInnerText = function(el) {
+dom.getInnerText = function(el) {
     if (document.body && "textContent" in document.body)
         return el.textContent;
     else
          return el.innerText || el.textContent || "";
 };
 
-exports.getParentWindow = function(document) {
+dom.getParentWindow = function(document) {
     return document.defaultView || document.parentWindow;
 };
 
-exports.getSelectionStart = function(textarea) {
+dom.getSelectionStart = function(textarea) {
     // TODO IE
     var start;
     try {
@@ -266,12 +181,12 @@ exports.getSelectionStart = function(textarea) {
     return start;
 };
 
-exports.setSelectionStart = function(textarea, start) {
+dom.setSelectionStart = function(textarea, start) {
     // TODO IE
     return textarea.selectionStart = start;
 };
 
-exports.getSelectionEnd = function(textarea) {
+dom.getSelectionEnd = function(textarea) {
     // TODO IE
     var end;
     try {
@@ -282,7 +197,7 @@ exports.getSelectionEnd = function(textarea) {
     return end;
 };
 
-exports.setSelectionEnd = function(textarea, end) {
+dom.setSelectionEnd = function(textarea, end) {
     // TODO IE
     return textarea.selectionEnd = end;
 };

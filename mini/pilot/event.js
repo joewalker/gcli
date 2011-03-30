@@ -36,11 +36,13 @@
  * ***** END LICENSE BLOCK ***** */
 
 define(function(require, exports, module) {
+var event = exports;
+
 
 var useragent = require("pilot/useragent");
 var dom = require("pilot/dom");
 
-exports.addListener = function(elem, type, callback) {
+event.addListener = function(elem, type, callback) {
     if (elem.addEventListener) {
         return elem.addEventListener(type, callback, false);
     }
@@ -53,7 +55,7 @@ exports.addListener = function(elem, type, callback) {
     }
 };
 
-exports.removeListener = function(elem, type, callback) {
+event.removeListener = function(elem, type, callback) {
     if (elem.removeEventListener) {
         return elem.removeEventListener(type, callback, false);
     }
@@ -65,27 +67,27 @@ exports.removeListener = function(elem, type, callback) {
 /**
 * Prevents propagation and clobbers the default action of the passed event
 */
-exports.stopEvent = function(e) {
-    exports.stopPropagation(e);
-    exports.preventDefault(e);
+event.stopEvent = function(e) {
+    event.stopPropagation(e);
+    event.preventDefault(e);
     return false;
 };
 
-exports.stopPropagation = function(e) {
+event.stopPropagation = function(e) {
     if (e.stopPropagation)
         e.stopPropagation();
     else
         e.cancelBubble = true;
 };
 
-exports.preventDefault = function(e) {
+event.preventDefault = function(e) {
     if (e.preventDefault)
         e.preventDefault();
     else
         e.returnValue = false;
 };
 
-exports.getDocumentX = function(e) {
+event.getDocumentX = function(e) {
     if (e.clientX) {
         return e.clientX + dom.getPageScrollLeft();
     } else {
@@ -93,7 +95,7 @@ exports.getDocumentX = function(e) {
     }
 };
 
-exports.getDocumentY = function(e) {
+event.getDocumentY = function(e) {
     if (e.clientY) {
         return e.clientY + dom.getPageScrollTop();
     } else {
@@ -104,7 +106,7 @@ exports.getDocumentY = function(e) {
 /**
  * @return {Number} 0 for left button, 1 for middle button, 2 for right button
  */
-exports.getButton = function(e) {
+event.getButton = function(e) {
     if (e.type == "dblclick")
         return 0;
     else if (e.type == "contextmenu")
@@ -121,31 +123,31 @@ exports.getButton = function(e) {
 };
 
 if (document.documentElement.setCapture) {
-    exports.capture = function(el, eventHandler, releaseCaptureHandler) {
+    event.capture = function(el, eventHandler, releaseCaptureHandler) {
         function onMouseMove(e) {
             eventHandler(e);
-            return exports.stopPropagation(e);
+            return event.stopPropagation(e);
         }
 
         function onReleaseCapture(e) {
             eventHandler && eventHandler(e);
             releaseCaptureHandler && releaseCaptureHandler();
 
-            exports.removeListener(el, "mousemove", eventHandler);
-            exports.removeListener(el, "mouseup", onReleaseCapture);
-            exports.removeListener(el, "losecapture", onReleaseCapture);
+            event.removeListener(el, "mousemove", eventHandler);
+            event.removeListener(el, "mouseup", onReleaseCapture);
+            event.removeListener(el, "losecapture", onReleaseCapture);
 
             el.releaseCapture();
         }
 
-        exports.addListener(el, "mousemove", eventHandler);
-        exports.addListener(el, "mouseup", onReleaseCapture);
-        exports.addListener(el, "losecapture", onReleaseCapture);
+        event.addListener(el, "mousemove", eventHandler);
+        event.addListener(el, "mouseup", onReleaseCapture);
+        event.addListener(el, "losecapture", onReleaseCapture);
         el.setCapture();
     };
 }
 else {
-    exports.capture = function(el, eventHandler, releaseCaptureHandler) {
+    event.capture = function(el, eventHandler, releaseCaptureHandler) {
         function onMouseMove(e) {
             eventHandler(e);
             e.stopPropagation();
@@ -166,7 +168,7 @@ else {
     };
 }
 
-exports.addMouseWheelListener = function(el, callback) {
+event.addMouseWheelListener = function(el, callback) {
     var listener = function(e) {
         if (e.wheelDelta !== undefined) {
             if (e.wheelDeltaX !== undefined) {
@@ -188,11 +190,11 @@ exports.addMouseWheelListener = function(el, callback) {
         }
         callback(e);
     };
-    exports.addListener(el, "DOMMouseScroll", listener);
-    exports.addListener(el, "mousewheel", listener);
+    event.addListener(el, "DOMMouseScroll", listener);
+    event.addListener(el, "mousewheel", listener);
 };
 
-exports.addMultiMouseDownListener = function(el, button, count, timeout, callback) {
+event.addMultiMouseDownListener = function(el, button, count, timeout, callback) {
     var clicks = 0;
     var startX, startY;
 
@@ -207,7 +209,7 @@ exports.addMultiMouseDownListener = function(el, button, count, timeout, callbac
             }, timeout || 600);
         }
 
-        if (exports.getButton(e) != button
+        if (event.getButton(e) != button
           || Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5)
             clicks = 0;
 
@@ -215,11 +217,11 @@ exports.addMultiMouseDownListener = function(el, button, count, timeout, callbac
             clicks = 0;
             callback(e);
         }
-        return exports.preventDefault(e);
+        return event.preventDefault(e);
     };
 
-    exports.addListener(el, "mousedown", listener);
-    useragent.isIE && exports.addListener(el, "dblclick", listener);
+    event.addListener(el, "mousedown", listener);
+    useragent.isIE && event.addListener(el, "dblclick", listener);
 };
 
 var MODIFIER_KEYS = { 16: 'Shift', 17: 'Ctrl', 18: 'Alt', 224: 'Meta' };
@@ -275,8 +277,8 @@ function normalizeCommandKeys(callback, e, keyCode) {
     return callback(e, hashId, keyCode);
 }
 
-exports.addCommandKeyListener = function(el, callback) {
-    var addListener = exports.addListener;
+event.addCommandKeyListener = function(el, callback) {
+    var addListener = event.addListener;
     if (useragent.isOldGecko) {
         // Old versions of Gecko aka. Firefox < 4.0 didn't repeat the keydown
         // event if the user pressed the key for a longer time. Instead, the

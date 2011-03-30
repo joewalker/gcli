@@ -36,16 +36,19 @@
  * ***** END LICENSE BLOCK ***** */
 
 define(function(require, exports, module) {
+var lang = exports;
+
 
 /**
  * splice out of 'array' anything that === 'value'
  */
-exports.arrayRemove = function(array, value) {
+lang.arrayRemove = function(array, value) {
   for (var i = 0; i <= array.length; i++) {
     if (value === array[i]) {
       array.splice(i, 1);
     }
   }
 };
+
 
 });

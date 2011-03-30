@@ -36,37 +36,39 @@
  * ***** END LICENSE BLOCK ***** */
 
 define(function(require, exports, module) {
+var useragent = exports;
+
 
 var os = (navigator.platform.match(/mac|win|linux/i) || ["other"])[0].toLowerCase();
 var ua = navigator.userAgent;
 var av = navigator.appVersion;
 
 /** Is the user using a browser that identifies itself as Windows */
-exports.isWin = (os == "win");
+useragent.isWin = (os == "win");
 
 /** Is the user using a browser that identifies itself as Mac OS */
-exports.isMac = (os == "mac");
+useragent.isMac = (os == "mac");
 
 /** Is the user using a browser that identifies itself as Linux */
-exports.isLinux = (os == "linux");
+useragent.isLinux = (os == "linux");
 
-exports.isIE = ! + "\v1";
+useragent.isIE = ! + "\v1";
 
 /** Is this Firefox or related? */
-exports.isGecko = exports.isMozilla = window.controllers && window.navigator.product === "Gecko";
+useragent.isGecko = useragent.isMozilla = window.controllers && window.navigator.product === "Gecko";
 
 /** oldGecko == rev < 2.0 **/
-exports.isOldGecko = exports.isGecko && /rv\:1/.test(navigator.userAgent);
+useragent.isOldGecko = useragent.isGecko && /rv\:1/.test(navigator.userAgent);
 
 /** Is this Opera */
-exports.isOpera = window.opera && Object.prototype.toString.call(window.opera) == "[object Opera]";
+useragent.isOpera = window.opera && Object.prototype.toString.call(window.opera) == "[object Opera]";
 
 /** Is the user using a browser that identifies itself as WebKit */
-exports.isWebKit = parseFloat(ua.split("WebKit/")[1]) || undefined;
+useragent.isWebKit = parseFloat(ua.split("WebKit/")[1]) || undefined;
 
-exports.isAIR = ua.indexOf("AdobeAIR") >= 0;
+useragent.isAIR = ua.indexOf("AdobeAIR") >= 0;
 
-exports.isIPad = ua.indexOf("iPad") >= 0;
+useragent.isIPad = ua.indexOf("iPad") >= 0;
 
 /**
  * I hate doing this, but we need some way to determine if the user is on a Mac
@@ -75,7 +77,7 @@ exports.isIPad = ua.indexOf("iPad") >= 0;
  * Take copy as an example, Mac people expect to use CMD or APPLE + C
  * Windows folks expect to use CTRL + C
  */
-exports.OS = {
+useragent.OS = {
     LINUX: 'LINUX',
     MAC: 'MAC',
     WINDOWS: 'WINDOWS'
@@ -84,14 +86,15 @@ exports.OS = {
 /**
  * Return an exports.OS constant
  */
-exports.getOS = function() {
-    if (exports.isMac) {
-        return exports.OS['MAC'];
-    } else if (exports.isLinux) {
-        return exports.OS['LINUX'];
+useragent.getOS = function() {
+    if (useragent.isMac) {
+        return useragent.OS['MAC'];
+    } else if (useragent.isLinux) {
+        return useragent.OS['LINUX'];
     } else {
-        return exports.OS['WINDOWS'];
+        return useragent.OS['WINDOWS'];
     }
 };
+
 
 });

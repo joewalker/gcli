@@ -37,7 +37,8 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-define(function(require, console, module) {
+define(function(require, exports, module) {
+var console = exports;
 
 
 // These are the functions that are available in Chrome 4/5, Safari 4

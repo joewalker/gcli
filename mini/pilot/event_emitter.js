@@ -38,6 +38,8 @@
  * ***** END LICENSE BLOCK ***** */
 
 define(function(require, exports, module) {
+var eventEmitter = exports;
+
 
 var EventEmitter = {};
 
@@ -87,6 +89,6 @@ EventEmitter.removeAllListeners = function(eventName) {
     if (this._eventRegistry) this._eventRegistry[eventName] = [];
 };
 
-exports.EventEmitter = EventEmitter;
+eventEmitter.EventEmitter = EventEmitter;
 
 });
