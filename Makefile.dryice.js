@@ -37,62 +37,69 @@
 
 var copy = require('dryice').copy;
 
+// SETUP
 var gcliHome = __dirname;
-
-console.log('# Building GCLI');
-
 var project = copy.createCommonJsProject([
-    gcliHome + '/mini',
-    gcliHome + '/lib'
+  gcliHome + '/mini',
+  gcliHome + '/lib'
 ]);
 
-function filterTextPlugin(text) {
-    return text.replace(/(['"])text\!/g, "$1text/");
-}
+// Grab and process all the Javascript
+var javascript = copy.createDataObject();
+copy({
+  source: [ copy.source.commonjs({ project: project, require: [ "cockpit/index" ] }) ],
+  filter: [ copy.filter.moduleDefines ],
+  dest: javascript
+});
 
-var gcli = copy.createDataObject();
+// Process the CSS/HTML/PNG/GIF
+var resources = copy.createDataObject();
 copy({
-    source: [ 'build/mini_require.js' ],
-    dest: gcli
+  source: { root: project, include: /.*\.css$|.*\.html$/, exclude: /tests?\// },
+  filter: [ copy.filter.addDefines ],
+  dest: resources
 });
 copy({
-    source: [
-        copy.source.commonjs({
-            project: project,
-            require: [ "cockpit/index" ]
-        })
-    ],
-    filter: [ copy.filter.moduleDefines ],
-    dest: gcli
+  source: { root: project, include: /.*\.png$|.*\.gif$/, exclude: /tests?\// },
+  filter: [ copy.filter.base64 ],
+  dest: resources
 });
+
+// Mini require as used in a web page
+var require = copy.createDataObject();
 copy({
-    source: {
-        root: project,
-        include: /.*\.css$|.*\.html$/,
-        exclude: /tests?\//
-    },
-    filter: [ copy.filter.addDefines ],
-    dest: gcli
+  source: [ 'build/mini_require.js' ],
+  dest: require
 });
+
+// Mini require as used in Firefox
+var ffrequire = copy.createDataObject();
 copy({
-    source: {
-        root: project,
-        include: /.*\.png$|.*\.gif$/,
-        exclude: /tests?\//
-    },
-    filter: [ copy.filter.base64 ],
-    dest: gcli
+  source: [ 'build/ff_require.js' ],
+  dest: ffrequire
 });
 
 
 // Create the compressed and uncompressed output files
+
 copy({
-    source: gcli,
-    filter: [ copy.filter.uglifyjs, filterTextPlugin ],
-    dest: 'build/gcli.js'
+  source: [ require, javascript, resources ],
+  filter: [ copy.filter.uglifyjs, filterTextPlugin ],
+  dest: 'build/gcli.js'
 });
 copy({
-    source: gcli,
-    filter: [ filterTextPlugin ],
-    dest: 'build/gcli-uncompressed.js'
+  source: [ require, javascript, resources ],
+  filter: [ filterTextPlugin ],
+  dest: 'build/gcli-uncompressed.js'
 });
+copy({
+  source: [ ffrequire, javascript, resources ],
+  filter: [ filterTextPlugin ],
+  dest: 'build/gcli-ff.js'
+});
+
+
+
+function filterTextPlugin(text) {
+  return text.replace(/(['"])text\!/g, "$1text/");
+}
