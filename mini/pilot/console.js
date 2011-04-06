@@ -20,8 +20,6 @@
  *
  * Contributor(s):
  *   Joe Walker (jwalker@mozilla.com)
- *   Patrick Walton (pwalton@mozilla.com)
- *   Julian Viereck (jviereck@mozilla.com)
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -38,7 +36,6 @@
  * ***** END LICENSE BLOCK ***** */
 
 define(function(require, exports, module) {
-var console = exports;
 
 
 // These are the functions that are available in Chrome 4/5, Safari 4
@@ -48,12 +45,19 @@ var NAMES = [
     "info", "log", "profile", "profileEnd", "time", "timeEnd", "trace", "warn"
 ];
 
-// For each of the console functions, copy them if they exist, stub if not
-NAMES.forEach(function(name) {
-    if (window.console && window.console[name]) {
-        console[name] = Function.prototype.bind.call(window.console[name], window.console);
-    }
-});
+if ('console' in this) {
+    // For each of the console functions, copy them if they exist, stub if not
+    NAMES.forEach(function(name) {
+        exports[name] = Function.prototype.bind.call(console[name], console);
+    });
+}
+else {
+    NAMES.forEach(function(name) {
+        exports[name] = function() {
+            dump(Array.prototype.join.apply(arguments, [ ', ' ]));
+        };
+    });
+}
 
 
 });

@@ -41,12 +41,14 @@ define(function(require, exports, module) {
 var dom = exports;
 
 
-var XHTML_NS = "http://www.w3.org/1999/xhtml";
-
-dom.createElement = function(tag, ns) {
-    return document.createElementNS ?
-           document.createElementNS(ns || XHTML_NS, tag) :
-           document.createElement(tag);
+dom.createElement = function(tag, ns, doc) {
+    if (!doc) {
+        doc = document;
+    }
+    ns = ns || 'http://www.w3.org/1999/xhtml';
+    return doc.createElementNS ?
+           doc.createElementNS(ns, tag) :
+           doc.createElement(tag);
 };
 
 dom.setText = function(elem, text) {
@@ -86,23 +88,57 @@ dom.setCssClass = function(node, className, include) {
     }
 };
 
-dom.importCssString = function(cssText, doc){
-    doc = doc || document;
+dom.importCssString = function(cssText, doc) {
+    if (!doc) {
+        doc = document;
+    }
 
     if (doc.createStyleSheet) {
         var sheet = doc.createStyleSheet();
         sheet.cssText = cssText;
     }
     else {
-        var style = doc.createElementNS ?
-                    doc.createElementNS(XHTML_NS, "style") :
-                    doc.createElement("style");
+        var style = dom.createElement("style", null, doc);
 
         style.appendChild(doc.createTextNode(cssText));
 
         var head = doc.getElementsByTagName("head")[0] || doc.documentElement;
         head.appendChild(style);
     }
+};
+
+dom.setInnerHtml = function(el, html) {
+  // el.innerHTML = html;
+  dom.clearElement(el);
+
+  var range = el.ownerDocument.createRange();
+
+  html = '<div xmlns="http://www.w3.org/1999/xhtml"' +
+      ' xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">' +
+      html + '</div>';
+  el.appendChild(range.createContextualFragment(html));
+
+  /*
+  var doc;
+  if (DOMParser) {
+    doc = new DOMParser().parseFromString(html, 'application/xhtml+xml');
+  }
+  else {
+    doc = Components.classes["@mozilla.org/xmlextras/domparser;1"]
+                    .createInstance(Components.interfaces.nsIDOMParser)
+                    .parseFromString(aStr, "text/xml");
+  }
+
+  for (var i=0; i < doc.childNodes.length; ++i) {
+    el.appendChild(el.ownerDocument.importNode(doc.childNodes[i], true));
+  }
+  */
+};
+
+dom.clearElement = function(el) {
+  while (el.hasChildNodes()) {
+    el.removeChild(el.firstChild);
+  }
 };
 
 dom.getInnerWidth = function(element) {
@@ -115,55 +151,10 @@ dom.getInnerHeight = function(element) {
             + parseInt(dom.computedStyle(element, "paddingBottom")) + element.clientHeight);
 };
 
-if (window.pageYOffset !== undefined) {
-    dom.getPageScrollTop = function() {
-        return window.pageYOffset;
-    };
-
-    dom.getPageScrollLeft = function() {
-        return window.pageXOffset;
-    };
-}
-else {
-    dom.getPageScrollTop = function() {
-        return document.body.scrollTop;
-    };
-
-    dom.getPageScrollLeft = function() {
-        return document.body.scrollLeft;
-    };
-}
-
-dom.computedStyle = function(element, style) {
-    return (window.getComputedStyle(element, "") || {})[style] || "";
-};
-
-/**
- * Optimized set innerHTML. This is faster than plain innerHTML if the element
- * already contains a lot of child elements.
- *
- * See http://blog.stevenlevithan.com/archives/faster-than-innerhtml for details
- */
-dom.setInnerHtml = function(el, innerHtml) {
-    var element = el.cloneNode(false);//document.createElement("div");
-    element.innerHTML = innerHtml;
-    el.parentNode.replaceChild(element, el);
-    return element;
-};
-
-dom.setInnerText = function(el, innerText) {
-    if (document.body && "textContent" in document.body)
-        el.textContent = innerText;
-    else
-        el.innerText = innerText;
-
-};
-
-dom.getInnerText = function(el) {
-    if (document.body && "textContent" in document.body)
-        return el.textContent;
-    else
-         return el.innerText || el.textContent || "";
+dom.computedStyle = function(element, styleName) {
+    var win = element.ownerDocument.defaultView;
+    var styles = win.getComputedStyle(element, "") || {};
+    return styles[styleName] || "";
 };
 
 dom.getParentWindow = function(document) {

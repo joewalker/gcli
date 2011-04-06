@@ -40,28 +40,6 @@ var typecheck = exports;
 
 
 /**
- * Return true if it is a String
- */
-typecheck.isString = function(it) {
-    return it && Object.prototype.toString.call(it) === "[object String]";
-};
-
-/**
- * Returns true if it is a Boolean.
- */
-typecheck.isBoolean = function(it) {
-    return it && Object.prototype.toString.call(it) === "[object Boolean]";
-};
-
-/**
- * Returns true if it is a Number.
- */
-typecheck.isNumber = function(it) {
-    return it && Object.prototype.toString.call(it) === "[object Number]"
-          && isFinite(it);
-};
-
-/**
  * Hack copied from dojo.
  */
 typecheck.isObject = function(it) {

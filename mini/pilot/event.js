@@ -39,29 +39,14 @@ define(function(require, exports, module) {
 var event = exports;
 
 
-var useragent = require("pilot/useragent");
 var dom = require("pilot/dom");
 
 event.addListener = function(elem, type, callback) {
-    if (elem.addEventListener) {
-        return elem.addEventListener(type, callback, false);
-    }
-    if (elem.attachEvent) {
-        var wrapper = function() {
-            callback(window.event);
-        };
-        callback._wrapper = wrapper;
-        elem.attachEvent("on" + type, wrapper);
-    }
+    return elem.addEventListener(type, callback, false);
 };
 
 event.removeListener = function(elem, type, callback) {
-    if (elem.removeEventListener) {
-        return elem.removeEventListener(type, callback, false);
-    }
-    if (elem.detachEvent) {
-        elem.detachEvent("on" + type, callback._wrapper || callback);
-    }
+    return elem.removeEventListener(type, callback, false);
 };
 
 /**
@@ -86,87 +71,6 @@ event.preventDefault = function(e) {
     else
         e.returnValue = false;
 };
-
-event.getDocumentX = function(e) {
-    if (e.clientX) {
-        return e.clientX + dom.getPageScrollLeft();
-    } else {
-        return e.pageX;
-    }
-};
-
-event.getDocumentY = function(e) {
-    if (e.clientY) {
-        return e.clientY + dom.getPageScrollTop();
-    } else {
-        return e.pageY;
-    }
-};
-
-/**
- * @return {Number} 0 for left button, 1 for middle button, 2 for right button
- */
-event.getButton = function(e) {
-    if (e.type == "dblclick")
-        return 0;
-    else if (e.type == "contextmenu")
-        return 2;
-
-    // DOM Event
-    if (e.preventDefault) {
-        return e.button;
-    }
-    // old IE
-    else {
-        return {1:0, 2:2, 4:1}[e.button];
-    }
-};
-
-if (document.documentElement.setCapture) {
-    event.capture = function(el, eventHandler, releaseCaptureHandler) {
-        function onMouseMove(e) {
-            eventHandler(e);
-            return event.stopPropagation(e);
-        }
-
-        function onReleaseCapture(e) {
-            eventHandler && eventHandler(e);
-            releaseCaptureHandler && releaseCaptureHandler();
-
-            event.removeListener(el, "mousemove", eventHandler);
-            event.removeListener(el, "mouseup", onReleaseCapture);
-            event.removeListener(el, "losecapture", onReleaseCapture);
-
-            el.releaseCapture();
-        }
-
-        event.addListener(el, "mousemove", eventHandler);
-        event.addListener(el, "mouseup", onReleaseCapture);
-        event.addListener(el, "losecapture", onReleaseCapture);
-        el.setCapture();
-    };
-}
-else {
-    event.capture = function(el, eventHandler, releaseCaptureHandler) {
-        function onMouseMove(e) {
-            eventHandler(e);
-            e.stopPropagation();
-        }
-
-        function onMouseUp(e) {
-            eventHandler && eventHandler(e);
-            releaseCaptureHandler && releaseCaptureHandler();
-
-            document.removeEventListener("mousemove", onMouseMove, true);
-            document.removeEventListener("mouseup", onMouseUp, true);
-
-            e.stopPropagation();
-        }
-
-        document.addEventListener("mousemove", onMouseMove, true);
-        document.addEventListener("mouseup", onMouseUp, true);
-    };
-}
 
 event.addMouseWheelListener = function(el, callback) {
     var listener = function(e) {
@@ -194,36 +98,6 @@ event.addMouseWheelListener = function(el, callback) {
     event.addListener(el, "mousewheel", listener);
 };
 
-event.addMultiMouseDownListener = function(el, button, count, timeout, callback) {
-    var clicks = 0;
-    var startX, startY;
-
-    var listener = function(e) {
-        clicks += 1;
-        if (clicks == 1) {
-            startX = e.clientX;
-            startY = e.clientY;
-
-            setTimeout(function() {
-                clicks = 0;
-            }, timeout || 600);
-        }
-
-        if (event.getButton(e) != button
-          || Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5)
-            clicks = 0;
-
-        if (clicks == count) {
-            clicks = 0;
-            callback(e);
-        }
-        return event.preventDefault(e);
-    };
-
-    event.addListener(el, "mousedown", listener);
-    useragent.isIE && event.addListener(el, "dblclick", listener);
-};
-
 var MODIFIER_KEYS = { 16: 'Shift', 17: 'Ctrl', 18: 'Alt', 224: 'Meta' };
 var FUNCTION_KEYS = {
     8: "Backspace", 9: "Tab", 13: "Return", 19: "Pause", 27: "Esc",
@@ -236,14 +110,8 @@ var FUNCTION_KEYS = {
 };
 
 function normalizeCommandKeys(callback, e, keyCode) {
-    var hashId = 0;
-    if (useragent.isOpera && useragent.isMac) {
-        hashId = 0 | (e.metaKey ? 1 : 0) | (e.altKey ? 2 : 0)
-            | (e.shiftKey ? 4 : 0) | (e.ctrlKey ? 8 : 0);
-    } else {
-        hashId = 0 | (e.ctrlKey ? 1 : 0) | (e.altKey ? 2 : 0)
+    var hashId = 0 | (e.ctrlKey ? 1 : 0) | (e.altKey ? 2 : 0)
             | (e.shiftKey ? 4 : 0) | (e.metaKey ? 8 : 0);
-    }
 
     if (keyCode in MODIFIER_KEYS) {
         switch (MODIFIER_KEYS[keyCode]) {
@@ -278,41 +146,12 @@ function normalizeCommandKeys(callback, e, keyCode) {
 }
 
 event.addCommandKeyListener = function(el, callback) {
-    var addListener = event.addListener;
-    if (useragent.isOldGecko) {
-        // Old versions of Gecko aka. Firefox < 4.0 didn't repeat the keydown
-        // event if the user pressed the key for a longer time. Instead, the
-        // keydown event was fired once and later on only the keypress event.
-        // To emulate the 'right' keydown behavior, the keyCode of the initial
-        // keyDown event is stored and in the following keypress events the
-        // stores keyCode is used to emulate a keyDown event.
-        var lastKeyDownKeyCode = null;
-        addListener(el, "keydown", function(e) {
-            lastKeyDownKeyCode = e.keyCode;
-        });
-        addListener(el, "keypress", function(e) {
-            return normalizeCommandKeys(callback, e, lastKeyDownKeyCode);
-        });
-    } else {
-        var lastDown = null;
-
-        addListener(el, "keydown", function(e) {
-            lastDown = e.keyIdentifier || e.keyCode;
-            return normalizeCommandKeys(callback, e, e.keyCode);
-        });
-
-        // repeated keys are fired as keypress and not keydown events
-        if (useragent.isMac && useragent.isOpera) {
-            addListener(el, "keypress", function(e) {
-                var keyId = e.keyIdentifier || e.keyCode;
-                if (lastDown !== keyId) {
-                    return normalizeCommandKeys(callback, e, e.keyCode);
-                } else {
-                    lastDown = null;
-                }
-            });
-        }
-    }
+    var lastDown = null;
+    event.addListener(el, "keydown", function(e) {
+        lastDown = e.keyIdentifier || e.keyCode;
+        return normalizeCommandKeys(callback, e, e.keyCode);
+    });
 };
+
 
 });
