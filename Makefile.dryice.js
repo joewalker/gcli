@@ -47,7 +47,7 @@ var project = copy.createCommonJsProject([
 // Grab and process all the Javascript
 var javascript = copy.createDataObject();
 copy({
-  source: [ copy.source.commonjs({ project: project, require: [ "cockpit/index" ] }) ],
+  source: [ copy.source.commonjs({ project: project, require: [ "gcli/index" ] }) ],
   filter: [ copy.filter.moduleDefines ],
   dest: javascript
 });

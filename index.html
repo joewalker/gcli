@@ -9,13 +9,13 @@
     require({
         waitSeconds: 1,
         packagePaths: {
-            "lib": [ { name: "cockpit", main: "index", lib: "." } ],
+            "lib": [ { name: "gcli", main: "index", lib: "." } ],
             //"mini": [ { name: "pilot", main: "index", lib: "." } ]
             "support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ]
         }
     });
 
-    var deps = [ "cockpit/index", "pilot/fixoldbrowsers" ];
+    var deps = [ "gcli/index", "pilot/fixoldbrowsers" ];
 
     require(deps, function(gcli) {
         gcli.startup();
@@ -25,10 +25,10 @@
   <title>Cockpit: Command Line</title>
   <style type="text/css" media="screen">
     body { width: 100%; height: 100%; overflow: hidden; }
-    #cockpitOutput {
+    #gcliOutput {
       position: absolute; top: 0; bottom: 30px; left: 0; right: 0;
     }
-    #cockpitInput {
+    #gcliInput {
       position: absolute; height: 30px; bottom: 0; left: 0; right: 0;
       font-size: 110%;
       width: 100%;
@@ -39,10 +39,10 @@
 
 <body>
 
-  <div id="cockpitOutput">
+  <div id="gcliOutput">
   </div>
 
-  <input id="cockpitInput" type="text"/>
+  <input id="gcliInput" type="text"/>
 
 </body>
 </html>

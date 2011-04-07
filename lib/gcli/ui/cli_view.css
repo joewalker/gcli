@@ -1,0 +1,47 @@
+
+#gcliInput { padding-left: 16px; }
+#gcliInput ~ .gcliFocusPopup { display: block; }
+
+#gcliOutput { overflow: auto; display: none; }
+#gcliOutput.gcliFocusPopup {
+  position: absolute; z-index: 999; display: block;
+}
+
+.gcliCompletion { padding: 0; position: absolute; z-index: -1000; }
+.gcliCompletion.VALID { background: #FFF; }
+.gcliCompletion.INCOMPLETE { background: #DDD; }
+.gcliCompletion.ERROR { background: #DDD; }
+.gcliCompletion span { color: #FFF; }
+.gcliCompletion span.INCOMPLETE { color: #DDD; border-bottom: 2px dotted #999; }
+.gcliCompletion span.ERROR { color: #DDD; border-bottom: 2px dotted #F00; }
+span.gcliPrompt { color: #66F; font-weight: bold; }
+span.gcliCompl { color: #999; }
+
+.gcliHintParent {
+  color: #000;
+  position: absolute;
+  top: 0; bottom: 0; left: 0; width: 280px;
+  background: rgba(250, 250, 250, 0.8);
+  border-right: 1px solid #AAA;
+}
+.gcliHints {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  overflow: auto;
+  padding: 10px;
+}
+.gcliHints ul { margin: 0; padding: 0 15px; }
+
+.gcliRequests {
+  overflow: auto;
+  position: absolute;
+  bottom: 0; left: 300px; right: 0;
+}
+
+.gcliGt { font-weight: bold; font-size: 120%; }
+
+/* The items in a menu. Used primarily for the command menu */
+.gcliOption { overflow: hidden; white-space: nowrap; cursor: pointer; }
+.gcliOption:hover { background-color: rgb(230, 230, 230) }
+.gcliOptName { padding-right: 5px; }
+.gcliOptDesc { font-size: 80%; color: #999; }

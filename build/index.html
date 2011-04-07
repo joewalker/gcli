@@ -7,10 +7,10 @@
   <title>Cockpit: Command Line</title>
   <style type="text/css" media="screen">
     body { width: 100%; height: 100%; overflow: hidden; }
-    #cockpitOutput {
+    #gcliOutput {
       position: absolute; top: 0; bottom: 30px; left: 0; right: 0;
     }
-    #cockpitInput {
+    #gcliInput {
       position: absolute; height: 30px; bottom: 0; left: 0; right: 0;
       font-size: 110%;
       width: 100%;
@@ -21,14 +21,14 @@
 
 <body>
 
-  <div id="cockpitOutput">
+  <div id="gcliOutput">
   </div>
 
-  <input id="cockpitInput" type="text"/>
+  <input id="gcliInput" type="text"/>
 
   <script type="text/javascript" src="gcli-uncompressed.js"></script>
   <script type="text/javascript">
-    require([ "cockpit/index" ], function(gcli) {
+    require([ "gcli/index" ], function(gcli) {
         gcli.startup();
         new gcli.CliView();
     }.bind(this));

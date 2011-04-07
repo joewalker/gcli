@@ -3,17 +3,17 @@
 Template for an Assignment.
 Evaluated each time the commandAssignment changes
 -->
-<div id="cptReqTempl">
+<div id="gcliReqTempl">
   <div>
     <!-- setup for later -->${lastGroup = ''}
-    <div class="cptCmdDesc">
+    <div class="gcliCmdDesc">
       ${requ.commandAssignment.getValue().getDescription()}
     </div>
-    <table class="cptParams">
-      <tbody class="cptAssignment"
+    <table class="gcliParams">
+      <tbody class="gcliAssignment"
           foreach="assignment in ${requ.getAssignments()}">
         <!-- Parameter group header -->
-        <tr class="cptParamGroup"
+        <tr class="gcliParamGroup"
             if="${assignment.param.groupName &amp;&amp; assignment.param.groupName !== lastGroup}">
           <td colspan="2" onclick="${onGroupToggle}">
             ${lastGroup = assignment.param.groupName; assignment.param.groupName}
@@ -21,24 +21,24 @@ Evaluated each time the commandAssignment changes
           </td>
         </tr>
         <!-- Parameter -->
-        <tr class="cptGroupRow">
-          <td class="cptParamDescr" colspan="2">${assignment.param.description}</td>
+        <tr class="gcliGroupRow">
+          <td class="gcliParamDescr" colspan="2">${assignment.param.description}</td>
         </tr>
-        <tr class="cptGroupRow">
-          <td class="cptParamName">
+        <tr class="gcliGroupRow">
+          <td class="gcliParamName">
             <label>${assignment.param.name}:</label>
           </td>
-          <td class="cptParamInput">${getInputFor(assignment)}</td>
+          <td class="gcliParamInput">${getInputFor(assignment)}</td>
         </tr>
-        <tr class="cptGroupRow">
-          <td class="cptParamError" colspan="2">
+        <tr class="gcliGroupRow">
+          <td class="gcliParamError" colspan="2">
             ${linkMessageElement(assignment, __element)}
           </td>
         </tr>
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="3" class="cptParamSubmit">
+          <td colspan="3" class="gcliParamSubmit">
             <input type="submit" value="Cancel" onclick="${onFormCancel}"/>
             <input type="submit" value="OK" onclick="${onFormOk}"/>
           </td>

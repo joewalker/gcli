@@ -13,12 +13,12 @@
     "overlay": {
         "teleport": {
             "directories": {
-                "lib": "lib/cockpit"
+                "lib": "lib/gcli"
             }
         }
     },
     "author": "Joe Walker <jwalker@mozilla.com>",
-    "main": "lib/cockpit",
+    "main": "lib/gcli",
     "repository" : {
         "type" : "git",
          "url" : "http://github.com/joewalker/cockpit.git"

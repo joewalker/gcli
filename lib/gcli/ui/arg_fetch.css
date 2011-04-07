@@ -1,0 +1,10 @@
+
+.gcliCmdDesc { font-weight: bold; text-align: center; }
+
+.gcliAssignment.gcliGroupHidden .gcliGroupRow { display: none; }
+
+.gcliParamGroup { font-weight: bold; }
+.gcliParamDescr { font-size: 80%; color: #999; }
+.gcliParamName { text-align: right; }
+.gcliParamError { font-size: 80%; color: #900; }
+.gcliParamSubmit { text-align: center; }

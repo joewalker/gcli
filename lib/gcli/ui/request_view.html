@@ -1,27 +1,27 @@
 
-<div class="cptRow">
+<div class="gcliRow">
   <!-- The div for the input (i.e. what was typed) -->
-  <div class="cptRowIn" save="${rowin}"
+  <div class="gcliRowIn" save="${rowin}"
       onclick="${copyToInput}" ondblclick="${execute}">
 
     <!-- What the user actually typed -->
-    <div class="cptGt">&gt; </div>
-    <div class="cptOutTyped">${request.typed}</div>
+    <div class="gcliGt">&gt; </div>
+    <div class="gcliOutTyped">${request.typed}</div>
 
     <!-- The extra details that appear on hover -->
-    <div class="cptHover" save="${duration}"></div>
-    <img class="cptHover" onclick="${hideOutput}" save="${hide}"
+    <div class="gcliHover" save="${duration}"></div>
+    <img class="gcliHover" onclick="${hideOutput}" save="${hide}"
         alt="Hide command output" _src="${imageUrl('images/minus.png')}"/>
-    <img class="cptHover cptHidden" onclick="${showOutput}" save="${show}"
+    <img class="gcliHover gcliHidden" onclick="${showOutput}" save="${show}"
         alt="Show command output" _src="${imageUrl('images/plus.png')}"/>
-    <img class="cptHover" onclick="${remove}"
+    <img class="gcliHover" onclick="${remove}"
         alt="Remove this command from the history"
         _src="${imageUrl('images/closer.png')}"/>
   </div>
 
   <!-- The div for the command output -->
-  <div class="cptRowOut" save="${rowout}">
-    <div class="cptRowOutput" save="${output}"></div>
+  <div class="gcliRowOut" save="${rowout}">
+    <div class="gcliRowOutput" save="${output}"></div>
     <img _src="${imageUrl('images/throbber.gif')}" save="${throb}"/>
   </div>
 </div>

@@ -162,25 +162,25 @@ Syntax checking
 Embedding GCLI
 --------------
 
-There are 3 basic steps in using cockpit in your system.
+There are 3 basic steps in using GCLI in your system.
 
 1. Import a script. Pre-built scripts are available in the ``build``
    directory. **Or at least they should be**. Just place the following
    wherever you place your script files.
 
-    <script src="path/to/cockpit.js" type="text/javascript"></script>
+    <script src="path/to/gcli.js" type="text/javascript"></script>
 
-   TODO: build cockpit.
+   TODO: build GCLI.
 
-2. Having imported cockpit, we need to tell it where to go. The simplest
-   method is to include an input element with the id of ``cockpitInput``.
+2. Having imported GCLI, we need to tell it where to go. The simplest
+   method is to include an input element with the id of ``gcliInput``.
 
-    <input id="cockpitInput" type="text"/>
+    <input id="gcliInput" type="text"/>
 
    Optionally, if you want the output to be always visible or under your
    control, you can include an output element as follows:
 
-    <div id="cockpitOutput"></div>
+    <div id="gcliOutput"></div>
 
    If this element is not present, GCLI will create its own output element and
    show it above or below the input element whenever the command line has
@@ -188,7 +188,7 @@ There are 3 basic steps in using cockpit in your system.
 
    TODO: Check this last part works
 
-3. Tell cockpit what commands to make available. See the sections on Writing
+3. Tell GCLI what commands to make available. See the sections on Writing
    Commands, Writing Types and Writing Fields for more information.
 
    One important thing to note is that this must be done after GCLI has
@@ -196,7 +196,7 @@ There are 3 basic steps in using cockpit in your system.
    ``event``. (This is not fully implemented yet)
 
     window.onGCLIInit = function(require) {
-      var canon = require('cockpit/canon');
+      var canon = require('gcli/canon');
       canon.addCommand({ ... });
     };
 
@@ -235,7 +235,7 @@ Writing Commands
     // Extracts foo.tar.gz into the current directory
 
   These 2 commands do exactly opposite things. It shouldn't take much
-  reflection to see why this is bad design. In cockpit this would be better
+  reflection to see why this is bad design. In GCLI this would be better
   expressed:
 
     $ tar create foo.tar.gz -z .

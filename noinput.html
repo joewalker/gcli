@@ -9,12 +9,12 @@
     require({
         waitSeconds: 1,
         packagePaths: {
-            "lib": [ { name: "cockpit", main: "index", lib: "." } ],
+            "lib": [ { name: "gcli", main: "index", lib: "." } ],
             "support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ]
         }
     });
     
-    var deps = [ "cockpit/index", "pilot/fixoldbrowsers" ];
+    var deps = [ "gcli/index", "pilot/fixoldbrowsers" ];
 
     var cliView;
     require(deps, function(gcli) {
@@ -26,10 +26,10 @@
   <title>Cockpit: Command Line</title>
   <style type="text/css" media="screen">
     body { width: 100%; height: 100%; overflow: hidden; }
-    #cockpitOutput {
+    #gcliOutput {
       position: absolute; top: 0; bottom: 30px; left: 0; right: 0;
     }
-    #cockpitInput {
+    #gcliInput {
       position: absolute; height: 30px; bottom: 0; left: 0; right: 0;
       font-size: 110%;
       width: 100%;
