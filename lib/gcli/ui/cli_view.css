@@ -32,12 +32,6 @@ span.gcliCompl { color: #999; }
 }
 .gcliHints ul { margin: 0; padding: 0 15px; }
 
-.gcliRequests {
-  overflow: auto;
-  position: absolute;
-  bottom: 0; left: 300px; right: 0;
-}
-
 .gcliGt { font-weight: bold; font-size: 120%; }
 
 /* The items in a menu. Used primarily for the command menu */
