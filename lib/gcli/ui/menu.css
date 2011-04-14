@@ -1,0 +1,6 @@
+
+/* The items in a menu. Used primarily for the command menu */
+.gcliOption { overflow: hidden; white-space: nowrap; cursor: pointer; }
+.gcliOption:hover { background-color: rgb(230, 230, 230) }
+.gcliOptName { padding-right: 5px; }
+.gcliOptDesc { font-size: 80%; color: #999; }

@@ -33,9 +33,3 @@ span.gcliCompl { color: #999; }
 .gcliHints ul { margin: 0; padding: 0 15px; }
 
 .gcliGt { font-weight: bold; font-size: 120%; }
-
-/* The items in a menu. Used primarily for the command menu */
-.gcliOption { overflow: hidden; white-space: nowrap; cursor: pointer; }
-.gcliOption:hover { background-color: rgb(230, 230, 230) }
-.gcliOptName { padding-right: 5px; }
-.gcliOptDesc { font-size: 80%; color: #999; }
