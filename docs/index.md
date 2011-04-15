@@ -520,6 +520,40 @@ it useful.
 TODO: The Request object should allow control over returned values, their
 types and ways they can be converted to other types.
 
+The new way: TODO: integrate into docs properly
+
+To return some plain text:
+
+    { returnType: "string" }
+    return "example";
+
+    { returnType: "html" }
+    return "<p>Hello</p>";
+
+    { returnType: "html" }
+    return document.createElement('div');
+
+    { returnType: "number" }
+    return 42;
+
+    { returnType: "date" }
+    return new Date();
+
+    { returnType: "file" }
+    return new File();
+
+    { returnType: "string" }
+    var promise = gcli.createPromise();
+    setTimeout(function() {
+        promise.setProgress(0.5, "Half way through");
+    }, 500);
+    setTimeout(function() {
+        promise.resolve("hello");
+    }, 500);
+    return promise;
+
+
+
 The request object allows interaction with the command line output and to
 control asynchronous completion.
 
