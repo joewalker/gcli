@@ -1,0 +1,5 @@
+
+#gcliOutput { overflow: auto; display: none; }
+#gcliOutput.gcliFocusPopup {
+  position: absolute; z-index: 999; display: block;
+}
