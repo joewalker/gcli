@@ -39,3 +39,5 @@
 .gcliRowOutput td,
 .gcliRowOutput th { border: 0; padding: 0 2px; }
 .gcliRowOutput .right { text-align: right; }
+
+.gcliGt { font-weight: bold; font-size: 120%; }
