@@ -39,61 +39,67 @@ var copy = require('dryice').copy;
 
 // SETUP
 var gcliHome = __dirname;
-var project = copy.createCommonJsProject([
-  gcliHome + '/mini',
+
+/**
+ * Collate and filter the project inputs, given a definition of the project.
+ * The project definition changes for Firefox and normal builds
+ */
+function collateProjectFiles(project) {
+  // Grab and process all the Javascript
+  var output = copy.createDataObject();
+  copy({
+    source: [ copy.source.commonjs({ project: project, require: [ "gcli/index" ] }) ],
+    filter: [ copy.filter.moduleDefines ],
+    dest: output
+  });
+
+  // Process the CSS/HTML/PNG/GIF
+  copy({
+    source: { root: project, include: /.*\.css$|.*\.html$/, exclude: /tests?\// },
+    filter: [ copy.filter.addDefines ],
+    dest: output
+  });
+  copy({
+    source: { root: project, include: /.*\.png$|.*\.gif$/, exclude: /tests?\// },
+    filter: [ copy.filter.base64 ],
+    dest: output
+  });
+
+  return output;
+}
+
+// Build the standard compressed and uncompressed javascript files
+var stdProject = copy.createCommonJsProject([
+  gcliHome + '/support/pilot/lib',
   gcliHome + '/lib'
 ]);
-
-// Grab and process all the Javascript
-var javascript = copy.createDataObject();
-copy({
-  source: [ copy.source.commonjs({ project: project, require: [ "gcli/index" ] }) ],
-  filter: [ copy.filter.moduleDefines ],
-  dest: javascript
-});
-
-// Process the CSS/HTML/PNG/GIF
-var resources = copy.createDataObject();
-copy({
-  source: { root: project, include: /.*\.css$|.*\.html$/, exclude: /tests?\// },
-  filter: [ copy.filter.addDefines ],
-  dest: resources
-});
-copy({
-  source: { root: project, include: /.*\.png$|.*\.gif$/, exclude: /tests?\// },
-  filter: [ copy.filter.base64 ],
-  dest: resources
-});
-
-// Mini require as used in a web page
-var require = copy.createDataObject();
-copy({
-  source: [ 'build/mini_require.js' ],
-  dest: require
-});
-
-// Mini require as used in Firefox
-var ffrequire = copy.createDataObject();
-copy({
-  source: [ 'build/ff_require.js' ],
-  dest: ffrequire
-});
-
-
-// Create the compressed and uncompressed output files
+var stdSources = collateProjectFiles(stdProject);
 
 copy({
-  source: [ require, javascript, resources ],
+  source: [ 'build/mini_require.js', stdSources ],
   filter: [ copy.filter.uglifyjs, filterTextPlugin ],
   dest: 'build/gcli.js'
 });
 copy({
-  source: [ require, javascript, resources ],
+  source: [ 'build/mini_require.js', stdSources ],
   filter: [ filterTextPlugin ],
   dest: 'build/gcli-uncompressed.js'
 });
+
+
+var ffProject = copy.createCommonJsProject([
+  gcliHome + '/ff',
+  gcliHome + '/lib'
+]);
+var ffSources = collateProjectFiles(ffProject);
+
 copy({
-  source: [ ffrequire, javascript, resources ],
+  source: [
+    'ff/build/built_file_warning.txt',
+    'ff/build/gcli-jsm-start.js',
+    ffSources,
+    'ff/build/gcli-jsm-end.js'
+  ],
   filter: [ filterTextPlugin ],
   dest: 'build/gcli-ff.js'
 });
