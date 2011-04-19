@@ -54,7 +54,14 @@ if ('console' in this) {
 else {
     NAMES.forEach(function(name) {
         exports[name] = function() {
-            dump(Array.prototype.join.apply(arguments, [ ', ' ]) + '\n');
+            var msg;
+            for (var i = 0; i < arguments.length; i++) {
+                if (msg !== 0) {
+                    msg += ', ';
+                }
+                msg += JSON.stringify(arguments[i]);
+            }
+            dump(msg + '\n');
         };
     });
 }
