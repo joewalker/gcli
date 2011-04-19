@@ -6,11 +6,15 @@
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
   margin-left: 10px;
+  margin-right: 10px;
+  display: inline-block;
+  overflow: hidden;
 }
 
 .gcliHints {
   overflow: auto;
   padding: 10px;
+  display: inline-block;
 }
 
 .gcliHints ul { margin: 0; padding: 0 15px; }
