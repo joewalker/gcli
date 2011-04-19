@@ -44,27 +44,6 @@
 
 (function() {
 
-// These are the functions that are available in Chrome 4/5, Safari 4
-// and Firefox 3.6. Don't add to this list without checking browser support
-var NAMES = [
-    "assert", "count", "debug", "dir", "dirxml", "error", "group", "groupEnd",
-    "info", "log", "profile", "profileEnd", "time", "timeEnd", "trace", "warn"
-];
-
-if ('console' in this) {
-    // For each of the console functions, copy them if they exist, stub if not
-    NAMES.forEach(function(name) {
-        exports[name] = Function.prototype.bind.call(console[name], console);
-    });
-}
-else {
-    NAMES.forEach(function(name) {
-        exports[name] = function() {
-            dump(Array.prototype.join.apply(arguments, [ ', ' ]) + '\n');
-        };
-    });
-}
-
 if (window.require) {
     require.packaged = true;
     return;
