@@ -35,6 +35,8 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
+var debugDependencies = false;
+
 /**
  * Static object which allows the creation of GCLI sandboxes.
  * Exported to the outside.
@@ -46,7 +48,7 @@ var GCLI = {
    * provide access to these functions, so their use is discouraged until we
    * have more experience in how they are needed.
    */
-  create: function()
+  create: function(options)
   {
     // Copy module defs from define.modules before we begin instantiating them
     var modules = {};
@@ -54,20 +56,35 @@ var GCLI = {
       modules[moduleName] = moduleDefs[moduleName];
     });
 
+    var depth = "";
+
     // Find a module definition, including instantiating it if needed
     function require(moduleName) {
       var module = modules[moduleName];
       if (module == null) {
-        dump("Missing module: " + moduleName + "\n");
+        if (debugDependencies) {
+          dump(depth + " Missing module: " + moduleName + "\n");
+        }
         return null;
       }
 
       if (typeof module == "function") {
         var exports = {};
+
+        if (debugDependencies) {
+          dump(depth + " Compiling module: " + moduleName + "\n");
+        }
+        depth += ".";
         module(require, exports, { id: moduleName, uri: "" });
+        depth = depth.slice(0, -1);
+
         // cache the resulting module object for next time
         modules[moduleName] = exports;
-        module = exports;
+        return exports;
+      }
+
+      if (debugDependencies) {
+        dump(depth + " Using module: " + moduleName + "\n");
       }
 
       return module;
@@ -76,7 +93,14 @@ var GCLI = {
     var gcli = require("gcli/index");
     gcli.canon = require("gcli/canon");
     gcli.ui = require("gcli/ui/index");
-    gcli.__modules = modules;
+
+    if (options && options.exposeInternalsIUnderstandTheRiskKillMePlease) {
+      gcli.__modules = modules;
+    }
+
+    gcli.startup();
+    delete gcli.startup;
+    delete gcli.shutdown;
 
     return gcli;
   }
