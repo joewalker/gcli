@@ -15,12 +15,15 @@
     });
     
     var deps = [ "gcli/index", "pilot/fixoldbrowsers" ];
+    var requisition;
 
     require(deps, function(gcli) {
         pilot.startup();
         gcli.startup();
-        gcli.createView();
+        // gcli.createView();
+        requisition = new gcli.Requisition();
     }.bind(this));
+
   </script>
   <title>Cockpit: Command Line</title>
   <style type="text/css" media="screen">
@@ -49,7 +52,10 @@ This is an example of GCLI used without either an input or output element.
 
 <script>
 function go() {
-  gcli.exec(document.getElementById('input').value);
+  requisition.exec({
+    command: document.getElementById('input').value,
+    args: { }
+  });
 }
 </script>
 
