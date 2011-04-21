@@ -37,6 +37,8 @@
 
 var debugDependencies = false;
 
+Cu.import("resource:///modules/require.jsm");
+
 /**
  * Static object which allows the creation of GCLI sandboxes.
  * Exported to the outside.
@@ -50,52 +52,15 @@ var GCLI = {
    */
   create: function(options)
   {
-    // Copy module defs from define.modules before we begin instantiating them
-    var modules = {};
-    Object.keys(moduleDefs).forEach(function(moduleName) {
-      modules[moduleName] = moduleDefs[moduleName];
-    });
+    var sandbox = new define.Sandbox();
 
-    var depth = "";
+    var gcli = sandbox.require("gcli/index");
 
-    // Find a module definition, including instantiating it if needed
-    function require(moduleName) {
-      var module = modules[moduleName];
-      if (module == null) {
-        if (debugDependencies) {
-          dump(depth + " Missing module: " + moduleName + "\n");
-        }
-        return null;
-      }
+    // TODO: we shouldn't need to expose this
+    gcli.ui = sandbox.require("gcli/ui/index");
 
-      if (typeof module == "function") {
-        var exports = {};
-
-        if (debugDependencies) {
-          dump(depth + " Compiling module: " + moduleName + "\n");
-        }
-        depth += ".";
-        module(require, exports, { id: moduleName, uri: "" });
-        depth = depth.slice(0, -1);
-
-        // cache the resulting module object for next time
-        modules[moduleName] = exports;
-        return exports;
-      }
-
-      if (debugDependencies) {
-        dump(depth + " Using module: " + moduleName + "\n");
-      }
-
-      return module;
-    }
-
-    var gcli = require("gcli/index");
-    gcli.canon = require("gcli/canon");
-    gcli.ui = require("gcli/ui/index");
-
-    if (options && options.exposeInternalsIUnderstandTheRiskKillMePlease) {
-      gcli.__modules = modules;
+    if (options && options.exposeSandboxIUnderstandTheRiskKillMePlease) {
+      gcli.__sandbox = sandbox;
     }
 
     gcli.startup();
