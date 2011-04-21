@@ -35,10 +35,6 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-var debugDependencies = false;
-
-Cu.import("resource:///modules/require.jsm");
-
 /**
  * Static object which allows the creation of GCLI sandboxes.
  * Exported to the outside.

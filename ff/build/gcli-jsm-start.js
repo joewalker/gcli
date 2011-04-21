@@ -35,26 +35,5 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-/**
- * This is where define stores the modules for access in GCLI.create()
- */
-var moduleDefs = {};
-
-/**
- * The function is a clone of the RequireJS style module definition wrapper.
- * @param module a name for the payload
- * @param deps
- * @param payload a function to call with (require, exports, module) params
- */
-function define(moduleName, deps, payload)
-{
-  if (typeof moduleName != "string") {
-    dump("dropping module because moduleName wasn't a string.\n");
-    return;
-  }
-
-  moduleDefs[moduleName] = payload;
-}
-
-
-Cu.import("resource:///modules/console.jsm");
+Components.utils.import("resource:///modules/console.jsm");
+Components.utils.import("resource:///modules/require.jsm");
