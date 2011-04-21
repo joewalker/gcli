@@ -38,33 +38,22 @@
 define(function(require, exports, module) {
 
 
-// These are the functions that are available in Chrome 4/5, Safari 4
-// and Firefox 3.6. Don't add to this list without checking browser support
-var NAMES = [
-    "assert", "count", "debug", "dir", "dirxml", "error", "group", "groupEnd",
-    "info", "log", "profile", "profileEnd", "time", "timeEnd", "trace", "warn"
-];
-
-if ('console' in this) {
-    // For each of the console functions, copy them if they exist, stub if not
-    NAMES.forEach(function(name) {
-        exports[name] = Function.prototype.bind.call(console[name], console);
-    });
-}
-else {
-    NAMES.forEach(function(name) {
-        exports[name] = function() {
-            var msg;
-            for (var i = 0; i < arguments.length; i++) {
-                if (msg !== 0) {
-                    msg += ', ';
-                }
-                msg += JSON.stringify(arguments[i]);
-            }
-            dump(msg + '\n');
-        };
-    });
-}
+exports.debug = console.debug;
+exports.log = console.log;
+exports.info = console.info;
+exports.warn = console.warn;
+exports.error = console.error;
+exports.trace = console.trace;
+exports.dir = console.dir;
+exports.dirxml = console.dirxml;
+exports.group = console.group;
+exports.groupEnd = console.groupEnd;
+exports.assert = console.assert;
+exports.count = console.count;
+exports.profile = console.profile;
+exports.profileEnd = console.profileEnd;
+exports.time = console.time;
+exports.timeEnd = console.timeEnd;
 
 
 });
