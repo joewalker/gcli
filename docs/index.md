@@ -2,7 +2,7 @@
 About GCLI (a.k.a. Cockpit)
 ===========================
 
-Cockpit is a Graphical Command Line Interpreter.
+GCLI is a Graphical Command Line Interpreter.
 
 It is born of the belief that character based command lines were designed for
 computers that are profoundly different from todays computers. They were

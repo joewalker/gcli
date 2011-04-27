@@ -1,16 +1,16 @@
 
-Cockpit Command Line
-====================
+GCLI - Graphic Command Line
+===========================
 
-Cockpit is a command line component. It is used in Ace/Skywriter/Cloud9/etc
+GCLI is a command line component. It is used in Ace/Skywriter/Cloud9/etc
 It can be easily embedded in any web page and JavaScript application.
 
 Getting Started
 ---------------
-Cockpit uses submodules, so make sure you checkout with the following:
+GCLI uses submodules, so make sure you checkout with the following:
 
-    git clone git://github.com/joewalker/cockpit.git --recursive
-    cd cockpit
+    git clone git://github.com/joewalker/gcli.git --recursive
+    cd gcli
     python static.py
 
 Then in a browser, visit 'http://localhost:9999/' and where you see the '>'

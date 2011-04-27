@@ -1,8 +1,8 @@
 {
-    "name": "cockpit",
+    "name": "gcli",
     "description": "Command line component for Skywriter/Ace/Cloud9/etc",
     "version": "0.1.1",
-    "homepage" : "http://github.com/joewalker/cockpit",
+    "homepage" : "http://github.com/joewalker/gcli",
     "engines": {
         "node": ">= 0.1.102",
         "teleport": ">=0.2.0"
@@ -21,7 +21,7 @@
     "main": "lib/gcli",
     "repository" : {
         "type" : "git",
-         "url" : "http://github.com/joewalker/cockpit.git"
+         "url" : "http://github.com/joewalker/gcli.git"
     },
     "licenses": [{
         "type": "LGPLv3",
