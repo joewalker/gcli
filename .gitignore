@@ -18,6 +18,6 @@
 # Build artifacts
 /build/gcli-uncompressed.js
 /build/gcli.js
-/build/ff_require.js
-/build/gcli-ff.js
+/build/gcli.jsm
+/build/pilot.jsm
 

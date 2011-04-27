@@ -11,15 +11,15 @@
  * for the specific language governing rights and limitations under the
  * License.
  *
- * The Original Code is GCLI.
+ * The Original Code is Mozilla Skywriter.
  *
  * The Initial Developer of the Original Code is
- * Mozilla
- * Portions created by the Initial Developer are Copyright (C) 2010
+ * Mozilla.
+ * Portions created by the Initial Developer are Copyright (C) 2009
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
- *      Joe Walker (jwalker@mozilla.com)
+ *      Joe Walker (jwalker@mozilla.com) (original author)
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -35,5 +35,14 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-Components.utils.import("resource:///modules/console.jsm");
-Components.utils.import("resource:///modules/require.jsm");
+define(function(require, exports, module) {
+
+require('pilot/console');
+require('pilot/dom');
+require('pilot/event_emitter');
+require('pilot/event');
+require('pilot/lang');
+require('pilot/oop');
+require('pilot/typecheck');
+
+});

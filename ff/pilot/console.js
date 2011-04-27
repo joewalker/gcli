@@ -35,25 +35,23 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
+Components.utils.import("resource:///modules/console.jsm");
+
 define(function(require, exports, module) {
-
-
-exports.debug = console.debug;
-exports.log = console.log;
-exports.info = console.info;
-exports.warn = console.warn;
-exports.error = console.error;
-exports.trace = console.trace;
-exports.dir = console.dir;
-exports.dirxml = console.dirxml;
-exports.group = console.group;
-exports.groupEnd = console.groupEnd;
-exports.assert = console.assert;
-exports.count = console.count;
-exports.profile = console.profile;
-exports.profileEnd = console.profileEnd;
-exports.time = console.time;
-exports.timeEnd = console.timeEnd;
-
-
+  exports.debug = console.debug;
+  exports.log = console.log;
+  exports.info = console.info;
+  exports.warn = console.warn;
+  exports.error = console.error;
+  exports.trace = console.trace;
+  exports.dir = console.dir;
+  exports.dirxml = console.dirxml;
+  exports.group = console.group;
+  exports.groupEnd = console.groupEnd;
+  exports.assert = console.assert;
+  exports.count = console.count;
+  exports.profile = console.profile;
+  exports.profileEnd = console.profileEnd;
+  exports.time = console.time;
+  exports.timeEnd = console.timeEnd;
 });
