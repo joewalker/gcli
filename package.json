@@ -4,18 +4,10 @@
     "version": "0.1.1",
     "homepage" : "http://github.com/joewalker/gcli",
     "engines": {
-        "node": ">= 0.1.102",
-        "teleport": ">=0.2.0"
+        "node": ">= 0.1.102"
     },
     "dependencies": {
-        "pilot": ">=0.1.1"
-    },
-    "overlay": {
-        "teleport": {
-            "directories": {
-                "lib": "lib/gcli"
-            }
-        }
+        "dryice": ">=0.2.4"
     },
     "author": "Joe Walker <jwalker@mozilla.com>",
     "main": "lib/gcli",

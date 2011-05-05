@@ -11,6 +11,7 @@
         packagePaths: {
             "lib": [
                 { name: "gcli", main: "index", lib: "." },
+                { name: "test", main: "index", lib: "." },
                 { name: "demo", main: "index", lib: "." }
             ],
             //"ff": [ { name: "pilot", main: "index", lib: "." } ]
@@ -18,12 +19,13 @@
         }
     });
 
-    var deps = [ "gcli/index", "demo/index", "gcli/commands/help",
+    var deps = [ "gcli/index", "demo/index", "test/index", "gcli/commands/help",
         "pilot/fixoldbrowsers" ];
 
-    require(deps, function(gcli, demo, help) {
+    require(deps, function(gcli, demo, test, help) {
         gcli.startup();
         demo.startup();
+        test.startup();
         gcli.createView();
 
         help.helpMessages.prefix = "<h2>Welcome to GCLI</h2>" +
