@@ -57,20 +57,20 @@ var stdProject = copy.createCommonJsProject([
 // Grab and process all the Javascript
 var stdSources = copy.createDataObject();
 copy({
-  source: [ copy.source.commonjs({ project: stdProject, require: [ "gcli/index" ] }) ],
-  filter: [ copy.filter.moduleDefines ],
+  source: copy.source.commonjs({ project: stdProject, require: [ "gcli/index" ] }),
+  filter: copy.filter.moduleDefines,
   dest: stdSources
 });
 
 // Process the CSS/HTML/PNG/GIF
 copy({
   source: { root: stdProject, include: /.*\.css$|.*\.html$/, exclude: /tests?\// },
-  filter: [ copy.filter.addDefines ],
+  filter: copy.filter.addDefines,
   dest: stdSources
 });
 copy({
   source: { root: stdProject, include: /.*\.png$|.*\.gif$/, exclude: /tests?\// },
-  filter: [ copy.filter.base64 ],
+  filter: copy.filter.base64,
   dest: stdSources
 });
 
@@ -82,7 +82,7 @@ copy({
 });
 copy({
   source: [ 'build/mini_require.js', stdSources ],
-  filter: [ filterTextPlugin ],
+  filter: filterTextPlugin,
   dest: 'build/gcli-uncompressed.js'
 });
 
@@ -110,25 +110,25 @@ ffProject.assumeAllFilesLoaded();
 // Grab and process all the Javascript for GCLI
 var gcliSources = copy.createDataObject();
 copy({
-  source: [ copy.source.commonjs({ project: ffProject, require: [ "gcli/index" ] }) ],
-  filter: [ copy.filter.moduleDefines ],
+  source: copy.source.commonjs({ project: ffProject, require: [ "gcli/index" ] }),
+  filter: copy.filter.moduleDefines,
   dest: gcliSources
 });
 
 // Process the CSS/HTML/PNG/GIF for GCLI
 copy({
   source: { root: ffProject, include: /.*\.css$|.*\.html$/, exclude: /tests?\// },
-  filter: [ copy.filter.addDefines ],
+  filter: copy.filter.addDefines,
   dest: gcliSources
 });
 copy({
   source: { root: ffProject, include: /.*\.png$|.*\.gif$/, exclude: /tests?\// },
-  filter: [ copy.filter.base64 ],
+  filter: copy.filter.base64,
   dest: gcliSources
 });
 copy({
   source: [ getHeader(), gcliSources, 'ff/build/gcli-jsm-end.js' ],
-  // filter: [ filterTextPlugin ],
+  // filter: filterTextPlugin,
   dest: 'build/gcli.jsm'
 });
 
