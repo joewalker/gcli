@@ -8,6 +8,7 @@
   <script type="text/javascript">
     require({
         waitSeconds: 1,
+        paths: { "text": "scripts/text" },
         packagePaths: {
             "lib": [
                 { name: "gcli", main: "index", lib: "." },
@@ -15,18 +16,21 @@
                 { name: "demo", main: "index", lib: "." }
             ],
             //"ff": [ { name: "pilot", main: "index", lib: "." } ]
-            "support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ]
+            "support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ],
         }
     });
 
-    var deps = [ "gcli/index", "demo/index", "test/index", "gcli/commands/help",
-        "pilot/fixoldbrowsers" ];
+    var deps = [ 'gcli/index', 'demo/index', 'test/index', 'gcli/commands/help',
+        'gcli/tests/testCli', 'pilot/fixoldbrowsers' ];
 
-    require(deps, function(gcli, demo, test, help) {
+    require(deps, function(gcli, demo, test, help, testCli) {
         gcli.startup();
         demo.startup();
-        test.startup();
         gcli.createView();
+
+        test.startup();
+        test.addSuite('cli', testCli);
+        test.run();
 
         help.helpMessages.prefix = "<h2>Welcome to GCLI</h2>" +
             "<p>GCLI is an experiment to create a highly usable JavaScript command line for developers." +
@@ -39,7 +43,10 @@
   </script>
   <title>GCLI: Graphical Command Line</title>
   <style type="text/css" media="screen">
-    body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+      width: 100%; height: 100%; overflow: hidden;
+      font-family: Calibri, Verdana, sans-serif;
+    }
     #gcliOutput {
       position: absolute; top: 0; bottom: 30px; left: 0; right: 0;
     }

@@ -1,0 +1,21 @@
+
+<table>
+  <thead>
+    <tr>
+      <th>Suite</th>
+      <th>Test</th>
+      <th>Results</th>
+      <th>Scratch</th>
+    </tr>
+  </thead>
+  <tbody id="testSummary">
+    <tr foreach="test in ${tests}">
+      <td>${test.suite.name}</td>
+      <td><strong>${test.name}</strong></td>
+      <td style="color:${test.status.color}">${test.status.name}</td>
+      <td>${test.message}</td>
+    </tr>
+  </tbody>
+</table>
+
+<div id="output"> </div>

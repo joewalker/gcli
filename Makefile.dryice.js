@@ -47,6 +47,7 @@ var gcliHome = __dirname;
  * - The other build is for use within firefox. It also consists of 2 output
  *   files pilot.jsm and gcli.jsm
  */
+console.log('Building build/gcli.js and build/gcli-uncompressed.js:');
 
 // Build the standard compressed and uncompressed javascript files
 var stdProject = copy.createCommonJsProject([
@@ -57,19 +58,24 @@ var stdProject = copy.createCommonJsProject([
 // Grab and process all the Javascript
 var stdSources = copy.createDataObject();
 copy({
-  source: copy.source.commonjs({ project: stdProject, require: [ "gcli/index" ] }),
+  source: copy.source.commonjs({
+    project: stdProject,
+    require: [
+      'gcli/index', 'demo/index', 'test/index', 'gcli/commands/help',
+      'pilot/fixoldbrowsers', 'gcli/tests/testCli' ]
+  }),
   filter: copy.filter.moduleDefines,
   dest: stdSources
 });
 
 // Process the CSS/HTML/PNG/GIF
 copy({
-  source: { root: stdProject, include: /.*\.css$|.*\.html$/, exclude: /tests?\// },
+  source: { root: stdProject, include: /.*\.css$|.*\.html$/ },
   filter: copy.filter.addDefines,
   dest: stdSources
 });
 copy({
-  source: { root: stdProject, include: /.*\.png$|.*\.gif$/, exclude: /tests?\// },
+  source: { root: stdProject, include: /.*\.png$|.*\.gif$/ },
   filter: copy.filter.base64,
   dest: stdSources
 });
@@ -77,17 +83,20 @@ copy({
 
 copy({
   source: [ 'build/mini_require.js', stdSources ],
-  filter: [ copy.filter.uglifyjs, filterTextPlugin ],
+  filter: copy.filter.uglifyjs,
   dest: 'build/gcli.js'
 });
 copy({
   source: [ 'build/mini_require.js', stdSources ],
-  filter: filterTextPlugin,
   dest: 'build/gcli-uncompressed.js'
 });
 
 
-// Build the firefox customized javascript files
+/**
+ * Build the Javascript JSM files for Firefox
+ */
+console.log('Building build/pilot.jsm:');
+
 var ffProject = copy.createCommonJsProject([
   gcliHome + '/ff',
   gcliHome + '/lib'
@@ -99,44 +108,41 @@ var pilotSources = copy.createDataObject();
 copy({
   source: [
     getHeader(),
-    copy.source.commonjs({ project: ffProject, require: [ "pilot/index" ] })
+    copy.source.commonjs({ project: ffProject, require: [ 'pilot/index' ] })
   ],
-  filter: [ copy.filter.moduleDefines /*,filterTextPlugin*/ ],
+  filter: copy.filter.moduleDefines,
   dest: 'build/pilot.jsm'
 });
 
 ffProject.assumeAllFilesLoaded();
 
+console.log('Building build/gcli.jsm:');
+
 // Grab and process all the Javascript for GCLI
 var gcliSources = copy.createDataObject();
 copy({
-  source: copy.source.commonjs({ project: ffProject, require: [ "gcli/index" ] }),
+  source: copy.source.commonjs({ project: ffProject, require: [ 'gcli/index' ] }),
   filter: copy.filter.moduleDefines,
   dest: gcliSources
 });
 
 // Process the CSS/HTML/PNG/GIF for GCLI
 copy({
-  source: { root: ffProject, include: /.*\.css$|.*\.html$/, exclude: /tests?\// },
+  source: { root: ffProject, include: /.*\.css$|.*\.html$/ },
   filter: copy.filter.addDefines,
   dest: gcliSources
 });
 copy({
-  source: { root: ffProject, include: /.*\.png$|.*\.gif$/, exclude: /tests?\// },
+  source: { root: ffProject, include: /.*\.png$|.*\.gif$/ },
   filter: copy.filter.base64,
   dest: gcliSources
 });
 copy({
   source: [ getHeader(), gcliSources, 'ff/build/gcli-jsm-end.js' ],
-  // filter: filterTextPlugin,
   dest: 'build/gcli.jsm'
 });
 
 
-
-function filterTextPlugin(text) {
-  return text.replace(/(['"])text\!/g, "$1text/");
-}
 
 function getHeader() {
   return {
