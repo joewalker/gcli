@@ -1,17 +1,17 @@
 /** vim: et:ts=4:sw=4:sts=4
- * @license RequireJS 0.23.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license RequireJS 0.24.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
-/*jslint white: false, strict: false, plusplus: false */
+/*jslint strict: false, plusplus: false */
 /*global window: false, navigator: false, document: false, importScripts: false,
   jQuery: false, clearInterval: false, setInterval: false, self: false,
-  setTimeout: false */
+  setTimeout: false, opera: false */
 
 var require, define;
 (function () {
     //Change this version number for each release.
-    var version = "0.23.0",
+    var version = "0.24.0",
         commentRegExp = /(\/\*([\s\S]*?)\*\/|\/\/(.*)$)/mg,
         cjsRequireRegExp = /require\(["']([^'"\s]+)["']\)/g,
         currDirRegExp = /^\.\//,
@@ -29,6 +29,8 @@ var require, define;
         readyRegExp = isBrowser && navigator.platform === 'PLAYSTATION 3' ?
                       /^complete$/ : /^(complete|loaded)$/,
         defContextName = "_",
+        //Oh the tragedy, detecting opera. See the usage of isOpera for reason.
+        isOpera = typeof opera !== "undefined" && opera.toString() === "[object Opera]",
         reqWaitIdPrefix = "_r@@",
         empty = {},
         contexts = {},
@@ -36,13 +38,6 @@ var require, define;
         interactiveScript = null,
         isDone = false,
         useInteractive = false,
-        //Default plugins that have remapped names, if no mapping
-        //already exists.
-        requirePlugins = {
-            "text": "require/text",
-            "i18n": "require/i18n",
-            "order": "require/order"
-        },
         req, cfg = {}, currentlyAddingScript, s, head, baseElement, scripts, script,
         src, subPath, mainScript, dataMain, i, scrollIntervalId, setReadyState, ctx;
 
@@ -258,8 +253,6 @@ var require, define;
 
             if (prefix) {
                 prefix = normalize(prefix, parentName);
-                //Allow simpler mappings for some plugins
-                prefix = requirePlugins[prefix] || prefix;
             }
 
             //Account for relative paths if there is a base name.
@@ -400,7 +393,9 @@ var require, define;
                     oldFullName = oldModuleMap.fullName;
                     moduleMap = makeModuleMap(oldModuleMap.originalName, oldModuleMap.parentMap);
                     fullName = moduleMap.fullName;
-                    callbacks = managerCallbacks[oldFullName];
+                    //Callbacks could be undefined if the same plugin!name was
+                    //required twice in a row, so use empty array in that case.
+                    callbacks = managerCallbacks[oldFullName] || [];
                     existingCallbacks = managerCallbacks[fullName];
 
                     if (fullName !== oldFullName) {
@@ -827,7 +822,8 @@ var require, define;
 
         function callPlugin(pluginName, dep) {
             var name = dep.name,
-                fullName = dep.fullName;
+                fullName = dep.fullName,
+                load;
 
             //Do not bother if plugin is already defined or being loaded.
             if (fullName in defined || fullName in loaded) {
@@ -843,10 +839,7 @@ var require, define;
                 loaded[fullName] = false;
             }
 
-            //Use parentName here since the plugin's name is not reliable,
-            //could be some weird string with no path that actually wants to
-            //reference the parentName's path.
-            plugins[pluginName].load(name, makeRequire(dep.parentMap, true), function (ret) {
+            load = function (ret) {
                 //Allow the build process to register plugin-loaded dependencies.
                 if (require.onPluginLoad) {
                     require.onPluginLoad(context, pluginName, name, ret);
@@ -861,7 +854,36 @@ var require, define;
                     }
                 });
                 loaded[fullName] = true;
-            }, config);
+            };
+
+            //Allow plugins to load other code without having to know the
+            //context or how to "complete" the load.
+            load.fromText = function (moduleName, text) {
+                /*jslint evil: true */
+                var hasInteractive = useInteractive;
+
+                //Indicate a the module is in process of loading.
+                context.loaded[moduleName] = false;
+                context.scriptCount += 1;
+
+                //Turn off interactive script matching for IE for any define
+                //calls in the text, then turn it back on at the end.
+                if (hasInteractive) {
+                    useInteractive = false;
+                }
+                eval(text);
+                if (hasInteractive) {
+                    useInteractive = true;
+                }
+
+                //Support anonymous modules.
+                context.completeLoad(moduleName);
+            };
+
+            //Use parentName here since the plugin's name is not reliable,
+            //could be some weird string with no path that actually wants to
+            //reference the parentName's path.
+            plugins[pluginName].load(name, makeRequire(dep.parentMap, true), load, config);
         }
 
         function loadPaused(dep) {
@@ -875,7 +897,7 @@ var require, define;
                 fullName = dep.fullName;
 
             //Do not bother if the dependency has already been specified.
-            if (specified[fullName] || fullName in defined) {
+            if (specified[fullName] || loaded[fullName]) {
                 return;
             } else {
                 specified[fullName] = true;
@@ -943,23 +965,22 @@ var require, define;
                 }
             }
 
-            //Skip the resume if current context is in priority wait.
-            if (config.priorityWait && !isPriorityDone()) {
-                return undefined;
-            }
+            //Skip the resume of paused dependencies
+            //if current context is in priority wait.
+            if (!config.priorityWait || isPriorityDone()) {
+                while (context.paused.length) {
+                    p = context.paused;
+                    context.pausedCount += p.length;
+                    //Reset paused list
+                    context.paused = [];
 
-            while (context.paused.length) {
-                p = context.paused;
-                context.pausedCount += p.length;
-                //Reset paused list
-                context.paused = [];
-
-                for (i = 0; (args = p[i]); i++) {
-                    loadPaused(args);
+                    for (i = 0; (args = p[i]); i++) {
+                        loadPaused(args);
+                    }
+                    //Move the start time for timeout forward.
+                    context.startTime = (new Date()).getTime();
+                    context.pausedCount -= p.length;
                 }
-                //Move the start time for timeout forward.
-                context.startTime = (new Date()).getTime();
-                context.pausedCount -= p.length;
             }
 
             //Only check if loaded when resume depth is 1. It is likely that
@@ -1052,20 +1073,28 @@ var require, define;
 
                 //If priority loading is in effect, trigger the loads now
                 if (cfg.priority) {
-                    //Create a separate config property that can be
-                    //easily tested for config priority completion.
-                    //Do this instead of wiping out the config.priority
-                    //in case it needs to be inspected for debug purposes later.
                     //Hold on to requireWait value, and reset it after done
                     requireWait = context.requireWait;
+
+                    //Allow tracing some require calls to allow the fetching
+                    //of the priority config.
                     context.requireWait = false;
+
+                    //But first, call resume to register any defined modules that may
+                    //be in a data-main built file before the priority config
+                    //call. Also grab any waiting define calls for this context.
+                    context.takeGlobalQueue();
+                    resume();
+
                     context.require(cfg.priority);
+
                     //Trigger a resume right away, for the case when
                     //the script with the priority load is done as part
                     //of a data-main call. In that case the normal resume
                     //call will not happen because the scriptCount will be
                     //at 1, since the script for data-main is being processed.
                     resume();
+
                     //Restore previous state.
                     context.requireWait = requireWait;
                     config.priorityWait = cfg.priority;
@@ -1518,7 +1547,7 @@ var require, define;
     };
 
     /**
-     * Executes a module callback function. Broken out as a separate function
+     * Executes a module callack function. Broken out as a separate function
      * solely to allow the build system to sequence the files in the built
      * layer in the right sequence.
      *
@@ -1555,13 +1584,15 @@ var require, define;
 
             contexts[contextName].completeLoad(moduleName);
 
-            //Clean up script binding.
-            if (node.removeEventListener) {
-                node.removeEventListener("load", req.onScriptLoad, false);
-            } else {
+            //Clean up script binding. Favor detachEvent because of IE9
+            //issue, see attachEvent/addEventListener comment elsewhere
+            //in this file.
+            if (node.detachEvent && !isOpera) {
                 //Probably IE. If not it will throw an error, which will be
                 //useful to know.
                 node.detachEvent("onreadystatechange", req.onScriptLoad);
+            } else {
+                node.removeEventListener("load", req.onScriptLoad, false);
             }
         }
     };
@@ -1599,18 +1630,24 @@ var require, define;
             node.setAttribute("data-requirecontext", contextName);
             node.setAttribute("data-requiremodule", moduleName);
 
-            //Set up load listener.
-            if (node.addEventListener) {
-                node.addEventListener("load", callback, false);
-            } else {
-                //Probably IE. If not it will throw an error, which will be
-                //useful to know. IE (at least 6-8) do not fire
+            //Set up load listener. Test attachEvent first because IE9 has
+            //a subtle issue in its addEventListener and script onload firings
+            //that do not match the behavior of all other browsers with
+            //addEventListener support, which fire the onload event for a
+            //script right after the script execution. See:
+            //https://connect.microsoft.com/IE/feedback/details/648057/script-onload-event-is-not-fired-immediately-after-script-execution
+            //UNFORTUNATELY Opera implements attachEvent but does not follow the script
+            //script execution mode.
+            if (node.attachEvent && !isOpera) {
+                //Probably IE. IE (at least 6-8) do not fire
                 //script onload right after executing the script, so
                 //we cannot tie the anonymous require.def call to a name.
                 //However, IE reports the script as being in "interactive"
                 //readyState at the time of the require.def call.
                 useInteractive = true;
                 node.attachEvent("onreadystatechange", callback);
+            } else {
+                node.addEventListener("load", callback, false);
             }
             node.src = url;
 
@@ -1844,418 +1881,4 @@ var require, define;
             req.checkReadyState();
         }, 0);
     }
-}());
-
-/**
- * @license RequireJS i18n Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
- * Available via the MIT or new BSD license.
- * see: http://github.com/jrburke/requirejs for details
- */
-/*jslint white: false, regexp: false, nomen: false, plusplus: false, strict: false */
-/*global require: false, navigator: false, define: false */
-
-/**
- * This plugin handles i18n! prefixed modules. It does the following:
- *
- * 1) A regular module can have a dependency on an i18n bundle, but the regular
- * module does not want to specify what locale to load. So it just specifies
- * the top-level bundle, like "i18n!nls/colors".
- *
- * This plugin will load the i18n bundle at nls/colors, see that it is a root/master
- * bundle since it does not have a locale in its name. It will then try to find
- * the best match locale available in that master bundle, then request all the
- * locale pieces for that best match locale. For instance, if the locale is "en-us",
- * then the plugin will ask for the "en-us", "en" and "root" bundles to be loaded
- * (but only if they are specified on the master bundle).
- *
- * Once all the bundles for the locale pieces load, then it mixes in all those
- * locale pieces into each other, then finally sets the context.defined value
- * for the nls/colors bundle to be that mixed in locale.
- *
- * 2) A regular module specifies a specific locale to load. For instance,
- * i18n!nls/fr-fr/colors. In this case, the plugin needs to load the master bundle
- * first, at nls/colors, then figure out what the best match locale is for fr-fr,
- * since maybe only fr or just root is defined for that locale. Once that best
- * fit is found, all of its locale pieces need to have their bundles loaded.
- *
- * Once all the bundles for the locale pieces load, then it mixes in all those
- * locale pieces into each other, then finally sets the context.defined value
- * for the nls/fr-fr/colors bundle to be that mixed in locale.
- */
-(function () {
-    //regexp for reconstructing the master bundle name from parts of the regexp match
-    //nlsRegExp.exec("foo/bar/baz/nls/en-ca/foo") gives:
-    //["foo/bar/baz/nls/en-ca/foo", "foo/bar/baz/nls/", "/", "/", "en-ca", "foo"]
-    //nlsRegExp.exec("foo/bar/baz/nls/foo") gives:
-    //["foo/bar/baz/nls/foo", "foo/bar/baz/nls/", "/", "/", "foo", ""]
-    //so, if match[5] is blank, it means this is the top bundle definition.
-    var nlsRegExp = /(^.*(^|\/)nls(\/|$))([^\/]*)\/?([^\/]*)/;
-
-    //Helper function to avoid repeating code. Lots of arguments in the
-    //desire to stay functional and support RequireJS contexts without having
-    //to know about the RequireJS contexts.
-    function addPart(locale, master, needed, toLoad, prefix, suffix) {
-        if (master[locale]) {
-            needed.push(locale);
-            if (master[locale] === true || master[locale] === 1) {
-                toLoad.push(prefix + locale + '/' + suffix);
-            }
-        }
-    }
-
-    function addIfExists(req, locale, toLoad, prefix, suffix) {
-        var fullName = prefix + locale + '/' + suffix;
-        if (require._fileExists(req.nameToUrl(fullName, null))) {
-            toLoad.push(fullName);
-        }
-    }
-
-    define('require/i18n',{
-        /**
-         * Called when a dependency needs to be loaded.
-         */
-        load: function (name, req, onLoad, config) {
-            config = config || {};
-
-            var masterName,
-                match = nlsRegExp.exec(name),
-                prefix = match[1],
-                locale = match[4],
-                suffix = match[5],
-                parts = locale.split("-"),
-                toLoad = [],
-                value = {},
-                i, part, current = "";
-
-            //If match[5] is blank, it means this is the top bundle definition,
-            //so it does not have to be handled. Locale-specific requests
-            //will have a match[4] value but no match[5]
-            if (match[5]) {
-                //locale-specific bundle
-                prefix = match[1];
-                masterName = prefix + suffix;
-            } else {
-                //Top-level bundle.
-                masterName = name;
-                suffix = match[4];
-                locale = config.locale || (config.locale =
-                        typeof navigator === "undefined" ? "root" :
-                        (navigator.language ||
-                         navigator.userLanguage || "root").toLowerCase());
-                parts = locale.split("-");
-            }
-
-            if (config.isBuild) {
-                //Check for existence of all locale possible files and
-                //require them if exist.
-                toLoad.push(masterName);
-                addIfExists(req, "root", toLoad, prefix, suffix);
-                for (i = 0; (part = parts[i]); i++) {
-                    current += (current ? "-" : "") + part;
-                    addIfExists(req, current, toLoad, prefix, suffix);
-                }
-                req(toLoad);
-                onLoad();
-            } else {
-                //First, fetch the master bundle, it knows what locales are available.
-                req([masterName], function (master) {
-                    //Figure out the best fit
-                    var needed = [];
-
-                    //Always allow for root, then do the rest of the locale parts.
-                    addPart("root", master, needed, toLoad, prefix, suffix);
-                    for (i = 0; (part = parts[i]); i++) {
-                        current += (current ? "-" : "") + part;
-                        addPart(current, master, needed, toLoad, prefix, suffix);
-                    }
-
-                    //Load all the parts missing.
-                    req(toLoad, function () {
-                        var i, partBundle;
-                        for (i = needed.length - 1; i > -1 && (part = needed[i]); i--) {
-                            partBundle = master[part];
-                            if (partBundle === true || partBundle === 1) {
-                                partBundle = req(prefix + part + '/' + suffix);
-                            }
-                            require.mixin(value, partBundle);
-                        }
-
-                        //All done, notify the loader.
-                        onLoad(value);
-                    });
-                });
-            }
-        }
-    });
-}());
-/**
- * @license RequireJS text Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
- * Available via the MIT or new BSD license.
- * see: http://github.com/jrburke/requirejs for details
- */
-/*jslint white: false, regexp: false, nomen: false, plusplus: false, strict: false */
-/*global require: false, XMLHttpRequest: false, ActiveXObject: false,
-  define: false */
-
-(function () {
-    var progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'],
-        xmlRegExp = /^\s*<\?xml(\s)+version=[\'\"](\d)*.(\d)*[\'\"](\s)*\?>/im,
-        bodyRegExp = /<body[^>]*>\s*([\s\S]+)\s*<\/body>/im,
-        buildMap = [];
-
-    if (!require.textStrip) {
-        require.textStrip = function (text) {
-            //Strips <?xml ...?> declarations so that external SVG and XML
-            //documents can be added to a document without worry. Also, if the string
-            //is an HTML document, only the part inside the body tag is returned.
-            if (text) {
-                text = text.replace(xmlRegExp, "");
-                var matches = text.match(bodyRegExp);
-                if (matches) {
-                    text = matches[1];
-                }
-            } else {
-                text = "";
-            }
-            return text;
-        };
-    }
-
-    if (!require.jsEscape) {
-        require.jsEscape = function (text) {
-            return text.replace(/(['\\])/g, '\\$1')
-                .replace(/[\f]/g, "\\f")
-                .replace(/[\b]/g, "\\b")
-                .replace(/[\n]/g, "\\n")
-                .replace(/[\t]/g, "\\t")
-                .replace(/[\r]/g, "\\r");
-        };
-    }
-
-    //Upgrade require to add some methods for XHR handling. But it could be that
-    //this require is used in a non-browser env, so detect for existing method
-    //before attaching one.
-    if (!require.getXhr) {
-        require.getXhr = function () {
-            //Would love to dump the ActiveX crap in here. Need IE 6 to die first.
-            var xhr, i, progId;
-            if (typeof XMLHttpRequest !== "undefined") {
-                return new XMLHttpRequest();
-            } else {
-                for (i = 0; i < 3; i++) {
-                    progId = progIds[i];
-                    try {
-                        xhr = new ActiveXObject(progId);
-                    } catch (e) {}
-
-                    if (xhr) {
-                        progIds = [progId];  // so faster next time
-                        break;
-                    }
-                }
-            }
-
-            if (!xhr) {
-                throw new Error("require.getXhr(): XMLHttpRequest not available");
-            }
-
-            return xhr;
-        };
-    }
-
-    if (!require.fetchText) {
-        require.fetchText = function (url, callback) {
-            var xhr = require.getXhr();
-            xhr.open('GET', url, true);
-            xhr.onreadystatechange = function (evt) {
-                //Do not explicitly handle errors, those should be
-                //visible via console output in the browser.
-                if (xhr.readyState === 4) {
-                    callback(xhr.responseText);
-                }
-            };
-            xhr.send(null);
-        };
-    }
-
-    define('require/text',['require','exports','module'],function () {
-        return {
-            load: function (name, req, onLoad, config) {
-                //Name has format: some.module.filext!strip
-                //The strip part is optional.
-                //if strip is present, then that means only get the string contents
-                //inside a body tag in an HTML string. For XML/SVG content it means
-                //removing the <?xml ...?> declarations so the content can be inserted
-                //into the current doc without problems.
-
-                var strip = false, url, index = name.indexOf("."),
-                    modName = name.substring(0, index),
-                    ext = name.substring(index + 1, name.length);
-
-                index = ext.indexOf("!");
-                if (index !== -1) {
-                    //Pull off the strip arg.
-                    strip = ext.substring(index + 1, ext.length);
-                    strip = strip === "strip";
-                    ext = ext.substring(0, index);
-                }
-
-                //Load the text.
-                url = req.nameToUrl(modName, "." + ext);
-                require.fetchText(url, function (text) {
-                    text = strip ? require.textStrip(text) : text;
-                    if (config.isBuild && config.inlineText) {
-                        buildMap[name] = text;
-                    }
-                    onLoad(text);
-                });
-            },
-
-            write: function (pluginName, moduleName, write) {
-                if (moduleName in buildMap) {
-                    var text = require.jsEscape(buildMap[moduleName]);
-                    write("define('" + pluginName + "!" + moduleName  +
-                          "', function () { return '" + text + "';});\n");
-                }
-            }
-        };
-    });
-}());
-/**
- * @license RequireJS order Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
- * Available via the MIT or new BSD license.
- * see: http://github.com/jrburke/requirejs for details
- */
-/*jslint white: false, nomen: false, plusplus: false, strict: false */
-/*global require: false, define: false, window: false, document: false,
-  setTimeout: false */
-
-(function () {
-    //Sadly necessary browser inference due to differences in the way
-    //that browsers load and execute dynamically inserted javascript
-    //and whether the script/cache method works.
-    //Currently, Gecko and Opera do not load/fire onload for scripts with
-    //type="script/cache" but they execute injected scripts in order
-    //unless the 'async' flag is present.
-    //However, this is all changing in latest browsers implementing HTML5
-    //spec. Firefox nightly supports using the .async true by default, and
-    //if false, then it will execute in order. Favor that test first for forward
-    //compatibility. However, it is unclear if webkit/IE will follow suit.
-    //Latest webkit breaks the script/cache trick.
-    //Test for document and window so that this file can be loaded in
-    //a web worker/non-browser env. It will not make sense to use this
-    //plugin in a non-browser env, but the file should not error out if included
-    //in the allplugins-require.js file, then loaded in a non-browser env.
-    var supportsInOrderExecution = typeof document !== "undefined" &&
-                                   typeof window !== "undefined" &&
-                                   (document.createElement("script").async ||
-                               (window.opera && Object.prototype.toString.call(window.opera) === "[object Opera]") ||
-                               //If Firefox 2 does not have to be supported, then
-                               //a better check may be:
-                               //('mozIsLocallyAvailable' in window.navigator)
-                               ("MozAppearance" in document.documentElement.style)),
-        readyRegExp = /^(complete|loaded)$/,
-        waiting = [],
-        cached = {};
-
-    function loadResource(name, req, onLoad) {
-        req([name], function (value) {
-            //The value may be a real defined module. Wrap
-            //it in a function call, because this function is used
-            //as the factory function for this ordered dependency.
-            onLoad(function () {
-                return value;
-            });
-        });
-    }
-
-    //Callback used by the type="script/cache" callback that indicates a script
-    //has finished downloading.
-    function scriptCacheCallback(evt) {
-        var node = evt.currentTarget || evt.srcElement, i,
-            moduleName, resource;
-
-        if (evt.type === "load" || readyRegExp.test(node.readyState)) {
-            //Pull out the name of the module and the context.
-            moduleName = node.getAttribute("data-requiremodule");
-
-            //Mark this cache request as loaded
-            cached[moduleName] = true;
-
-            //Find out how many ordered modules have loaded
-            for (i = 0; (resource = waiting[i]); i++) {
-                if (cached[resource.name]) {
-                    loadResource(resource.name, resource.req, resource.onLoad);
-                } else {
-                    //Something in the ordered list is not loaded,
-                    //so wait.
-                    break;
-                }
-            }
-
-            //If just loaded some items, remove them from waiting.
-            if (i > 0) {
-                waiting.splice(0, i);
-            }
-
-            //Remove this script tag from the DOM
-            //Use a setTimeout for cleanup because some older IE versions vomit
-            //if removing a script node while it is being evaluated.
-            setTimeout(function () {
-                node.parentNode.removeChild(node);
-            }, 15);
-        }
-    }
-
-    define('require/order',{
-        load: function (name, req, onLoad, config) {
-            var url = req.nameToUrl(name, null);
-
-            //If a build, just load the module as usual.
-            if (config.isBuild) {
-                loadResource(name, req, onLoad);
-                return;
-            }
-
-            //Make sure the async attribute is not set for any pathway involving
-            //this script.
-            require.s.skipAsync[url] = true;
-            if (supportsInOrderExecution) {
-                //Just a normal script tag append, but without async attribute
-                //on the script.
-                req([name], function (value) {
-                    //The value may be a real defined module. Wrap
-                    //it in a function call, because this function is used
-                    //as the factory function for this ordered dependency.
-                    onLoad(function () {
-                        return value;
-                    });
-                });
-            } else {
-                //Credit to LABjs author Kyle Simpson for finding that scripts
-                //with type="script/cache" allow scripts to be downloaded into
-                //browser cache but not executed. Use that
-                //so that subsequent addition of a real type="text/javascript"
-                //tag will cause the scripts to be executed immediately in the
-                //correct order.
-                if (req.isDefined(name)) {
-                    req([name], function (value) {
-                        //The value may be a real defined module. Wrap
-                        //it in a function call, because this function is used
-                        //as the factory function for this ordered dependency.
-                        onLoad(function () {
-                            return value;
-                        });
-                    });
-                } else {
-                    waiting.push({
-                        name: name,
-                        req: req,
-                        onLoad: onLoad
-                    });
-                    require.attach(url, "", name, scriptCacheCallback, "script/cache");
-                }
-            }
-        }
-    });
 }());
