@@ -8,12 +8,12 @@
       <th>Scratch</th>
     </tr>
   </thead>
-  <tbody id="testSummary">
-    <tr foreach="test in ${tests}">
-      <td>${test.suite.name}</td>
+  <tbody foreach="suite in ${suites}">
+    <tr foreach="test in ${suite.tests}">
+      <td>${suite.name}</td>
       <td><strong>${test.name}</strong></td>
-      <td style="color:${test.status.color}">${test.status.name}</td>
-      <td>${test.message}</td>
+      <td class="gcliTest${test.status.name}">${test.status.name}</td>
+      <td>${test.message || '-'}</td>
     </tr>
   </tbody>
 </table>

@@ -15,22 +15,19 @@
                 { name: "test", main: "index", lib: "." },
                 { name: "demo", main: "index", lib: "." }
             ],
-            //"ff": [ { name: "pilot", main: "index", lib: "." } ]
             "support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ],
         }
     });
 
-    var deps = [ 'gcli/index', 'demo/index', 'test/index', 'gcli/commands/help',
-        'gcli/tests/testCli', 'pilot/fixoldbrowsers' ];
+    var deps = [ 'gcli/index', 'demo/index', 'gcli/commands/help',
+        'gcli/tests/index', 'pilot/fixoldbrowsers' ];
 
-    require(deps, function(gcli, demo, test, help, testCli) {
+    require(deps, function(gcli, demo, help, tests) {
         gcli.startup();
         demo.startup();
         gcli.createView();
 
-        test.startup();
-        test.addSuite('cli', testCli);
-        test.run();
+        tests.startup({ autoRun: true });
 
         help.helpMessages.prefix = "<h2>Welcome to GCLI</h2>" +
             "<p>GCLI is an experiment to create a highly usable JavaScript command line for developers." +
