@@ -5,28 +5,16 @@ Evaluated each time the commandAssignment changes
 -->
 <div id="gcliReqTempl">
   <div>
-    <!-- setup for later -->${lastGroup = ''}
     <div class="gcliCmdDesc">
       ${requ.commandAssignment.getValue().getDescription()}
     </div>
     <table class="gcliParams">
       <tbody class="gcliAssignment"
           foreach="assignment in ${requ.getAssignments()}">
-        <!-- Parameter group header -->
-        <tr class="gcliParamGroup"
-            if="${assignment.param.groupName &amp;&amp; assignment.param.groupName !== lastGroup}">
-          <td colspan="2" onclick="${onGroupToggle}">
-            ${lastGroup = assignment.param.groupName; assignment.param.groupName}
-            &gt;&gt;
-          </td>
-        </tr>
         <!-- Parameter -->
         <tr class="gcliGroupRow">
-          <td class="gcliParamDescr" colspan="2">${assignment.param.description}</td>
-        </tr>
-        <tr class="gcliGroupRow">
           <td class="gcliParamName">
-            <label>${assignment.param.name}:</label>
+            <label>${assignment.param.description}:</label>
           </td>
           <td class="gcliParamInput">${getInputFor(assignment)}</td>
         </tr>

@@ -1,14 +1,17 @@
 
 .gcliReports { overflow: auto; }
 
+.gcliRow { right:0; }
 .gcliRowIn {
   display: box; display: -moz-box; display: -webkit-box;
   box-orient: horizontal; -moz-box-orient: horizontal; -webkit-box-orient: horizontal;
   box-align: center; -moz-box-align: center; -webkit-box-align: center;
   color: #333;
   background-color: #EEE;
-  width: 100%;
+  padding: 3px 8px 1px 1px;
   font-family: consolas, courier, monospace;
+  border: 1px solid #aaa;
+  border-radius: 5px; -moz-border-radius: 5px; -webkit-border-radius: 5px;
 }
 .gcliRowIn > * { padding-left: 2px; padding-right: 2px; }
 .gcliRowIn > img { cursor: pointer; }
@@ -17,9 +20,9 @@
 .gcliRowIn:hover > .gcliHover.gcliHidden { display: none; }
 .gcliOutTyped {
   box-flex: 1; -moz-box-flex: 1; -webkit-box-flex: 1;
-  font-weight: bold; color: #000; font-size: 120%;
+  color: #000; font-size: 120%;
 }
-.gcliRowOutput { padding-left: 10px; line-height: 1.2em; }
+.gcliRowOutput { padding-left: 10px; line-height: 1.2em; font-size: 95%; }
 .gcliRowOutput strong,
 .gcliRowOutput b,
 .gcliRowOutput th,
@@ -40,4 +43,4 @@
 .gcliRowOutput th { border: 0; padding: 0 2px; }
 .gcliRowOutput .right { text-align: right; }
 
-.gcliGt { font-weight: bold; font-size: 120%; }
+.gcliGt { color: #66F; font-weight: bold; font-size: 120%; }
