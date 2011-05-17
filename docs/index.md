@@ -753,7 +753,7 @@ This is an example of a very simple new password field type:
       this.doc = doc;
     }
     
-    oop.inherits(PasswordField, Field);
+    PasswordField.prototype = Object.create(Field.prototype);
     
     PasswordField.prototype.createElement = function(assignment) {
       this.assignment = assignment;
