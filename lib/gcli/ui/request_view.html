@@ -5,11 +5,12 @@
       onclick="${copyToInput}" ondblclick="${execute}">
 
     <!-- What the user actually typed -->
-    <div class="gcliGt">&gt; </div>
-    <div class="gcliOutTyped">${request.typed}</div>
+    <span class="gcliGt">&gt;</span>
+    <span class="gcliOutTyped">${request.typed}</span>
 
     <!-- The extra details that appear on hover -->
-    <div class="gcliHover" save="${duration}"></div>
+    <span class="gcliDuration gcliHover" save="${duration}"></span>
+    <!--
     <img class="gcliHover" onclick="${hideOutput}" save="${hide}"
         alt="Hide command output" _src="${imageUrl('images/minus.png')}"/>
     <img class="gcliHover gcliHidden" onclick="${showOutput}" save="${show}"
@@ -17,6 +18,7 @@
     <img class="gcliHover" onclick="${remove}"
         alt="Remove this command from the history"
         _src="${imageUrl('images/closer.png')}"/>
+    -->
   </div>
 
   <!-- The div for the command output -->
