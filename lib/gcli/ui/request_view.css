@@ -1,28 +1,20 @@
 
 .gcliReports { overflow: auto; top: 0; }
 
-.gcliRow { }
 .gcliRowIn {
-  /*
-  display: box; display: -moz-box; display: -webkit-box;
-  box-orient: horizontal; -moz-box-orient: horizontal; -webkit-box-orient: horizontal;
-  box-align: center; -moz-box-align: center; -webkit-box-align: center;
-  */
   margin-top: 5px; margin-right: 5px;
   color: #333;
   background-color: #EEE;
   padding: 3px 8px 1px 1px;
   border: 1px solid #aaa;
-  border-radius: 5px; -moz-border-radius: 5px; -webkit-border-radius: 5px;
+  border-radius: 4px; -moz-border-radius: 4px; -webkit-border-radius: 4px;
 }
 .gcliRowIn > img { cursor: pointer; }
 .gcliHover { display: none; float: right; padding: 2px 2px 0 2px; }
 .gcliRowIn:hover > .gcliHover { display: inline; }
 .gcliRowIn:hover > .gcliHover.gcliHidden { display: none; }
 .gcliOutTyped {
-  /* box-flex: 1; -moz-box-flex: 1; -webkit-box-flex: 1; */
-  color: #000; font-size: 120%;
-  font-family: consolas, courier, monospace;
+  color: #000; font-family: consolas, courier, monospace;
 }
 .gcliRowOutput { padding-left: 10px; line-height: 1.2em; font-size: 95%; }
 .gcliRowOutput strong,

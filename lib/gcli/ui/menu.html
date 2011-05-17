@@ -7,7 +7,8 @@ In the command context it is evaluated once for every keypress in the cli
 when a command has not been entered.
 -->
 <div id="gcliOptTempl">
-  <div class="gcliOption" foreach="item in ${items}" onclick="${item.click}">
+  <div class="gcliOption" foreach="item in ${items}" onclick="${item.click}"
+      title="${item.title}">
     <span class="gcliOptName">${item.name}</span>
     <span class="gcliOptDesc">${item.description}</span>
   </div>
