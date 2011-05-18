@@ -5,13 +5,13 @@
       <th>Suite</th>
       <th>Test</th>
       <th>Results</th>
-      <th>Scratch</th>
+      <th>Notes</th>
     </tr>
   </thead>
   <tbody foreach="suite in ${suites}">
-    <tr foreach="test in ${suite.tests}">
-      <td>${suite.name}</td>
-      <td><strong>${test.name}</strong></td>
+    <tr foreach="test in ${suite.tests}" title="${suite.name}.${test.name}()">
+      <td class="gcliTestSuite">${suite.name}</td>
+      <td class="gcliTestTitle">${test.title}</td>
       <td class="gcliTest${test.status.name}">${test.status.name}</td>
       <td>${test.message || '-'}</td>
     </tr>
