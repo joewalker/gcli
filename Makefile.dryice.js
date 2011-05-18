@@ -95,28 +95,11 @@ copy({
 /**
  * Build the Javascript JSM files for Firefox
  */
-console.log('Building build/pilot.jsm:');
+console.log('Building build/gcli.jsm:');
 
 var ffProject = copy.createCommonJsProject([
-  gcliHome + '/ff',
   gcliHome + '/lib'
 ]);
-
-
-// Grab and process all the Javascript for Pilot
-var pilotSources = copy.createDataObject();
-copy({
-  source: [
-    getHeader(),
-    copy.source.commonjs({ project: ffProject, require: [ 'pilot/index' ] })
-  ],
-  filter: copy.filter.moduleDefines,
-  dest: 'build/pilot.jsm'
-});
-
-ffProject.assumeAllFilesLoaded();
-
-console.log('Building build/gcli.jsm:');
 
 // Grab and process all the Javascript for GCLI
 var gcliSources = copy.createDataObject();
@@ -138,13 +121,12 @@ copy({
   dest: gcliSources
 });
 copy({
-  source: [ getHeader(), gcliSources, 'ff/build/gcli-jsm-end.js' ],
+  source: [ getNoEditHeader(), gcliSources, getGcliJsmFooter() ],
   dest: 'build/gcli.jsm'
 });
 
 
-
-function getHeader() {
+function getNoEditHeader() {
   return {
     value: '/*\n *\n *\n *\n *\n *\n *\n *\n' +
       ' *********************************** WARNING ***********************************\n' +
@@ -161,5 +143,41 @@ function getHeader() {
       ' *\n *\n *\n *\n *\n *\n *\n *\n *\n */\n\n' +
       'Components.utils.import("resource:///modules/require.jsm");' +
       'var EXPORTED_SYMBOLS = [ ];\n\n'
+  };
+}
+
+function getGcliJsmFooter() {
+  return {
+    value: '' +
+        '/**' +
+        ' * Static object which allows the creation of GCLI sandboxes.' +
+        ' * Exported to the outside.' +
+        ' */' +
+        'var GCLI = {' +
+        '  /**' +
+        '   * Return a new sandbox that includes standard GCLI exports plus references' +
+        '   * to UI and Canon. It\'s not totally clear that this is the best way to' +
+        '   * provide access to these functions, so their use is discouraged until we' +
+        '   * have more experience in how they are needed.' +
+        '   */' +
+        '  create: function(options)' +
+        '  {' +
+        '    var sandbox = new define.Sandbox();' +
+        '    var gcli = sandbox.require("gcli/index");' +
+        '    // TODO: we shouldn\'t need to expose this' +
+        '    gcli.ui = sandbox.require("gcli/ui/index");' +
+        '    gcli.startup();' +
+        '    return gcli;' +
+        '  }' +
+        '};' +
+        '' +
+        '/**' +
+        ' * Create the uber-GCLI that everyone should be using to register commands etc.' +
+        ' */' +
+        'GCLI.global = GCLI.create();' +
+        '' +
+        'var EXPORTED_SYMBOLS = [ "GCLI" ];' +
+        '' +
+        ''
   };
 }

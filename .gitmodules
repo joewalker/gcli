@@ -1,3 +1,0 @@
-[submodule "support/pilot"]
-	path = support/pilot
-	url = git://github.com/joewalker/pilot.git
