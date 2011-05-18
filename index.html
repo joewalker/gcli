@@ -7,22 +7,23 @@
   <script src="scripts/require.js" type="text/javascript"></script>
   <script type="text/javascript">
     require({
-        waitSeconds: 1,
-        paths: { "text": "scripts/text" },
-        packagePaths: {
-            "lib": [
-                { name: "gcli", main: "index", lib: "." },
-                { name: "test", main: "index", lib: "." },
-                { name: "demo", main: "index", lib: "." }
-            ],
-            "support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ],
-        }
+      waitSeconds: 1,
+      paths: { "text": "scripts/text" },
+      packagePaths: {
+        "lib": [
+          { name: "gcli", main: "index", lib: "." },
+          { name: "test", main: "index", lib: "." },
+          { name: "demo", main: "index", lib: "." }
+        ],
+        "support/pilot/lib": [ { name: "pilot", main: "index", lib: "." } ],
+      }
     });
 
     var deps = [ 'gcli/index', 'demo/index', 'gcli/commands/help',
-        'gcli/tests/index', 'pilot/fixoldbrowsers' ];
+      'gcli/tests/index', 'pilot/fixoldbrowsers' ];
 
     require(deps, function(gcli, demo, help, tests) {
+      try {
         gcli.startup();
         demo.startup();
         tests.startup({ autoRun: true });
@@ -35,6 +36,10 @@
             "<a target='_blank' href='https://github.com/joewalker/gcli'>source</a> (LGPL/MPL/GPL), " +
             "<a target='_blank' href='https://github.com/joewalker/gcli/blob/master/docs/index.md'>documentation</a> (for users/embedders), " +
             "<a target='_blank' href='https://wiki.mozilla.org/DevTools/Features/GCLI'>Mozilla feature page</a> (for GCLI in the web console).";
+      }
+      catch (ex) {
+        console.error(ex);
+      }
     }.bind(this));
 
   </script>

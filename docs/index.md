@@ -768,15 +768,15 @@ This is an example of a very simple new password field type:
     
       this.onChange = function() {
           this.input.value = this.assignment.arg.text;
-      }.bind(this);
-      this.assignment.addEventListener('assignmentChange', this.onChange);
+      };
+      this.assignment.assignmentChange.add(this.onChange, this);
     
       return this.input;
     };
     
     PasswordField.prototype.destroy = function() {
       this.input.removeEventListener('keyup', this.onKeyup, false);
-      this.assignment.removeEventListener('assignmentChange', this.onChange);
+      this.assignment.assignmentChange.remove(this.onChange, this);
     };
     
     PasswordField.claim = function(type) {
