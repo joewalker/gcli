@@ -6,18 +6,10 @@
 .*.gz
 
 # A handy place to put stuff that git should ignore:
-/ignore/
-/experiment/
+/ignore
 
 # Editor junk
 /.project
 /.settings/
 /.settings.xml
 /.settings.xml.old
-
-# Build artifacts
-/build/gcli-uncompressed.js
-/build/gcli.js
-/build/gcli.jsm
-/build/pilot.jsm
-

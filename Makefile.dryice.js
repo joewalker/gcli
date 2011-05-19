@@ -44,14 +44,13 @@ var gcliHome = __dirname;
  * There are 2 important ways to build GCLI with 2 outputs each.
  * - One build is for use within a normal web page. It has compressed and
  *   uncompressed versions of the output script file.
- * - The other build is for use within firefox. It also consists of 2 output
- *   files pilot.jsm and gcli.jsm
+ * - The other build is for use within firefox. It consists of 1 output
+ *   file: gcli.jsm
  */
 console.log('Building build/gcli.js and build/gcli-uncompressed.js:');
 
 // Build the standard compressed and uncompressed javascript files
 var stdProject = copy.createCommonJsProject([
-  gcliHome + '/support/pilot/lib',
   gcliHome + '/lib'
 ]);
 
@@ -60,9 +59,7 @@ var stdSources = copy.createDataObject();
 copy({
   source: copy.source.commonjs({
     project: stdProject,
-    require: [
-      'gcli/index', 'demo/index', 'test/index', 'gcli/commands/help',
-      'pilot/fixoldbrowsers', 'gcli/tests/testCli' ]
+    require: [ 'gcli/index', 'demo/index', 'gcli/commands/help', 'gcli/tests/index' ]
   }),
   filter: copy.filter.moduleDefines,
   dest: stdSources
@@ -80,7 +77,7 @@ copy({
   dest: stdSources
 });
 
-
+// Create the output scripts, compressed and uncompressed
 copy({
   source: [ 'build/mini_require.js', stdSources ],
   filter: copy.filter.uglifyjs,
@@ -90,7 +87,7 @@ copy({
   source: [ 'build/mini_require.js', stdSources ],
   dest: 'build/gcli-uncompressed.js'
 });
-
+copy({ source: 'build/index.html', dest: 'build/index.html' });
 
 /**
  * Build the Javascript JSM files for Firefox
@@ -136,8 +133,6 @@ function getNoEditHeader() {
       ' *\n' +
       ' * The original source for this file is:\n' +
       ' *  https://github.com/mozilla/gcli/\n' +
-      ' * And:\n' +
-      ' *  https://github.com/mozilla/pilot/\n' +
       ' *\n' +
       ' *******************************************************************************\n' +
       ' *\n *\n *\n *\n *\n *\n *\n *\n *\n */\n\n' +
