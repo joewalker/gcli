@@ -22,17 +22,22 @@
     var deps = [ 'gcli/index', 'demo/index', 'gcli/commands/help', 'gcli/tests/index' ];
 
     require(deps, function(gcli, demo, help, tests) {
-      gcli.startup();
-      demo.startup();
-      tests.startup({ autoRun: true });
-      gcli.createView();
-
-      help.helpMessages.prefix = "<h2>Welcome to GCLI</h2>" +
-          "<p>GCLI is an experiment to create a highly usable JavaScript command line for developers." +
-          "<p>Useful links: " +
-          "<a target='_blank' href='https://github.com/joewalker/gcli'>source</a> (LGPL/MPL/GPL), " +
-          "<a target='_blank' href='https://github.com/joewalker/gcli/blob/master/docs/index.md'>documentation</a> (for users/embedders), " +
-          "<a target='_blank' href='https://wiki.mozilla.org/DevTools/Features/GCLI'>Mozilla feature page</a> (for GCLI in the web console).";
+      try {
+        gcli.startup();
+        demo.startup();
+        tests.startup({ autoRun: true });
+        gcli.createView();
+  
+        help.helpMessages.prefix = "<h2>Welcome to GCLI</h2>" +
+            "<p>GCLI is an experiment to create a highly usable JavaScript command line for developers." +
+            "<p>Useful links: " +
+            "<a target='_blank' href='https://github.com/joewalker/gcli'>source</a> (LGPL/MPL/GPL), " +
+            "<a target='_blank' href='https://github.com/joewalker/gcli/blob/master/docs/index.md'>documentation</a> (for users/embedders), " +
+            "<a target='_blank' href='https://wiki.mozilla.org/DevTools/Features/GCLI'>Mozilla feature page</a> (for GCLI in the web console).";
+      }
+      catch (ex) {
+        console.error(ex);
+      }
     });
   </script>
   <title>GCLI: Graphical Command Line</title>
