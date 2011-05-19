@@ -388,9 +388,12 @@ var NS_XUL = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
  */
 dom.createElement = function(tag, ns, doc) {
   var doc = doc || document;
+  return doc.createElement(tag);
+  /*
   return doc.createElementNS ?
          doc.createElementNS(ns || NS_XHTML, tag) :
          doc.createElement(tag);
+   */
 };
 
 /**
@@ -536,10 +539,15 @@ dom.computedStyle = function(element, style) {
  */
 dom.setInnerHtml = function(el, html) {
   if (el.namespaceURI === NS_XHTML) {
-    dom.clearElement(el);
-    var range = el.ownerDocument.createRange();
-    html = "<div xmlns='" + NS_XHTML + "'>" + html + "</div>";
-    el.appendChild(range.createContextualFragment(html));
+    try {
+      dom.clearElement(el);
+      var range = el.ownerDocument.createRange();
+      html = "<div xmlns='" + NS_XHTML + "'>" + html + "</div>";
+      el.appendChild(range.createContextualFragment(html));
+    }
+    catch (ex) {
+      el.innerHTML = html;
+    }
   }
   else {
     el.innerHTML = html;
@@ -1032,6 +1040,7 @@ exports.Assignment = Assignment;
  */
 var command = new SelectionType({
     name: 'command',
+    commandMode: true,
     data: function() {
         return canon.getCommands();
     },
@@ -2072,7 +2081,9 @@ function Command(commandSpec) {
                 paramNames.push(paramSpec.name);
             }, this);
         }
-        paramNames.push(spec.name);
+        else {
+            paramNames.push(spec.name);
+        }
     }, this);
 
     // Track if the user is trying to mix default params and param groups.
@@ -2259,22 +2270,6 @@ canon.addCommand = function addCommand(commandSpec, name) {
 };
 
 /**
- * Remove an individual command. The opposite of #addCommand().
- * @param commandOrName Either a command name or the command itself.
- */
-canon.removeCommand = function removeCommand(commandOrName) {
-    var name = typeof command === 'string' ?
-        commandOrName :
-        commandOrName.name;
-    delete commands[name];
-    commandNames = commandNames.filter(function(test) {
-        return test !== name;
-    });
-
-    canon.canonChange();
-};
-
-/**
  * Take a command object and register all the commands that it contains.
  * This function is exposed to the outside world (via gcli/index). It is
  * documented in docs/index.md for all the world to see.
@@ -2295,16 +2290,37 @@ canon.addCommands = function addCommands(context, name) {
 
     Object.keys(context).forEach(function(key) {
         var command = context[key];
-        if (typeof command !== 'function') {
-            return;
+        var commandName = name ? name + ' ' + key : key;
+        if (typeof command === 'function') {
+            command.metadata = command.metadata || context[key + 'Metadata'];
+            if (!command.metadata) {
+                return;
+            }
+            command.metadata.context = command.metadata.context || context;
+            canon.addCommand(command, commandName);
         }
-        command.metadata = command.metadata || context[key + 'Metadata'];
-        if (!command.metadata) {
-            return;
+        else {
+            if (key !== 'metadata') {
+                canon.addCommand(command, commandName);
+            }
         }
-        command.metadata.context = command.metadata.context || context;
-        canon.addCommand(command, name ? name + ' ' + key : key);
     });
+};
+
+/**
+ * Remove an individual command. The opposite of #addCommand().
+ * @param commandOrName Either a command name or the command itself.
+ */
+canon.removeCommand = function removeCommand(commandOrName) {
+    var name = typeof command === 'string' ?
+        commandOrName :
+        commandOrName.name;
+    delete commands[name];
+    commandNames = commandNames.filter(function(test) {
+        return test !== name;
+    });
+
+    canon.canonChange();
 };
 
 /**
@@ -3002,6 +3018,14 @@ SelectionType.prototype._findCompletions = function(arg) {
     else {
         Object.keys(lookup).forEach(function(name) {
             if (name.indexOf(arg.text) === 0) {
+                // Hack alert. The command type needs to exclude sub-commands
+                // when the CLI is blank, but include them when we're filtering
+                // This hack excludes matches when the filter text is '' and
+                // when the name includes a space.
+                if (this.commandMode && arg.text.length === 0 &&
+                        name.indexOf(' ') > 0) {
+                    return;
+                }
                 completions[name] = lookup[name];
             }
         }, this);
@@ -3023,7 +3047,7 @@ SelectionType.prototype.parse = function(arg) {
         this.noMatch();
     }
 
-    // Especially at startup completions live over the time that things change
+    // Especially at startup, completions live over the time that things change
     // so we provide a completion function rather than completion values
     var completer = function() {
         var matches = this._findCompletions(arg);
@@ -5109,7 +5133,8 @@ Hinter.prototype.setHeight = function(height) {
  * Update the hint to reflect the changed command
  */
 Hinter.prototype.onCommandChange = function(ev) {
-    if (!this.requ.commandAssignment.getValue()) {
+    var command = this.requ.commandAssignment.getValue();
+    if (!command || !command.exec) {
         this.menu.show();
         this.argFetcher.hide();
     }
@@ -6457,7 +6482,7 @@ define("text!gcli/ui/arg_fetch.html", [], "" +
   "        <tr class=\"gcliGroupRow\">" +
   "          <td class=\"gcliParamName\">" +
   "            <label>${assignment.param.description}:</label>" +
-  "            <div class=\"gcliRequired\" if=\"${assignment.param.defaultValue !== undefined}\">(Optional)</div>" +
+  "            <div class=\"gcliRequired\" if=\"${!assignment.param.isDataRequired()}\">(Optional)</div>" +
   "          </td>" +
   "          <td class=\"gcliParamInput\">${getInputFor(assignment)}</td>" +
   "        </tr>" +
