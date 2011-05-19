@@ -15,7 +15,7 @@ Evaluated each time the commandAssignment changes
         <tr class="gcliGroupRow">
           <td class="gcliParamName">
             <label>${assignment.param.description}:</label>
-            <div class="gcliRequired" if="${assignment.param.defaultValue !== undefined}">(Optional)</div>
+            <div class="gcliRequired" if="${!assignment.param.isDataRequired()}">(Optional)</div>
           </td>
           <td class="gcliParamInput">${getInputFor(assignment)}</td>
         </tr>
