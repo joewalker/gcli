@@ -14,18 +14,19 @@
         "lib": [
           { name: "gcli", main: "index", lib: "." },
           { name: "test", main: "index", lib: "." },
+          { name: "gclitest", main: "index", lib: "." },
           { name: "demo", main: "index", lib: "." }
         ]
       }
     });
 
-    var deps = [ 'gcli/index', 'demo/index', 'gcli/commands/help', 'gcli/tests/index' ];
+    var deps = [ 'gcli/index', 'demo/index', 'gcli/commands/help', 'gclitest/index' ];
 
-    require(deps, function(gcli, demo, help, tests) {
+    require(deps, function(gcli, demo, help, gclitest) {
       try {
         gcli.startup();
         demo.startup();
-        tests.startup({ autoRun: true });
+        gclitest.startup({ autoRun: true });
         gcli.createView();
   
         help.helpMessages.prefix = "<h2>Welcome to GCLI</h2>" +

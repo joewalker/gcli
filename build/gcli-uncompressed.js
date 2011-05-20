@@ -11,16 +11,15 @@
  * for the specific language governing rights and limitations under the
  * License.
  *
- * The Original Code is Ajax.org Code Editor (ACE).
+ * The Original Code is GCLI.
  *
  * The Initial Developer of the Original Code is
- * Ajax.org B.V.
+ * The Mozilla Foundation
  * Portions created by the Initial Developer are Copyright (C) 2010
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
- *      Joe Walker (jwalker@mozilla.com)
- *      Fabian Jakobs <fabian AT ajax DOT org>
+ *   Joe Walker <jwalker@mozilla.com> (Original Author)
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -36,105 +35,121 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-/**
- * Define a module along with a payload
- * @param module a name for the payload
- * @param payload a function to call with (require, exports, module) params
- */
 
 (function() {
+  var debugDependencies = false;
 
-if (window.require) {
-    require.packaged = true;
-    return;
-}
-
-var _define = function(module, deps, payload) {
-    if (typeof module !== 'string') {
-        if (_define.original)
-            _define.original.apply(window, arguments);
-        else {
-            console.error('dropping module because define wasn\'t a string.');
-            console.trace();
-        }
-        return;
+  /**
+   * Define a module along with a payload.
+   * @param {string} moduleName Name for the payload
+   * @param {ignored} deps Ignored. For compatibility with CommonJS AMD Spec
+   * @param {function} payload Function with (require, exports, module) params
+   */
+  function define(moduleName, deps, payload) {
+    if (typeof moduleName != "string") {
+      console.error("dropping module because module name wasn't a string.");
+      console.trace();
+      return;
     }
 
-    if (arguments.length == 2)
-        payload = deps;
-
-    if (!define.modules)
-        define.modules = {};
-
-    define.modules[module] = payload;
-};
-if (window.define)
-    _define.original = window.define;
-
-window.define = _define;
-
-
-/**
- * Get at functionality define()ed using the function above
- */
-var _require = function(module, callback) {
-    if (Object.prototype.toString.call(module) === "[object Array]") {
-        var params = [];
-        for (var i = 0, l = module.length; i < l; ++i) {
-            var dep = lookup(module[i]);
-            if (!dep && _require.original)
-                return _require.original.apply(window, arguments);
-            params.push(dep);
-        }
-        if (callback) {
-            callback.apply(null, params);
-        }
+    if (arguments.length == 2) {
+      payload = deps;
     }
-    else if (typeof module === 'string') {
-        var payload = lookup(module);
-        if (!payload && _require.original)
-            return _require.original.apply(window, arguments);
 
-        if (callback) {
-            callback();
-        }
+    if (debugDependencies) {
+      console.log("define: " + moduleName + " -> " + payload.toString()
+          .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
+    }
 
-        return payload;
+    define.modules[moduleName] = payload;
+  };
+
+  /**
+   * The global store of un-instantiated modules
+   */
+  define.modules = {};
+
+
+  /**
+   * We invoke require in the context of a Domain so we can have multiple
+   * sets of modules running separate from each other.
+   */
+  function Domain() {
+    this.modules = {};
+    this.depth = "";
+  }
+
+  /**
+   * Lookup module names and resolve them by calling the definition function if
+   * needed.
+   * @param {string} deps a name, or names for the payload
+   * @param {function} callback Function to call when the deps are resolved
+   */
+  Domain.prototype.require = function(deps, callback) {
+    if (Array.isArray(deps)) {
+      var params = deps.map(function(dep) {
+        return this.lookup(dep);
+      }, this);
+      if (callback) {
+        callback.apply(null, params);
+      }
     }
     else {
-        if (_require.original)
-            return _require.original.apply(window, arguments);
+      return this.lookup(deps);
     }
-};
+  };
 
-if (window.require)
-    _require.original = window.require;
-
-window.require = _require;
-require.packaged = true;
-
-/**
- * Internal function to lookup moduleNames and resolve them by calling the
- * definition function if needed.
- */
-var lookup = function(moduleName) {
-    var module = define.modules[moduleName];
-    if (module == null) {
-        console.error('Missing module: ' + moduleName);
-        return null;
+  /**
+   * Lookup module names and resolve them by calling the definition function if
+   * needed.
+   * @param {string} moduleName a name for the payload to lookup
+   */
+  Domain.prototype.lookup = function(moduleName) {
+    var module = this.modules[moduleName];
+    if (module) {
+      if (debugDependencies) {
+        console.log(this.depth + " Using module: " + moduleName);
+      }
+      return module;
     }
 
-    if (typeof module === 'function') {
-        var exports = {};
-        module(require, exports, { id: moduleName, uri: '' });
-        // cache the resulting module object for next time
-        define.modules[moduleName] = exports;
-        return exports;
+    module = define.modules[moduleName];
+    if (!module) {
+      console.error(this.depth + " Missing module: " + moduleName);
+      return null;
     }
+
+    if (debugDependencies) {
+      console.log(this.depth + " Compiling module: " + moduleName);
+    }
+
+    if (typeof module == "function") {
+      this.depth += ".";
+      var exports = {};
+      module(this.require.bind(this), exports, { id: moduleName, uri: "" });
+      this.depth = this.depth.slice(0, -1);
+      module = exports;
+    }
+
+    // cache the resulting module object for next time
+    this.modules[moduleName] = module;
 
     return module;
-};
+  };
 
+  /**
+   * Expose the Domain constructor and a global sandbox on the define object
+   * (to avoid cluttering up the global namespace).
+   */
+  define.Domain = Domain;
+  define.globalDomain = new Domain();
+
+  /**
+   * Expose a default require function which is the require of the global
+   * sandbox to make it easy to use.
+   */
+  window.define = define;
+  window.require = define.globalDomain.require.bind(define.globalDomain);
 })();
 /* ***** BEGIN LICENSE BLOCK *****
  * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -7326,16 +7341,18 @@ experimental.shutdown = function(data, reason) {
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/tests/index', ['require', 'exports', 'module' , 'test/index', 'gcli/tests/testTokenize', 'gcli/tests/testSplit', 'gcli/tests/testCli'], function(require, exports, module) {
+define('gclitest/index', ['require', 'exports', 'module' , 'test/index', 'gclitest/testTokenize', 'gclitest/testSplit', 'gclitest/testCli', 'gclitest/testRequire'], function(require, exports, module) {
 
     var test = require('test/index');
 
     exports.startup = function(options) {
         test.startup();
 
-        test.addSuite('gcli/tests/testTokenize', require('gcli/tests/testTokenize'));
-        test.addSuite('gcli/tests/testSplit', require('gcli/tests/testSplit'));
-        test.addSuite('gcli/tests/testCli', require('gcli/tests/testCli'));
+        test.addSuite('gclitest/testTokenize', require('gclitest/testTokenize'));
+        test.addSuite('gclitest/testSplit', require('gclitest/testSplit'));
+        test.addSuite('gclitest/testCli', require('gclitest/testCli'));
+
+        test.addSuite('gclitest/testRequire', require('gclitest/testRequire'));
 
         test.run();
     };
@@ -7723,7 +7740,7 @@ Test.prototype.toRemote = function() {
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/tests/testTokenize', ['require', 'exports', 'module' , 'test/assert', 'gcli/cli'], function(require, exports, module) {
+define('gclitest/testTokenize', ['require', 'exports', 'module' , 'test/assert', 'gcli/cli'], function(require, exports, module) {
 
 var t = require('test/assert');
 var Requisition = require('gcli/cli').Requisition;
@@ -8203,11 +8220,11 @@ assert._isEqual = function(expected, actual, depth) {
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/tests/testSplit', ['require', 'exports', 'module' , 'test/assert', 'gcli/tests/commands', 'gcli/cli'], function(require, exports, module) {
+define('gclitest/testSplit', ['require', 'exports', 'module' , 'test/assert', 'gclitest/commands', 'gcli/cli'], function(require, exports, module) {
 
 var t = require('test/assert');
 
-var commands = require('gcli/tests/commands');
+var commands = require('gclitest/commands');
 var Requisition = require('gcli/cli').Requisition;
 
 exports.setup = function() {
@@ -8285,7 +8302,7 @@ exports.testFlatCommand = function() {
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/tests/commands', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types'], function(require, exports, module) {
+define('gclitest/commands', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types'], function(require, exports, module) {
 var commands = exports;
 
 
@@ -8352,20 +8369,30 @@ commands.tsu.metadata = {
 commands.tsn = {
     metadata: { },
 
-    difMetadata: { params: [ { name: 'text', type: 'string' } ] },
-    dif: function(text) { },
+    dif: {
+        params: [ { name: 'text', type: 'string' } ],
+        exec: function(text) { }
+    },
 
-    extMetadata: { params: [ { name: 'text', type: 'string' } ] },
-    ext: function(text) { },
+    ext: {
+        params: [ { name: 'text', type: 'string' } ],
+        exec: function(text) { }
+    },
 
-    exteMetadata: { params: [ { name: 'text', type: 'string' } ] },
-    exte: function(text) { },
+    exte: {
+        params: [ { name: 'text', type: 'string' } ],
+        exec: function(text) { }
+    },
 
-    extenMetadata: { params: [ { name: 'text', type: 'string' } ] },
-    exten: function(text) { },
+    exten: {
+        params: [ { name: 'text', type: 'string' } ],
+        exec: function(text) { }
+    },
 
-    extendMetadata: { params: [ { name: 'text', type: 'string' } ] },
-    extend: function(text) { }
+    extend: {
+        params: [ { name: 'text', type: 'string' } ],
+        exec: function(text) { }
+    }
 };
 
 commands.tselarr = {
@@ -8455,12 +8482,12 @@ commands.shutdown = function() {
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/tests/testCli', ['require', 'exports', 'module' , 'gcli/cli', 'gcli/types', 'gcli/tests/commands', 'test/assert'], function(require, exports, module) {
+define('gclitest/testCli', ['require', 'exports', 'module' , 'gcli/cli', 'gcli/types', 'gclitest/commands', 'test/assert'], function(require, exports, module) {
 
 
 var Requisition = require('gcli/cli').Requisition;
 var Status = require('gcli/types').Status;
-var commands = require('gcli/tests/commands');
+var commands = require('gclitest/commands');
 
 var t = require('test/assert');
 
@@ -8789,6 +8816,144 @@ exports.testNestedCommand = function() {
     //t.verifyEqual(undefined, assign1.getValue());
 };
 
+
+});
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is Skywriter.
+ *
+ * The Initial Developer of the Original Code is
+ * Mozilla.
+ * Portions created by the Initial Developer are Copyright (C) 2009
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ *      Joe Walker (jwalker@mozilla.com) (original author)
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK ***** */
+
+define('gclitest/testRequire', ['require', 'exports', 'module' , 'test/assert', 'gclitest/requirable'], function(require, exports, module) {
+
+var t = require('test/assert');
+
+exports.setup = function() {
+};
+
+exports.shutdown = function() {
+};
+
+
+exports.testWorking = function() {
+    // There are lots of requirement tests that we could be doing here
+    // The fact that we can get anything at all working is a testament to
+    // require doing what it should - we don't need to test the
+    var requireable = require('gclitest/requirable');
+    t.verifyEqual('thing1', requireable.thing1);
+    t.verifyEqual(2, requireable.thing2);
+    t.verifyUndefined(requireable.thing3);
+};
+
+exports.testLeakage = function() {
+    var requireable = require('gclitest/requirable');
+    t.verifyUndefined(requireable.setup);
+    t.verifyUndefined(requireable.shutdown);
+    t.verifyUndefined(requireable.testWorking);
+};
+
+exports.testMultiImport = function() {
+    var r1 = require('gclitest/requirable');
+    var r2 = require('gclitest/requirable');
+    t.verifyTrue(r1 === r2);
+};
+
+exports.testUncompilable = function() {
+    /*
+    // This test is commented out because it breaks the RequireJS module
+    // loader ...
+    // It's not totally clear how a module loader should perform with unusable
+    // modules, however at least it should go into a flat spin ...
+    // GCLI mini_require reports an error as it should
+    try {
+        var unrequireable = require('gclitest/unrequirable');
+        fail();
+    }
+    catch (ex) {
+        console.log(ex);
+    }
+    */
+};
+
+exports.testRecursive = function() {
+    /*
+    var recurse = require('gclitest/recurse');
+    */
+};
+
+});
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is Skywriter.
+ *
+ * The Initial Developer of the Original Code is
+ * Mozilla.
+ * Portions created by the Initial Developer are Copyright (C) 2009
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ *      Joe Walker (jwalker@mozilla.com) (original author)
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK ***** */
+
+define('gclitest/requirable', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+    exports.thing1 = "thing1";
+    exports.thing2 = 2;
 
 });
 define("text!gcli/ui/arg_fetch.css", [], "" +

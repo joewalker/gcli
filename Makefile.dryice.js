@@ -59,7 +59,7 @@ var stdSources = copy.createDataObject();
 copy({
   source: copy.source.commonjs({
     project: stdProject,
-    require: [ 'gcli/index', 'demo/index', 'gcli/commands/help', 'gcli/tests/index' ]
+    require: [ 'gcli/index', 'demo/index', 'gcli/commands/help', 'gclitest/index' ]
   }),
   filter: copy.filter.moduleDefines,
   dest: stdSources

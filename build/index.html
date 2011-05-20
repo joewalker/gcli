@@ -33,12 +33,12 @@
   <script type="text/javascript" src="../scripts/es5-shim.js"></script>
   <script type="text/javascript" src="gcli-uncompressed.js"></script>
   <script type="text/javascript">
-    var deps = [ 'gcli/index', 'demo/index', 'gcli/commands/help', 'gcli/tests/index' ];
+    var deps = [ 'gcli/index', 'demo/index', 'gcli/commands/help', 'gclitest/index' ];
 
-    require(deps, function(gcli, demo, help, tests) {
+    require(deps, function(gcli, demo, help, gclitest) {
       gcli.startup();
       demo.startup();
-      tests.startup({ autoRun: true });
+      gclitest.startup({ autoRun: true });
       gcli.createView();
 
       help.helpMessages.prefix = "<h2>Welcome to GCLI</h2>" +
