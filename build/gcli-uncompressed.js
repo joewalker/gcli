@@ -8859,12 +8859,6 @@ define('gclitest/testRequire', ['require', 'exports', 'module' , 'test/assert', 
 
 var t = require('test/assert');
 
-exports.setup = function() {
-};
-
-exports.shutdown = function() {
-};
-
 
 exports.testWorking = function() {
     // There are lots of requirement tests that we could be doing here
@@ -8874,6 +8868,28 @@ exports.testWorking = function() {
     t.verifyEqual('thing1', requireable.thing1);
     t.verifyEqual(2, requireable.thing2);
     t.verifyUndefined(requireable.thing3);
+};
+
+exports.testDomains = function() {
+    var requireable = require('gclitest/requirable');
+    t.verifyUndefined(requireable.status);
+    requireable.setStatus(null);
+    t.verifyEqual(null, requireable.getStatus());
+    t.verifyUndefined(requireable.status);
+    requireable.setStatus('42');
+    t.verifyEqual('42', requireable.getStatus());
+    t.verifyUndefined(requireable.status);
+
+    var domain = new define.Domain();
+    var requireable2 = domain.require('gclitest/requirable');
+    t.verifyUndefined(requireable2.status);
+    t.verifyEqual('initial', requireable2.getStatus());
+    requireable2.setStatus(999);
+    t.verifyEqual(999, requireable2.getStatus());
+    t.verifyUndefined(requireable2.status);
+
+    t.verifyEqual('42', requireable.getStatus());
+    t.verifyUndefined(requireable.status);
 };
 
 exports.testLeakage = function() {
@@ -8907,10 +8923,12 @@ exports.testUncompilable = function() {
 };
 
 exports.testRecursive = function() {
+    // See Bug 658583
     /*
     var recurse = require('gclitest/recurse');
     */
 };
+
 
 });
 /* ***** BEGIN LICENSE BLOCK *****
@@ -8952,8 +8970,12 @@ exports.testRecursive = function() {
 
 define('gclitest/requirable', ['require', 'exports', 'module' ], function(require, exports, module) {
 
-    exports.thing1 = "thing1";
+    exports.thing1 = 'thing1';
     exports.thing2 = 2;
+
+    var status = 'initial';
+    exports.setStatus = function(aStatus) { status = aStatus; };
+    exports.getStatus = function() { return status; };
 
 });
 define("text!gcli/ui/arg_fetch.css", [], "" +
