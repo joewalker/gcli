@@ -1,11 +1,10 @@
 
-About GCLI (a.k.a. Cockpit)
-===========================
+# About GCLI
 
-GCLI is a Graphical Command Line Interpreter.
+## GCLI is a Graphical Command Line Interpreter.
 
-It is born of the belief that character based command lines were designed for
-computers that are profoundly different from todays computers. They were
+GCLI is born of the belief that character based command lines were designed for
+computers that are quite different from today's computers. They were
 resource-limited, disconnected systems with slow multi-tasking and poor
 displays. The design of the Unix CLI made sense in 1970, but over 40 years on,
 considering the pace of change, there are many improvements we can make.
@@ -20,8 +19,24 @@ GCLI attempts to get the best of the GUI world and the CLI world to produce
 something that is both easy to use and learn as well as fast and powerful.
 
 
-Supported Environments
-----------------------
+## Status
+
+GCLI is not a secret, however it is unreleased, not blogged about (except in
+previous incarnations). Feel free to poke around and help but don't view it
+as a finished or released project.
+
+
+## History
+
+GCLI was born as part of the
+[Bespin](http://ajaxian.com/archives/canvas-for-a-text-editor) project and was
+[discussed at the time](http://j.mp/bespin-cli). The command line component
+survived the rename or Bepsin to Skywriter and the merger with Ace, got a name
+of it's own (Cockpit) which didn't last long before the project was named GCLI.
+It is not known how long it will stay being called GCLI.
+
+
+## Supported Environments
 
 GCLI is designed to work in a number of environments:
 
@@ -43,8 +58,25 @@ In order to support these environments GCLI will need to:
   a styling/templating system which doesn't fit with the supplied model)
 
 
-User Guide
-----------
+## Related Pages
+
+Other sources of GCLI documentation:
+
+- Source
+  - The source for use alongside Ace or in web pages is in the [Github
+    repository for GCLI](https://github.com/mozilla/gcli/)
+  - The source for embedding into springs from [this HG/MQ patch queue]
+    (http://j.mp/gcli-mq) from which it flows into [the Mozilla devtools repo]
+    (https://hg.mozilla.org/projects/devtools/) and then on into the Mozilla
+    central ocean.
+- [Demo of GCLI](https://people.mozilla.com/~jwalker/gcli/build/) with an
+  arbitrary set of demo commands
+- Other Documentation
+  - [Embedding docs](https://github.com/mozilla/gcli/blob/master/docs/index.md)
+  - [Status page](http://mozilla.github.com/devtools/2011/status.html#gcli)
+
+
+## User Guide
 
 GCLI prides itself on being easy to use, plus people don't read user guides,
 therefore it seems pointless having a long users guide and self defeating to
@@ -55,8 +87,7 @@ start button that you can click. You get all the other help you need as you go
 along.
 
 
-Design Goals
-------------
+## Design Goals
 
 GCLI should be:
 
@@ -73,6 +104,8 @@ GCLI should be:
 GCLI should not attempt to:
 
 - convert existing GUI users to a CLI.
+- use natural language input. The locale for the input is gcli-GCLI. We use
+  the 'command-name <list of options>' for all input.
 - gain a touch based interface. Whilst it's possible (even probable) that touch
   can provide further benefits to command line users, that can wait while we
   catch up with 1985.
@@ -80,37 +113,32 @@ GCLI should not attempt to:
   important.
 
 
-Design Changes
---------------
+## Design Changes
 
 What has changed since 1970 that might cause us to make changes to the design
 of the command line?
 
+
 ### Connection limitations
 
-Unix pre-dates the Internet and treats almost everything as a file. Hardware,
-processes and even remote systems are seen as files. Modern concepts like
-meta-data, and alternative formats stretch this simplicity and it is more
-common today to see everything as a URI, indeed many modern UIs attempt to hide
-the filesystem from users.
+Unix pre-dates the Internet and treats almost everything as a file. It is more
+useful in a connected world to use URIs as ways to identify sources of data.
+
 
 ### Memory limitations
 
 Modern computers have something like 6 orders of magnitude more memory than the
-PDP-7 on which Unix was developed (about like 8K of RAM according to [1]).
-Innovations like stdin/stdout and pipes are all ways to connect systems without
-long-term storage of the results. The ability to store results for some time
-(potentially in more than one format) significantly reduces the need for these
-concepts.
-
-We should make the results of past commands addressable as URIs. We should
-allow commands which push results into the history and we should allow URIs
-which can address specific sub-components of a history item.
+PDP-7 on which Unix was developed. Innovations like stdin/stdout and pipes are
+ways to connect systems without long-term storage of the results. The ability
+to store results for some time (potentially in more than one format)
+significantly reduces the need for these concepts. We should make the results
+of past commands addressable for re-use at a later time.
 
 There are a number of possible policies for eviction of items from the history.
 The initial implementation will be a simple count based system. More
 advanced strategies could take data-size, time, and number of references into
 account.
+
 
 ### Multi-tasking limitations
 
@@ -132,47 +160,48 @@ GCLI will allow commands to be asynchronous and will provide UI elements to
 inform the user of job completion. It will also keep asynchronous command
 output contained within it's own display area.
 
+
 ### Output limitations
 
 The PDP-7 had a teletype. There is something like 4 orders of magnitude more
 information that can be displayed on a modern display than a 80x24 character
-based console. We can use this flexibility to provide better hints to the user
-in completing their command.
+based console. We can use this flexibility to provide better help to the user
+in entering their command.
 
-Interaction - mouse clicks for new commands, continually updating output,
-output that asks for more input.
+The additional display richness can also allow interaction with result output.
+Command output can include links to follow-up commands, and even ask for
+additional input. (e.g. "your search returned zero results do you want to try
+again with a different search string")
 
-### Processing Speed
-
-Command meta-data
-
-
-User Improvements
------------------
-
-HTML output
-Background default
-Stored results
-Typed data
-Graphical hints / mouse use
-Inline help
-Syntax checking
+There is no reason why output must be static. For example, it could be
+informative to see the results of an "ls" command alter given changes made by
+subsequent commands. (It should be noted that there are times when historical
+information is important too)
 
 
-Embedding GCLI
---------------
+### Integration limitations
+
+In 1970, command execution meant retrieving a program from storage, and running
+it. This required minimal interaction between the command line processor and
+the program being run, and was good for resource constrained systems.
+This lack of interaction resulted in the processing of command line arguments
+being done everywhere, when the task was better suited to command line.
+We should provide metadata about the commands being run, to allow the command
+line to process, interpret and provide help on the input.
+
+
+## Embedding GCLI
 
 There are 3 basic steps in using GCLI in your system.
 
 1. Import a script. Pre-built scripts are available in the ``build``
-   directory. **Or at least they should be**. Just place the following
-   wherever you place your script files.
+   directory. Just place the following wherever you place your script files.
 
     <script src="path/to/gcli.js" type="text/javascript"></script>
 
-   TODO: build GCLI.
+   See the section below on creating custom builds.
 
-2. Having imported GCLI, we need to tell it where to go. The simplest
+2. Having imported GCLI, we need to tell it where to display. The simplest
    method is to include an input element with the id of ``gcliInput``.
 
     <input id="gcliInput" type="text"/>
@@ -186,34 +215,33 @@ There are 3 basic steps in using GCLI in your system.
    show it above or below the input element whenever the command line has
    keyboard focus.
 
-   TODO: Check this last part works
-
 3. Tell GCLI what commands to make available. See the sections on Writing
    Commands, Writing Types and Writing Fields for more information.
 
-   One important thing to note is that this must be done after GCLI has
-   initialized. The easy way to do this is to ride on the onGCLIInit
-   ``event``. (This is not fully implemented yet)
+   GCLI uses the CommonJS AMD format for it's files, so a 'require' statement
+   is needed to get started.
 
-    window.onGCLIInit = function(require) {
-      var canon = require('gcli/canon');
-      canon.addCommand({ ... });
-    };
-
-
-    var gcli = new gcli.Commander({
-      input: ele,
-      output: ele
+    require([ 'gcli/index' ], function(gcli) {
+      gcli.startup();       // Initialize the command line
+      gcli.addCommand(...); // Register custom commands
+      gcli.createView();    // Create a user interface
     });
-    gcli.addCommand(...);
-    gcli.addType(...);
-    gcli.setArgFetcher(...);
-    gcli.exec('command');
+
+   Both the startup() and createView() commands take ``options`` objects which
+   allow customization. At the current time the documentation of these object
+   is left to the source. GCLITerm in HUDService and index.html in GCLI itself
+   are probably the best places to begin looking.
 
 
+### Creating Custom Builds
 
-Writing Commands
-----------------
+GCLI uses [DryIce](https://github.com/mozilla/dryice) to create custom builds.
+If dryice is installed (``npm install dryice``) then you can create a built
+version of GCLI simply using ``node Makefile.dryice.js``. GCLI comes with a
+custom module loader to replace RequireJS for built applications.
+
+
+## Writing Commands
 
 3 principles for writing commands:
 
@@ -223,8 +251,10 @@ Writing Commands
   many people wanting to implement the ``add`` command. This style of
   writing commands has become common place in Unix as the number of commands
   has gone up.
-  We plan to support some type of ``focus`` concept to allow a parent command
+
+  We plan to support some type of 'focus' concept to allow a parent command
   to become a default, promoting its sub-commands above others.
+
 - Each command should do exactly and only one thing. An example of a Unix
   command that breaks this principle is the ``tar`` command.
 
@@ -234,9 +264,8 @@ Writing Commands
     $ tar -zxf foo.tar.gz .
     // Extracts foo.tar.gz into the current directory
 
-  These 2 commands do exactly opposite things. It shouldn't take much
-  reflection to see why this is bad design. In GCLI this would be better
-  expressed:
+  These 2 commands do exactly opposite things. Many a file has died as a result
+  of a x/c typo. In GCLI this would be better expressed:
 
     $ tar create foo.tar.gz -z .
     // and
@@ -246,13 +275,16 @@ Writing Commands
   something along the lines of the comments after the ``tar`` commands above
   this could be very confusing if the addition of a single letter late on in
   the command line radically alters the action of the command.
-- Avoid breaking. We're doing everything we can to avoid the user having to
-  start again with a command due to some problem. The majority of problems
-  are simple typos which we can catch using command metadata, but there are 2
-  things command authors can do to prevent breakage.
+
+- Avoid breaking. We try to avoid the user having to start again with a command
+  due to some problem. The majority of problems are simple typos which we can
+  catch using command metadata, but there are 2 things command authors can do
+  to prevent breakage.
+
   - Where possible avoid the need to validate command line parameters in the
     exec function. This can be done by good parameter design (see do exactly
     and only one thing)
+
   - If there is an obvious fix for an unpredictable problem, offer the
     solution in the command output. So rather than use request.error (see
     Request Object below) output some HTML which contains a link to a fixed
@@ -261,42 +293,261 @@ Writing Commands
 Currently these concepts are not enforced at a code level, but they could be in
 the future.
 
+
 ### How commands work:
 
-- Named parameters vs. positional parameters
-- Long names vs. short names
-- Array arguments
+This is how to create a basic ``greet`` command:
 
-There are 3 different formats in which commands can be written.
+    gcli.addCommand({
+      name: 'greet',
+      description: 'Show a message to someone',
+      params: [
+        {
+          name: 'name',
+          type: 'string',
+          description: 'The name to greet'
+        }
+      ],
+      returnType: 'string',
+      exec: function(env, args) {
+        return "Hello, " + args.name;
+      }
+    });
 
-1. Object Literal syntax. This is the way GCLI stores commands internally,
-   so it is to some extend the 'native' syntax.
-2. Function Metadata Syntax. This is ideal for decorating existing functions
-   with the metadata to allow use with GCLI.
-3. Object Metadata Syntax. This is ideal for grouping related commands
-   together.
+This command is used as follows:
+
+    > greet Joe
+    Hello, Joe
+
+
+### Default argument values
+
+This command requires the entry of the ``name`` parameter, so no type checking
+is required. This parameter can be made optional with the addition of a
+defaultValue to the parameter:
+
+    gcli.addCommand({
+      name: 'greet',
+      description: 'Show a message to someone',
+      params: [
+        {
+          name: 'name',
+          type: 'string',
+          description: 'The name to greet',
+          defaultValue: 'World!'
+        }
+      ],
+      returnType: 'string',
+      exec: function(env, args) {
+        return "Hello, " + args.name;
+      }
+    });
+
+Now we can also use the ``greet`` command as follows:
+
+    > greet
+    Hello, World!
+
+
+### Positional vs. named arguments
+
+Arguments can be entered either positionally or as named arguments. Generally
+users will prefer to type the positional version, however the named alternative
+can be more self documenting.
+
+For example, we can also invoke the greet command as follows:
+
+    > greet --name Joe
+    Hello, Joe
+
+
+### Parameter groups
+
+Parameters can be grouped into sections. This primarily allows us to generate
+mousable user-interfaces where similar parameters are presented to the user in
+groups.
+
+    gcli.addCommand({
+      name: 'greet',
+      params: [
+        { name: 'name', type: 'string', description: 'The name to greet' },
+        {
+          group: 'Advanced Options',
+          params: [
+            { name: 'repeat', type: 'number', defaultValue: 1 },
+            { name: 'debug', type: 'boolean' }
+          ]
+        }
+      ],
+      ...,
+      exec: function(env, args) {
+        var output = '';
+        if (args.debug) output += 'About to send greeting';
+        for (var i = 0; i < args.repeat; i++) {
+          output += "Hello, " + args.name;
+        }
+        if (args.debug) output += 'Done!';
+        return output;
+      }
+    });
+
+This could be used as follows:
+
+    > greet Joe --repeat 2 --debug
+    About to send greeting
+    Hello, Joe
+    Hello, Joe
+    Done!
+
+
+### Parameter types
+
+This example uses types other than 'string'. Initially the available types are
+
+- string
+- boolean
+- number
+- array
+- selection
+- deferred
+
+This list can be extended. See section below on types for more information.
+
+Named parameters can be specified anywhere on the command line (after the
+command itself) however positional parameters must be in sequential order.
+
+Positional arguments quickly become unwieldy with long argument lists so
+parameters in groups can only be used via named parameters.
+
+Additionally grouped parameters must have default values, except boolean
+parameters, which always have a default value of ``false``.
+
+There is currently no way to make parameters mutually exclusive.
+
+
+### Short argument names
+
+GCLI automatically assigns shortened parameter names:
+
+    > greet Joe -r 2 -d
+
+Short parameter names use a single dash rather than a double dash. It is
+planned to allow the short version of parameter names to be customized, and
+to enable argument merging which will allow use of ``greet Joe -dr 2``.
+
+
+### Array types
+
+Parameters can have a type of ``array``. For example:
+
+    gcli.addCommand({
+      name: 'greet',
+      params: [
+        {
+          name: 'names',
+          type: { name: 'array', subtype: 'string' },
+          description: 'The names to greet',
+          defaultValue: [ 'World!' ]
+        }
+      ],
+      ...
+      exec: function(env, args) {
+        return "Hello, " + args.names.join(', ') + '.';
+      }
+    });
+
+This would be used as follows:
+
+    > greet Fred Jim Shiela
+    Hello, Fred, Jim, Shiela.
+
+Or using named arguments:
+
+    > greet --names Fred --names Jim --names Shiela
+    Hello, Fred, Jim, Shiela.
+
+There can only be one ungrouped parameters with an array type, and it must be
+at the end of the list of parameters. This avoids confusion as to which
+parameter and argument should be assigned.
+
+
+### Selection types
+
+Parameters can have a type of ``selection``. For example:
+
+    gcli.addCommand({
+      name: 'greet',
+      params: [
+        { name: 'name', ... },
+        {
+          name: 'lang',
+          description: 'In which language should we greet',
+          type: { name: 'selection', values: [ 'en', 'fr', 'de', 'es', 'gk' ] },
+          defaultValue: 'en'
+        }
+      ],
+      ...
+    });
+
+GCLI would enforce that the value of ``arg.lang`` was one of the values
+specified. Selection values can be specified as an array of strings, as a
+map of strings to values, or as a function that returns either of the other
+values.
+
+
+### Sub-commands
+
+It is common for commands to be groups into those with similar functionality.
+Examples include virtually all VCS commands, ``apt-get``, etc. There are many
+examples of commands that should be structured as in a sub-command style -
+``tar`` being the obvious example, but others include ``crontab``.
+
+Groups of commands are specified with the top level command not having an
+exec function:
+
+    canon.addCommand({
+      name: 'tar',
+      description: 'Commands to manipulate archives',
+    });
+    canon.addCommand({
+      name: 'tar create',
+      description: 'Create a new archive',
+      exec: function(env, args) { ... },
+      ...
+    });
+    canon.addCommand({
+      name: 'tar extract',
+      description: 'Extract from an archive',
+      exec: function(env, args) { ... },
+      ...
+    });
+
+
+### Command metadata
 
 Each command should have the following properties:
 
 - A string ``name``.
-- A short ``description`` string. Generally no more than 40 characters.
-- A function to ``exec``ute.
+- A short ``description`` string. Generally no more than 20 characters without
+  a terminating period/fullstop.
+- A function to ``exec``ute. (Optional for the parent containing sub-commands)
 
 And optionally the following extra properties:
 
 - A declaration of the accepted ``params``.
-- A longer description in the form of a ``manual``.
 - A ``hidden`` property to stop the command showing up in requests for help.
 - A ``context`` property which defines the scope of the function that we're
   calling. Rather than simply call ``exec()``, we do ``exec.call(context)``.
-
-TODO: the exact nature of these properties should be defined better.
+- A ``manual`` property which allows a fuller description of the purpose of the
+  command.
+- A ``returnType`` specifying how we should handle the value returned from the
+  exec function.
 
 The ``params`` property is an array of objects, one for each parameter. Each
 parameter object should have the following 3 properties:
 
 - A string ``name``.
-- A short string ``description``.
+- A short string ``description`` as for the command.
 - A ``type`` which refers to an existing Type (see Writing Types).
 
 Optionally each parameter can have these properties:
@@ -317,16 +568,28 @@ Optionally each parameter can have these properties:
     can't be changed. Boolean toggles are assumed to be off by default, and
     should be named to match.
 - A ``manual`` property for parameters is exactly analogous to the ``manual``
-  property for commands - descriptive text that is longer than than 40
+  property for commands - descriptive text that is longer than than 20
   characters.
+
+
+### Other command formats
+
+There are 3 different formats in which commands can be written.
+
+1. Object Literal syntax. This is the format used in the examples used above.
+   It is the way GCLI stores commands internally, so it is to some extent the
+   'native' syntax.
+2. Function Metadata Syntax. This is ideal for decorating existing functions
+   with the metadata to allow use with GCLI.
+3. Object Metadata Syntax. This is ideal for grouping related commands
+   together.
 
 ### Object Literal Syntax
 
-This method is simplest and closest to how GCLI works internally.
-It is designed for situations when you are creating a single command
-specifically for GCLI. The parameters to the exec function are designed to
-allow output without generating a request object first, or specifically asking
-for the environment.
+This is designed for situations when you are creating a single command
+specifically for GCLI. The parameters to the exec function are designed to be
+useful when you have a large number of parameters, and to give direct access to
+the environment (if set).
 
     canon.addCommand({
       name: 'echo',
@@ -339,7 +602,7 @@ for the environment.
         }
       ],
       returnType: 'string',
-      exec: function(args, context) {
+      exec: function(env, args) {
         return args.message;
       }
     });
@@ -348,21 +611,9 @@ The ``args`` object contains the values specified on the params section and
 provided on the command line. In this example it would contain the message for
 display as ``args.message``.
 
-The ``request`` object contains methods for providing output to the system.
-See below for details on the functions available on a Request.
-
-Note: As of 25 March 2011 there is work to complete regarding output. The exec
-function above won't work as defined. The current definition is:
-
-      exec: function(env, args, request) {
-        request.done(args.message);
-      }
-
-See the section on **Request Object** (below) for more details on the request.
-
 It is expected that the signature of the exec function will soon change to be
-``(args, context)`` and that output will be done using return values. Plain
-strings will be distinguished from HTML using a simple wrapper for HTML.
+``(args, env)``. Plain strings will be distinguished from HTML using a simple
+wrapper for HTML.
 Something like ``new HTML('<p>Hello, World!</p>');``, or by using a return
 type of ``html`` rather than ``string``, or by returning a DOM object.
 However we will strongly discourage use of HTML directly because that makes
@@ -373,20 +624,19 @@ to HTML, and will allow us to support a system of multi-part output much like
 an application clipboard which declares that data is available in a number of
 alternate formats.
 
-Asynchronous output will be achieved by allowing the return of some sort of
-promise. GCLI will provide a basic promise and be very conservative about use
-of promise features to allow interaction with other promise systems. We should
-support Q where possible.
+Asynchronous output is achieved using a promise created using the top level API
+``gcli.createPromise()``.
 
 
 ### Function Metadata Syntax
 
 The Object Literal Syntax can't be used to decorate existing functions partly
-because it could entail some confusing 're-parenting' but more seriously
-because it requires a specific signature in terms of parameters.
+because it could entail some confusing situations where commands are not
+executed with the context they were expecting, but more seriously because it
+requires a specific signature in terms of parameters.
 
 The Function Metadata Syntax is designed for cases when you want to decorate
-an existing function. Which allows us to package window.alert as a GCLI
+an existing function. This allows us to package window.alert as a GCLI
 function:
 
     window.alert.metadata = {
@@ -400,13 +650,10 @@ function:
 It is important to define the parameters in the correct order to that in
 which the function you are decorating expects.
 
-Note: It's possible that requirements to support older browsers may conflict
-with how we are currently supporting Function Metadata Syntax. Stay tuned.
-
 It is possible to use Function Metadata Syntax more conventionally with
 functions designed for GCLI. There are 2 useful features which can help in
-this - [function hoisting] [fh] and the ability to fetch the environment or a
-request from the canon.
+this - [function hoisting](http://j.mp/fn-hoist) and the ability to fetch the
+environment or a request from the canon.
 
 Function hoisting makes it possible to define function metadata before the
 function. This may look a little strange initially, but it's common for
@@ -415,28 +662,18 @@ documentation to come before the thing it documents.
     echo.metadata = {
       name: 'echo',
       description: 'Show a message',
-      params: [
-        {
-          name: 'message',
-          type: 'string',
-          description: 'The message to display.'
-        }
-      ]
+      params: [ { name: 'message', type: 'string', description: '...' } ]
     };
     function echo(message) {
-      var request = canon.getRequest();
-      request.done(message);
+      return message;
     }
     canon.addCommand(echo);
 
-The canon functions ``getRequest()`` and ``getEnvironment()`` allow access
-to the request and env objects that are normally provided as parameters.
+The gcli function ``getEnvironment()`` allows access to env object that is
+normally provided as a parameter.
 
-[fh]: https://developer.mozilla.org/en/JavaScript/Reference/Scope_Cheatsheet
 
 ### Object Metadata Syntax
-
-TODO: The Object Metadata Syntax needs updating.
 
 The benefit of the Object Metadata Syntax is that it is a convenient way to
 represent a group of commands, also there is a variant that can be used to
@@ -515,106 +752,75 @@ because implementing it wasn't hard, but it remains to be seen actually how
 useful it is. Support may be removed in the future, please tell us if you find
 it useful.
 
-### Request Object
 
-TODO: The Request object should allow control over returned values, their
-types and ways they can be converted to other types.
+### Returning data
 
-The new way: TODO: integrate into docs properly
+The command meta-data specifies the type of data returned by the command using
+the ``returnValue`` setting.
 
-To return some plain text:
+Some examples of this is practice:
 
     { returnType: "string" }
+    ...
     return "example";
 
+GCLI interprets the output as a plain string. It will be escaped before display
+and available as input to other commands as a plain string.
+
     { returnType: "html" }
+    ...
     return "<p>Hello</p>";
 
+GCLI will interpret this as HTML, and parse it (probably using innerHTML) for
+display.
+
     { returnType: "html" }
+    ...
     return document.createElement('div');
 
+GCLI will use the returned HTML element as returned. Important: In some
+environments (e.g. embedded in Firefox) there is no global ``document``. We
+will provide an API like ``var doc = gcli.getDocument();`` to get access to
+a source of raw DOM nodes.
+
     { returnType: "number" }
+    ...
     return 42;
 
+GCLI will display the element in a similar way to a string, but it the value
+will be available to future commands as a number.
+
     { returnType: "date" }
+    ...
     return new Date();
 
     { returnType: "file" }
+    ...
     return new File();
 
+Both these examples return data as a given type, for which a converter will
+be required before the value can be displayed. The type system is likely to
+change before this is finalized. Please contact the author for more
+information.
+
     { returnType: "string" }
+    ...
     var promise = gcli.createPromise();
     setTimeout(function() {
-        promise.setProgress(0.5, "Half way through");
-    }, 500);
-    setTimeout(function() {
-        promise.resolve("hello");
+      promise.resolve("hello");
     }, 500);
     return promise;
 
+This is an example of how to provide asynchronous output. It is expected that
+we will be able to provide progress feedback using:
 
+    promise.setProgress(0.5, "Half way through");
 
-The request object allows interaction with the command line output and to
-control asynchronous completion.
-
-Example usage:
-
-Display the given message and signal completion to the system:
-
-    request.done('Finished!');
-
-As above, but display a number of messages in the output:
-
-    [ 1, 2, 3 ].forEach(function(i) {
-      request.output('Count=' + i);
-    });
-    request.done('Finished!');
-
-If something has gone wrong, it can be signaled using:
-
-    request.error = true;
-
+Errors can be signalled by throwing an exception. GCLI will display the
+message property (or the toString() value if there is no message property).
 (However see *3 principles for writing commands* above for ways to avoid
 doing this).
 
-There is some sugar for ending with an error:
-
-    request.doneWithError('It broke');
-
-is the same as:
-
-    request.error = true;
-    request.done('It broke');
-
-Going Async:
-
-    request.async();
-
-If a command exits without having produced any output and without having called
-``done()`` then it is considered finished. If a command calls ``output()``
-or ``async()`` without subsequently calling ``done()`` then it will be
-considered asynchronous, and incomplete when the function ends. The command
-will be considered complete when ``done()`` is called.
-
-For example:
-
-    canon.addCommand({
-      name: 'slow',
-      description: 'Display a message after a given interval.',
-      params: [
-        {
-          name: 'delay',
-          type: 'number',
-          description: 'The time to delay (in seconds).'
-        }
-      ],
-      exec: function(env, args, request) {
-        request.async();
-        setTimeout(function() {
-          request.done('Finished!');
-        }, args.delay * 1000);
-      }
-    });
 
 ### Specifying Types
 
@@ -658,8 +864,7 @@ types this is enough detail. There are a number of exceptions:
 See below for more information.
 
 
-Writing Types
--------------
+## Writing Types
 
 Commands are a fundamental building block because they are what the users
 directly interacts with, however they are built on ``Type``s. There are a
@@ -740,8 +945,7 @@ places in GCLI where the UI will be able to provide better help to users if
 your values include these properties.
 
 
-Writing Fields
---------------
+## Writing Fields
 
 Fields are visual representations of types. For simple types like string it is
 enough to use ``<input type=...>``, however more complex types we may wish to
