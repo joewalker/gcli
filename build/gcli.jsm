@@ -93,6 +93,8 @@ gcli.createPromise = function createPromise() {
     return new Promise();
 };
 
+gcli.ui = ui;
+
 gcli.startup = function() {
     require('gcli/types').startup();
     require('gcli/commands/help').startup();
@@ -5960,10 +5962,7 @@ function Menu(doc, requ) {
 
         var templates = dom.createElement('div', null, this.doc);
         dom.setInnerHtml(templates, menuHtml);
-console.log('templates', templates);
-console.log('menuHtml', menuHtml);
         Menu.optTempl = templates.querySelector('#gcliOptTempl');
-console.log('Menu.optTempl', Menu.optTempl);
     }
 
     canon.canonChange.add(this.update, this);
