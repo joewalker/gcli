@@ -391,44 +391,7 @@ define('gcli/util', ['require', 'exports', 'module' ], function(require, exports
 
 //------------------------------------------------------------------------------
 
-/**
- * This object represents a "safe console" object that forwards debugging
- * messages appropriately without creating a dependency on Firebug in Firefox.
- */
-var console = {};
-
-var noop = function() {};
-
-// These are the functions that are available in Chrome 4/5, Safari 4
-// and Firefox 3.6. Don't add to this list without checking browser support
-var NAMES = [
-  "assert", "count", "debug", "dir", "dirxml", "error", "group", "groupEnd",
-  "info", "log", "profile", "profileEnd", "time", "timeEnd", "trace", "warn"
-];
-
-if (typeof(window) === 'undefined') {
-  // We're in a web worker. Forward to the main thread so the messages
-  // will show up.
-  NAMES.forEach(function(name) {
-    console[name] = function() {
-      var args = Array.prototype.slice.call(arguments);
-      var msg = { op: 'log', method: name, args: args };
-      postMessage(JSON.stringify(msg));
-    };
-  });
-} else {
-  // For each of the console functions, copy them if they exist, stub if not
-  NAMES.forEach(function(name) {
-    if (window.console && window.console[name]) {
-      console[name] = Function.prototype.bind.call(window.console[name], window.console);
-    } else {
-      console[name] = noop;
-    }
-  });
-}
-
 exports.console = console;
-
 
 //------------------------------------------------------------------------------
 
@@ -529,7 +492,7 @@ dom.clearElement = function(el) {
   }
 };
 
-if (!document.documentElement.classList) {
+if (this.document && !this.document.documentElement.classList) {
   /**
    * Is the given element marked with the given CSS class?
    */
@@ -661,7 +624,7 @@ dom.computedStyle = function(element, style) {
  * tweaks in XHTML documents.
  */
 dom.setInnerHtml = function(el, html) {
-  if (el.namespaceURI === NS_XHTML) {
+  if (!this.document || el.namespaceURI === NS_XHTML) {
     try {
       dom.clearElement(el);
       var range = el.ownerDocument.createRange();
@@ -779,13 +742,16 @@ event.stopPropagation = function(e) {
  * Browser detection. Used only for places where feature detection doesn't make
  * sense.
  */
-var os = (navigator.platform.match(/mac|win|linux/i) || ["other"])[0].toLowerCase();
-// oldGecko == rev < 2.0
-var isOldGecko = window.controllers && window.navigator.product === "Gecko" && /rv\:1/.test(navigator.userAgent);
-// Is the user using a browser that identifies itself as Mac OS
-var isMac = (os === "mac");
-// Is this Opera
-var isOpera = window.opera && Object.prototype.toString.call(window.opera) == "[object Opera]";
+var isOldGecko = false;
+var isOperaMac = false;
+if (this.navigator) {
+    // oldGecko == rev < 2.0
+    isOldGecko = window.controllers && window.navigator.product === "Gecko" &&
+        /rv\:1/.test(navigator.userAgent);
+    // Is the user using a browser that identifies itself as Opera on Mac OS
+    isOperaMac = (navigator.platform.match(/mac/i) === "mac") && window.opera &&
+        Object.prototype.toString.call(window.opera) == "[object Opera]";
+}
 
 var MODIFIER_KEYS = { 16: 'Shift', 17: 'Ctrl', 18: 'Alt', 224: 'Meta' };
 var FUNCTION_KEYS = {
@@ -800,7 +766,7 @@ var FUNCTION_KEYS = {
 
 function normalizeCommandKeys(callback, ev, keyCode) {
     var hashId = 0;
-    if (isOpera && isMac) {
+    if (isOperaMac) {
         hashId = 0 | (ev.metaKey ? 1 : 0) | (ev.altKey ? 2 : 0)
             | (ev.shiftKey ? 4 : 0) | (ev.ctrlKey ? 8 : 0);
     } else {
@@ -868,7 +834,7 @@ event.addCommandKeyListener = function(el, callback) {
         });
 
         // repeated keys are fired as keypress and not keydown events
-        if (isMac && isOpera) {
+        if (isOperaMac) {
             addListener(el, "keypress", function(e) {
                 var keyId = e.keyIdentifier || e.keyCode;
                 if (lastDown !== keyId) {
@@ -6115,7 +6081,10 @@ function Menu(doc, requ) {
 
         var templates = dom.createElement('div', null, this.doc);
         dom.setInnerHtml(templates, menuHtml);
+console.log('templates', templates);
+console.log('menuHtml', menuHtml);
         Menu.optTempl = templates.querySelector('#gcliOptTempl');
+console.log('Menu.optTempl', Menu.optTempl);
     }
 
     canon.canonChange.add(this.update, this);
