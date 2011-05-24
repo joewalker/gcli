@@ -25,18 +25,31 @@ GCLI is not a secret, however it is unreleased, not blogged about (except in
 previous incarnations). Feel free to poke around and help but don't view it
 as a finished or released project.
 
+The command line parser is mostly complete. The UI is kind of working, but
+lacking polish. There are very few implemented commands.
+
+Major hurdles to be overcome:
+
+- Security review. Is it OK to run user commands with Chrome privileges in
+  Firefox? If not, how should it be done?
+- Accessibility review. Is the completion node system workable?
+- Localization. The UI can be configured to have no pop-up help, which should
+  alleviate the immediate need for localization since there are no strings in
+  the input area itself.
+  Once we add in help system back in, it will need localization.
+
 
 ## History
 
 GCLI was born as part of the
 [Bespin](http://ajaxian.com/archives/canvas-for-a-text-editor) project and was
 [discussed at the time](http://j.mp/bespin-cli). The command line component
-survived the rename or Bepsin to Skywriter and the merger with Ace, got a name
+survived the rename of Bepsin to Skywriter and the merger with Ace, got a name
 of it's own (Cockpit) which didn't last long before the project was named GCLI.
 It is not known how long it will stay being called GCLI.
 
 
-## Supported Environments
+## Environments
 
 GCLI is designed to work in a number of environments:
 
@@ -65,8 +78,9 @@ Other sources of GCLI documentation:
 - Source
   - The source for use alongside Ace or in web pages is in the [Github
     repository for GCLI](https://github.com/mozilla/gcli/)
-  - The source for embedding into springs from [this HG/MQ patch queue]
-    (http://j.mp/gcli-mq) from which it flows into [the Mozilla devtools repo]
+  - The source for the Firefox embedding springs from [this HG/MQ patch queue]
+    (http://j.mp/gcli-mq) (which is partly derived form the Git repo) from
+    which it flows into [the Mozilla devtools repo]
     (https://hg.mozilla.org/projects/devtools/) and then on into the Mozilla
     central ocean.
 - [Demo of GCLI](https://people.mozilla.com/~jwalker/gcli/build/) with an
@@ -986,5 +1000,4 @@ This is an example of a very simple new password field type:
     PasswordField.claim = function(type) {
       return type.name === 'password' ? Field.claim.MATCH : Field.claim.NO_MATCH;
     };
-
 
