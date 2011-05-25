@@ -125,6 +125,8 @@ GCLI should not attempt to:
   catch up with 1985.
 - slavishly follow the syntax of existing commands, predictability is more
   important.
+- be a programming language. Shell scripts are mini programming languages but
+  we have JavaScript sat just next door. It's better to integrate than compete.
 
 
 ## Design Changes
@@ -323,7 +325,7 @@ This is how to create a basic ``greet`` command:
         }
       ],
       returnType: 'string',
-      exec: function(env, args) {
+      exec: function(args, env) {
         return "Hello, " + args.name;
       }
     });
@@ -352,7 +354,7 @@ defaultValue to the parameter:
         }
       ],
       returnType: 'string',
-      exec: function(env, args) {
+      exec: function(args, env) {
         return "Hello, " + args.name;
       }
     });
@@ -394,7 +396,7 @@ groups.
         }
       ],
       ...,
-      exec: function(env, args) {
+      exec: function(args, env) {
         var output = '';
         if (args.debug) output += 'About to send greeting';
         for (var i = 0; i < args.repeat; i++) {
@@ -465,7 +467,7 @@ Parameters can have a type of ``array``. For example:
         }
       ],
       ...
-      exec: function(env, args) {
+      exec: function(args, env) {
         return "Hello, " + args.names.join(', ') + '.';
       }
     });
@@ -526,13 +528,13 @@ exec function:
     canon.addCommand({
       name: 'tar create',
       description: 'Create a new archive',
-      exec: function(env, args) { ... },
+      exec: function(args, env) { ... },
       ...
     });
     canon.addCommand({
       name: 'tar extract',
       description: 'Extract from an archive',
-      exec: function(env, args) { ... },
+      exec: function(args, env) { ... },
       ...
     });
 
@@ -616,7 +618,7 @@ the environment (if set).
         }
       ],
       returnType: 'string',
-      exec: function(env, args) {
+      exec: function(args, env) {
         return args.message;
       }
     });
@@ -717,9 +719,7 @@ Alternatively the same commands can be created using Object Metadata Syntax:
           { name: 'file', type: 'file', description: 'The file to create.' },
           { name: 'compress', type: 'boolean', description: '...' }
         ],
-        exec: function(env, args, request) {
-          ...
-        },
+        exec: function(args, env) { ... },
       },
       
       extract: {
@@ -728,9 +728,7 @@ Alternatively the same commands can be created using Object Metadata Syntax:
           { name: 'file', type: 'file', description: 'The source file.' },
           { name: 'compress', type: 'boolean', description: '...' }
         ],
-        exec: function(env, args, request) {
-          ...
-        },
+        exec: function(args, env) { ... },
       },
       
       ...
