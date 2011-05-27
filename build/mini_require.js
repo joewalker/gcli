@@ -82,6 +82,12 @@
   /**
    * Lookup module names and resolve them by calling the definition function if
    * needed.
+   * There are 2 ways to call this, either with an array of dependencies and a
+   * callback to call when the dependencies are found (which can happen
+   * asynchronously in an in-page context) or with a single string an no callback
+   * where the dependency is resolved synchronously and returned.
+   * The API is designed to be compatible with the CommonJS AMD spec and
+   * RequireJS.
    * @param {string} deps a name, or names for the payload
    * @param {function} callback Function to call when the deps are resolved
    */
