@@ -82,6 +82,12 @@
   /**
    * Lookup module names and resolve them by calling the definition function if
    * needed.
+   * There are 2 ways to call this, either with an array of dependencies and a
+   * callback to call when the dependencies are found (which can happen
+   * asynchronously in an in-page context) or with a single string an no callback
+   * where the dependency is resolved synchronously and returned.
+   * The API is designed to be compatible with the CommonJS AMD spec and
+   * RequireJS.
    * @param {string} deps a name, or names for the payload
    * @param {function} callback Function to call when the deps are resolved
    */
@@ -1681,7 +1687,7 @@ Requisition.prototype.exec = function(input) {
             reply = command.exec.apply(context, argValues);
         }
         else {
-            reply = command.exec(this.env, args);
+            reply = command.exec(args, this.env);
         }
 
         if (reply != null && reply.isPromise) {
@@ -6458,7 +6464,7 @@ var helpCommandSpec = {
     ],
     returnType: 'html',
     description: 'Get help on the available commands',
-    exec: function(env, args) {
+    exec: function(args, env) {
         var output = [];
 
         var command = canon.getCommand(args.search);
@@ -6649,7 +6655,7 @@ var evalCommandSpec = {
     ],
     returnType: 'html',
     description: 'Call \'eval\' on some JavaScript',
-    exec: function(env, args) {
+    exec: function(args, env) {
         var resultPrefix = 'Result for <em>\'' + args.javascript + '\'</em>: ';
         try {
             var result = eval(args.javascript);
@@ -6780,7 +6786,7 @@ var bugzCommandSpec = {
     name: 'bugz',
     returnType: 'html',
     description: 'List the bugs open in Bugzilla',
-    exec: function(env, args) {
+    exec: function(args, env) {
         var promise = gcli.createPromise();
         var url = 'https://api-dev.bugzilla.mozilla.org/0.9/bug' +
             '?short_desc=gcli' +
@@ -7120,7 +7126,7 @@ var git = {
                 ]
             }
         ],
-        exec: function(env, args) {
+        exec: function(args, env) {
             return "This is only a demo of UI generation.";
         }
     },
@@ -7224,7 +7230,7 @@ var git = {
                 ]
             },
         ],
-        exec: function(env, args) {
+        exec: function(args, env) {
             return "This is only a demo of UI generation.";
         }
     }
@@ -7246,7 +7252,7 @@ vi.metadata = {
     ],
     returnType: 'html'
 };
-function vi(env, args) {
+function vi(args, env) {
     return '' +
         '<textarea rows=3 cols=80 style="font-family:monospace">' +
         'One day it could be very useful to have an editor embedded in GCLI' +
@@ -8319,7 +8325,7 @@ commands.tsv = {
         { name: 'optionType', type: 'optionType' },
         { name: 'optionValue', type: 'optionValue' }
     ],
-    exec: function(env, args) { }
+    exec: function(args, env) { }
 };
 
 commands.tsr = function() { };
@@ -8369,7 +8375,7 @@ commands.tselarr = {
         { name: 'num', type: { name: 'selection', data: [ '1', '2', '3' ] } },
         { name: 'arr', type: { name: 'array', subtype: 'string' } },
     ],
-    exec: function(env, args) {}
+    exec: function(args, env) {}
 };
 
 commands.tsm = {
@@ -8381,7 +8387,7 @@ commands.tsm = {
         { name: 'txt', type: 'string' },
         { name: 'num', type: { name: 'number', max: 42, min: 0 } },
     ],
-    exec: function(env, args) {}
+    exec: function(args, env) {}
 };
 
 commands.setup = function() {
@@ -8823,7 +8829,7 @@ exports.testNestedCommand = function() {
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gclitest/testRequire', ['require', 'exports', 'module' , 'test/assert', 'gclitest/requirable'], function(require, exports, module) {
+define('gclitest/testRequire', ['require', 'exports', 'module' , 'test/assert', 'gclitest/requirable', 'gclitest/unrequirable'], function(require, exports, module) {
 
 var t = require('test/assert');
 
@@ -8848,16 +8854,18 @@ exports.testDomains = function() {
     t.verifyEqual('42', requireable.getStatus());
     t.verifyUndefined(requireable.status);
 
-    var domain = new define.Domain();
-    var requireable2 = domain.require('gclitest/requirable');
-    t.verifyUndefined(requireable2.status);
-    t.verifyEqual('initial', requireable2.getStatus());
-    requireable2.setStatus(999);
-    t.verifyEqual(999, requireable2.getStatus());
-    t.verifyUndefined(requireable2.status);
+    if (define.Domain) {
+        var domain = new define.Domain();
+        var requireable2 = domain.require('gclitest/requirable');
+        t.verifyUndefined(requireable2.status);
+        t.verifyEqual('initial', requireable2.getStatus());
+        requireable2.setStatus(999);
+        t.verifyEqual(999, requireable2.getStatus());
+        t.verifyUndefined(requireable2.status);
 
-    t.verifyEqual('42', requireable.getStatus());
-    t.verifyUndefined(requireable.status);
+        t.verifyEqual('42', requireable.getStatus());
+        t.verifyUndefined(requireable.status);
+    }
 };
 
 exports.testLeakage = function() {
@@ -8874,20 +8882,20 @@ exports.testMultiImport = function() {
 };
 
 exports.testUncompilable = function() {
-    /*
     // This test is commented out because it breaks the RequireJS module
     // loader ...
     // It's not totally clear how a module loader should perform with unusable
     // modules, however at least it should go into a flat spin ...
     // GCLI mini_require reports an error as it should
-    try {
-        var unrequireable = require('gclitest/unrequirable');
-        fail();
+    if (define.Domain) {
+        try {
+            var unrequireable = require('gclitest/unrequirable');
+            t.fail();
+        }
+        catch (ex) {
+            console.error(ex);
+        }
     }
-    catch (ex) {
-        console.log(ex);
-    }
-    */
 };
 
 exports.testRecursive = function() {
@@ -8944,6 +8952,50 @@ define('gclitest/requirable', ['require', 'exports', 'module' ], function(requir
     var status = 'initial';
     exports.setStatus = function(aStatus) { status = aStatus; };
     exports.getStatus = function() { return status; };
+
+});
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is Skywriter.
+ *
+ * The Initial Developer of the Original Code is
+ * Mozilla.
+ * Portions created by the Initial Developer are Copyright (C) 2009
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ *      Joe Walker (jwalker@mozilla.com) (original author)
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK ***** */
+
+define('gclitest/unrequirable', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+    if (define.Domain) {
+        null.throwNPE();
+    }
 
 });
 define("text!gcli/ui/arg_fetch.css", [], "" +
@@ -9061,7 +9113,7 @@ define("text!gcli/ui/menu.html", [], "" +
   " ");
 
 define("text!gcli/ui/request_view.css", [], "" +
-  ".gcliReports { overflow: auto; top: 0; }" +
+  ".gcliReports { overflow: auto; top: 0; height: 100%; }" +
   "" +
   ".gcliRowIn {" +
   "  margin-top: 5px; margin-right: 5px;" +

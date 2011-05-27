@@ -1560,7 +1560,7 @@ Requisition.prototype.exec = function(input) {
             reply = command.exec.apply(context, argValues);
         }
         else {
-            reply = command.exec(this.env, args);
+            reply = command.exec(args, this.env);
         }
 
         if (reply != null && reply.isPromise) {
@@ -6337,7 +6337,7 @@ var helpCommandSpec = {
     ],
     returnType: 'html',
     description: 'Get help on the available commands',
-    exec: function(env, args) {
+    exec: function(args, env) {
         var output = [];
 
         var command = canon.getCommand(args.search);
@@ -6535,7 +6535,7 @@ define("text!gcli/ui/menu.html", [], "" +
   " ");
 
 define("text!gcli/ui/request_view.css", [], "" +
-  ".gcliReports { overflow: auto; top: 0; }" +
+  ".gcliReports { overflow: auto; top: 0; height: 100%; }" +
   "" +
   ".gcliRowIn {" +
   "  margin-top: 5px; margin-right: 5px;" +
