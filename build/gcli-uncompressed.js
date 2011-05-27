@@ -428,9 +428,12 @@ exports.createEvent = function() {
    * @param {object} ev The event object to be passed to the event listeners
    */
   var event = function(ev) {
-    handlers.forEach(function(handler) {
+    // Use for rather than forEach because it step debugs better, which is
+    // important for debugging events
+    for (var i = 0; i < handlers.length; i++) {
+      var handler = handlers[i];
       handler.func.apply(handler.scope, [ ev ]);
-    });
+    }
   };
 
   /**
@@ -910,7 +913,7 @@ var Conversion = require('gcli/types').Conversion;
 var ArrayType = require('gcli/types').ArrayType;
 var StringType = require('gcli/types').StringType;
 var BooleanType = require('gcli/types').BooleanType;
-var SelectionType = require('gcli/types').SelectionType;
+var Type = require('gcli/types').Type;
 
 var Argument = require('gcli/argument').Argument;
 var ArrayArgument = require('gcli/argument').ArrayArgument;
@@ -1133,29 +1136,135 @@ exports.Assignment = Assignment;
 
 
 /**
- * Select from the available commands
+ * Select from the available commands.
+ * This is very similar to a SelectionType, however the level of hackery in
+ * SelectionType to make it handle Commands correctly was to high, so we
+ * simplified.
  */
-var command = new SelectionType({
-    name: 'command',
-    commandMode: true,
-    data: function() {
-        return canon.getCommands();
-    },
-    stringify: function(command) {
-        return command.name;
-    },
-    fromString: function(str) {
-        return canon.getCommand(str);
+function CommandType(typeSpec) {
+    if (typeSpec) {
+        Object.keys(typeSpec).forEach(function(key) {
+            this[key] = typeSpec[key];
+        }, this);
     }
-});
+};
+
+CommandType.prototype = new Type();
+
+CommandType.prototype.name = 'command';
+
+CommandType.prototype.stringify = function(command) {
+    return command.name;
+};
+
+CommandType.prototype._findCompletions = function(arg) {
+    var completions = {};
+
+    // This is ripe for optimization, canon.getCommands() creates an array from
+    // an object and we just turn it back again.
+    var commands = {};
+    canon.getCommands().forEach(function(command) {
+        commands[command.name] = command;
+    }, this);
+
+    var matchedValue = commands[arg.text];
+    if (matchedValue && matchedValue.exec) {
+        completions[arg.text] = matchedValue;
+    }
+    else {
+        Object.keys(commands).forEach(function(name) {
+            if (name.indexOf(arg.text) === 0) {
+                // The command type needs to exclude sub-commands when the CLI
+                // is blank, but include them when we're filtering. This hack
+                // excludes matches when the filter text is '' and when the
+                // name includes a space.
+                if (arg.text.length !== 0 || name.indexOf(' ') === -1) {
+                    completions[name] = commands[name];
+                }
+            }
+        }, this);
+    }
+
+    return completions;
+};
+
+CommandType.prototype.parse = function(arg) {
+    // Especially at startup, completions live over the time that things change
+    // so we provide a completion function rather than completion values
+    var completer = function() {
+        var matches = this._findCompletions(arg);
+        return Object.keys(matches).map(function(name) {
+            return matches[name];
+        });
+    }.bind(this);
+
+    var completions = this._findCompletions(arg);
+
+    var value = completions[arg.text];
+    var status;
+    var msg = '';
+
+    var matchCount = Object.keys(completions).length;
+    if (matchCount === 0) {
+        msg = 'Can\'t use \'' + arg.text + '\'.';
+        status = Status.ERROR;
+    }
+    else if (matchCount === 1) {
+        // Is it an exact match of an executable command,
+        // or just the only possibility?
+        status = value && value.exec ? Status.VALID : Status.INCOMPLETE;
+    }
+    else if (matchCount > 0) {
+        status = Status.INCOMPLETE;
+    }
+
+    return new Conversion(value, arg, status, msg, completer);
+};
+
+CommandType.prototype.fromString = function(str) {
+    return canon.getCommand(str);
+};
+
+CommandType.prototype.decrement = function(value) {
+    var data = (typeof this.data === 'function') ? this.data() : this.data;
+    var index;
+    if (value == null) {
+        index = data.length - 1;
+    }
+    else {
+        var name = this.stringify(value);
+        var index = data.indexOf(name);
+        index = (index === 0 ? data.length - 1 : index - 1);
+    }
+    return this.fromString(data[index]);
+};
+
+CommandType.prototype.increment = function(value) {
+    var data = (typeof this.data === 'function') ? this.data() : this.data;
+    var index;
+    if (value == null) {
+        index = 0;
+    }
+    else {
+        var name = this.stringify(value);
+        var index = data.indexOf(name);
+        index = (index === data.length - 1 ? 0 : index + 1);
+    }
+    return this.fromString(data[index]);
+};
 
 
 /**
  * Registration and de-registration.
  */
 exports.startup = function() {
-    types.registerType(command);
+    types.registerType(CommandType);
 
+    /**
+     * We have to delay the definition of how a CommandAssignment behaves
+     * because creation of the prototype calls things which are not ready to be
+     * used until startup.
+     */
     CommandAssignment.prototype = new Assignment(new canon.Parameter({
         name: '__command',
         type: 'command',
@@ -1191,7 +1300,7 @@ exports.startup = function() {
 };
 
 exports.shutdown = function() {
-    types.unregisterType(command);
+    types.unregisterType(CommandType);
 };
 
 
@@ -3115,14 +3224,6 @@ SelectionType.prototype._findCompletions = function(arg) {
     else {
         Object.keys(lookup).forEach(function(name) {
             if (name.indexOf(arg.text) === 0) {
-                // Hack alert. The command type needs to exclude sub-commands
-                // when the CLI is blank, but include them when we're filtering
-                // This hack excludes matches when the filter text is '' and
-                // when the name includes a space.
-                if (this.commandMode && arg.text.length === 0 &&
-                        name.indexOf(' ') > 0) {
-                    return;
-                }
                 completions[name] = lookup[name];
             }
         }, this);
@@ -3145,7 +3246,11 @@ SelectionType.prototype.parse = function(arg) {
     }
 
     // Especially at startup, completions live over the time that things change
-    // so we provide a completion function rather than completion values
+    // so we provide a completion function rather than completion values.
+    // This was primarily designed from commands, which have since moved into
+    // their own type, so technically we could remove this code, except that it
+    // provides more up-to-date answers, and it's hard to predict when it will
+    // be required.
     var completer = function() {
         var matches = this._findCompletions(arg);
         return Object.keys(matches).map(function(name) {
@@ -8548,7 +8653,7 @@ exports.testIncompleteMultiMatch = function() {
     t.verifyTrue(assignC.getPredictions().length < 20); // could break ...
     verifyPredictionsContains('tsv', assignC.getPredictions());
     verifyPredictionsContains('tsr', assignC.getPredictions());
-    t.verifyNull(requ.commandAssignment.getValue());
+    t.verifyTrue(null == requ.commandAssignment.getValue());
 };
 
 exports.testIncompleteSingleMatch = function() {
@@ -8558,7 +8663,7 @@ exports.testIncompleteSingleMatch = function() {
     t.verifyEqual(-1, assignC.paramIndex);
     t.verifyEqual(1, assignC.getPredictions().length);
     t.verifyEqual('tselarr', assignC.getPredictions()[0].name);
-    t.verifyNull(requ.commandAssignment.getValue());
+    t.verifyTrue(null == requ.commandAssignment.getValue());
 };
 
 exports.testTsv = function() {
