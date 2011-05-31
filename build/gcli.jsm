@@ -292,8 +292,10 @@ exports.console = console;
  *   hat.putOn.add(function(ev) {
  *     console.log('The hat ', ev.hat, ' has is worn by ', ev.person);
  *   }, scope);
+ * @param {string} name Optional name that helps us work out what event this
+ * is when debugging.
  */
-exports.createEvent = function() {
+exports.createEvent = function(name) {
   var handlers = [];
 
   /**
@@ -817,7 +819,7 @@ var MergedArgument = require('gcli/argument').MergedArgument;
 function Assignment(param, paramIndex) {
     this.param = param;
     this.paramIndex = paramIndex;
-    this.assignmentChange = createEvent();
+    this.assignmentChange = createEvent('Assignment.assignmentChange');
 
     this.setDefault();
 };
@@ -956,8 +958,7 @@ Assignment.prototype.getStatus = function(arg) {
 };
 
 /**
- * Basically <tt>value = conversion.predictions[0])</tt> done in a safe
- * way.
+ * Basically <tt>value = conversion.predictions[0])</tt> done in a safe way.
  */
 Assignment.prototype.complete = function() {
     var predictions = this.conversion.getPredictions();
@@ -965,14 +966,14 @@ Assignment.prototype.complete = function() {
         var value = predictions[0];
         var text = this.param.type.stringify(value);
         var arg = this.conversion.arg.beget(text);
-        var conversion = new Conversion(value, arg);
+        var conversion = this.param.type.parse(arg);
+//        var conversion = new Conversion(value, arg);
         this.setConversion(conversion);
     }
 };
 
 /**
- * Replace the current value with the lower value if such a concept
- * exists.
+ * Replace the current value with the lower value if such a concept exists.
  */
 Assignment.prototype.decrement = function() {
     var replacement = this.param.type.decrement(this.conversion.value);
@@ -985,8 +986,7 @@ Assignment.prototype.decrement = function() {
 };
 
 /**
- * Replace the current value with the higher value if such a concept
- * exists.
+ * Replace the current value with the higher value if such a concept exists.
  */
 Assignment.prototype.increment = function() {
     var replacement = this.param.type.increment(this.conversion.value);
@@ -1132,60 +1132,67 @@ CommandType.prototype.increment = function(value) {
  */
 exports.startup = function() {
     types.registerType(CommandType);
-
-    /**
-     * We have to delay the definition of how a CommandAssignment behaves
-     * because creation of the prototype calls things which are not ready to be
-     * used until startup.
-     */
-    CommandAssignment.prototype = new Assignment(new canon.Parameter({
-        name: '__command',
-        type: 'command',
-        description: 'The command to execute'
-    }), -1);
-
-    CommandAssignment.prototype.getStatus = function(arg) {
-        return Status.combine(
-            Assignment.prototype.getStatus.call(this, arg),
-            this.conversion.value && !this.conversion.value.exec ?
-                Status.INCOMPLETE : Status.VALID
-        );
-    };
-
-    UnassignedAssignment.prototype = new Assignment(new canon.Parameter({
-        name: '__unassigned',
-        type: 'string'
-    }), -1);
-
-    UnassignedAssignment.prototype.getStatus = function(arg) {
-        return Status.ERROR;
-    };
-
-    UnassignedAssignment.prototype.setUnassigned = function(args) {
-        if (!args || args.length === 0) {
-            this.setDefault();
-        }
-        else {
-            var conversion = this.param.type.parse(new MergedArgument(args));
-            this.setConversion(conversion);
-        }
-    };
 };
 
 exports.shutdown = function() {
     types.unregisterType(CommandType);
 };
 
-
 /**
  * This is a special assignment to reflect the command itself.
  */
-function CommandAssignment() { }
+function CommandAssignment() {
+    this.param = new canon.Parameter({
+        name: '__command',
+        type: 'command',
+        description: 'The command to execute'
+    });
+    this.paramIndex = -1;
+    this.assignmentChange = createEvent('CommandAssignment.assignmentChange');
+
+    this.setDefault();
+}
+
+CommandAssignment.prototype = Object.create(Assignment.prototype);
+
+CommandAssignment.prototype.getStatus = function(arg) {
+    return Status.combine(
+        Assignment.prototype.getStatus.call(this, arg),
+        this.conversion.value && !this.conversion.value.exec ?
+            Status.INCOMPLETE : Status.VALID
+    );
+};
+
 
 /**
  * Special assignment used when ignoring parameters that don't have a home
  */
-function UnassignedAssignment() { }
+function UnassignedAssignment() {
+    this.param = new canon.Parameter({
+        name: '__unassigned',
+        type: 'string'
+    });
+    this.paramIndex = -1;
+    this.assignmentChange = createEvent('UnassignedAssignment.assignmentChange');
+
+    this.setDefault();
+}
+
+UnassignedAssignment.prototype = Object.create(Assignment.prototype);
+
+UnassignedAssignment.prototype.getStatus = function(arg) {
+    return Status.ERROR;
+};
+
+UnassignedAssignment.prototype.setUnassigned = function(args) {
+    if (!args || args.length === 0) {
+        this.setDefault();
+    }
+    else {
+        var conversion = this.param.type.parse(new MergedArgument(args));
+        this.setConversion(conversion);
+    }
+};
 
 
 /**
@@ -1238,22 +1245,24 @@ function Requisition(env) {
 
     // Pre-bind the event listeners
     this.commandAssignment.assignmentChange.add(this._onCommandAssignmentChange, this);
+    this.commandAssignment.assignmentChange.add(this._onAssignmentChange, this);
 
     this.reportList = canon.globalReportList;
 
-    this.assignmentChange = createEvent();
-    this.commandChange = createEvent();
-    this.inputChange = createEvent();
+    this.assignmentChange = createEvent('Requisition.assignmentChange');
+    this.commandChange = createEvent('Requisition.commandChange');
+    this.inputChange = createEvent('Requisition.inputChange');
 }
 
 /**
  * Some number that is higher than the most args we'll ever have. Would use
  * MAX_INTEGER if that made sense
  */
-var MORE_THAN_THE_MOST_ARGS = 1000000;
+var MORE_THAN_THE_MOST_ARGS_POSSIBLE = 1000000;
 
 /**
- * When any assignment changes,
+ * When any assignment changes, we might need to update the _args array to
+ * match and inform people of changes to the typed input text.
  */
 Requisition.prototype._onAssignmentChange = function(ev) {
     // Don't report an event if the value is unchanged
@@ -1276,6 +1285,7 @@ Requisition.prototype._onAssignmentChange = function(ev) {
 
     this._structuralChangeInProgress = true;
 
+    // Refactor? See bug 660765
     // Do preceding arguments need to have dummy values applied so we don't
     // get a hole in the command line?
     if (ev.assignment.param.isPositionalAllowed()) {
@@ -1290,7 +1300,7 @@ Requisition.prototype._onAssignmentChange = function(ev) {
     }
 
     // Remember where we found the first match
-    var index = MORE_THAN_THE_MOST_ARGS;
+    var index = MORE_THAN_THE_MOST_ARGS_POSSIBLE;
     for (var i = 0; i < this._args.length; i++) {
         if (this._args[i].assignment === ev.assignment) {
             if (i < index) {
@@ -1301,7 +1311,7 @@ Requisition.prototype._onAssignmentChange = function(ev) {
         }
     }
 
-    if (index === MORE_THAN_THE_MOST_ARGS) {
+    if (index === MORE_THAN_THE_MOST_ARGS_POSSIBLE) {
         this._args.push(ev.assignment.getArg());
     }
     else {
@@ -1338,6 +1348,7 @@ Requisition.prototype._onCommandAssignmentChange = function(ev) {
         oldValue: ev.oldValue,
         newValue: command
     });
+//    this.inputChange();
 };
 
 /**
@@ -2195,14 +2206,12 @@ function Command(commandSpec) {
     }, this);
 };
 
-Command.prototype = {
-    /**
-     * A safe version of '.description' returning '(No description)' when there
-     * is no description available.
-     */
-    getDescription: function() {
-        return this.description ? this.description : '(No description)';
-    }
+/**
+ * A safe version of '.description' returning '(No description)' when there
+ * is no description available.
+ */
+Command.prototype.getDescription = function() {
+    return this.description ? this.description : '(No description)';
 };
 
 
@@ -2278,31 +2287,29 @@ function Parameter(paramSpec, command, paramNames, groupName) {
     }
 }
 
-Parameter.prototype = {
-    /**
-     * Does the given name uniquely identify this param (among the other params
-     * in this command)
-     * @param name The name to check
-     */
-    isKnownAs: function(name) {
-        return this.regexp && this.regexp.test(name);
-    },
+/**
+ * Does the given name uniquely identify this param (among the other params
+ * in this command)
+ * @param name The name to check
+ */
+Parameter.prototype.isKnownAs = function(name) {
+    return this.regexp && this.regexp.test(name);
+};
 
-    /**
-     * Is the user required to enter data for this parameter? (i.e. has
-     * defaultValue been set to something other than undefined)
-     */
-    isDataRequired: function() {
-        return this.defaultValue === undefined;
-    },
+/**
+ * Is the user required to enter data for this parameter? (i.e. has
+ * defaultValue been set to something other than undefined)
+ */
+Parameter.prototype.isDataRequired = function() {
+    return this.defaultValue === undefined;
+};
 
-    /**
-     * Are we allowed to assign data to this parameter using positional
-     * parameters?
-     */
-    isPositionalAllowed: function() {
-        return this.groupName == null;
-    }
+/**
+ * Are we allowed to assign data to this parameter using positional
+ * parameters?
+ */
+Parameter.prototype.isPositionalAllowed = function() {
+    return this.groupName == null;
 };
 
 canon.Parameter = Parameter;
@@ -2450,7 +2457,7 @@ canon.getCommandNames = function getCommandNames() {
 /**
  * Enable people to be notified of changes to the list of commands
  */
-canon.canonChange = createEvent();
+canon.canonChange = createEvent('canon.canonChange');
 
 /**
  * ReportList stores the reports generated by executed commands.
@@ -2460,7 +2467,7 @@ canon.canonChange = createEvent();
 function ReportList() {
     // The array of requests that wish to announce their presence
     this._reports = [];
-    this.reportsChange = createEvent();
+    this.reportsChange = createEvent('ReportList.reportsChange');
 }
 
 /**
@@ -2806,6 +2813,8 @@ types.ArrayConversion = ArrayConversion;
  * however some types like 'selection' and 'deferred' are customizable.
  * The basic Type type isn't useful, but does provide documentation about what
  * types do.
+ * TODO: Everywhere else in the GCLI code we assign to the prototype
+ * individually, rather than replacing en-masse. Follow here too.
  */
 function Type() {
 };
@@ -3944,79 +3953,77 @@ function RequestView(request, requestsView) {
     this.requestsView.element.appendChild(this.rowout);
 };
 
-RequestView.prototype = {
-    /**
-     * A single click on an invocation line in the console copies the command
-     * to the command line
-     */
-    copyToInput: function() {
-        if (this.requestsView.inputter) {
-            this.requestsView.inputter.setInput(this.request.typed);
-        }
-    },
-
-    /**
-     * A double click on an invocation line in the console executes the command
-     */
-    execute: function(ev) {
-        if (this.requestsView.requ) {
-            this.requestsView.requ.exec({ typed: this.request.typed });
-        }
-    },
-
-    hideOutput: function(ev) {
-        this.output.style.display = 'none';
-        dom.addCssClass(this.hide, 'cmd_hidden');
-        dom.removeCssClass(this.show, 'cmd_hidden');
-
-        event.stopPropagation(ev);
-    },
-
-    showOutput: function(ev) {
-        this.output.style.display = 'block';
-        dom.removeCssClass(this.hide, 'cmd_hidden');
-        dom.addCssClass(this.show, 'cmd_hidden');
-
-        event.stopPropagation(ev);
-    },
-
-    remove: function(ev) {
-        this.requestsView.element.removeChild(this.rowin);
-        this.requestsView.element.removeChild(this.rowout);
-        event.stopPropagation(ev);
-    },
-
-    onRequestChange: function(ev) {
-        dom.setInnerHtml(this.duration, this.request.duration != null ?
-            'completed in ' + (this.request.duration / 1000) + ' sec ' :
-            '');
-
-        dom.clearElement(this.output);
-
-        var node;
-        if (this.request.output != null) {
-            if (this.request.output instanceof HTMLElement) {
-                this.output.appendChild(this.request.output);
-            }
-            else {
-                node = dom.createElement('p', null, this.requestsView.doc);
-                dom.setInnerHtml(node, this.request.output.toString());
-                this.output.appendChild(node);
-            }
-        }
-
-        // We need to see the output of the latest command entered
-        // Certain browsers have a bug such that scrollHeight is too small
-        // when content does not fill the client area of the element
-        var scrollHeight = Math.max(this.requestsView.element.scrollHeight,
-              this.requestsView.element.clientHeight);
-        this.requestsView.element.scrollTop =
-              scrollHeight - this.requestsView.element.clientHeight;
-
-        dom.setCssClass(this.output, 'cmd_error', this.request.error);
-
-        this.throb.style.display = this.request.completed ? 'none' : 'block';
+/**
+ * A single click on an invocation line in the console copies the command
+ * to the command line
+ */
+RequestView.prototype.copyToInput = function() {
+    if (this.requestsView.inputter) {
+        this.requestsView.inputter.setInput(this.request.typed);
     }
+};
+
+/**
+ * A double click on an invocation line in the console executes the command
+ */
+RequestView.prototype.execute = function(ev) {
+    if (this.requestsView.requ) {
+        this.requestsView.requ.exec({ typed: this.request.typed });
+    }
+};
+
+RequestView.prototype.hideOutput = function(ev) {
+    this.output.style.display = 'none';
+    dom.addCssClass(this.hide, 'cmd_hidden');
+    dom.removeCssClass(this.show, 'cmd_hidden');
+
+    event.stopPropagation(ev);
+};
+
+RequestView.prototype.showOutput = function(ev) {
+    this.output.style.display = 'block';
+    dom.removeCssClass(this.hide, 'cmd_hidden');
+    dom.addCssClass(this.show, 'cmd_hidden');
+
+    event.stopPropagation(ev);
+};
+
+RequestView.prototype.remove = function(ev) {
+    this.requestsView.element.removeChild(this.rowin);
+    this.requestsView.element.removeChild(this.rowout);
+    event.stopPropagation(ev);
+};
+
+RequestView.prototype.onRequestChange = function(ev) {
+    dom.setInnerHtml(this.duration, this.request.duration != null ?
+        'completed in ' + (this.request.duration / 1000) + ' sec ' :
+        '');
+
+    dom.clearElement(this.output);
+
+    var node;
+    if (this.request.output != null) {
+        if (this.request.output instanceof HTMLElement) {
+            this.output.appendChild(this.request.output);
+        }
+        else {
+            node = dom.createElement('p', null, this.requestsView.doc);
+            dom.setInnerHtml(node, this.request.output.toString());
+            this.output.appendChild(node);
+        }
+    }
+
+    // We need to see the output of the latest command entered
+    // Certain browsers have a bug such that scrollHeight is too small
+    // when content does not fill the client area of the element
+    var scrollHeight = Math.max(this.requestsView.element.scrollHeight,
+          this.requestsView.element.clientHeight);
+    this.requestsView.element.scrollTop =
+          scrollHeight - this.requestsView.element.clientHeight;
+
+    dom.setCssClass(this.output, 'cmd_error', this.request.error);
+
+    this.throb.style.display = this.request.completed ? 'none' : 'block';
 };
 
 requestView.RequestView = RequestView;
@@ -4913,27 +4920,25 @@ Inputter.prototype.onKeyUp = function(ev) {
             dom.setSelectionEnd(this.element, position.end);
         }
         */
+        this.update();
     }
+    else if (ev.keyCode === 9 /*TAB*/) {
+        this.getCurrentAssignment().complete();
+    }
+    else if (ev.keyCode === 38 /*UP*/) {
+        this.getCurrentAssignment().increment();
+    }
+    else if (ev.keyCode === 40 /*DOWN*/) {
+        this.getCurrentAssignment().decrement();
+    }
+    else {
+        this.update();
+    }
+};
 
-    this.update();
-
-    // Special actions which delegate to the assignment
+Inputter.prototype.getCurrentAssignment = function() {
     var start = dom.getSelectionStart(this.element);
-    var current = this.requ.getAssignmentAt(start);
-    if (current) {
-        // TAB does a special complete thing
-        if (ev.keyCode === 9 /*TAB*/) {
-            current.complete();
-        }
-
-        // UP/DOWN look for some history
-        if (ev.keyCode === 38 /*UP*/) {
-            current.increment();
-        }
-        if (ev.keyCode === 40 /*DOWN*/) {
-            current.decrement();
-        }
-    }
+    return this.requ.getAssignmentAt(start);
 };
 
 /**
@@ -5489,9 +5494,11 @@ field.shutdown = function() {
  * ensure that the constructor is called during their creation to ensure that
  * the fieldChanged event is initialized.
  * @param doc The document we use in calling createElement
+ * TODO: Are we not creating a single event on a prototype so we get duplicate
+ * events fired everywhere?
  */
 function Field(doc, type, named, name, requ) {
-    this.fieldChanged = createEvent();
+    this.fieldChanged = createEvent('Field.fieldChanged');
 }
 
 Field.prototype.element = undefined;
