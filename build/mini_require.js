@@ -132,7 +132,13 @@
     if (typeof module == "function") {
       this.depth += ".";
       var exports = {};
-      module(this.require.bind(this), exports, { id: moduleName, uri: "" });
+      try {
+        module(this.require.bind(this), exports, { id: moduleName, uri: "" });
+      }
+      catch (ex) {
+        console.error("Error using module: " + moduleName, ex);
+        throw ex;
+      }
       this.depth = this.depth.slice(0, -1);
       module = exports;
     }
