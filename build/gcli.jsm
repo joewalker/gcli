@@ -78,28 +78,45 @@ var cli = require('gcli/cli');
 var Promise = require('gcli/promise').Promise;
 
 
-gcli.createView = ui.createView;
+gcli.createView = createStartupChecker(ui.createView);
 
-gcli.addCommand = canon.addCommand;
-gcli.addCommands = canon.addCommands;
-gcli.removeCommand = canon.removeCommand;
-gcli.removeCommands = canon.removeCommands;
-gcli.globalReportList = canon.globalReportList;
+gcli.addCommand = createStartupChecker(canon.addCommand);
+gcli.addCommands = createStartupChecker(canon.addCommands);
+gcli.removeCommand = createStartupChecker(canon.removeCommand);
+gcli.removeCommands = createStartupChecker(canon.removeCommands);
+gcli.globalReportList = createStartupChecker(canon.globalReportList);
 
-gcli.Requisition = cli.Requisition;
-gcli.getEnvironment = cli.getEnvironment;
+//gcli.Requisition = cli.Requisition;
+gcli.getEnvironment = createStartupChecker(cli.getEnvironment);
 
-gcli.createPromise = function createPromise() {
+gcli.createPromise = createStartupChecker(function createPromise() {
     return new Promise();
-};
+});
 
+/*
+ * TODO: Find a way to avoid exposing this.
+ * We would like a better defined API with minimal surface area.
+ */
 gcli.ui = ui;
+
+var started = false;
+
+function createStartupChecker(func) {
+    return function() {
+        if (!started) {
+            gcli.startup();
+        }
+        return func.apply(null, arguments);
+    };
+}
 
 gcli.startup = function() {
     require('gcli/types').startup();
     require('gcli/commands/help').startup();
     require('gcli/cli').startup();
     require('gcli/ui/field').startup();
+
+    started = true;
 };
 
 gcli.shutdown = function() {
@@ -107,6 +124,8 @@ gcli.shutdown = function() {
     require('gcli/cli').shutdown();
     require('gcli/commands/help').shutdown();
     require('gcli/types').shutdown();
+
+    started = false;
 };
 
 
@@ -1657,6 +1676,8 @@ Requisition.prototype.exec = function(input) {
         start: new Date()
     };
 
+    this.reportList.addReport(report);
+
     var onComplete = function(output, error) {
         if (visible) {
             report.end = new Date();
@@ -1697,8 +1718,6 @@ Requisition.prototype.exec = function(input) {
     catch (ex) {
         onComplete(ex, true);
     }
-
-    this.reportList.addReport(report);
 
     cachedEnv = undefined;
     return true;
@@ -4970,6 +4989,12 @@ cliView.Inputter = Inputter;
 /**
  * Completer is an 'input-like' element that sits  an input element annotating
  * it with visual goodness.
+ * @param {object} options An object that contains various options which
+ * customizes how the completer functions.
+ * Properties on the options object:
+ * - document (required) DOM document to be used in creating elements
+ * - requisition (required) A GCLI Requisition object whose state is monitored
+ * - completeElement (optional) An element to use
  */
 function Completer(options) {
     this.doc = options.document;
@@ -4985,6 +5010,7 @@ function Completer(options) {
             this.elementCreated = true;
             this.element = dom.createElement('div', null, this.doc);
             this.element.className = 'gcliCompletion VALID';
+            this.element.tabindex = '-1';
         }
     }
 
@@ -5021,10 +5047,14 @@ Completer.prototype.decorate = function(inputter) {
         Completer.copyStyles.forEach(function(style) {
             this.element.style[style] = dom.computedStyle(this.input, style);
         }, this);
+
+        // If there is a separate backgroundElement, then we make the element
+        // transparent, otherwise it inherits the color of the input node
         // It's not clear why backgroundColor doesn't work when used from
         // computedStyle, but it doesn't. Patches welcome!
-        this.element.style.backgroundColor = this.input.style.backgroundColor;
-
+        this.element.style.backgroundColor = (this.backgroundElement != this.element) ?
+              'transparent' :
+              this.input.style.backgroundColor;
         this.input.style.backgroundColor = 'transparent';
 
         // Make room for the prompt
@@ -5062,9 +5092,9 @@ Completer.prototype.update = function() {
     var predictions = current.getPredictions();
 
     // Update the completer element with prompt/error marker/TAB info
-    dom.removeCssClass(this.backgroundElement, Status.VALID.toString());
-    dom.removeCssClass(this.backgroundElement, Status.INCOMPLETE.toString());
-    dom.removeCssClass(this.backgroundElement, Status.ERROR.toString());
+    dom.removeCssClass(this.backgroundElement, 'gcli' + Status.VALID.toString());
+    dom.removeCssClass(this.backgroundElement, 'gcli' + Status.INCOMPLETE.toString());
+    dom.removeCssClass(this.backgroundElement, 'gcli' + Status.ERROR.toString());
 
     var completion = '<span class="gcliPrompt">&gt;</span> ';
     if (this.input.value.length > 0) {
@@ -5082,7 +5112,7 @@ Completer.prototype.update = function() {
     dom.setInnerHtml(this.element, '<span>' + completion + '</span>');
     var status = this.requ.getStatus();
 
-    dom.addCssClass(this.backgroundElement, status.toString());
+    dom.addCssClass(this.backgroundElement, 'gcli' + status.toString());
 };
 
 /**
@@ -5095,7 +5125,7 @@ Completer.prototype.markupStatusScore = function(scores) {
     var lastStatus = -1;
     while (true) {
         if (lastStatus !== scores[i]) {
-            completion += '<span class="' + scores[i].toString() + '">';
+            completion += '<span class="gcli' + scores[i].toString() + '">';
             lastStatus = scores[i];
         }
         completion += this.input.value[i];
@@ -6611,12 +6641,12 @@ define("text!gcli/ui/hinter.css", [], "" +
 
 define("text!gcli/ui/inputter.css", [], "" +
   ".gcliCompletion { padding: 0; position: absolute; z-index: -1000; }" +
-  ".gcliCompletion.VALID { background-color: #FFF; }" +
-  ".gcliCompletion.INCOMPLETE { background-color: #DDD; }" +
-  ".gcliCompletion.ERROR { background-color: #DDD; }" +
+  ".gcliCompletion.gcliVALID { background-color: #FFF; }" +
+  ".gcliCompletion.gcliINCOMPLETE { background-color: #DDD; }" +
+  ".gcliCompletion.gcliERROR { background-color: #DDD; }" +
   ".gcliCompletion span { color: #FFF; }" +
-  ".gcliCompletion span.INCOMPLETE { color: #DDD; border-bottom: 2px dotted #999; }" +
-  ".gcliCompletion span.ERROR { color: #DDD; border-bottom: 2px dotted #F00; }" +
+  ".gcliCompletion span.gcliINCOMPLETE { color: #DDD; border-bottom: 2px dotted #999; }" +
+  ".gcliCompletion span.gcliERROR { color: #DDD; border-bottom: 2px dotted #F00; }" +
   "span.gcliPrompt { color: #66F; font-weight: bold; }" +
   "span.gcliCompl { color: #999; }" +
   "");
