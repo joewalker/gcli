@@ -96,9 +96,14 @@ GCLI prides itself on being easy to use, plus people don't read user guides,
 therefore it seems pointless having a long users guide and self defeating to
 write one.
 
-Simply, there is a command line that you can type at, and a combined prompt /
-start button that you can click. You get all the other help you need as you go
-along.
+
+### Accessibility
+
+The command line uses TAB as a method of completing current input, this
+prevents use of TAB for keyboard navigation. Alternatives to using TAB to move
+to the next field are: ALT+TAB, CTRL+TAB, META+TAB or F6. Support for these
+combinations varies between OS/browser combinations. Please raise a bug if you
+find a combination in which this does not work.
 
 
 ## Design Goals
