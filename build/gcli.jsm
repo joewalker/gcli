@@ -111,21 +111,21 @@ function createStartupChecker(func) {
 }
 
 gcli.startup = function() {
+    started = true;
+
     require('gcli/types').startup();
     require('gcli/commands/help').startup();
     require('gcli/cli').startup();
     require('gcli/ui/field').startup();
-
-    started = true;
 };
 
 gcli.shutdown = function() {
+    started = false;
+
     require('gcli/ui/field').shutdown();
     require('gcli/cli').shutdown();
     require('gcli/commands/help').shutdown();
     require('gcli/types').shutdown();
-
-    started = false;
 };
 
 
@@ -4900,9 +4900,15 @@ Inputter.prototype.appendAfter = function(element) {
  * Ensure certain keys (arrows, tab, etc) that we would like to handle
  * are not handled by the browser
  */
-Inputter.prototype.onCommandKey = function(ev, hashId, key) {
-    if (key === 9 /*TAB*/ || key === 38 /*UP*/ || key === 40 /*DOWN*/) {
+Inputter.prototype.onCommandKey = function(ev, hashId, keyCode) {
+    if (keyCode === 38 /*UP*/ || keyCode === 40 /*DOWN*/) {
         event.stopEvent(ev);
+    }
+    if (keyCode === 9 /*TAB*/ && !ev.shiftKey) {
+        event.stopEvent(ev);
+    }
+    if (keyCode === 9 /*TAB*/ && (ev.metaKey || ev.altKey || ev.crtlKey)) {
+        this.element.blur();
     }
 };
 
