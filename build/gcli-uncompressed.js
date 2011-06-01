@@ -132,7 +132,13 @@
     if (typeof module == "function") {
       this.depth += ".";
       var exports = {};
-      module(this.require.bind(this), exports, { id: moduleName, uri: "" });
+      try {
+        module(this.require.bind(this), exports, { id: moduleName, uri: "" });
+      }
+      catch (ex) {
+        console.error("Error using module: " + moduleName, ex);
+        throw ex;
+      }
       this.depth = this.depth.slice(0, -1);
       module = exports;
     }
@@ -4963,6 +4969,9 @@ function Inputter(options) {
 
     this.element.spellcheck = false;
 
+    // Used to distinguish focus from TAB in CLI. See onKeyUp()
+    this.lastTabDownAt = 0;
+
     // Ensure that TAB/UP/DOWN isn't handled by the browser
     event.addCommandKeyListener(this.element, this.onCommandKey.bind(this));
     event.addListener(this.element, 'keyup', this.onKeyUp.bind(this));
@@ -5031,11 +5040,17 @@ Inputter.prototype.onCommandKey = function(ev, hashId, keyCode) {
     if (keyCode === 38 /*UP*/ || keyCode === 40 /*DOWN*/) {
         event.stopEvent(ev);
     }
-    if (keyCode === 9 /*TAB*/ && !ev.shiftKey) {
-        event.stopEvent(ev);
-    }
-    if (keyCode === 9 /*TAB*/ && (ev.metaKey || ev.altKey || ev.crtlKey)) {
-        this.element.blur();
+    if (keyCode === 9 /*TAB*/) {
+        this.lastTabDownAt = 0;
+        if (!ev.shiftKey) {
+            event.stopEvent(ev);
+            // Record the timestamp of this TAB down so onKeyUp can distinguish
+            // focus from TAB in the CLI.
+            this.lastTabDownAt = ev.timeStamp;
+        }
+        if (ev.metaKey || ev.altKey || ev.crtlKey) {
+            this.element.blur();
+        }
     }
 };
 
@@ -5074,8 +5089,17 @@ Inputter.prototype.onKeyUp = function(ev) {
         */
         this.update();
     }
-    else if (ev.keyCode === 9 /*TAB*/) {
-        this.getCurrentAssignment().complete();
+    else if (ev.keyCode === 9 /*TAB*/ && !ev.shiftKey) {
+        // If the TAB keypress took the cursor from another field to this one,
+        // then they get the keydown/keypress, and we get the keyup. In this
+        // case we don't want to do any completion.
+        // If the time of the keydown/keypress of TAB was close (i.e. within
+        // 1 second) to the time of the keyup then we assume that we got them
+        // both, and do the completion.
+        if (this.lastTabDownAt + 1000 > ev.timeStamp) {
+            this.getCurrentAssignment().complete();
+        }
+        this.lastTabDownAt = 0;
     }
     else if (ev.keyCode === 38 /*UP*/) {
         this.getCurrentAssignment().increment();
@@ -8982,7 +9006,7 @@ exports.testNestedCommand = function() {
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gclitest/testRequire', ['require', 'exports', 'module' , 'test/assert', 'gclitest/requirable', 'gclitest/unrequirable'], function(require, exports, module) {
+define('gclitest/testRequire', ['require', 'exports', 'module' , 'test/assert', 'gclitest/requirable'], function(require, exports, module) {
 
 var t = require('test/assert');
 
@@ -9036,10 +9060,12 @@ exports.testMultiImport = function() {
 
 exports.testUncompilable = function() {
     // This test is commented out because it breaks the RequireJS module
-    // loader ...
+    // loader and because it causes console output and because testing failure
+    // cases such as this is something of a luxury
     // It's not totally clear how a module loader should perform with unusable
     // modules, however at least it should go into a flat spin ...
     // GCLI mini_require reports an error as it should
+    /*
     if (define.Domain) {
         try {
             var unrequireable = require('gclitest/unrequirable');
@@ -9049,6 +9075,7 @@ exports.testUncompilable = function() {
             console.error(ex);
         }
     }
+    */
 };
 
 exports.testRecursive = function() {
@@ -9105,50 +9132,6 @@ define('gclitest/requirable', ['require', 'exports', 'module' ], function(requir
     var status = 'initial';
     exports.setStatus = function(aStatus) { status = aStatus; };
     exports.getStatus = function() { return status; };
-
-});
-/* ***** BEGIN LICENSE BLOCK *****
- * Version: MPL 1.1/GPL 2.0/LGPL 2.1
- *
- * The contents of this file are subject to the Mozilla Public License Version
- * 1.1 (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- * http://www.mozilla.org/MPL/
- *
- * Software distributed under the License is distributed on an "AS IS" basis,
- * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
- * for the specific language governing rights and limitations under the
- * License.
- *
- * The Original Code is Skywriter.
- *
- * The Initial Developer of the Original Code is
- * Mozilla.
- * Portions created by the Initial Developer are Copyright (C) 2009
- * the Initial Developer. All Rights Reserved.
- *
- * Contributor(s):
- *      Joe Walker (jwalker@mozilla.com) (original author)
- *
- * Alternatively, the contents of this file may be used under the terms of
- * either the GNU General Public License Version 2 or later (the "GPL"), or
- * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
- * in which case the provisions of the GPL or the LGPL are applicable instead
- * of those above. If you wish to allow use of your version of this file only
- * under the terms of either the GPL or the LGPL, and not to allow others to
- * use your version of this file under the terms of the MPL, indicate your
- * decision by deleting the provisions above and replace them with the notice
- * and other provisions required by the GPL or the LGPL. If you do not delete
- * the provisions above, a recipient may use your version of this file under
- * the terms of any one of the MPL, the GPL or the LGPL.
- *
- * ***** END LICENSE BLOCK ***** */
-
-define('gclitest/unrequirable', ['require', 'exports', 'module' ], function(require, exports, module) {
-
-    if (define.Domain) {
-        null.throwNPE();
-    }
 
 });
 define("text!gcli/ui/arg_fetch.css", [], "" +
