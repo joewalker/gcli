@@ -5006,8 +5006,8 @@ Inputter.prototype.onInputChange = function() {
  * can show/hide accordingly.
  */
 Inputter.prototype.sendFocusEventsToPopup = function(popup) {
-    event.addListener(this.element, "focus", popup.showOutput);
-    event.addListener(this.element, "blur", popup.hideOutput);
+    event.addListener(this.element, 'focus', popup.showOutput);
+    event.addListener(this.element, 'blur', popup.hideOutput);
 };
 
 Inputter.prototype.focus = function() {
@@ -5166,8 +5166,9 @@ function Completer(options) {
         if (!this.element) {
             this.elementCreated = true;
             this.element = dom.createElement('div', null, this.doc);
-            this.element.className = 'gcliCompletion VALID';
-            this.element.tabindex = '-1';
+            this.element.className = 'gcliCompletion gcliVALID';
+            this.element.setAttribute('tabindex', '-1');
+            this.element.setAttribute('aria-live', 'polite');
         }
     }
 
@@ -9298,7 +9299,7 @@ define("text!gcli/ui/request_view.css", [], "" +
 define("text!gcli/ui/request_view.html", [], "" +
   "<div class=\"gcliRow\">" +
   "  <!-- The div for the input (i.e. what was typed) -->" +
-  "  <div class=\"gcliRowIn\" save=\"${rowin}\"" +
+  "  <div class=\"gcliRowIn\" save=\"${rowin}\" aria-live=\"assertive\"" +
   "      onclick=\"${copyToInput}\" ondblclick=\"${execute}\">" +
   "" +
   "    <!-- What the user actually typed -->" +
@@ -9319,7 +9320,7 @@ define("text!gcli/ui/request_view.html", [], "" +
   "  </div>" +
   "" +
   "  <!-- The div for the command output -->" +
-  "  <div class=\"gcliRowOut\" save=\"${rowout}\">" +
+  "  <div class=\"gcliRowOut\" save=\"${rowout}\" aria-live=\"assertive\">" +
   "    <div class=\"gcliRowOutput\" save=\"${output}\"></div>" +
   "    <img _src=\"${imageUrl('images/throbber.gif')}\" save=\"${throb}\"/>" +
   "  </div>" +
