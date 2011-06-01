@@ -1,7 +1,7 @@
 
 <div class="gcliRow">
   <!-- The div for the input (i.e. what was typed) -->
-  <div class="gcliRowIn" save="${rowin}"
+  <div class="gcliRowIn" save="${rowin}" aria-live="assertive"
       onclick="${copyToInput}" ondblclick="${execute}">
 
     <!-- What the user actually typed -->
@@ -22,7 +22,7 @@
   </div>
 
   <!-- The div for the command output -->
-  <div class="gcliRowOut" save="${rowout}">
+  <div class="gcliRowOut" save="${rowout}" aria-live="assertive">
     <div class="gcliRowOutput" save="${output}"></div>
     <img _src="${imageUrl('images/throbber.gif')}" save="${throb}"/>
   </div>
