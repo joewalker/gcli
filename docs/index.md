@@ -100,10 +100,10 @@ write one.
 ### Accessibility
 
 The command line uses TAB as a method of completing current input, this
-prevents use of TAB for keyboard navigation. Alternatives to using TAB to move
-to the next field are: ALT+TAB, CTRL+TAB, META+TAB or F6. Support for these
-combinations varies between OS/browser combinations. Please raise a bug if you
-find a combination in which this does not work.
+prevents use of TAB for keyboard navigation. Instead of using TAB to move to
+the next field you can use F6. In addition to F6, ALT+TAB, CTRL+TAB, META+TAB
+make an attempt to move the focus on. How well this works depends on your
+OS/browser combination.
 
 
 ## Design Goals

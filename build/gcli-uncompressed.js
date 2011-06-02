@@ -217,7 +217,6 @@ gcli.addCommand = createStartupChecker(canon.addCommand);
 gcli.addCommands = createStartupChecker(canon.addCommands);
 gcli.removeCommand = createStartupChecker(canon.removeCommand);
 gcli.removeCommands = createStartupChecker(canon.removeCommands);
-gcli.globalReportList = createStartupChecker(canon.globalReportList);
 
 //gcli.Requisition = cli.Requisition;
 gcli.getEnvironment = createStartupChecker(cli.getEnvironment);
@@ -225,6 +224,11 @@ gcli.getEnvironment = createStartupChecker(cli.getEnvironment);
 gcli.createPromise = createStartupChecker(function createPromise() {
     return new Promise();
 });
+
+/*
+ * TODO: Can we make this auto-start. Maybe the whole idea is a bad one?
+ */
+gcli.globalReportList = canon.globalReportList;
 
 /*
  * TODO: Find a way to avoid exposing this.
@@ -5049,7 +5053,12 @@ Inputter.prototype.onCommandKey = function(ev, hashId, keyCode) {
             this.lastTabDownAt = ev.timeStamp;
         }
         if (ev.metaKey || ev.altKey || ev.crtlKey) {
-            this.element.blur();
+            if (this.doc.commandDispatcher) {
+                this.doc.commandDispatcher.advanceFocus();
+            }
+            else {
+                this.element.blur();
+            }
         }
     }
 };
