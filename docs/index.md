@@ -1004,3 +1004,76 @@ This is an example of a very simple new password field type:
       return type.name === 'password' ? Field.claim.MATCH : Field.claim.NO_MATCH;
     };
 
+
+## About the code
+
+The majority of the GCLI source is stored in the ``lib`` directory.
+
+The ``scripts`` directory contains RequireJS and ES5-shim code that GCLI uses.
+The ``build`` directory contains build artifacts (checked in so no build step
+is needed) and files to use those build artifacts.
+
+The source in the ``lib`` directory is split into 4 sections:
+
+- ``lib/demo`` contains commands used in the demo page. It is not needed except
+  for demo purposes.
+- ``lib/test`` contains a small test harness for testing GCLI.
+- ``lib/gclitest`` contains tests that run in the test harness
+- ``lib/gcli`` contains the actual meat
+
+GCLI is split into a UI portion and a Model/Controller portion.
+
+
+### The GCLI Model
+
+The heart of GCLI is a ``Requisition``, which is an AST for the input. A
+``Requisition`` is a command that we'd like to execute, and we're filling out
+all the inputs required to execute the command.
+
+A ``Requisition`` has a ``Command`` that is to be executed. Each Command has a
+number of ``Parameter``s, each of which has a name and a type as detailed
+above.
+
+As you type, your input is split into ``Argument``s, which are then assigned to
+``Parameter``s using ``Assignment``s. Each ``Assignment`` has a ``Conversion``
+which stores the input argument along with the value that is was converted into
+according to the type of the parameter.
+
+There are special assignments called ``CommandAssignment`` which the
+``Requisition`` uses to link to the command to execute, and
+``UnassignedAssignment``used to store arguments that do not have a parameter
+to be assigned to.
+
+
+### The GCLI UI
+
+There are several components of the GCLI UI. Each can have a script portion,
+some template HTML and a CSS file. The template HTML is processed by
+``domtemplate`` before use.
+
+DomTemplate is fully documented in [it's own repository]
+(https://github.com/joewalker/domtemplate).
+
+The components are:
+
+- ``Inputter`` controls the input field, processing special keyboard events and
+  making sure that it stays in sync with the Requisition.
+- ``Completer`` updates a div that is located behind the input field and used
+  to display completion advice and hint highlights. It is stored in inputter.js.
+- ``Popup`` is responsible for containing the popup hints that are displayed
+  above the command line. Typically Popup contains a Hinter and a RequestsView
+  although these are not both required. Popup itself is optional, and isn't
+  planned for use in the first release of GCLI in Firefox.
+- ``Hinter`` Is used to display input hints. It shows either a Menu or an
+  ArgFetch component depending on the state of the Requisition
+- ``Menu`` is used initially to select the command to be executed. It can act
+  somewhat like the Start menu on windows.
+- ``ArgFetch`` Once the command to be executed has been selected, ArgFetch
+  shows a 'dialog' allowing the user to enter the parameters to the selected
+  command.
+- ``RequestsView`` Contains a set of ``RequestView`` components, each of which
+  displays a command that has been invoked. RequestsView is a poor name, and
+  should better be called ReportView
+
+ArgFetch displays a number of Fields. There are fields for most of the Types
+discussed earlier. See 'Writing Fields' above for more information.
