@@ -1471,7 +1471,7 @@ Requisition.prototype._onAssignmentChange = function(ev) {
         this._args.push(ev.assignment.getArg());
     }
     else {
-        // TODO: is there a way to do this that doesn't involve a loop?
+        // Is there a way to do this that doesn't involve a loop?
         var newArgs = ev.conversion.arg.getArgs();
         for (var i = 0; i < newArgs.length; i++) {
             this._args.splice(index + i, 0, newArgs[i]);
@@ -1755,7 +1755,7 @@ Requisition.prototype.getAssignmentAt = function(cursor) {
         }
     }
 
-    // TODO: Possible shortcut, we don't really need to go through all the args
+    // Possible shortcut, we don't really need to go through all the args
     // to work out the solution to this
 
     return assignForPos[cursor - 1];
@@ -1846,7 +1846,8 @@ Requisition.prototype.exec = function(input) {
                 function(reply) { onComplete(reply, false); },
                 function(error) { onComplete(error, true); });
 
-            // TODO: Add progress to our promise and add a handler for it here
+            // Add progress to our promise and add a handler for it here
+            // See bug 659300
         }
         else {
             onComplete(reply, false);
@@ -2089,7 +2090,7 @@ Requisition.prototype._split = function(args) {
         args.shift();
     }
 
-    // TODO: This could probably be re-written to consume args as we go
+    // This could probably be re-written to consume args as we go
 };
 
 /**
@@ -2474,7 +2475,6 @@ canon.Parameter = Parameter;
  * Add a command to the canon of known commands.
  * This function is exposed to the outside world (via gcli/index). It is
  * documented in docs/index.md for all the world to see.
- * TODO: ensure this command works as documented
  * @param commandSpec The command and its metadata.
  * @param name When commands are added via addCommands() their names are
  * exposed only via the properties to which the functions are attached. This
@@ -2515,7 +2515,6 @@ canon.addCommand = function addCommand(commandSpec, name) {
  * Take a command object and register all the commands that it contains.
  * This function is exposed to the outside world (via gcli/index). It is
  * documented in docs/index.md for all the world to see.
- * TODO: ensure this command works as documented
  * @param context The command object which contains the commands to be
  * registered.
  * @param name The name of the base command (for a command set)
@@ -2716,7 +2715,7 @@ var ArrayArgument = require('gcli/argument').ArrayArgument;
 /**
  * Some types can detect validity, that is to say they can distinguish between
  * valid and invalid values.
- * TODO: Change these constants to be numbers for more performance?
+ * We might want to change these constants to be numbers for better performance
  */
 var Status = {
     /**
@@ -2969,70 +2968,70 @@ types.ArrayConversion = ArrayConversion;
  * however some types like 'selection' and 'deferred' are customizable.
  * The basic Type type isn't useful, but does provide documentation about what
  * types do.
- * TODO: Everywhere else in the GCLI code we assign to the prototype
- * individually, rather than replacing en-masse. Follow here too.
  */
 function Type() {
 };
-Type.prototype = {
-    /**
-     * Convert the given <tt>value</tt> to a string representation.
-     * Where possible, there should be round-tripping between values and their
-     * string representations.
-     */
-    stringify: function(value) { throw new Error("not implemented"); },
 
-    /**
-     * Convert the given <tt>arg</tt> to an instance of this type.
-     * Where possible, there should be round-tripping between values and their
-     * string representations.
-     * @param arg An instance of <tt>Argument</tt> to convert.
-     * @return Conversion
-     */
-    parse: function(arg) { throw new Error("not implemented"); },
-
-    /**
-     * A convenience method for times when you don't have an argument to parse
-     * but instead have a string.
-     * @see #parse(arg)
-     */
-    parseString: function(str) {
-        return this.parse(new Argument(str));
-    },
-
-    /**
-     * The plug-in system, and other things need to know what this type is
-     * called. The name alone is not enough to fully specify a type. Types like
-     * 'selection' and 'deferred' need extra data, however this function returns
-     * only the name, not the extra data.
-     * <p>In old bespin, equality was based on the name. This may turn out to be
-     * important in Ace too.
-     */
-    name: undefined,
-
-    /**
-     * If there is some concept of a higher value, return it,
-     * otherwise return undefined.
-     */
-    increment: function(value) {
-        return undefined;
-    },
-
-    /**
-     * If there is some concept of a lower value, return it,
-     * otherwise return undefined.
-     */
-    decrement: function(value) {
-        return undefined;
-    },
-
-    /**
-     * There is interesting information (like predictions) in a conversion of
-     * nothing, the output of this can sometimes be customized.
-     * @return Conversion
-     */
-    getDefault: undefined
+/**
+ * Convert the given <tt>value</tt> to a string representation.
+ * Where possible, there should be round-tripping between values and their
+ * string representations.
+ */
+Type.prototype.stringify = function(value) {
+    throw new Error("not implemented");
 };
+
+/**
+ * Convert the given <tt>arg</tt> to an instance of this type.
+ * Where possible, there should be round-tripping between values and their
+ * string representations.
+ * @param arg An instance of <tt>Argument</tt> to convert.
+ * @return Conversion
+ */
+Type.prototype.parse = function(arg) {
+    throw new Error("not implemented");
+};
+
+/**
+ * A convenience method for times when you don't have an argument to parse
+ * but instead have a string.
+ * @see #parse(arg)
+ */
+Type.prototype.parseString = function(str) {
+    return this.parse(new Argument(str));
+},
+
+/**
+ * The plug-in system, and other things need to know what this type is
+ * called. The name alone is not enough to fully specify a type. Types like
+ * 'selection' and 'deferred' need extra data, however this function returns
+ * only the name, not the extra data.
+ */
+Type.prototype.name = undefined;
+
+/**
+ * If there is some concept of a higher value, return it,
+ * otherwise return undefined.
+ */
+Type.prototype.increment = function(value) {
+    return undefined;
+};
+
+/**
+ * If there is some concept of a lower value, return it,
+ * otherwise return undefined.
+ */
+Type.prototype.decrement = function(value) {
+    return undefined;
+};
+
+/**
+ * There is interesting information (like predictions) in a conversion of
+ * nothing, the output of this can sometimes be customized.
+ * @return Conversion
+ */
+Type.prototype.getDefault = undefined;
+
 types.Type = Type;
 
 /**
@@ -3649,7 +3648,10 @@ Argument.prototype.getArgs = function() {
 };
 
 /**
- * We define equals to mean all arg properties are strict equals
+ * We define equals to mean all arg properties are strict equals.
+ * Used by Conversion.argEquals and Conversion.equals and ultimately
+ * Assignment.equals to avoid reporting a change event when a new conversion
+ * is assigned.
  */
 Argument.prototype.equals = function(that) {
     if (this === that) {
@@ -3745,7 +3747,7 @@ MergedArgument.prototype.equals = function(that) {
         return false;
     }
 
-    // TODO: do we need to check that args is the same?
+    // We might need to add a check that args is the same here
 
     return this.text === that.text &&
            this.prefix === that.prefix && this.suffix === that.suffix;
@@ -3877,7 +3879,7 @@ NamedArgument.prototype.equals = function(that) {
         return false;
     }
 
-    // TODO: do we need to check that nameArg and valueArg are the same?
+    // We might need to add a check that nameArg and valueArg are the same
 
     return this.text === that.text &&
            this.prefix === that.prefix && this.suffix === that.suffix;
@@ -4010,7 +4012,9 @@ var requestViewHtml = require('text!gcli/ui/request_view.html');
 
 /**
  * Work out the path for images.
- * TODO: This should probably live in some utility area somewhere
+ * This should probably live in some utility area somewhere, but it's kind of
+ * dependent on the implementation of require, and there isn't currently any
+ * better place for it.
  */
 function imageUrl(path) {
     try {
@@ -4642,6 +4646,8 @@ var console = require('gcli/util').console;
 
 
 /**
+ * Popup is responsible for containing the popup hints that are displayed
+ * above the command line.
  * Some implementations of GCLI require an element to be visible whenever the
  * GCLI has the focus.
  * This can be somewhat tricky because the definition of 'has the focus' is
@@ -5687,35 +5693,61 @@ field.shutdown = function() {
 
 /**
  * A Field is a way to get input for a single parameter.
- * This class is designed to be inherited from. It is important that children
- * ensure that the constructor is called during their creation to ensure that
- * the fieldChanged event is initialized.
+ * This class is designed to be inherited from. It's important that all
+ * subclasses have a similar constructor signature because they are created
+ * via getField(...)
  * @param doc The document we use in calling createElement
- * TODO: Are we not creating a single event on a prototype so we get duplicate
- * events fired everywhere?
+ * @param type The type to use in conversions
+ * @param named Is this parameter named? That is to say, are positional
+ * arguments disallowed, if true, then we need to provide updates to the
+ * command line that explicitly name the parameter in use (e.g. --verbose, or
+ * --name Fred rather than just true or Fred)
+ * @param name If this parameter is named, what name should we use
+ * @param requ The requisition that we're attached to
  */
 function Field(doc, type, named, name, requ) {
-    this.fieldChanged = createEvent('Field.fieldChanged');
 }
 
+/**
+ * Subclasses should assign their element with the DOM node that gets added
+ * to the 'form'. It doesn't have to be an input node, just something that
+ * contains it.
+ */
 Field.prototype.element = undefined;
 
+/**
+ * Indicates that this field should drop any resources that it has created
+ */
 Field.prototype.destroy = function() {
-    throw new Error('Field should not be used directly');
 };
 
+/**
+ * Update this field display with the value from this conversion.
+ * Subclasses should provide an implementation of this function.
+ */
 Field.prototype.setConversion = function(conversion) {
     throw new Error('Field should not be used directly');
 };
 
+/**
+ * Extract a conversion from the values in this field.
+ * Subclasses should provide an implementation of this function.
+ */
 Field.prototype.getConversion = function() {
     throw new Error('Field should not be used directly');
 };
 
+/**
+ * Validation errors should be reported somewhere. This is where.
+ * See setMessage()
+ */
 Field.prototype.setMessageElement = function(element) {
     this.messageElement = element;
 };
 
+/**
+ * Display a validation message in the UI
+ */
 Field.prototype.setMessage = function(message) {
     if (this.messageElement) {
         if (message == null) {
@@ -5725,14 +5757,20 @@ Field.prototype.setMessage = function(message) {
     }
 };
 
-Field.prototype.onFieldChange = function() {
+/**
+ * Method to be called by subclasses when their input changes, which allows us
+ * to properly pass on the fieldChanged event.
+ */
+Field.prototype.onInputChange = function() {
     var conversion = this.getConversion();
     this.fieldChanged({ conversion: conversion });
     this.setMessage(conversion.message);
 };
 
 /**
- *
+ * 'static/abstract' method to allow implementations of Field to lay a claim
+ * to a type. This allows claims of various strength to be weighted up.
+ * See the Field.*MATCH values.
  */
 Field.claim = function() {
     throw new Error('Field should not be used directly');
@@ -5806,11 +5844,13 @@ function StringField(doc, type, named, name, requ) {
     this.element = dom.createElement('input', null, this.doc);
     this.element.type = 'text';
 
-    this.onFieldChange = this.onFieldChange.bind(this);
-    this.element.addEventListener('keyup', this.onFieldChange, false);
+    this.onInputChange = this.onInputChange.bind(this);
+    this.element.addEventListener('keyup', this.onInputChange, false);
+
+    this.fieldChanged = createEvent('StringField.fieldChanged');
 }
 
-StringField.prototype = new Field();
+StringField.prototype = Object.create(Field.prototype);
 
 StringField.prototype.destroy = function() {
     this.element.removeEventListener('keyup', this.onKeyup, false);
@@ -5855,11 +5895,13 @@ function NumberField(doc, type, named, name, requ) {
         this.element.step = this.type.step;
     }
 
-    this.onFieldChange = this.onFieldChange.bind(this);
-    this.element.addEventListener('keyup', this.onFieldChange, false);
+    this.onInputChange = this.onInputChange.bind(this);
+    this.element.addEventListener('keyup', this.onInputChange, false);
+
+    this.fieldChanged = createEvent('NumberField.fieldChanged');
 }
 
-NumberField.prototype = new Field();
+NumberField.prototype = Object.create(Field.prototype);
 
 NumberField.claim = function(type) {
     return type instanceof NumberType ? Field.MATCH : Field.NO_MATCH;
@@ -5895,11 +5937,13 @@ function BooleanField(doc, type, named, name, requ) {
     this.element = dom.createElement('input', null, this.doc);
     this.element.type = 'checkbox';
 
-    this.onFieldChange = this.onFieldChange.bind(this);
-    this.element.addEventListener('change', this.onFieldChange, false);
+    this.onInputChange = this.onInputChange.bind(this);
+    this.element.addEventListener('change', this.onInputChange, false);
+
+    this.fieldChanged = createEvent('BooleanField.fieldChanged');
 }
 
-BooleanField.prototype = new Field();
+BooleanField.prototype = Object.create(Field.prototype);
 
 BooleanField.claim = function(type) {
     return type instanceof BooleanType ? Field.MATCH : Field.NO_MATCH;
@@ -5932,7 +5976,7 @@ field.BooleanField = BooleanField;
  * <li>value: This is the (probably non-string) value, known as a value by the
  *     assignment
  * <li>optValue: This is the text value as known by the DOM option element, as
- *     in &lt;option value=XXX%gt...
+ *     in &lt;option value=???%gt...
  * <li>optText: This is the contents of the DOM option element.
  * </ul>
  */
@@ -5949,11 +5993,13 @@ function SelectionField(doc, type, named, name, requ) {
         this._addOption(lookup[name], name);
     }, this);
 
-    this.onFieldChange = this.onFieldChange.bind(this);
-    this.element.addEventListener('change', this.onFieldChange, false);
+    this.onInputChange = this.onInputChange.bind(this);
+    this.element.addEventListener('change', this.onInputChange, false);
+
+    this.fieldChanged = createEvent('SelectionField.fieldChanged');
 }
 
-SelectionField.prototype = new Field();
+SelectionField.prototype = Object.create(Field.prototype);
 
 SelectionField.claim = function(type) {
     return type instanceof SelectionType ? Field.DEFAULT_MATCH : Field.NO_MATCH;
@@ -6017,9 +6063,11 @@ function DeferredField(doc, type, named, name, requ) {
 
     this.element = dom.createElement('div', null, this.doc);
     this.update();
+
+    this.fieldChanged = createEvent('DeferredField.fieldChanged');
 }
 
-DeferredField.prototype = new Field();
+DeferredField.prototype = Object.create(Field.prototype);
 
 DeferredField.prototype.update = function() {
     var subtype = this.type.defer();
@@ -6066,15 +6114,15 @@ function BlankField(doc, type, named, name, requ) {
     this.doc = doc;
     this.type = type;
     this.element = dom.createElement('div', null, this.doc);
+
+    this.fieldChanged = createEvent('BlankField.fieldChanged');
 }
 
-BlankField.prototype = new Field();
+BlankField.prototype = Object.create(Field.prototype);
 
 BlankField.claim = function(type) {
     return type instanceof BlankType ? Field.MATCH : Field.NO_MATCH;
 };
-
-BlankField.prototype.destroy = function() { };
 
 BlankField.prototype.setConversion = function() { };
 
@@ -6115,10 +6163,12 @@ function ArrayField(doc, type, named, name, requ) {
     this.container.className = 'gcliArrayMbrs';
     this.element.appendChild(this.container);
 
-    this.onFieldChange = this.onFieldChange.bind(this);
+    this.onInputChange = this.onInputChange.bind(this);
+
+    this.fieldChanged = createEvent('ArrayField.fieldChanged');
 }
 
-ArrayField.prototype = new Field();
+ArrayField.prototype = Object.create(Field.prototype);
 
 ArrayField.claim = function(type) {
     return type instanceof ArrayType ? Field.MATCH : Field.NO_MATCH;
@@ -6188,7 +6238,7 @@ ArrayField.prototype._onAdd = function(ev, subConversion) {
         this.parent.members = this.parent.members.filter(function(test) {
           return test !== this;
         });
-        this.parent.onFieldChange();
+        this.parent.onInputChange();
     }.bind(member);
     delButton.addEventListener('click', member.onDelete, false);
 
@@ -7369,7 +7419,7 @@ var git = {
                     },
                     {
                         name: 'date',
-                        type: 'string', // TODO: Make this of date type
+                        type: 'string', // Make this of date type
                         description: 'Override the date',
                         manual: 'Override the author date used in the commit.'
                     },

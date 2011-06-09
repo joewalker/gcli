@@ -1,0 +1,8 @@
+///////////////////////////////////////////////////////////////////////////////
+
+/*
+ * require GCLi so it can be exported as declared at the start
+ */
+
+let gcli = require("gcli/index");
+

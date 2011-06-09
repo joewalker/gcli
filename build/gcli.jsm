@@ -1,3 +1,40 @@
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
+ *
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
+ *
+ * The Original Code is GCLI.
+ *
+ * The Initial Developer of the Original Code is
+ * The Mozilla Foundation
+ * Portions created by the Initial Developer are Copyright (C) 2011
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ *   Joe Walker (jwalker@mozilla.com)
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK ***** */
+
 /*
  *
  *
@@ -25,10 +62,479 @@
  *
  *
  */
-Components.utils.import("resource:///modules/require.jsm");
-Components.utils.import("resource:///modules/console.jsm");
-var EXPORTED_SYMBOLS = [ ];
 
+///////////////////////////////////////////////////////////////////////////////
+
+
+/*
+ * This is really 4 bits of code:
+ * - Browser support code - currently just an implementation of the console
+ *   object that uses dump. We may need to add other browser shims to this.
+ * - a basic commonjs amd require implementation (good enough to load GCLI)
+ *   which aleviates the need for requirejs in the browser.
+ * - a build of GCLI itself, packaged using dryice.
+ * - lastly, code to require the gcli object as needed by EXPORTED_SYMBOLS.
+ */
+
+var EXPORTED_SYMBOLS = [ "gcli" ];
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+/*
+ * This creates a console object that somewhat replicates Firebug's console
+ * object. It currently writes to dump(), but should write to the web
+ * console's chrome error section (when it has one)
+ */
+
+
+/**
+ * String utility to ensure that strings are a specified length. Strings
+ * that are too long are truncated to the max length and the last char is
+ * set to "_". Strings that are too short are left padded with spaces.
+ *
+ * @param {string} aStr
+ *        The string to format to the correct length
+ * @param {number} aMaxLen
+ *        The maximum allowed length of the returned string
+ * @param {number} aMinLen (optional)
+ *        The minimum allowed length of the returned string. If undefined,
+ *        then aMaxLen will be used
+ * @return {string}
+ *        The original string formatted to fit the specified lengths
+ */
+function fmt(aStr, aMaxLen, aMinLen, options) {
+  if (aMinLen == undefined) {
+    aMinLen = aMaxLen;
+  }
+  if (aStr == null) {
+    aStr = "";
+  }
+  if (aStr.length > aMaxLen) {
+    if (options && options.truncate == "start") {
+      return "_" + aStr.substring(aStr.length - aMaxLen + 1);
+    }
+    else {
+      return aStr.substring(0, aMaxLen - 1) + "_";
+    }
+  }
+  if (aStr.length < aMinLen) {
+    return Array(aMinLen - aStr.length + 1).join(" ") + aStr;
+  }
+  return aStr;
+}
+
+/**
+ * Utility to extract the constructor name of an object.
+ * Object.toString gives: "[object ?????]"; we want the "?????".
+ *
+ * @param {object} aObj
+ *        The object from which to extract the constructor name
+ * @return {string}
+ *        The constructor name
+ */
+function getCtorName(aObj) {
+  return Object.prototype.toString.call(aObj).slice(8, -1);
+}
+
+/**
+ * A single line stringification of an object designed for use by humans
+ *
+ * @param {any} aThing
+ *        The object to be stringified
+ * @return {string}
+ *        A single line representation of aThing, which will generally be at
+ *        most 60 chars long
+ */
+function stringify(aThing) {
+  if (aThing === undefined) {
+    return "undefined";
+  }
+
+  if (aThing === null) {
+    return "null";
+  }
+
+  if (typeof aThing == "object") {
+    try {
+      return getCtorName(aThing) + " " + fmt(JSON.stringify(aThing), 50, 0);
+    }
+    catch (ex) {
+      return "[stringify error]";
+    }
+  }
+
+  var str = aThing.toString().replace(/[\n\r]/g, " ").replace(/ +/g, " ");
+  return fmt(str, 60, 0);
+}
+
+/**
+ * A multi line stringification of an object, designed for use by humans
+ *
+ * @param {any} aThing
+ *        The object to be stringified
+ * @return {string}
+ *        A multi line representation of aThing
+ */
+function log(aThing) {
+  if (aThing == null) {
+    return "null";
+  }
+
+  if (aThing == undefined) {
+    return "undefined";
+  }
+
+  if (typeof aThing == "object") {
+    var reply = "";
+    var type = getCtorName(aThing);
+    if (type == "Error") {
+      reply += "  " + aThing.message + "\n";
+      reply += logProperty("stack", aThing.stack);
+    }
+    else {
+      var keys = Object.getOwnPropertyNames(aThing);
+      if (keys.length > 0) {
+        reply += type + "\n";
+        keys.forEach(function(aProp) {
+          reply += logProperty(aProp, aThing[aProp]);
+        }, this);
+      }
+      else {
+        reply += type + " (enumerated with for-in)\n";
+        var prop;
+        for (prop in aThing) {
+          reply += logProperty(prop, aThing[prop]);
+        }
+      }
+    }
+
+    return reply;
+  }
+
+  return "  " + aThing.toString() + "\n";
+}
+
+/**
+ * Helper for log() which converts a property/value pair into an output
+ * string
+ *
+ * @param {string} aProp
+ *        The name of the property to include in the output string
+ * @param {object} aValue
+ *        Value assigned to aProp to be converted to a single line string
+ * @return {string}
+ *        Multi line output string describing the property/value pair
+ */
+function logProperty(prop, value) {
+  var reply = "";
+  if (prop == "stack" && typeof value == "string") {
+    var trace = parseStack(value);
+    reply += formatTrace(trace);
+  }
+  else {
+    reply += "    - " + prop + " = " + stringify(value) + "\n";
+  }
+  return reply;
+}
+
+/**
+ * Parse a stack trace, returning an array of stack frame objects, where
+ * each has file/line/call members
+ *
+ * @param {string} aStack
+ *        The serialized stack trace
+ * @return {object[]}
+ *        Array of { file: "...", line: NNN, call: "..." } objects
+ */
+function parseStack(aStack) {
+  var trace = [];
+  aStack.split("\n").forEach(function(line) {
+    if (!line) {
+      return;
+    }
+    var at = line.lastIndexOf("@");
+    var posn = line.substring(at + 1);
+    posn = posn.replace(/resource:\/\/\/modules\//, "");
+    posn = posn.replace(/chrome:\/\/browser\/content\//, "");
+    trace.push({
+      file: posn.split(":")[0],
+      line: posn.split(":")[1],
+      call: line.substring(0, at)
+    });
+  }, this);
+  return trace;
+}
+
+/**
+ * parseStack() takes output from an exception from which it creates the an
+ * array of stack frame objects, this has the same output but using data from
+ * Components.stack
+ *
+ * @param {string} aFrame
+ *        The stack frame from which to begin the walk
+ * @return {object[]}
+ *        Array of { file: "...", line: NNN, call: "..." } objects
+ */
+function getStack(aFrame) {
+  if (!aFrame) {
+    aFrame = Components.stack.caller;
+  }
+  var trace = [];
+  while (aFrame) {
+    trace.push({
+      file: aFrame.filename,
+      line: aFrame.lineNumber,
+      call: aFrame.name
+    });
+    aFrame = aFrame.caller;
+  }
+  return trace;
+};
+
+/**
+ * Take the output from parseStack() and convert it to nice readable
+ * output
+ *
+ * @param {object[]} aTrace
+ *        Array of trace objects as created by parseStack()
+ * @return {string} Multi line report of the stack trace
+ */
+function formatTrace(aTrace) {
+  var reply = "";
+  aTrace.forEach(function(frame) {
+    reply += fmt(frame.file, 20, 20, { truncate: "start" }) + " " +
+             fmt(frame.line, 5, 5) + " " +
+             fmt(frame.call, 75, 75) + "\n";
+  }, this);
+  return reply;
+}
+
+/**
+ * Create a function which will output a concise level of output when used
+ * as a logging function
+ *
+ * @param {string} aLevel
+ *        A prefix to all output generated from this function detailing the
+ *        level at which output occurred
+ * @return {function}
+ *        A logging function
+ * @see createMultiLineDumper()
+ */
+function createDumper(aLevel) {
+  return function() {
+    var args = Array.prototype.slice.call(arguments, 0);
+    var data = args.map(function(arg) {
+      return stringify(arg);
+    });
+    dump(aLevel + ": " + data.join(", ") + "\n");
+  };
+}
+
+/**
+ * Create a function which will output more detailed level of output when
+ * used as a logging function
+ *
+ * @param {string} aLevel
+ *        A prefix to all output generated from this function detailing the
+ *        level at which output occurred
+ * @return {function}
+ *        A logging function
+ * @see createDumper()
+ */
+function createMultiLineDumper(aLevel) {
+  return function() {
+    dump(aLevel + "\n");
+    var args = Array.prototype.slice.call(arguments, 0);
+    args.forEach(function(arg) {
+      dump(log(arg));
+    });
+  };
+}
+
+/**
+ * The console object to expose
+ */
+var console = {
+  debug: createMultiLineDumper("debug"),
+  log: createDumper("log"),
+  info: createDumper("info"),
+  warn: createDumper("warn"),
+  error: createMultiLineDumper("error"),
+  trace: function Console_trace() {
+    var trace = getStack(Components.stack.caller);
+    dump(formatTrace(trace) + "\n");
+  },
+  clear: function Console_clear() {},
+
+  dir: createMultiLineDumper("dir"),
+  dirxml: createMultiLineDumper("dirxml"),
+  group: createDumper("group"),
+  groupEnd: createDumper("groupEnd")
+};
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+var debugDependencies = false;
+
+/**
+ * Define a module along with a payload.
+ *
+ * @param {string} aModuleName
+ *        Name for the payload
+ * @param {ignored} aDeps
+ *        Ignored. For compatibility with CommonJS AMD Spec
+ * @param {function} aPayload
+ *        Function with (require, exports, module) params
+ */
+function define(aModuleName, aDeps, aPayload) {
+  if (typeof aModuleName != "string") {
+    console.error(this.depth + " Error: Module name is not a string.");
+    console.trace();
+    return;
+  }
+
+  if (arguments.length == 2) {
+    aPayload = aDeps;
+  }
+
+  if (debugDependencies) {
+    console.log("define: " + aModuleName + " -> " + aPayload.toString()
+        .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
+  }
+
+  if (aModuleName in define.modules) {
+    console.error(this.depth + " Error: Redefining module: " + aModuleName);
+  }
+  define.modules[aModuleName] = aPayload;
+};
+
+/**
+ * The global store of un-instantiated modules
+ */
+define.modules = {};
+
+
+/**
+ * We invoke require() in the context of a Domain so we can have multiple
+ * sets of modules running separate from each other.
+ * This contrasts with JSMs which are singletons, Domains allows us to
+ * optionally load a CommonJS module twice with separate data each time.
+ * Perhaps you want 2 command lines with a different set of commands in each,
+ * for example.
+ */
+function Domain() {
+  this.modules = {};
+
+  if (debugDependencies) {
+    this.depth = "";
+  }
+}
+
+/**
+ * Lookup module names and resolve them by calling the definition function if
+ * needed.
+ * There are 2 ways to call this, either with an array of dependencies and a
+ * callback to call when the dependencies are found (which can happen
+ * asynchronously in an in-page context) or with a single string an no callback
+ * where the dependency is resolved synchronously and returned.
+ * The API is designed to be compatible with the CommonJS AMD spec and
+ * RequireJS.
+ *
+ * @param {string[]|string} aDeps
+ *        A name, or names for the payload
+ * @param {function|undefined} aCallback
+ *        Function to call when the deps are resolved
+ * @return {undefined|object}
+ *        The module required or undefined for array/callback method
+ */
+Domain.prototype.require = function(aDeps, aCallback) {
+  if (Array.isArray(aDeps)) {
+    var params = aDeps.map(function(dep) {
+      return this.lookup(dep);
+    }, this);
+    if (aCallback) {
+      aCallback.apply(null, params);
+    }
+    return undefined;
+  }
+  else {
+    return this.lookup(aDeps);
+  }
+};
+
+/**
+ * Lookup module names and resolve them by calling the definition function if
+ * needed.
+ *
+ * @param {string} aModuleName
+ *        A name for the payload to lookup
+ * @return {object}
+ *        The module specified by aModuleName or null if not found.
+ */
+Domain.prototype.lookup = function(aModuleName) {
+  if (aModuleName in this.modules) {
+    var module = this.modules[aModuleName];
+    if (debugDependencies) {
+      console.log(this.depth + " Using module: " + aModuleName);
+    }
+    return module;
+  }
+
+  if (!(aModuleName in define.modules)) {
+    console.error(this.depth + " Missing module: " + aModuleName);
+    return null;
+  }
+
+  var module = define.modules[aModuleName];
+
+  if (debugDependencies) {
+    console.log(this.depth + " Compiling module: " + aModuleName);
+  }
+
+  if (typeof module == "function") {
+    if (debugDependencies) {
+      this.depth += ".";
+    }
+
+    var exports = {};
+    module(this.require.bind(this), exports, { id: aModuleName, uri: "" });
+    module = exports;
+
+    if (debugDependencies) {
+      this.depth = this.depth.slice(0, -1);
+    }
+  }
+
+  // cache the resulting module object for next time
+  this.modules[aModuleName] = module;
+
+  return module;
+};
+
+/**
+ * Expose the Domain constructor and a global domain (on the define function
+ * to avoid exporting more than we need. This is a common pattern with require
+ * systems)
+ */
+define.Domain = Domain;
+define.globalDomain = new Domain();
+
+/**
+ * Expose a default require function which is the require of the global
+ * sandbox to make it easy to use.
+ */
+var require = define.globalDomain.require.bind(define.globalDomain);
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+/*
+ * The API of interest to people wanting to create GCLI commands is as
+ * follows. The implementation of this API is left to bug 659061 and other
+ * bugs.
+ */
 
 /* ***** BEGIN LICENSE BLOCK *****
  * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -1338,7 +1844,7 @@ Requisition.prototype._onAssignmentChange = function(ev) {
         this._args.push(ev.assignment.getArg());
     }
     else {
-        // TODO: is there a way to do this that doesn't involve a loop?
+        // Is there a way to do this that doesn't involve a loop?
         var newArgs = ev.conversion.arg.getArgs();
         for (var i = 0; i < newArgs.length; i++) {
             this._args.splice(index + i, 0, newArgs[i]);
@@ -1622,7 +2128,7 @@ Requisition.prototype.getAssignmentAt = function(cursor) {
         }
     }
 
-    // TODO: Possible shortcut, we don't really need to go through all the args
+    // Possible shortcut, we don't really need to go through all the args
     // to work out the solution to this
 
     return assignForPos[cursor - 1];
@@ -1713,7 +2219,8 @@ Requisition.prototype.exec = function(input) {
                 function(reply) { onComplete(reply, false); },
                 function(error) { onComplete(error, true); });
 
-            // TODO: Add progress to our promise and add a handler for it here
+            // Add progress to our promise and add a handler for it here
+            // See bug 659300
         }
         else {
             onComplete(reply, false);
@@ -1956,7 +2463,7 @@ Requisition.prototype._split = function(args) {
         args.shift();
     }
 
-    // TODO: This could probably be re-written to consume args as we go
+    // This could probably be re-written to consume args as we go
 };
 
 /**
@@ -2341,7 +2848,6 @@ canon.Parameter = Parameter;
  * Add a command to the canon of known commands.
  * This function is exposed to the outside world (via gcli/index). It is
  * documented in docs/index.md for all the world to see.
- * TODO: ensure this command works as documented
  * @param commandSpec The command and its metadata.
  * @param name When commands are added via addCommands() their names are
  * exposed only via the properties to which the functions are attached. This
@@ -2382,7 +2888,6 @@ canon.addCommand = function addCommand(commandSpec, name) {
  * Take a command object and register all the commands that it contains.
  * This function is exposed to the outside world (via gcli/index). It is
  * documented in docs/index.md for all the world to see.
- * TODO: ensure this command works as documented
  * @param context The command object which contains the commands to be
  * registered.
  * @param name The name of the base command (for a command set)
@@ -2583,7 +3088,7 @@ var ArrayArgument = require('gcli/argument').ArrayArgument;
 /**
  * Some types can detect validity, that is to say they can distinguish between
  * valid and invalid values.
- * TODO: Change these constants to be numbers for more performance?
+ * We might want to change these constants to be numbers for better performance
  */
 var Status = {
     /**
@@ -2836,70 +3341,70 @@ types.ArrayConversion = ArrayConversion;
  * however some types like 'selection' and 'deferred' are customizable.
  * The basic Type type isn't useful, but does provide documentation about what
  * types do.
- * TODO: Everywhere else in the GCLI code we assign to the prototype
- * individually, rather than replacing en-masse. Follow here too.
  */
 function Type() {
 };
-Type.prototype = {
-    /**
-     * Convert the given <tt>value</tt> to a string representation.
-     * Where possible, there should be round-tripping between values and their
-     * string representations.
-     */
-    stringify: function(value) { throw new Error("not implemented"); },
 
-    /**
-     * Convert the given <tt>arg</tt> to an instance of this type.
-     * Where possible, there should be round-tripping between values and their
-     * string representations.
-     * @param arg An instance of <tt>Argument</tt> to convert.
-     * @return Conversion
-     */
-    parse: function(arg) { throw new Error("not implemented"); },
-
-    /**
-     * A convenience method for times when you don't have an argument to parse
-     * but instead have a string.
-     * @see #parse(arg)
-     */
-    parseString: function(str) {
-        return this.parse(new Argument(str));
-    },
-
-    /**
-     * The plug-in system, and other things need to know what this type is
-     * called. The name alone is not enough to fully specify a type. Types like
-     * 'selection' and 'deferred' need extra data, however this function returns
-     * only the name, not the extra data.
-     * <p>In old bespin, equality was based on the name. This may turn out to be
-     * important in Ace too.
-     */
-    name: undefined,
-
-    /**
-     * If there is some concept of a higher value, return it,
-     * otherwise return undefined.
-     */
-    increment: function(value) {
-        return undefined;
-    },
-
-    /**
-     * If there is some concept of a lower value, return it,
-     * otherwise return undefined.
-     */
-    decrement: function(value) {
-        return undefined;
-    },
-
-    /**
-     * There is interesting information (like predictions) in a conversion of
-     * nothing, the output of this can sometimes be customized.
-     * @return Conversion
-     */
-    getDefault: undefined
+/**
+ * Convert the given <tt>value</tt> to a string representation.
+ * Where possible, there should be round-tripping between values and their
+ * string representations.
+ */
+Type.prototype.stringify = function(value) {
+    throw new Error("not implemented");
 };
+
+/**
+ * Convert the given <tt>arg</tt> to an instance of this type.
+ * Where possible, there should be round-tripping between values and their
+ * string representations.
+ * @param arg An instance of <tt>Argument</tt> to convert.
+ * @return Conversion
+ */
+Type.prototype.parse = function(arg) {
+    throw new Error("not implemented");
+};
+
+/**
+ * A convenience method for times when you don't have an argument to parse
+ * but instead have a string.
+ * @see #parse(arg)
+ */
+Type.prototype.parseString = function(str) {
+    return this.parse(new Argument(str));
+},
+
+/**
+ * The plug-in system, and other things need to know what this type is
+ * called. The name alone is not enough to fully specify a type. Types like
+ * 'selection' and 'deferred' need extra data, however this function returns
+ * only the name, not the extra data.
+ */
+Type.prototype.name = undefined;
+
+/**
+ * If there is some concept of a higher value, return it,
+ * otherwise return undefined.
+ */
+Type.prototype.increment = function(value) {
+    return undefined;
+};
+
+/**
+ * If there is some concept of a lower value, return it,
+ * otherwise return undefined.
+ */
+Type.prototype.decrement = function(value) {
+    return undefined;
+};
+
+/**
+ * There is interesting information (like predictions) in a conversion of
+ * nothing, the output of this can sometimes be customized.
+ * @return Conversion
+ */
+Type.prototype.getDefault = undefined;
+
 types.Type = Type;
 
 /**
@@ -3516,7 +4021,10 @@ Argument.prototype.getArgs = function() {
 };
 
 /**
- * We define equals to mean all arg properties are strict equals
+ * We define equals to mean all arg properties are strict equals.
+ * Used by Conversion.argEquals and Conversion.equals and ultimately
+ * Assignment.equals to avoid reporting a change event when a new conversion
+ * is assigned.
  */
 Argument.prototype.equals = function(that) {
     if (this === that) {
@@ -3612,7 +4120,7 @@ MergedArgument.prototype.equals = function(that) {
         return false;
     }
 
-    // TODO: do we need to check that args is the same?
+    // We might need to add a check that args is the same here
 
     return this.text === that.text &&
            this.prefix === that.prefix && this.suffix === that.suffix;
@@ -3744,7 +4252,7 @@ NamedArgument.prototype.equals = function(that) {
         return false;
     }
 
-    // TODO: do we need to check that nameArg and valueArg are the same?
+    // We might need to add a check that nameArg and valueArg are the same
 
     return this.text === that.text &&
            this.prefix === that.prefix && this.suffix === that.suffix;
@@ -3877,7 +4385,9 @@ var requestViewHtml = require('text!gcli/ui/request_view.html');
 
 /**
  * Work out the path for images.
- * TODO: This should probably live in some utility area somewhere
+ * This should probably live in some utility area somewhere, but it's kind of
+ * dependent on the implementation of require, and there isn't currently any
+ * better place for it.
  */
 function imageUrl(path) {
     try {
@@ -4509,6 +5019,8 @@ var console = require('gcli/util').console;
 
 
 /**
+ * Popup is responsible for containing the popup hints that are displayed
+ * above the command line.
  * Some implementations of GCLI require an element to be visible whenever the
  * GCLI has the focus.
  * This can be somewhat tricky because the definition of 'has the focus' is
@@ -5554,35 +6066,61 @@ field.shutdown = function() {
 
 /**
  * A Field is a way to get input for a single parameter.
- * This class is designed to be inherited from. It is important that children
- * ensure that the constructor is called during their creation to ensure that
- * the fieldChanged event is initialized.
+ * This class is designed to be inherited from. It's important that all
+ * subclasses have a similar constructor signature because they are created
+ * via getField(...)
  * @param doc The document we use in calling createElement
- * TODO: Are we not creating a single event on a prototype so we get duplicate
- * events fired everywhere?
+ * @param type The type to use in conversions
+ * @param named Is this parameter named? That is to say, are positional
+ * arguments disallowed, if true, then we need to provide updates to the
+ * command line that explicitly name the parameter in use (e.g. --verbose, or
+ * --name Fred rather than just true or Fred)
+ * @param name If this parameter is named, what name should we use
+ * @param requ The requisition that we're attached to
  */
 function Field(doc, type, named, name, requ) {
-    this.fieldChanged = createEvent('Field.fieldChanged');
 }
 
+/**
+ * Subclasses should assign their element with the DOM node that gets added
+ * to the 'form'. It doesn't have to be an input node, just something that
+ * contains it.
+ */
 Field.prototype.element = undefined;
 
+/**
+ * Indicates that this field should drop any resources that it has created
+ */
 Field.prototype.destroy = function() {
-    throw new Error('Field should not be used directly');
 };
 
+/**
+ * Update this field display with the value from this conversion.
+ * Subclasses should provide an implementation of this function.
+ */
 Field.prototype.setConversion = function(conversion) {
     throw new Error('Field should not be used directly');
 };
 
+/**
+ * Extract a conversion from the values in this field.
+ * Subclasses should provide an implementation of this function.
+ */
 Field.prototype.getConversion = function() {
     throw new Error('Field should not be used directly');
 };
 
+/**
+ * Validation errors should be reported somewhere. This is where.
+ * See setMessage()
+ */
 Field.prototype.setMessageElement = function(element) {
     this.messageElement = element;
 };
 
+/**
+ * Display a validation message in the UI
+ */
 Field.prototype.setMessage = function(message) {
     if (this.messageElement) {
         if (message == null) {
@@ -5592,14 +6130,20 @@ Field.prototype.setMessage = function(message) {
     }
 };
 
-Field.prototype.onFieldChange = function() {
+/**
+ * Method to be called by subclasses when their input changes, which allows us
+ * to properly pass on the fieldChanged event.
+ */
+Field.prototype.onInputChange = function() {
     var conversion = this.getConversion();
     this.fieldChanged({ conversion: conversion });
     this.setMessage(conversion.message);
 };
 
 /**
- *
+ * 'static/abstract' method to allow implementations of Field to lay a claim
+ * to a type. This allows claims of various strength to be weighted up.
+ * See the Field.*MATCH values.
  */
 Field.claim = function() {
     throw new Error('Field should not be used directly');
@@ -5673,11 +6217,13 @@ function StringField(doc, type, named, name, requ) {
     this.element = dom.createElement('input', null, this.doc);
     this.element.type = 'text';
 
-    this.onFieldChange = this.onFieldChange.bind(this);
-    this.element.addEventListener('keyup', this.onFieldChange, false);
+    this.onInputChange = this.onInputChange.bind(this);
+    this.element.addEventListener('keyup', this.onInputChange, false);
+
+    this.fieldChanged = createEvent('StringField.fieldChanged');
 }
 
-StringField.prototype = new Field();
+StringField.prototype = Object.create(Field.prototype);
 
 StringField.prototype.destroy = function() {
     this.element.removeEventListener('keyup', this.onKeyup, false);
@@ -5722,11 +6268,13 @@ function NumberField(doc, type, named, name, requ) {
         this.element.step = this.type.step;
     }
 
-    this.onFieldChange = this.onFieldChange.bind(this);
-    this.element.addEventListener('keyup', this.onFieldChange, false);
+    this.onInputChange = this.onInputChange.bind(this);
+    this.element.addEventListener('keyup', this.onInputChange, false);
+
+    this.fieldChanged = createEvent('NumberField.fieldChanged');
 }
 
-NumberField.prototype = new Field();
+NumberField.prototype = Object.create(Field.prototype);
 
 NumberField.claim = function(type) {
     return type instanceof NumberType ? Field.MATCH : Field.NO_MATCH;
@@ -5762,11 +6310,13 @@ function BooleanField(doc, type, named, name, requ) {
     this.element = dom.createElement('input', null, this.doc);
     this.element.type = 'checkbox';
 
-    this.onFieldChange = this.onFieldChange.bind(this);
-    this.element.addEventListener('change', this.onFieldChange, false);
+    this.onInputChange = this.onInputChange.bind(this);
+    this.element.addEventListener('change', this.onInputChange, false);
+
+    this.fieldChanged = createEvent('BooleanField.fieldChanged');
 }
 
-BooleanField.prototype = new Field();
+BooleanField.prototype = Object.create(Field.prototype);
 
 BooleanField.claim = function(type) {
     return type instanceof BooleanType ? Field.MATCH : Field.NO_MATCH;
@@ -5799,7 +6349,7 @@ field.BooleanField = BooleanField;
  * <li>value: This is the (probably non-string) value, known as a value by the
  *     assignment
  * <li>optValue: This is the text value as known by the DOM option element, as
- *     in &lt;option value=XXX%gt...
+ *     in &lt;option value=???%gt...
  * <li>optText: This is the contents of the DOM option element.
  * </ul>
  */
@@ -5816,11 +6366,13 @@ function SelectionField(doc, type, named, name, requ) {
         this._addOption(lookup[name], name);
     }, this);
 
-    this.onFieldChange = this.onFieldChange.bind(this);
-    this.element.addEventListener('change', this.onFieldChange, false);
+    this.onInputChange = this.onInputChange.bind(this);
+    this.element.addEventListener('change', this.onInputChange, false);
+
+    this.fieldChanged = createEvent('SelectionField.fieldChanged');
 }
 
-SelectionField.prototype = new Field();
+SelectionField.prototype = Object.create(Field.prototype);
 
 SelectionField.claim = function(type) {
     return type instanceof SelectionType ? Field.DEFAULT_MATCH : Field.NO_MATCH;
@@ -5884,9 +6436,11 @@ function DeferredField(doc, type, named, name, requ) {
 
     this.element = dom.createElement('div', null, this.doc);
     this.update();
+
+    this.fieldChanged = createEvent('DeferredField.fieldChanged');
 }
 
-DeferredField.prototype = new Field();
+DeferredField.prototype = Object.create(Field.prototype);
 
 DeferredField.prototype.update = function() {
     var subtype = this.type.defer();
@@ -5933,15 +6487,15 @@ function BlankField(doc, type, named, name, requ) {
     this.doc = doc;
     this.type = type;
     this.element = dom.createElement('div', null, this.doc);
+
+    this.fieldChanged = createEvent('BlankField.fieldChanged');
 }
 
-BlankField.prototype = new Field();
+BlankField.prototype = Object.create(Field.prototype);
 
 BlankField.claim = function(type) {
     return type instanceof BlankType ? Field.MATCH : Field.NO_MATCH;
 };
-
-BlankField.prototype.destroy = function() { };
 
 BlankField.prototype.setConversion = function() { };
 
@@ -5982,10 +6536,12 @@ function ArrayField(doc, type, named, name, requ) {
     this.container.className = 'gcliArrayMbrs';
     this.element.appendChild(this.container);
 
-    this.onFieldChange = this.onFieldChange.bind(this);
+    this.onInputChange = this.onInputChange.bind(this);
+
+    this.fieldChanged = createEvent('ArrayField.fieldChanged');
 }
 
-ArrayField.prototype = new Field();
+ArrayField.prototype = Object.create(Field.prototype);
 
 ArrayField.claim = function(type) {
     return type instanceof ArrayType ? Field.MATCH : Field.NO_MATCH;
@@ -6055,7 +6611,7 @@ ArrayField.prototype._onAdd = function(ev, subConversion) {
         this.parent.members = this.parent.members.filter(function(test) {
           return test !== this;
         });
-        this.parent.onFieldChange();
+        this.parent.onInputChange();
     }.bind(member);
     delButton.addEventListener('click', member.onDelete, false);
 
@@ -6839,4 +7395,12 @@ define("text!gcli/ui/images/pins.png", [], "data:image/png;base64,iVBORw0KGgoAAA
 define("text!gcli/ui/images/plus.png", [], "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAAAZiS0dEANIA0gDS7KbF4AAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9kFGw4yFTwuJTkAAAH7SURBVCjPdZKxa1NRFMZ/956XZMgFyyMlCZRA4hBx6lBcQ00GoYi4tEstFPwLAs7iLDi7FWuHThaUggihBDI5OWRoQAmBQFISQgvvpbwX3rsOaR4K+o2H8zvfOZxPWWtZqVarGaAJPAEe3ZW/A1+Bd+1221v1qhW4vb1dA44mk0nZ8zyCIAAgk8lgjGF9fb0PHF5cXLQTsF6vP/c879P19TVBEJDJZBARAKIoSmpra2sYY561Wq3PqtFouMBgMBgYay3ZbJZ/yfd9tNaUSqUboOKISPPq6sqsVvZ9H4AvL34B8PTj/QSO45jpdHovn883Ha31znw+JwzDpCEMQx4UloM8zyOdTif3zudztNY7jog8DMMQpRRxHPPt5TCBAEZvxlyOFTsfykRRBICIlB2t9a21Nh3HMXEc8+d7VhJHWCwWyzcohdZaHBHpO46z6fs+IsLj94XECaD4unCHL8FsNouI/HRE5Nx13c3ZbIbWOnG5HKtl+53TSq7rIiLnand31wUGnU7HjEYjlFLJZN/3yRnL1FMYY8jlcmxtbd0AFel2u7dnZ2eXxpi9xWJBEASkUimstYgIQSSkUimKxSKVSgVjzN7p6emPJHL7+/s14KjX65WHwyGz2SxZbWNjg2q12gcOT05O2n9lFeDg4MAAr/4T8rfHx8dJyH8DvvbYGzKvWukAAAAASUVORK5CYII=");
 
 define("text!gcli/ui/images/throbber.gif", [], "data:image/gif;base64,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");
+
+///////////////////////////////////////////////////////////////////////////////
+
+/*
+ * require GCLi so it can be exported as declared at the start
+ */
+
+let gcli = require("gcli/index");
 
