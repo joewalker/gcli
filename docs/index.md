@@ -515,6 +515,37 @@ specified. Selection values can be specified as an array of strings, as a
 map of strings to values, or as a function that returns either of the other
 values.
 
+### Deferred types
+
+Deferred types are needed when the type of some parameter depends on the type
+of another parameter. For example:
+
+    > set height 100
+    > set name "Joe Walker"
+
+We can achieve this as follows:
+
+    gcli.addCommand({
+      name: 'set',
+      params: [
+        {
+          name: 'setting',
+          type: { name: 'selection', values: [ 'height', 'name' ] }
+        },
+        {
+          name: 'value',
+          type: {
+            name: 'deferred',
+            defer: function() { ... }
+          }
+        }
+      ],
+      ...
+    });
+
+Several details are left out of this example, like how the defer function knows
+what the current setting is. See the ``pref`` command in Ace for an example.
+
 
 ### Sub-commands
 
