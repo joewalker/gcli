@@ -69,10 +69,15 @@
  * This build of GCLI for Firefox is really 4 bits of code:
  * - Browser support code - currently just an implementation of the console
  *   object that uses dump. We may need to add other browser shims to this.
- * - a basic commonjs amd require implementation (good enough to load GCLI)
- *   which aleviates the need for requirejs in the browser.
- * - a build of GCLI itself, packaged using dryice.
- * - lastly, code to require the gcli object as needed by EXPORTED_SYMBOLS.
+ * - A very basic commonjs AMD (Asynchronous Modules Definition) 'require'
+ *   implementation (which is just good enough to load GCLI). For more, see
+ *   http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
+ *   This alleviates the need for requirejs (http://requirejs.org/) which is
+ *   used when running in the browser.
+ * - A build of GCLI itself, packaged using dryice (for more details see the
+ *   project https://github.com/mozilla/dryice and the build file in this
+ *   project at Makefile.dryice.js)
+ * - Lastly, code to require the gcli object as needed by EXPORTED_SYMBOLS.
  */
 
 var EXPORTED_SYMBOLS = [ "gcli" ];
@@ -99,10 +104,14 @@ var EXPORTED_SYMBOLS = [ "gcli" ];
  * @param {number} aMinLen (optional)
  *        The minimum allowed length of the returned string. If undefined,
  *        then aMaxLen will be used
+ * @param {object} aOptions (optional)
+ *        An object allowing format customization. The only customization
+ *        allowed currently is 'truncate' which can take the value "start" to
+ *        truncate strings from the start as opposed to the end.
  * @return {string}
  *        The original string formatted to fit the specified lengths
  */
-function fmt(aStr, aMaxLen, aMinLen, options) {
+function fmt(aStr, aMaxLen, aMinLen, aOptions) {
   if (aMinLen == undefined) {
     aMinLen = aMaxLen;
   }
@@ -110,7 +119,7 @@ function fmt(aStr, aMaxLen, aMinLen, options) {
     aStr = "";
   }
   if (aStr.length > aMaxLen) {
-    if (options && options.truncate == "start") {
+    if (aOptions && aOptions.truncate == "start") {
       return "_" + aStr.substring(aStr.length - aMaxLen + 1);
     }
     else {
@@ -163,7 +172,7 @@ function stringify(aThing) {
     }
   }
 
-  var str = aThing.toString().replace(/[\n\r]/g, " ").replace(/ +/g, " ");
+  var str = aThing.toString().replace(/\s+/g, " ");
   return fmt(str, 60, 0);
 }
 
@@ -225,14 +234,14 @@ function log(aThing) {
  * @return {string}
  *        Multi line output string describing the property/value pair
  */
-function logProperty(prop, value) {
+function logProperty(aProp, aValue) {
   var reply = "";
-  if (prop == "stack" && typeof value == "string") {
-    var trace = parseStack(value);
+  if (aProp == "stack" && typeof value == "string") {
+    var trace = parseStack(aValue);
     reply += formatTrace(trace);
   }
   else {
-    reply += "    - " + prop + " = " + stringify(value) + "\n";
+    reply += "    - " + aProp + " = " + stringify(aValue) + "\n";
   }
   return reply;
 }
@@ -305,7 +314,7 @@ function formatTrace(aTrace) {
     reply += fmt(frame.file, 20, 20, { truncate: "start" }) + " " +
              fmt(frame.line, 5, 5) + " " +
              fmt(frame.call, 75, 75) + "\n";
-  }, this);
+  });
   return reply;
 }
 

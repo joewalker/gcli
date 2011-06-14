@@ -200,7 +200,7 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/index', ['require', 'exports', 'module' , 'gcli/ui/index', 'gcli/canon', 'gcli/cli', 'gcli/promise', 'gcli/types', 'gcli/commands/help', 'gcli/ui/field'], function(require, exports, module) {
+define('gcli/index', ['require', 'exports', 'module' , 'gcli/ui/index', 'gcli/canon', 'gcli/cli', 'gcli/promise', 'gcli/types', 'gcli/commands/help'], function(require, exports, module) {
 var gcli = exports;
 
 //window.gcli = window.require.s.contexts._.defined['gcli/index'];
@@ -219,7 +219,7 @@ gcli.removeCommand = createStartupChecker(canon.removeCommand);
 gcli.removeCommands = createStartupChecker(canon.removeCommands);
 
 //gcli.Requisition = cli.Requisition;
-gcli.getEnvironment = createStartupChecker(cli.getEnvironment);
+gcli.getEnvironment = cli.getEnvironment;
 
 gcli.createPromise = createStartupChecker(function createPromise() {
     return new Promise();
@@ -236,6 +236,15 @@ gcli.globalReportList = canon.globalReportList;
  */
 gcli.ui = ui;
 
+/**
+ * Not all environments have easy access to the current document, or we might
+ * wish to work in the non-default document.
+ */
+gcli.getDocument = function() {
+    return doc;
+};
+
+var doc = undefined;
 var started = false;
 
 function createStartupChecker(func) {
@@ -247,19 +256,19 @@ function createStartupChecker(func) {
     };
 }
 
-gcli.startup = function() {
+gcli.startup = function(options) {
+    doc = (options && options.document) ? options.document : document;
     started = true;
 
     require('gcli/types').startup();
     require('gcli/commands/help').startup();
     require('gcli/cli').startup();
-    require('gcli/ui/field').startup();
 };
 
 gcli.shutdown = function() {
+    doc = undefined;
     started = false;
 
-    require('gcli/ui/field').shutdown();
     require('gcli/cli').shutdown();
     require('gcli/commands/help').shutdown();
     require('gcli/types').shutdown();
@@ -452,51 +461,51 @@ exports.console = console;
  * is when debugging.
  */
 exports.createEvent = function(name) {
-  var handlers = [];
+    var handlers = [];
 
-  /**
-   * This is how the event is triggered.
-   * @param {object} ev The event object to be passed to the event listeners
-   */
-  var event = function(ev) {
-    // Use for rather than forEach because it step debugs better, which is
-    // important for debugging events
-    for (var i = 0; i < handlers.length; i++) {
-      var handler = handlers[i];
-      handler.func.apply(handler.scope, [ ev ]);
-    }
-  };
+    /**
+     * This is how the event is triggered.
+     * @param {object} ev The event object to be passed to the event listeners
+     */
+    var event = function(ev) {
+        // Use for rather than forEach because it step debugs better, which is
+        // important for debugging events
+        for (var i = 0; i < handlers.length; i++) {
+            var handler = handlers[i];
+            handler.func.call(handler.scope, ev);
+        }
+    };
 
-  /**
-   * Add a new handler function
-   * @param {function} func The function to call when this event is triggered
-   * @param {object} scope Optional 'this' object for the function call
-   */
-  event.add = function(func, scope) {
-    handlers.push({ func: func, scope: scope });
-  };
+    /**
+     * Add a new handler function
+     * @param {function} func The function to call when this event is triggered
+     * @param {object} scope Optional 'this' object for the function call
+     */
+    event.add = function(func, scope) {
+        handlers.push({ func: func, scope: scope });
+    };
 
-  /**
-   * Remove a handler function added through add(). Both func and scope must
-   * be strict equals (===) the values used in the call to add()
-   * @param {function} func The function to call when this event is triggered
-   * @param {object} scope Optional 'this' object for the function call
-   */
-  event.remove = function(func, scope) {
-    handlers = handlers.filter(function(test) {
-      return test.func !== func && test.scope !== scope;
-    });
-  };
+    /**
+     * Remove a handler function added through add(). Both func and scope must
+     * be strict equals (===) the values used in the call to add()
+     * @param {function} func The function to call when this event is triggered
+     * @param {object} scope Optional 'this' object for the function call
+     */
+    event.remove = function(func, scope) {
+        handlers = handlers.filter(function(test) {
+            return test.func !== func && test.scope !== scope;
+        });
+    };
 
-  /**
-   * Remove all handlers.
-   * Reset the state of this event back to it's post create state
-   */
-  event.removeAll = function() {
-    handlers = [];
-  };
+    /**
+     * Remove all handlers.
+     * Reset the state of this event back to it's post create state
+     */
+    event.removeAll = function() {
+        handlers = [];
+    };
 
-  return event;
+    return event;
 };
 
 
@@ -515,13 +524,13 @@ var NS_XUL = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
  * @returns {HTMLElement} The created element
  */
 dom.createElement = function(tag, ns, doc) {
-  var doc = doc || document;
-  return doc.createElement(tag);
-  /*
-  return doc.createElementNS ?
-         doc.createElementNS(ns || NS_XHTML, tag) :
-         doc.createElement(tag);
-   */
+    var doc = doc || document;
+    return doc.createElement(tag);
+    /*
+    return doc.createElementNS ?
+                 doc.createElementNS(ns || NS_XHTML, tag) :
+                 doc.createElement(tag);
+     */
 };
 
 /**
@@ -529,85 +538,85 @@ dom.createElement = function(tag, ns, doc) {
  * @param {HTMLElement} el The element that should have it's children removed
  */
 dom.clearElement = function(el) {
-  while (el.hasChildNodes()) {
-    el.removeChild(el.firstChild);
-  }
+    while (el.hasChildNodes()) {
+        el.removeChild(el.firstChild);
+    }
 };
 
 if (this.document && !this.document.documentElement.classList) {
-  /**
-   * Is the given element marked with the given CSS class?
-   */
-  dom.hasCssClass = function(el, name) {
-    var classes = el.className.split(/\s+/g);
-    return classes.indexOf(name) !== -1;
-  };
+    /**
+     * Is the given element marked with the given CSS class?
+     */
+    dom.hasCssClass = function(el, name) {
+        var classes = el.className.split(/\s+/g);
+        return classes.indexOf(name) !== -1;
+    };
 
-  /**
-   * Add a CSS class to the list of classes on the given node
-   */
-  dom.addCssClass = function(el, name) {
-    if (!dom.hasCssClass(el, name)) {
-      el.className += " " + name;
-    }
-  };
+    /**
+     * Add a CSS class to the list of classes on the given node
+     */
+    dom.addCssClass = function(el, name) {
+        if (!dom.hasCssClass(el, name)) {
+            el.className += " " + name;
+        }
+    };
 
-  /**
-   * Remove a CSS class from the list of classes on the given node
-   */
-  dom.removeCssClass = function(el, name) {
-    var classes = el.className.split(/\s+/g);
-    while (true) {
-      var index = classes.indexOf(name);
-      if (index == -1) {
-        break;
-      }
-      classes.splice(index, 1);
-    }
-    el.className = classes.join(" ");
-  };
+    /**
+     * Remove a CSS class from the list of classes on the given node
+     */
+    dom.removeCssClass = function(el, name) {
+        var classes = el.className.split(/\s+/g);
+        while (true) {
+            var index = classes.indexOf(name);
+            if (index == -1) {
+                break;
+            }
+            classes.splice(index, 1);
+        }
+        el.className = classes.join(" ");
+    };
 
-  /**
-   * Add the named CSS class from the element if it is not already present or
-   * remove it if is present.
-   */
-  dom.toggleCssClass = function(el, name) {
-    var classes = el.className.split(/\s+/g), add = true;
-    while (true) {
-      var index = classes.indexOf(name);
-      if (index == -1) {
-        break;
-      }
-      add = false;
-      classes.splice(index, 1);
-    }
-    if (add) {
-      classes.push(name);
-    }
+    /**
+     * Add the named CSS class from the element if it is not already present or
+     * remove it if is present.
+     */
+    dom.toggleCssClass = function(el, name) {
+        var classes = el.className.split(/\s+/g), add = true;
+        while (true) {
+            var index = classes.indexOf(name);
+            if (index == -1) {
+                break;
+            }
+            add = false;
+            classes.splice(index, 1);
+        }
+        if (add) {
+            classes.push(name);
+        }
 
-    el.className = classes.join(" ");
-    return add;
-  };
+        el.className = classes.join(" ");
+        return add;
+    };
 } else {
-  /*
-   * classList shim versions of methods above.
-   * See the functions above for documentation
-   */
-  dom.hasCssClass = function(el, name) {
-    return el.classList.contains(name);
-  };
+    /*
+     * classList shim versions of methods above.
+     * See the functions above for documentation
+     */
+    dom.hasCssClass = function(el, name) {
+        return el.classList.contains(name);
+    };
 
-  dom.addCssClass = function(el, name) {
-    el.classList.add(name);
-  };
+    dom.addCssClass = function(el, name) {
+        el.classList.add(name);
+    };
 
-  dom.removeCssClass = function(el, name) {
-    el.classList.remove(name);
-  };
+    dom.removeCssClass = function(el, name) {
+        el.classList.remove(name);
+    };
 
-  dom.toggleCssClass = function(el, name) {
-    return el.classList.toggle(name);
-  };
+    dom.toggleCssClass = function(el, name) {
+        return el.classList.toggle(name);
+    };
 }
 
 /**
@@ -615,11 +624,11 @@ if (this.document && !this.document.documentElement.classList) {
  * depending on the value of <tt>include</tt>
  */
 dom.setCssClass = function(node, className, include) {
-  if (include) {
-    dom.addCssClass(node, className);
-  } else {
-    dom.removeCssClass(node, className);
-  }
+    if (include) {
+        dom.addCssClass(node, className);
+    } else {
+        dom.removeCssClass(node, className);
+    }
 };
 
 /**
@@ -629,36 +638,36 @@ dom.setCssClass = function(node, className, include) {
  * @param {HTMLDocument} doc The document element to work from
  */
 dom.importCssString = function(cssText, doc) {
-  doc = doc || document;
+    doc = doc || document;
 
-  if (doc.createStyleSheet) {
-    var sheet = doc.createStyleSheet();
-    sheet.cssText = cssText;
-  }
-  else {
-    var style = doc.createElementNS ?
-        doc.createElementNS(NS_XHTML, "style") :
-        doc.createElement("style");
+    if (doc.createStyleSheet) {
+        var sheet = doc.createStyleSheet();
+        sheet.cssText = cssText;
+    }
+    else {
+        var style = doc.createElementNS ?
+                doc.createElementNS(NS_XHTML, "style") :
+                doc.createElement("style");
 
-    style.appendChild(doc.createTextNode(cssText));
+        style.appendChild(doc.createTextNode(cssText));
 
-    var head = doc.getElementsByTagName("head")[0] || doc.documentElement;
-    head.appendChild(style);
-  }
+        var head = doc.getElementsByTagName("head")[0] || doc.documentElement;
+        head.appendChild(style);
+    }
 };
 
 /**
  * Shim for window.getComputedStyle
  */
 dom.computedStyle = function(element, style) {
-  var win = element.ownerDocument.defaultView;
-  if (win.getComputedStyle) {
-    var styles = win.getComputedStyle(element, "") || {};
-    return styles[style] || "";
-  }
-  else {
-    return element.currentStyle[style];
-  }
+    var win = element.ownerDocument.defaultView;
+    if (win.getComputedStyle) {
+        var styles = win.getComputedStyle(element, "") || {};
+        return styles[style] || "";
+    }
+    else {
+        return element.currentStyle[style];
+    }
 };
 
 /**
@@ -666,60 +675,475 @@ dom.computedStyle = function(element, style) {
  * tweaks in XHTML documents.
  */
 dom.setInnerHtml = function(el, html) {
-  if (!this.document || el.namespaceURI === NS_XHTML) {
-    try {
-      dom.clearElement(el);
-      var range = el.ownerDocument.createRange();
-      html = "<div xmlns='" + NS_XHTML + "'>" + html + "</div>";
-      el.appendChild(range.createContextualFragment(html));
+    if (!this.document || el.namespaceURI === NS_XHTML) {
+        try {
+            dom.clearElement(el);
+            var range = el.ownerDocument.createRange();
+            html = "<div xmlns='" + NS_XHTML + "'>" + html + "</div>";
+            el.appendChild(range.createContextualFragment(html));
+        }
+        catch (ex) {
+            el.innerHTML = html;
+        }
     }
-    catch (ex) {
-      el.innerHTML = html;
+    else {
+        el.innerHTML = html;
     }
-  }
-  else {
-    el.innerHTML = html;
-  }
 };
 
 /**
  * Shim to textarea.selectionStart
  */
 dom.getSelectionStart = function(textarea) {
-  try {
-    return textarea.selectionStart || 0;
-  }
-  catch (e) {
-    return 0;
-  }
+    try {
+        return textarea.selectionStart || 0;
+    }
+    catch (e) {
+        return 0;
+    }
 };
 
 /**
  * Shim to textarea.selectionStart
  */
 dom.setSelectionStart = function(textarea, start) {
-  return textarea.selectionStart = start;
+    return textarea.selectionStart = start;
 };
 
 /**
  * Shim to textarea.selectionEnd
  */
 dom.getSelectionEnd = function(textarea) {
-  try {
-    return textarea.selectionEnd || 0;
-  } catch (e) {
-    return 0;
-  }
+    try {
+        return textarea.selectionEnd || 0;
+    } catch (e) {
+        return 0;
+    }
 };
 
 /**
  * Shim to textarea.selectionEnd
  */
 dom.setSelectionEnd = function(textarea, end) {
-  return textarea.selectionEnd = end;
+    return textarea.selectionEnd = end;
 };
 
 exports.dom = dom;
+
+
+//------------------------------------------------------------------------------
+
+/**
+ * A plural form is a way to pluralize as noun. There are 2 plural forms in
+ * English, with (s) and without - tree and trees. (We ignore verbs which
+ * confuse things greatly by being the other way around)
+ * A plural rule works out from a number, which plural form to use. In English
+ * the rule is to use one form for 0 and 1, and the other for everything else
+ * See https://developer.mozilla.org/en/Localization_and_Plurals
+ * See https://secure.wikimedia.org/wikipedia/en/wiki/List_of_ISO_639-1_codes
+ *
+ * Contains code inspired by Mozilla L10n code originally developed by
+ *         Edward Lee <edward.lee@engineering.uiuc.edu>
+ */
+var pluralRules = [
+    /**
+     * Index 0 - Only one form for all
+     * Asian family: Japanese, Vietnamese, Korean
+     */
+    {
+        locales: [
+            'fa', 'fa-ir',
+            'id',
+            'ja', 'ja-jp-mac',
+            'ka',
+            'ko', 'ko-kr',
+            'th', 'th-th',
+            'tr', 'tr-tr',
+            'zh', 'zh-tw', 'zh-cn'
+        ],
+        numForms: 1,
+        get: function(n) {
+            return 0;
+        }
+    },
+
+    /**
+     * Index 1 - Two forms, singular used for one only
+     * Germanic family: English, German, Dutch, Swedish, Danish, Norwegian,
+     *                  Faroese
+     * Romanic family: Spanish, Portuguese, Italian, Bulgarian
+     * Latin/Greek family: Greek
+     * Finno-Ugric family: Finnish, Estonian
+     * Semitic family: Hebrew
+     * Artificial: Esperanto
+     * Finno-Ugric family: Hungarian
+     * Turkic/Altaic family: Turkish
+     */
+    {
+        locales: [
+            'af', 'af-za',
+            'as', 'ast',
+            'bg',
+            'br',
+            'bs', 'bs-ba',
+            'ca',
+            'cy', 'cy-gb',
+            'da',
+            'de', 'de-de', 'de-ch',
+            'en', 'en-gb', 'en-us', 'en-za',
+            'el', 'el-gr',
+            'eo',
+            'es', 'es-es', 'es-ar', 'es-cl', 'es-mx',
+            'et', 'et-ee',
+            'eu',
+            'fi', 'fi-fi',
+            'fy', 'fy-nl',
+            'gl', 'gl-gl',
+            'he',
+         //       'hi-in', Without an unqualified language, looks dodgy
+            'hu', 'hu-hu',
+            'hy', 'hy-am',
+            'it', 'it-it',
+            'kk',
+            'ku',
+            'lg',
+            'mai',
+         // 'mk', 'mk-mk', Should be 14?
+            'ml', 'ml-in',
+            'mn',
+            'nb', 'nb-no',
+            'no', 'no-no',
+            'nl',
+            'nn', 'nn-no',
+            'no', 'no-no',
+            'nb', 'nb-no',
+            'nso', 'nso-za',
+            'pa', 'pa-in',
+            'pt', 'pt-pt',
+            'rm', 'rm-ch',
+         // 'ro', 'ro-ro', Should be 5?
+            'si', 'si-lk',
+         // 'sl',          Should be 10?
+            'son', 'son-ml',
+            'sq', 'sq-al',
+            'sv', 'sv-se',
+            'vi', 'vi-vn',
+            'zu', 'zu-za'
+      ],
+      numForms: 2,
+      get: function(n) {
+          return n != 1 ?
+              1 :
+              0;
+      }
+    },
+
+    /**
+     * Index 2 - Two forms, singular used for zero and one
+     * Romanic family: Brazilian Portuguese, French
+     */
+    {
+        locales: [
+            'ak', 'ak-gh',
+            'bn', 'bn-in', 'bn-bd',
+            'fr', 'fr-fr',
+            'gu', 'gu-in',
+            'kn', 'kn-in',
+            'mr', 'mr-in',
+            'oc', 'oc-oc',
+            'or', 'or-in',
+                  'pt-br',
+            'ta', 'ta-in', 'ta-lk',
+            'te', 'te-in'
+        ],
+        numForms: 2,
+        get: function(n) {
+            return n > 1 ?
+                1 :
+                0;
+        }
+    },
+
+    /**
+     * Index 3 - Three forms, special case for zero
+     * Latvian
+     */
+    {
+        locales: [ 'lv' ],
+        numForms: 3,
+        get: function(n) {
+            return n % 10 == 1 && n % 100 != 11 ?
+                1 :
+                n != 0 ?
+                    2 :
+                    0;
+        }
+    },
+
+    /**
+     * Index 4 -
+     * Scottish Gaelic
+     */
+    {
+        locales: [ 'gd', 'gd-gb' ],
+        numForms: 4,
+        get: function(n) {
+            return n == 1 || n == 11 ?
+                0 :
+                n == 2 || n == 12 ?
+                    1 :
+                    n > 0 && n < 20 ?
+                        2 :
+                        3;
+        }
+    },
+
+    /**
+     * Index 5 - Three forms, special case for numbers ending in 00 or
+     *           [2-9][0-9]
+     * Romanian
+     */
+    {
+        locales: [ 'ro', 'ro-ro' ],
+        numForms: 3,
+        get: function(n) {
+            return n == 1 ?
+                0 :
+                n == 0 || n % 100 > 0 && n % 100 < 20 ?
+                    1 :
+                    2;
+        }
+    },
+
+    /**
+     * Index 6 - Three forms, special case for numbers ending in 1[2-9]
+     * Lithuanian
+     */
+    {
+        locales: [ 'lt' ],
+        numForms: 3,
+        get: function(n) {
+            return n % 10 == 1 && n % 100 != 11 ?
+                0 :
+                n % 10 >= 2 && (n % 100 < 10 || n % 100 >= 20) ?
+                    2 :
+                    1;
+        }
+    },
+
+    /**
+     * Index 7 - Three forms, special cases for numbers ending in 1 and
+     *           2, 3, 4, except those ending in 1[1-4]
+     * Slavic family: Russian, Ukrainian, Serbian, Croatian
+     */
+    {
+        locales: [
+            'be', 'be-by',
+            'hr', 'hr-hr',
+            'ru', 'ru-ru',
+            'sr', 'sr-rs', 'sr-cs',
+            'uk'
+        ],
+        numForms: 3,
+        get: function(n) {
+            return n % 10 == 1 && n % 100 != 11 ?
+                0 :
+                n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ?
+                    1 :
+                    2;
+        }
+    },
+
+    /**
+     * Index 8 - Three forms, special cases for 1 and 2, 3, 4
+     * Slavic family: Czech, Slovak
+     */
+    {
+        locales: [ 'cs', 'sk' ],
+        numForms: 3,
+        get: function(n) {
+            return n == 1 ?
+                0 :
+                n >= 2 && n <= 4 ?
+                    1 :
+                    2;
+        }
+    },
+
+    /**
+     * Index 9 - Three forms, special case for one and some numbers ending in
+     *           2, 3, or 4
+     * Polish
+     */
+    {
+        locales: [ 'pl' ],
+        numForms: 3,
+        get: function(n) {
+            return n == 1 ?
+                0 :
+                n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ?
+                    1 :
+                    2;
+        }
+    },
+
+    /**
+     * Index 10 - Four forms, special case for one and all numbers ending in
+     *            02, 03, or 04
+     * Slovenian
+     */
+    {
+        locales: [ 'sl' ],
+        numForms: 4,
+        get: function(n) {
+            return n % 100 == 1 ?
+                0 :
+                n % 100 == 2 ?
+                    1 :
+                    n % 100 == 3 || n % 100 == 4 ?
+                        2 :
+                        3;
+        }
+    },
+
+    /**
+     * Index 11 -
+     * Irish Gaeilge
+     */
+    {
+        locales: [ 'ga-IE', 'ga-ie', 'ga', 'en-ie' ],
+        numForms: 5,
+        get: function(n) {
+            return n == 1 ?
+                0 :
+                n == 2 ?
+                    1 :
+                    n >= 3 && n <= 6 ?
+                        2 :
+                        n >= 7 && n <= 10 ?
+                            3 :
+                            4;
+        }
+    },
+
+    /**
+     * Index 12 -
+     * Arabic
+     */
+    {
+        locales: [ 'ar' ],
+        numForms: 6,
+        get: function(n) {
+            return n == 0 ?
+                5 :
+                n == 1 ?
+                    0 :
+                    n == 2 ?
+                        1 :
+                        n % 100 >= 3 && n % 100 <= 10 ?
+                            2 :
+                            n % 100 >= 11 && n % 100 <= 99 ?
+                                3 :
+                                4;
+        }
+    },
+
+    /**
+     * Index 13 -
+     * Maltese
+     */
+    {
+        locales: [ 'mt' ],
+        numForms: 4,
+        get: function(n) {
+            return n == 1 ?
+                0 :
+                n == 0 || n % 100 > 0 && n % 100 <= 10 ?
+                    1 :
+                    n % 100 > 10 && n % 100 < 20 ?
+                        2 :
+                        3;
+      }
+    },
+
+    /**
+     * Index 14 -
+     * Macedonian
+     */
+    {
+        locales: [ 'mk', 'mk-mk' ],
+        numForms: 3,
+        get: function(n) {
+            return n % 10 == 1 ?
+                0 :
+                n % 10 == 2 ?
+                    1 :
+                    2;
+        }
+    },
+
+    /**
+     * Index 15 -
+     * Icelandic
+     */
+    {
+        locales: [ 'is' ],
+        numForms: 2,
+        get: function(n) {
+            return n % 10 == 1 && n % 100 != 11 ?
+                0 :
+                1;
+        }
+    }
+
+    /*
+    // Known locales without a known plural rule
+    'km', 'ms', 'ne-np', 'ne-np', 'ne', 'nr', 'nr-za', 'rw', 'ss', 'ss-za',
+    'st', 'st-za', 'tn', 'tn-za', 'ts', 'ts-za', 've', 've-za', 'xh', 'xh-za'
+    */
+];
+
+/**
+ * Use rule 0 by default, which is no plural forms at all
+ */
+var pluralRule = pluralRules[0];
+
+/**
+ * What language should we use?
+ * This is complicated, we should possibly be using the HTTP 'Accept-Language'
+ * header, however this is somewhat hard to get at.
+ * http://stackoverflow.com/questions/1043339/javascript-for-detecting-browser-language-preference
+ * For now we'll go with the more simple window.navigator.language in the
+ * browser
+ */
+function getPluralRule() {
+    if (!pluralRule) {
+        var index;
+        try {
+            var svc = Components.classes["@mozilla.org/intl/stringbundle;1"]
+                    .getService(Components.interfaces.nsIStringBundleService);
+            var bundle = svc.createBundle("chrome://global/locale/intl.properties");
+            var pluralRule = bundle.GetStringFromName("pluralRule");
+            index = parseInt(pluralRule);
+            pluralRule = pluralRules(index);
+        }
+        catch (ex) {
+            // Will happen in non firefox instances
+
+            var lang = window.navigator.language;
+            // Next: convert lang to a rule index
+            pluralRules.some(function(rule) {
+                if (rule.locales.indexOf(lang) !== -1) {
+                    pluralRule = rule;
+                    return true;
+                }
+                return false;
+            });
+        }
+    }
+
+    return pluralRule;
+}
 
 
 //------------------------------------------------------------------------------
@@ -733,51 +1157,51 @@ var event = {};
  * Shim for lack of addEventListener on old IE.
  */
 event.addListener = function(elem, type, callback) {
-  if (elem.addEventListener) {
-    return elem.addEventListener(type, callback, false);
-  }
-  if (elem.attachEvent) {
-    var wrapper = function() {
-      callback(window.event);
-    };
-    callback._wrapper = wrapper;
-    elem.attachEvent("on" + type, wrapper);
-  }
+    if (elem.addEventListener) {
+        return elem.addEventListener(type, callback, false);
+    }
+    if (elem.attachEvent) {
+        var wrapper = function() {
+            callback(window.event);
+        };
+        callback._wrapper = wrapper;
+        elem.attachEvent("on" + type, wrapper);
+    }
 };
 
 /**
  * Shim for lack of removeEventListener on old IE.
  */
 event.removeListener = function(elem, type, callback) {
-  if (elem.removeEventListener) {
-    return elem.removeEventListener(type, callback, false);
-  }
-  if (elem.detachEvent) {
-    elem.detachEvent("on" + type, callback._wrapper || callback);
-  }
+    if (elem.removeEventListener) {
+        return elem.removeEventListener(type, callback, false);
+    }
+    if (elem.detachEvent) {
+        elem.detachEvent("on" + type, callback._wrapper || callback);
+    }
 };
 
 /**
  * Prevents propagation and clobbers the default action of the passed event
  */
 event.stopEvent = function(e) {
-  event.stopPropagation(e);
-  if (e.preventDefault) {
-    e.preventDefault();
-  }
-  return false;
+    event.stopPropagation(e);
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    return false;
 };
 
 /**
  * Prevents propagation of the event
  */
 event.stopPropagation = function(e) {
-  if (e.stopPropagation) {
-    e.stopPropagation();
-  }
-  else {
-    e.cancelBubble = true;
-  }
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
+    else {
+        e.cancelBubble = true;
+    }
 };
 
 /**
@@ -1071,13 +1495,13 @@ Assignment.prototype.setDefault = function() {
 /**
  * Make sure that there is some content for this argument by using an
  * Argument of '' if needed.
- * <p>TODO: It isn't clear if we should be sending events from this method.
- * It should only be called when structural changes are happening in which
- * case we're going to ignore the event anyway. But on the other hand
- * perhaps this function shouldn't need to know how it is used, and should
- * do the inefficient thing.
  */
 Assignment.prototype.ensureVisibleArgument = function() {
+    // It isn't clear if we should be sending events from this method.
+    // It should only be called when structural changes are happening in which
+    // case we're going to ignore the event anyway. But on the other hand
+    // perhaps this function shouldn't need to know how it is used, and should
+    // do the inefficient thing.
     if (!this.conversion.arg.isBlank()) {
         return false;
     }
@@ -1353,9 +1777,14 @@ UnassignedAssignment.prototype.setUnassigned = function(args) {
 
 /**
  * A Requisition collects the information needed to execute a command.
- * There is no point in a requisition for parameter-less commands because there
- * is no information to collect. A Requisition is a collection of assignments
- * of values to parameters, each handled by an instance of Assignment.
+ *
+ * (For a definition of the term, see http://en.wikipedia.org/wiki/Requisition)
+ * This term is used because carries the notion of a work-flow, or process to
+ * getting the information to execute a command correct.
+ * There is little point in a requisition for parameter-less commands because
+ * there is no information to collect. A Requisition is a collection of
+ * assignments of values to parameters, each handled by an instance of
+ * Assignment.
  *
  * <h2>Events<h2>
  * <p>Requisition publishes the following events:
@@ -2334,7 +2763,11 @@ function Command(commandSpec) {
     }, this);
 
     // Track if the user is trying to mix default params and param groups.
-    // All the default parameters must come before all the param groups.
+    // All the non-grouped parameters must come before all the param groups
+    // because non-grouped parameters can be assigned positionally, so their
+    // index is important. We don't want 'holes' in the order caused by
+    // parameter groups.
+
     var usingGroups = false;
 
     // In theory this could easily be made recursive, so param groups could
@@ -2352,7 +2785,8 @@ function Command(commandSpec) {
                 var param = new Parameter(spec, this, paramNames, null);
                 this.params.push(param);
             }
-        } else {
+        }
+        else {
             spec.params.forEach(function(ispec) {
                 var param = new Parameter(ispec, this, paramNames, spec.group);
                 this.params.push(param);
@@ -2553,7 +2987,7 @@ canon.addCommands = function addCommands(context, name) {
  * @param commandOrName Either a command name or the command itself.
  */
 canon.removeCommand = function removeCommand(commandOrName) {
-    var name = typeof command === 'string' ?
+    var name = typeof commandOrName === 'string' ?
         commandOrName :
         commandOrName.name;
     delete commands[name];
@@ -2596,6 +3030,7 @@ canon.getCommand = function getCommand(name) {
  * Get an array of all the registered commands.
  */
 canon.getCommands = function getCommands() {
+    // return Object.values(commands);
     return Object.keys(commands).map(function(name) {
         return commands[name];
     }, this);
@@ -2603,10 +3038,9 @@ canon.getCommands = function getCommands() {
 
 /**
  * Get an array containing the names of the registered commands.
- * WARNING: This returns live data. Do not mutate the returned array.
  */
 canon.getCommandNames = function getCommandNames() {
-    return commandNames;
+    return commandNames.slice(0);
 };
 
 /**
@@ -3381,7 +3815,7 @@ types.BooleanType = BooleanType;
 
 
 /**
- * A we don't know right now, but hope to soon.
+ * A type for "we don't know right now, but hope to soon".
  */
 function DeferredType(typeSpec) {
     if (typeof typeSpec.defer !== 'function') {
@@ -3466,7 +3900,7 @@ function ArrayType(typeSpec) {
 ArrayType.prototype = new Type();
 
 ArrayType.prototype.stringify = function(values) {
-    // TODO: Check for strings with spaces and add quotes
+    // BUG 664204: Check for strings with spaces and add quotes
     return values.join(' ');
 };
 
@@ -3592,10 +4026,11 @@ function Argument(text, prefix, suffix) {
 
 /**
  * Return the result of merging these arguments.
- * TODO: What happens when we're merging arguments for the single string
  * case and some of the arguments are in quotation marks?
  */
 Argument.prototype.merge = function(following) {
+    // Is it possible that this gets called when we're merging arguments
+    // for the single string?
     return new Argument(
         this.text + this.suffix + following.prefix + following.text,
         this.prefix, following.suffix);
@@ -3669,7 +4104,7 @@ Argument.prototype.equals = function(that) {
  * Helper when we're putting arguments back together
  */
 Argument.prototype.toString = function() {
-    // TODO: There is a bug here - we should re-escape escaped characters
+    // BUG 664207: We should re-escape escaped characters
     // But can we do that reliably?
     return this.prefix + this.text + this.suffix;
 };
@@ -5020,16 +5455,19 @@ Inputter.prototype.sendFocusEventsToPopup = function(popup) {
     event.addListener(this.element, 'blur', popup.hideOutput);
 };
 
+/**
+ * Focus the input element
+ */
 Inputter.prototype.focus = function() {
     this.element.focus();
 };
 
+/**
+ * A version of getBoundingClientRect that also tells us the width and height
+ * of the input element.
+ */
 Inputter.prototype.getDimensionRect = function() {
-    if (!this.element.getClientRects) {
-        // TODO: how can we make up for this?
-        return;
-    }
-    var rect = this.element.getClientRects()[0];
+    var rect = this.element.getBoundingClientRect();
     rect.width = rect.right - rect.left;
     rect.height = rect.bottom - rect.top;
     return rect;
@@ -5089,19 +5527,9 @@ Inputter.prototype.onKeyUp = function(ev) {
             this.requ.exec();
             this.element.value = '';
         }
+        // See bug 664135 - On pressing return with an invalid input, GCLI
+        // should select the incorrect input for an easy fix
 
-        // Idea: If the user has pressed return, but the input can't work,
-        // then highlight the error region.
-        // This has the problem that the habit of pressing return to get to
-        // the error is very dangerous, and also that it requires a new
-        // API into Requisition
-        /*
-        else {
-            var position = this.requ.getFirstNonValidPosition();
-            dom.setSelectionStart(this.element, position.start);
-            dom.setSelectionEnd(this.element, position.end);
-        }
-        */
         this.update();
     }
     else if (ev.keyCode === 9 /*TAB*/ && !ev.shiftKey) {
@@ -5127,6 +5555,10 @@ Inputter.prototype.onKeyUp = function(ev) {
     }
 };
 
+/**
+ * Accessor for the assignment at the cursor.
+ * i.e Requisition.getAssignmentAt(cursorPos);
+ */
 Inputter.prototype.getCurrentAssignment = function() {
     var start = dom.getSelectionStart(this.element);
     return this.requ.getAssignmentAt(start);
@@ -5141,7 +5573,7 @@ Inputter.prototype.update = function() {
 };
 
 /**
- * Update the requisition with the contents of the input element.
+ * Update the requisition with the contents of the input element
  */
 Inputter.prototype.updateCli = function() {
     var input = {
@@ -5198,7 +5630,7 @@ function Completer(options) {
 /**
  * A list of the styles that decorate() should copy to make the completion
  * element look like the input element. backgroundColor is a spiritual part of
- * this list, but see comment in decorate()
+ * this list, but see comment in decorate().
  */
 Completer.copyStyles = [
     'color', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle'
@@ -5545,7 +5977,7 @@ ArgFetcher.prototype.getInputFor = function(assignment) {
             assignment.param.name,
             this.requ);
 
-    // TODO remove on delete
+    // BUG 664198 - remove on delete
     newField.fieldChanged.add(function(ev) {
         assignment.setConversion(ev.conversion);
     }, this);
@@ -5639,7 +6071,6 @@ argFetch.ArgFetcher = ArgFetcher;
  * ***** END LICENSE BLOCK ***** */
 
 define('gcli/ui/field', ['require', 'exports', 'module' , 'gcli/util', 'gcli/argument', 'gcli/types'], function(require, exports, module) {
-var field = exports;
 
 
 var dom = require('gcli/util').dom;
@@ -5662,34 +6093,6 @@ var SelectionType = require('gcli/types').SelectionType;
 var DeferredType = require('gcli/types').DeferredType;
 var ArrayType = require('gcli/types').ArrayType;
 
-
-/**
- * On startup we need to:
- * 1. Add 3 sets of elements to the DOM for:
- * - command line output
- * - input hints
- * - completion
- * 2. Attach a set of events so the command line works
- */
-field.startup = function() {
-    addField(StringField);
-    addField(NumberField);
-    addField(BooleanField);
-    addField(SelectionField);
-    addField(DeferredField);
-    addField(BlankField);
-    addField(ArrayField);
-};
-
-field.shutdown = function() {
-    removeField(StringField);
-    removeField(NumberField);
-    removeField(BooleanField);
-    removeField(SelectionField);
-    removeField(DeferredField);
-    removeField(BlankField);
-    removeField(ArrayField);
-};
 
 /**
  * A Field is a way to get input for a single parameter.
@@ -5827,10 +6230,10 @@ function getField(doc, type, named, name, requ) {
     return new ctor(doc, type, named, name, requ);
 }
 
-field.Field = Field;
-field.addField = addField;
-field.removeField = removeField;
-field.getField = getField;
+exports.Field = Field;
+exports.addField = addField;
+exports.removeField = removeField;
+exports.getField = getField;
 
 
 /**
@@ -5872,7 +6275,8 @@ StringField.claim = function(type) {
     return type instanceof StringType ? Field.MATCH : Field.IF_NOTHING_BETTER;
 };
 
-field.StringField = StringField;
+exports.StringField = StringField;
+addField(StringField);
 
 
 /**
@@ -5922,7 +6326,8 @@ NumberField.prototype.getConversion = function() {
     return this.type.parse(this.arg);
 };
 
-field.NumberField = NumberField;
+exports.NumberField = NumberField;
+addField(NumberField);
 
 
 /**
@@ -5966,7 +6371,8 @@ BooleanField.prototype.getConversion = function() {
     return new Conversion(value, arg);
 };
 
-field.BooleanField = BooleanField;
+exports.BooleanField = BooleanField;
+addField(BooleanField);
 
 
 /**
@@ -6046,7 +6452,8 @@ SelectionField.prototype._addOption = function(value, optText, optValue) {
 
 SelectionField.DEFAULT_VALUE = '__SelectionField.DEFAULT_VALUE';
 
-field.SelectionField = SelectionField;
+exports.SelectionField = SelectionField;
+addField(SelectionField);
 
 
 /**
@@ -6103,7 +6510,8 @@ DeferredField.prototype.getConversion = function() {
     return this.field.getConversion();
 };
 
-field.DeferredField = DeferredField;
+exports.DeferredField = DeferredField;
+addField(DeferredField);
 
 
 /**
@@ -6130,7 +6538,8 @@ BlankField.prototype.getConversion = function() {
     return new Conversion(null);
 };
 
-field.BlankField = BlankField;
+exports.BlankField = BlankField;
+addField(BlankField);
 
 
 /**
@@ -6179,8 +6588,7 @@ ArrayField.prototype.destroy = function() {
 };
 
 ArrayField.prototype.setConversion = function(conversion) {
-    // TODO: do the members need any de-reg?
-    // TODO: this is too brutal - it removes focus from any the current field
+    // BUG 653568: this is too brutal - it removes focus from any the current field
     dom.clearElement(this.container);
     this.members = [];
 
@@ -6245,7 +6653,8 @@ ArrayField.prototype._onAdd = function(ev, subConversion) {
     this.members.push(member);
 };
 
-field.ArrayField = ArrayField;
+exports.ArrayField = ArrayField;
+addField(ArrayField);
 
 
 });
@@ -7008,11 +7417,6 @@ var gcli = require('gcli/index');
 
 /**
  * 'bugz' command.
- * @see https://wiki.mozilla.org/Bugzilla:REST_API
- * @see https://wiki.mozilla.org/Bugzilla:REST_API:Search
- * @see http://www.bugzilla.org/docs/developer.html
- * @see https://harthur.wordpress.com/2011/03/31/bz-js/
- * @see https://github.com/harthur/bz.js
  */
 var bugzCommandSpec = {
     name: 'bugz',
@@ -7020,68 +7424,150 @@ var bugzCommandSpec = {
     description: 'List the bugs open in Bugzilla',
     exec: function(args, env) {
         var promise = gcli.createPromise();
-        var url = 'https://api-dev.bugzilla.mozilla.org/0.9/bug' +
-            '?short_desc=gcli' +
-            '&short_desc_type=allwordssubstr' +
+
+        function onFailure(msg) {
+            promise.resolve(msg);
+        }
+
+        var query = 'status_whiteboard=[GCLI-META]' +
             '&bug_status=UNCONFIRMED' +
             '&bug_status=NEW' +
             '&bug_status=ASSIGNED' +
-            '&bug_status=REOPENED' +
-            '&component=Developer%20Tools';
+            '&bug_status=REOPENED';
 
-        var req = new XMLHttpRequest();
-        req.open('GET', url, true);
-        req.setRequestHeader('Accept', 'application/json');
-        req.setRequestHeader('Content-type', 'application/json');
-        req.onreadystatechange = function(event) {
-            if (req.readyState == 4) {
-                if (req.status >= 300 || req.status < 200) {
-                    promise.resolve('Error: ' + JSON.stringify(req));
-                    return;
-                }
+        queryBugzilla(query, function(json) {
+            json.bugs.sort(function(bug1, bug2) {
+                return bug1.priority.localeCompare(bug2.priority);
+            });
 
-                var json;
-                try {
-                    json = JSON.parse(req.responseText);
-                }
-                catch (ex) {
-                    promise.resolve('Invalid JSON response: ' + ex + ': ' +
-                        req.responseText);
-                    return;
-                }
+            var doc = gcli.getDocument();
+            var div = doc.createElement('div');
 
-                if (json.error) {
-                    promise.resolve('Error: ' + json.error.message);
-                    return;
-                }
+            var p = doc.createElement('p');
+            p.appendChild(doc.createTextNode('Open GCLI meta-bugs (i.e. '));
+            var a = doc.createElement('a');
+            a.setAttribute('target', '_blank');
+            a.setAttribute('href', 'https://bugzilla.mozilla.org/buglist.cgi?list_id=459033&status_whiteboard_type=allwordssubstr&query_format=advanced&status_whiteboard=[GCLI-META]&bug_status=UNCONFIRMED&bug_status=NEW&bug_status=ASSIGNED&bug_status=REOPENED');
+            a.appendChild(doc.createTextNode('this search'));
+            p.appendChild(a);
+            p.appendChild(doc.createTextNode('):'));
+            div.appendChild(p);
 
-                var reply = '<p>Open devtools bugs with \'gcli\' in the summary ' +
-                    '(i.e. <a href="https://bugzilla.mozilla.org/buglist.cgi?list_id=170394&short_desc=gcli&query_format=advanced&bug_status=UNCONFIRMED&bug_status=NEW&bug_status=ASSIGNED&bug_status=REOPENED&short_desc_type=allwordssubstr&component=Developer%20Tools">this search</a>):' +
-                    '<ul>';
-                json.bugs.forEach(function(bug) {
-                    reply += '<li>' +
-                        '<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=' + bug.id + '"' +
-                        ' target="_blank">' + bug.id + '</a>: ' +
-                        escapeHtml(bug.summary) +
-                        '</li>';
-                });
-                reply += '</ul>';
-                promise.resolve(reply);
-            }
-        }.bind(this);
-        req.send();
+            var ul = doc.createElement('ul');
+            json.bugs.forEach(function(bug) {
+                var li = liFromBug(doc, bug);
+
+                // This is the spinner graphic
+                var img = doc.createElement('img');
+                img.setAttribute('src', 'data:image/gif;base64,R0lGODlhEAAQA' +
+                    'PMAAP///wAAAAAAAIKCgnJycqioqLy8vM7Ozt7e3pSUlOjo6GhoaAAA' +
+                    'AAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh/hpDcmVhdGVkIHd' +
+                    'pdGggYWpheGxvYWQuaW5mbwAh+QQJCgAAACwAAAAAEAAQAAAEKxDISa' +
+                    'u9OE/Bu//cQBTGgWDhWJ5XSpqoIL6s5a7xjLeyCvOgIEdDLBqPlAgAI' +
+                    'fkECQoAAAAsAAAAABAAEAAABCsQyEmrvThPwbv/XJEMxIFg4VieV0qa' +
+                    'qCC+rOWu8Yy3sgrzoCBHQywaj5QIACH5BAkKAAAALAAAAAAQABAAAAQ' +
+                    'rEMhJq704T8G7/9xhFMlAYOFYnldKmqggvqzlrvGMt7IK86AgR0MsGo' +
+                    '+UCAAh+QQJCgAAACwAAAAAEAAQAAAEMRDISau9OE/Bu/+cghxGkQyEF' +
+                    'Y7lmVYraaKqIMpufbc0bLOzFyXGE25AyI5myWw6KREAIfkECQoAAAAs' +
+                    'AAAAABAAEAAABDYQyEmrvThPwbv/nKQgh1EkA0GFwFie6SqIpImq29z' +
+                    'WMC6xLlssR3vdZEWhDwBqejTQqHRKiQAAIfkECQoAAAAsAAAAABAAEA' +
+                    'AABDYQyEmrvThPwbv/HKUgh1EkAyGF01ie6SqIpImqACu5dpzPrRoMp' +
+                    'wPwhjLa6yYDOYuaqHRKjQAAIfkECQoAAAAsAAAAABAAEAAABDEQyEmr' +
+                    'vThPwbv/nKUgh1EkAxFWY3mmK9WaqCqIJA3fbP7aOFctNpn9QEiPZsl' +
+                    'sOikRACH5BAkKAAAALAAAAAAQABAAAAQrEMhJq704T8G7/xymIIexEO' +
+                    'E1lmdqrSYqiGTsVnA7q7VOszKQ8KYpGo/ICAAh+QQJCgAAACwAAAAAE' +
+                    'AAQAAAEJhDISau9OE/Bu/+cthBDEmZjeWKpKYikC6svGq9XC+6e5v/A' +
+                    'ICUCACH5BAkKAAAALAAAAAAQABAAAAQrEMhJq704T8G7/xy2EENSGOE' +
+                    '1lmdqrSYqiGTsVnA7q7VOszKQ8KYpGo/ICAAh+QQJCgAAACwAAAAAEA' +
+                    'AQAAAEMRDISau9OE/Bu/+ctRBDUhgHElZjeaYr1ZqoKogkDd9s/to4V' +
+                    'y02mf1ASI9myWw6KREAIfkECQoAAAAsAAAAABAAEAAABDYQyEmrvThP' +
+                    'wbv/HLUQQ1IYByKF01ie6SqIpImqACu5dpzPrRoMpwPwhjLa6yYDOYu' +
+                    'aqHRKjQAAIfkECQoAAAAsAAAAABAAEAAABDYQyEmrvThPwbv/nLQQQ1' +
+                    'IYB0KFwFie6SqIpImq29zWMC6xLlssR3vdZEWhDwBqejTQqHRKiQAAI' +
+                    'fkECQoAAAAsAAAAABAAEAAABDEQyEmrvThPwbv/3EIMSWEciBWO5ZlW' +
+                    'K2miqiDKbn23NGyzsxclxhNuQMiOZslsOikRADsAAAAAAAAAAAA=');
+                li.appendChild(img);
+
+                queryBugzilla('blocked=' + bug.id, function(json) {
+                    var subul = doc.createElement('ul');
+                    json.bugs.forEach(function(bug) {
+                        subul.appendChild(liFromBug(doc, bug));
+                    });
+                    li.appendChild(subul);
+                    li.removeChild(img);
+                }, onFailure);
+
+                ul.appendChild(li);
+            });
+            div.appendChild(ul);
+
+            promise.resolve(div);
+        }, onFailure);
 
         return promise;
     }
 };
 
-function escapeHtml(original) {
-    return original.replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;')
-        .replace(/'/g,'&#039;');
+/**
+ * Simple wrapper for querying bugzilla.
+ * @see https://wiki.mozilla.org/Bugzilla:REST_API
+ * @see https://wiki.mozilla.org/Bugzilla:REST_API:Search
+ * @see http://www.bugzilla.org/docs/developer.html
+ * @see https://harthur.wordpress.com/2011/03/31/bz-js/
+ * @see https://github.com/harthur/bz.js
+ */
+function queryBugzilla(query, onSuccess, onFailure) {
+    var url = 'https://api-dev.bugzilla.mozilla.org/0.9/bug?' + query;
+
+    var req = new XMLHttpRequest();
+    req.open('GET', url, true);
+    req.setRequestHeader('Accept', 'application/json');
+    req.setRequestHeader('Content-type', 'application/json');
+    req.onreadystatechange = function(event) {
+        if (req.readyState == 4) {
+            if (req.status >= 300 || req.status < 200) {
+                onFailure('Error: ' + JSON.stringify(req));
+                return;
+            }
+
+            var json;
+            try {
+                json = JSON.parse(req.responseText);
+            }
+            catch (ex) {
+                onFailure('Invalid response: ' + ex + ': ' + req.responseText);
+                return;
+            }
+
+            if (json.error) {
+                onFailure('Error: ' + json.error.message);
+                return;
+            }
+
+            onSuccess(json);
+        }
+    }.bind(this);
+    req.send();
 };
+
+/**
+ * Create an <li> element from the given bug object
+ */
+function liFromBug(doc, bug) {
+    var done = [ 'RESOLVED', 'VERIFIED', 'CLOSED' ].indexOf(bug.status) !== -1;
+    var li = doc.createElement('li');
+    if (done) {
+        li.setAttribute('style', 'text-decoration: line-through; color: grey;');
+    }
+    var a = doc.createElement('a');
+    a.setAttribute('target', '_blank');
+    a.setAttribute('href', 'https://bugzilla.mozilla.org/show_bug.cgi?id=' + bug.id);
+    a.appendChild(doc.createTextNode(bug.id));
+    li.appendChild(a);
+    li.appendChild(doc.createTextNode(' ' + bug.summary + ' '));
+    return li;
+}
+
 
 var gcli = require('gcli/index');
 
@@ -8473,7 +8959,7 @@ exports.testFlatCommand = function() {
     t.verifyEqual('b', args[1].text);
 };
 
-// TODO: add tests for sub commands
+// BUG 663081 - add tests for sub commands
 
 });
 /* ***** BEGIN LICENSE BLOCK *****
@@ -8946,7 +9432,7 @@ exports.testSingleString = function() {
     t.verifyEqual('h h h', assign1.getValue());
 };
 
-// TODO: Add test to see that a command without mandatory param causes ERROR
+// BUG 664203: Add test to see that a command without mandatory param -> ERROR
 
 exports.testSingleNumber = function() {
     update({ typed: 'tsu', cursor: { start: 3, end: 3 } });
