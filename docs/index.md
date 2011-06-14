@@ -99,6 +99,11 @@ write one.
 
 ### Accessibility
 
+GCLI uses ARIA roles to guide a screen-reader as to the important sections to
+voice. We welcome feedback on how these roles are implemented, either by
+[raising a bug](https://github.com/joewalker/gcli/issues) or by [posting to the
+Webby-CLI mailing list](https://groups.google.com/forum/#!forum/webby-cli).
+
 The command line uses TAB as a method of completing current input, this
 prevents use of TAB for keyboard navigation. Instead of using TAB to move to
 the next field you can use F6. In addition to F6, ALT+TAB, CTRL+TAB, META+TAB
@@ -340,6 +345,9 @@ This command is used as follows:
     > greet Joe
     Hello, Joe
 
+First, a brief point of terminology - a function has ``parameters``, and when
+you call a function, you pass ``arguments`` to it.
+
 
 ### Default argument values
 
@@ -420,6 +428,10 @@ This could be used as follows:
     Hello, Joe
     Done!
 
+Parameter groups must come after non-grouped parameters because non-grouped
+parameters can be assigned positionally, so their index is important. We don't
+want 'holes' in the order caused by parameter groups.
+
 
 ### Parameter types
 
@@ -487,9 +499,9 @@ Or using named arguments:
     > greet --names Fred --names Jim --names Shiela
     Hello, Fred, Jim, Shiela.
 
-There can only be one ungrouped parameters with an array type, and it must be
-at the end of the list of parameters. This avoids confusion as to which
-parameter and argument should be assigned.
+There can only be one ungrouped parameter with an array type, and it must be
+at the end of the list of parameters (i.e. just before any parameter groups).
+This avoids confusion as to which parameter an argument should be assigned.
 
 
 ### Selection types
@@ -1108,3 +1120,50 @@ The components are:
 
 ArgFetch displays a number of Fields. There are fields for most of the Types
 discussed earlier. See 'Writing Fields' above for more information.
+
+
+### Coding Conventions
+
+The coding conventions for the GCLI project come from the Bespin/Skywriter and
+Ace projects. They are roughly [Crockford]
+(http://javascript.crockford.com/code.html) with a few exceptions and
+additions:
+
+* ``var`` does not need to be at the top of each function, we'd like to move
+  to ``let`` when it's generally available, and ``let`` doesn't have the same
+  semantic twists as ``var``.
+
+* Strings are generally enclosed in single quotes.
+
+* ``eval`` is to be avoided, but we don't declare it evil.
+
+The [Google JavaScript conventions]
+(https://google-styleguide.googlecode.com/svn/trunk/javascriptguide.xml) are
+more detailed, we tend to deviate in:
+
+* Custom exceptions: We generally just use ``throw new Error('message');``
+
+* Multi-level prototype hierarchies: Allowed; we don't have ``goog.inherits()``
+
+* ``else`` begins on a line by itself:
+
+    if (thing) {
+      doThis();
+    }
+    else {
+      doThat();
+    }
+
+We may have markers in the code as follows:
+
+* ``TODO``: This marks code that needs fixing before we do a release. We should
+  either fix the code or raise a bug and link using ``BUG``
+
+* ``IDEAL``: Sometimes we know the code we'd like to write, but need a
+  pragmatic solution that works for now. In these cases we should mark the
+  code and document the ``IDEAL`` solution.
+
+* ``ES5``: 
+
+* ``BUG``:
+
