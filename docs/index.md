@@ -515,17 +515,60 @@ Parameters can have a type of ``selection``. For example:
         {
           name: 'lang',
           description: 'In which language should we greet',
-          type: { name: 'selection', values: [ 'en', 'fr', 'de', 'es', 'gk' ] },
+          type: { name: 'selection', data: [ 'en', 'fr', 'de', 'es', 'gk' ] },
           defaultValue: 'en'
         }
       ],
       ...
     });
 
-GCLI would enforce that the value of ``arg.lang`` was one of the values
-specified. Selection values can be specified as an array of strings, as a
-map of strings to values, or as a function that returns either of the other
-values.
+GCLI will enforce that the value of ``arg.lang`` was one of the values
+specified. Alternatively ``data`` can be a function which returns an array of
+strings.
+
+The ``data`` property is useful when the underlying type is a string but it
+doesn't work when the underlying type is something else. For this use the
+``lookup`` property as follows:
+
+      type: {
+        name: 'selection',
+        lookup: {
+          'en': Locale.EN,
+          'fr': Locale.FR,
+          ...
+        }
+      },
+
+Similarly, ``lookup`` can be a function returning the data of this type.
+
+Under the covers the boolean type is implemented as a Selection with a
+``lookup`` property as follows:
+
+    lookup: { 'true': true, 'false': false }
+
+
+### Number types
+
+Number types are mostly self explanatory, they have one special property which
+is the ability to specify upper and lower bounds for the number:
+
+    gcli.addCommand({
+      name: 'volume',
+      params: [
+        {
+          name: 'vol',
+          description: 'How loud should we go',
+          type: { name: 'number', min: 0, max: 11 }
+        }
+      ],
+      ...
+    });
+
+You can also specify a ``step`` property which specifies by what amount we
+should increment and decrement the values. The ``min``, ``max``, and ``step``
+properties are used by the command line when up and down are pressed and in
+the input type of a dialog generated from this command.
+
 
 ### Deferred types
 
@@ -1163,7 +1206,10 @@ We may have markers in the code as follows:
   pragmatic solution that works for now. In these cases we should mark the
   code and document the ``IDEAL`` solution.
 
-* ``ES5``: 
+* ``FUTURE``: There are cases where the code we'd like to write isn't possible
+  because not all browsers support the feature we'd like to use. This tag
+  should be used sparingly (i.e. not for every ``var`` that we'd like to be
+  ``let``). es5shim should be used where possible.
 
-* ``BUG``:
-
+* ``BUG XXXXXX``: Where a known bug affects some code, we mark it with the bug
+  to help us keep track of bugs and the code that is affected.
