@@ -223,19 +223,19 @@ There are 3 basic steps in using GCLI in your system.
 1. Import a script. Pre-built scripts are available in the ``build``
    directory. Just place the following wherever you place your script files.
 
-    <script src="path/to/gcli.js" type="text/javascript"></script>
+        <script src="path/to/gcli.js" type="text/javascript"></script>
 
    See the section below on creating custom builds.
 
 2. Having imported GCLI, we need to tell it where to display. The simplest
    method is to include an input element with the id of ``gcliInput``.
 
-    <input id="gcliInput" type="text"/>
+        <input id="gcliInput" type="text"/>
 
    Optionally, if you want the output to be always visible or under your
    control, you can include an output element as follows:
 
-    <div id="gcliOutput"></div>
+        <div id="gcliOutput"></div>
 
    If this element is not present, GCLI will create its own output element and
    show it above or below the input element whenever the command line has
@@ -247,11 +247,11 @@ There are 3 basic steps in using GCLI in your system.
    GCLI uses the CommonJS AMD format for it's files, so a 'require' statement
    is needed to get started.
 
-    require([ 'gcli/index' ], function(gcli) {
-      gcli.startup();       // Initialize the command line
-      gcli.addCommand(...); // Register custom commands
-      gcli.createView();    // Create a user interface
-    });
+        require([ 'gcli/index' ], function(gcli) {
+          gcli.startup();       // Initialize the command line
+          gcli.addCommand(...); // Register custom commands
+          gcli.createView();    // Create a user interface
+        });
 
    Both the startup() and createView() commands take ``options`` objects which
    allow customization. At the current time the documentation of these object
@@ -284,18 +284,18 @@ custom module loader to replace RequireJS for built applications.
 - Each command should do exactly and only one thing. An example of a Unix
   command that breaks this principle is the ``tar`` command.
 
-    $ tar -zcf foo.tar.gz .
-    // Creates an archive of the current directory into foo.tar.gz
-    
-    $ tar -zxf foo.tar.gz .
-    // Extracts foo.tar.gz into the current directory
+        $ tar -zcf foo.tar.gz .
+        // Creates an archive of the current directory into foo.tar.gz
+        
+        $ tar -zxf foo.tar.gz .
+        // Extracts foo.tar.gz into the current directory
 
   These 2 commands do exactly opposite things. Many a file has died as a result
   of a x/c typo. In GCLI this would be better expressed:
 
-    $ tar create foo.tar.gz -z .
-    // and
-    $ tar extract foo.tar.gz -z .
+        $ tar create foo.tar.gz -z .
+        // and
+        $ tar extract foo.tar.gz -z .
 
   A potential future feature is a 'what is this command going to do' summary:
   something along the lines of the comments after the ``tar`` commands above
@@ -935,31 +935,31 @@ types this is enough detail. There are a number of exceptions:
 * Selection types. There are 3 ways to specify the options in a selection:
   * Using a lookup map
 
-    type: {
-        name: 'selection',
-        lookup: { one:1, two:2, three:3 }
-    }
+            type: {
+              name: 'selection',
+              lookup: { one:1, two:2, three:3 }
+            }
 
     (The boolean type is effectively just a selection that uses
     ``lookup:{ 'true': true, 'false': false }``)
 
   * Using given strings
 
-    type: {
-        name: 'selection',
-        data: [ 'left', 'center', 'right' ]
-    }
+            type: {
+              name: 'selection',
+              data: [ 'left', 'center', 'right' ]
+            }
 
   * Using named objects, (objects with a ``name`` property)
 
-    type: {
-        name: 'selection',
-        data: [
-            { name: 'Google', url: 'http://www.google.com/' },
-            { name: 'Microsoft', url: 'http://www.microsoft.com/' },
-            { name: 'Yahoo', url: 'http://www.yahoo.com/' }
-        ]
-    }
+            type: {
+              name: 'selection',
+              data: [
+                { name: 'Google', url: 'http://www.google.com/' },
+                { name: 'Microsoft', url: 'http://www.microsoft.com/' },
+                { name: 'Yahoo', url: 'http://www.yahoo.com/' }
+              ]
+            }
 
 * Deferred type. It is generally best to inherit from Deferred in order to
   provide a customization of this type. See settingValue for an example.
@@ -1190,12 +1190,12 @@ more detailed, we tend to deviate in:
 
 * ``else`` begins on a line by itself:
 
-    if (thing) {
-      doThis();
-    }
-    else {
-      doThat();
-    }
+        if (thing) {
+          doThis();
+        }
+        else {
+          doThat();
+        }
 
 We may have markers in the code as follows:
 
