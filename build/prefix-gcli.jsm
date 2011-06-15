@@ -263,8 +263,6 @@ function parseStack(aStack) {
     }
     var at = line.lastIndexOf("@");
     var posn = line.substring(at + 1);
-    posn = posn.replace(/resource:\/\/\/modules\//, "");
-    posn = posn.replace(/chrome:\/\/browser\/content\//, "");
     trace.push({
       file: posn.split(":")[0],
       line: posn.split(":")[1],
