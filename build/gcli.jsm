@@ -19,7 +19,7 @@
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
- *   Joe Walker (jwalker@mozilla.com)
+ *   Joe Walker <jwalker@mozilla.com> (Original Author)
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -67,13 +67,15 @@
 
 /*
  * This build of GCLI for Firefox is really 4 bits of code:
- * - Browser support code - currently just an implementation of the console
+ * - Browser support code - Currently just an implementation of the console
  *   object that uses dump. We may need to add other browser shims to this.
  * - A very basic commonjs AMD (Asynchronous Modules Definition) 'require'
  *   implementation (which is just good enough to load GCLI). For more, see
  *   http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
  *   This alleviates the need for requirejs (http://requirejs.org/) which is
  *   used when running in the browser.
+ *   This section of code is a copy of mini_require.js without the header and
+ *   footers. Changes to one should be reflected in the other.
  * - A build of GCLI itself, packaged using dryice (for more details see the
  *   project https://github.com/mozilla/dryice and the build file in this
  *   project at Makefile.dryice.js)
@@ -263,8 +265,6 @@ function parseStack(aStack) {
     }
     var at = line.lastIndexOf("@");
     var posn = line.substring(at + 1);
-    posn = posn.replace(/resource:\/\/\/modules\//, "");
-    posn = posn.replace(/chrome:\/\/browser\/content\//, "");
     trace.push({
       file: posn.split(":")[0],
       line: posn.split(":")[1],
@@ -384,38 +384,39 @@ var console = {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// There are 2 virtually identical copies of this code:
+// - $GCLI_HOME/build/prefix-gcli.jsm
+// - $GCLI_HOME/build/mini_require.js
+// They should both be kept in sync
+
 var debugDependencies = false;
 
 /**
  * Define a module along with a payload.
- *
- * @param {string} aModuleName
- *        Name for the payload
- * @param {ignored} aDeps
- *        Ignored. For compatibility with CommonJS AMD Spec
- * @param {function} aPayload
- *        Function with (require, exports, module) params
+ * @param {string} moduleName Name for the payload
+ * @param {ignored} deps Ignored. For compatibility with CommonJS AMD Spec
+ * @param {function} payload Function with (require, exports, module) params
  */
-function define(aModuleName, aDeps, aPayload) {
-  if (typeof aModuleName != "string") {
+function define(moduleName, deps, payload) {
+  if (typeof moduleName != "string") {
     console.error(this.depth + " Error: Module name is not a string.");
     console.trace();
     return;
   }
 
   if (arguments.length == 2) {
-    aPayload = aDeps;
+    payload = deps;
   }
 
   if (debugDependencies) {
-    console.log("define: " + aModuleName + " -> " + aPayload.toString()
+    console.log("define: " + moduleName + " -> " + payload.toString()
         .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
   }
 
-  if (aModuleName in define.modules) {
-    console.error(this.depth + " Error: Redefining module: " + aModuleName);
+  if (moduleName in define.modules) {
+    console.error(this.depth + " Error: Redefining module: " + moduleName);
   }
-  define.modules[aModuleName] = aPayload;
+  define.modules[moduleName] = payload;
 };
 
 /**
@@ -449,56 +450,51 @@ function Domain() {
  * where the dependency is resolved synchronously and returned.
  * The API is designed to be compatible with the CommonJS AMD spec and
  * RequireJS.
- *
- * @param {string[]|string} aDeps
- *        A name, or names for the payload
- * @param {function|undefined} aCallback
- *        Function to call when the deps are resolved
- * @return {undefined|object}
- *        The module required or undefined for array/callback method
+ * @param {string[]|string} deps A name, or names for the payload
+ * @param {function|undefined} callback Function to call when the dependencies
+ * are resolved
+ * @return {undefined|object} The module required or undefined for
+ * array/callback method
  */
-Domain.prototype.require = function(aDeps, aCallback) {
-  if (Array.isArray(aDeps)) {
-    var params = aDeps.map(function(dep) {
+Domain.prototype.require = function(deps, callback) {
+  if (Array.isArray(deps)) {
+    var params = deps.map(function(dep) {
       return this.lookup(dep);
     }, this);
-    if (aCallback) {
-      aCallback.apply(null, params);
+    if (callback) {
+      callback.apply(null, params);
     }
     return undefined;
   }
   else {
-    return this.lookup(aDeps);
+    return this.lookup(deps);
   }
 };
 
 /**
  * Lookup module names and resolve them by calling the definition function if
  * needed.
- *
- * @param {string} aModuleName
- *        A name for the payload to lookup
- * @return {object}
- *        The module specified by aModuleName or null if not found.
+ * @param {string} moduleName A name for the payload to lookup
+ * @return {object} The module specified by aModuleName or null if not found.
  */
-Domain.prototype.lookup = function(aModuleName) {
-  if (aModuleName in this.modules) {
-    var module = this.modules[aModuleName];
+Domain.prototype.lookup = function(moduleName) {
+  if (moduleName in this.modules) {
+    var module = this.modules[moduleName];
     if (debugDependencies) {
-      console.log(this.depth + " Using module: " + aModuleName);
+      console.log(this.depth + " Using module: " + moduleName);
     }
     return module;
   }
 
-  if (!(aModuleName in define.modules)) {
-    console.error(this.depth + " Missing module: " + aModuleName);
+  if (!(moduleName in define.modules)) {
+    console.error(this.depth + " Missing module: " + moduleName);
     return null;
   }
 
-  var module = define.modules[aModuleName];
+  var module = define.modules[moduleName];
 
   if (debugDependencies) {
-    console.log(this.depth + " Compiling module: " + aModuleName);
+    console.log(this.depth + " Compiling module: " + moduleName);
   }
 
   if (typeof module == "function") {
@@ -507,7 +503,13 @@ Domain.prototype.lookup = function(aModuleName) {
     }
 
     var exports = {};
-    module(this.require.bind(this), exports, { id: aModuleName, uri: "" });
+    try {
+      module(this.require.bind(this), exports, { id: moduleName, uri: "" });
+    }
+    catch (ex) {
+      console.error("Error using module: " + moduleName, ex);
+      throw ex;
+    }
     module = exports;
 
     if (debugDependencies) {
@@ -516,7 +518,7 @@ Domain.prototype.lookup = function(aModuleName) {
   }
 
   // cache the resulting module object for next time
-  this.modules[aModuleName] = module;
+  this.modules[moduleName] = module;
 
   return module;
 };
@@ -2026,7 +2028,7 @@ CommandType.prototype._findCompletions = function(arg) {
 CommandType.prototype.parse = function(arg) {
     // Especially at startup, completions live over the time that things change
     // so we provide a completion function rather than completion values
-    var completer = function() {
+    var predictions = function() {
         var matches = this._findCompletions(arg);
         return Object.keys(matches).map(function(name) {
             return matches[name];
@@ -2053,7 +2055,7 @@ CommandType.prototype.parse = function(arg) {
         status = Status.INCOMPLETE;
     }
 
-    return new Conversion(value, arg, status, msg, completer);
+    return new Conversion(value, arg, status, msg, predictions);
 };
 
 CommandType.prototype.fromString = function(str) {
@@ -3588,14 +3590,18 @@ var Status = {
 types.Status = Status;
 
 /**
- * The type.parse() method returns a Conversion to inform the user about not
- * only the result of a Conversion but also about what went wrong.
- * We could use an exception, and throw if the conversion failed, but that
- * seems to violate the idea that exceptions should be exceptional. Typos are
- * not. Also in order to store both a status and a message we'd still need
- * some sort of exception type...
+ * The type.parse() method converts an Argument into a value, Conversion is
+ * a wrapper to that value.
+ * Conversion is needed to collect a number of properties related to that
+ * conversion in one place, i.e. to handle errors and provide traceability.
+ * Each Conversion has a Status [VALID|INCOMPLETE|ERROR] (see above). The
+ * value will be null unless status=VALID.
+ * If status=ERROR, there should be a message to describe the error. A message
+ * is not needed unless for other statuses.
+ * If status=INCOMPLETE, there could be predictions as to the options available
+ * to complete the input.
  */
-function Conversion(value, arg, status, message, completer) {
+function Conversion(value, arg, status, message, predictions) {
     // The result of the conversion process. Will be null if status != VALID
     this.value = value;
 
@@ -3611,8 +3617,7 @@ function Conversion(value, arg, status, message, completer) {
     // A message to go with the conversion. This could be present for any
     // status including VALID in the case where we want to note a warning for
     // example.
-    // I18N: On the one hand this nasty and un-internationalized, however with
-    // a command line it is hard to know where to start.
+    // See BUG 664676: GCLI conversion error messages should be localized
     this.message = message;
 
     // A array of strings which are the systems best guess at better inputs
@@ -3622,7 +3627,7 @@ function Conversion(value, arg, status, message, completer) {
     // or less. It is the job of the predictor to decide a smart cut-off.
     // For example if there are 4 very good matches and 4 very poor ones,
     // probably only the 4 very good matches should be presented.
-    this.completer = completer;
+    this.predictions = predictions;
 }
 
 types.Conversion = Conversion;
@@ -3697,8 +3702,8 @@ Conversion.prototype.toString = function() {
  * how the argument can be completed.
  */
 Conversion.prototype.getPredictions = function() {
-    if (this.completer) {
-        return this.completer();
+    if (typeof this.predictions === 'function') {
+        return this.predictions();
     }
     return this.predictions || [];
 };
@@ -4099,25 +4104,25 @@ SelectionType.prototype.parse = function(arg) {
         this.noMatch();
     }
 
-    // Especially at startup, completions live over the time that things change
-    // so we provide a completion function rather than completion values.
-    // This was primarily designed from commands, which have since moved into
-    // their own type, so technically we could remove this code, except that it
-    // provides more up-to-date answers, and it's hard to predict when it will
-    // be required.
-    var completer = function() {
-        var matches = this._findCompletions(arg);
-        return Object.keys(matches).map(function(name) {
-            return matches[name];
-        });
-    }.bind(this);
-
     if (matches > 0) {
-        return new Conversion(null, arg, Status.INCOMPLETE, '', completer);
+        // Especially at startup, completions live over the time that things
+        // change so we provide a completion function rather than completion
+        // values.
+        // This was primarily designed for commands, which have since moved
+        // into their own type, so technically we could remove this code,
+        // except that it provides more up-to-date answers, and it's hard to
+        // predict when it will be required.
+        var predictions = function() {
+            var completions = this._findCompletions(arg);
+            return Object.keys(completions).map(function(name) {
+                return completions[name];
+            });
+        }.bind(this);
+        return new Conversion(null, arg, Status.INCOMPLETE, '', predictions);
     }
 
     var msg = 'Can\'t use \'' + arg.text + '\'.';
-    return new Conversion(null, arg, Status.ERROR, msg, completer);
+    return new Conversion(null, arg, Status.ERROR, msg);
 };
 
 SelectionType.prototype.fromString = function(str) {
@@ -7818,7 +7823,7 @@ define("text!gcli/ui/images/throbber.gif", [], "data:image/gif;base64,R0lGODlh3A
 ///////////////////////////////////////////////////////////////////////////////
 
 /*
- * require GCLi so it can be exported as declared at the start
+ * require GCLI so it can be exported as declared at the start
  */
 
 let gcli = require("gcli/index");

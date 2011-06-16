@@ -15,7 +15,7 @@
  *
  * The Initial Developer of the Original Code is
  * The Mozilla Foundation
- * Portions created by the Initial Developer are Copyright (C) 2010
+ * Portions created by the Initial Developer are Copyright (C) 2011
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
@@ -37,131 +37,161 @@
 
 
 (function() {
-  var debugDependencies = false;
 
-  /**
-   * Define a module along with a payload.
-   * @param {string} moduleName Name for the payload
-   * @param {ignored} deps Ignored. For compatibility with CommonJS AMD Spec
-   * @param {function} payload Function with (require, exports, module) params
-   */
-  function define(moduleName, deps, payload) {
-    if (typeof moduleName != "string") {
-      console.error("dropping module because module name wasn't a string.");
-      console.trace();
-      return;
-    }
+// There are 2 virtually identical copies of this code:
+// - $GCLI_HOME/build/prefix-gcli.jsm
+// - $GCLI_HOME/build/mini_require.js
+// They should both be kept in sync
 
-    if (arguments.length == 2) {
-      payload = deps;
-    }
+var debugDependencies = false;
 
-    if (debugDependencies) {
-      console.log("define: " + moduleName + " -> " + payload.toString()
-          .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
-    }
-
-    define.modules[moduleName] = payload;
-  };
-
-  /**
-   * The global store of un-instantiated modules
-   */
-  define.modules = {};
-
-
-  /**
-   * We invoke require in the context of a Domain so we can have multiple
-   * sets of modules running separate from each other.
-   */
-  function Domain() {
-    this.modules = {};
-    this.depth = "";
+/**
+ * Define a module along with a payload.
+ * @param {string} moduleName Name for the payload
+ * @param {ignored} deps Ignored. For compatibility with CommonJS AMD Spec
+ * @param {function} payload Function with (require, exports, module) params
+ */
+function define(moduleName, deps, payload) {
+  if (typeof moduleName != "string") {
+    console.error(this.depth + " Error: Module name is not a string.");
+    console.trace();
+    return;
   }
 
-  /**
-   * Lookup module names and resolve them by calling the definition function if
-   * needed.
-   * There are 2 ways to call this, either with an array of dependencies and a
-   * callback to call when the dependencies are found (which can happen
-   * asynchronously in an in-page context) or with a single string an no callback
-   * where the dependency is resolved synchronously and returned.
-   * The API is designed to be compatible with the CommonJS AMD spec and
-   * RequireJS.
-   * @param {string} deps a name, or names for the payload
-   * @param {function} callback Function to call when the deps are resolved
-   */
-  Domain.prototype.require = function(deps, callback) {
-    if (Array.isArray(deps)) {
-      var params = deps.map(function(dep) {
-        return this.lookup(dep);
-      }, this);
-      if (callback) {
-        callback.apply(null, params);
-      }
-    }
-    else {
-      return this.lookup(deps);
-    }
-  };
+  if (arguments.length == 2) {
+    payload = deps;
+  }
 
-  /**
-   * Lookup module names and resolve them by calling the definition function if
-   * needed.
-   * @param {string} moduleName a name for the payload to lookup
-   */
-  Domain.prototype.lookup = function(moduleName) {
+  if (debugDependencies) {
+    console.log("define: " + moduleName + " -> " + payload.toString()
+        .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
+  }
+
+  if (moduleName in define.modules) {
+    console.error(this.depth + " Error: Redefining module: " + moduleName);
+  }
+  define.modules[moduleName] = payload;
+};
+
+/**
+ * The global store of un-instantiated modules
+ */
+define.modules = {};
+
+
+/**
+ * We invoke require() in the context of a Domain so we can have multiple
+ * sets of modules running separate from each other.
+ * This contrasts with JSMs which are singletons, Domains allows us to
+ * optionally load a CommonJS module twice with separate data each time.
+ * Perhaps you want 2 command lines with a different set of commands in each,
+ * for example.
+ */
+function Domain() {
+  this.modules = {};
+
+  if (debugDependencies) {
+    this.depth = "";
+  }
+}
+
+/**
+ * Lookup module names and resolve them by calling the definition function if
+ * needed.
+ * There are 2 ways to call this, either with an array of dependencies and a
+ * callback to call when the dependencies are found (which can happen
+ * asynchronously in an in-page context) or with a single string an no callback
+ * where the dependency is resolved synchronously and returned.
+ * The API is designed to be compatible with the CommonJS AMD spec and
+ * RequireJS.
+ * @param {string[]|string} deps A name, or names for the payload
+ * @param {function|undefined} callback Function to call when the dependencies
+ * are resolved
+ * @return {undefined|object} The module required or undefined for
+ * array/callback method
+ */
+Domain.prototype.require = function(deps, callback) {
+  if (Array.isArray(deps)) {
+    var params = deps.map(function(dep) {
+      return this.lookup(dep);
+    }, this);
+    if (callback) {
+      callback.apply(null, params);
+    }
+    return undefined;
+  }
+  else {
+    return this.lookup(deps);
+  }
+};
+
+/**
+ * Lookup module names and resolve them by calling the definition function if
+ * needed.
+ * @param {string} moduleName A name for the payload to lookup
+ * @return {object} The module specified by aModuleName or null if not found.
+ */
+Domain.prototype.lookup = function(moduleName) {
+  if (moduleName in this.modules) {
     var module = this.modules[moduleName];
-    if (module) {
-      if (debugDependencies) {
-        console.log(this.depth + " Using module: " + moduleName);
-      }
-      return module;
+    if (debugDependencies) {
+      console.log(this.depth + " Using module: " + moduleName);
+    }
+    return module;
+  }
+
+  if (!(moduleName in define.modules)) {
+    console.error(this.depth + " Missing module: " + moduleName);
+    return null;
+  }
+
+  var module = define.modules[moduleName];
+
+  if (debugDependencies) {
+    console.log(this.depth + " Compiling module: " + moduleName);
+  }
+
+  if (typeof module == "function") {
+    if (debugDependencies) {
+      this.depth += ".";
     }
 
-    module = define.modules[moduleName];
-    if (!module) {
-      console.error(this.depth + " Missing module: " + moduleName);
-      return null;
+    var exports = {};
+    try {
+      module(this.require.bind(this), exports, { id: moduleName, uri: "" });
     }
+    catch (ex) {
+      console.error("Error using module: " + moduleName, ex);
+      throw ex;
+    }
+    module = exports;
 
     if (debugDependencies) {
-      console.log(this.depth + " Compiling module: " + moduleName);
-    }
-
-    if (typeof module == "function") {
-      this.depth += ".";
-      var exports = {};
-      try {
-        module(this.require.bind(this), exports, { id: moduleName, uri: "" });
-      }
-      catch (ex) {
-        console.error("Error using module: " + moduleName, ex);
-        throw ex;
-      }
       this.depth = this.depth.slice(0, -1);
-      module = exports;
     }
+  }
 
-    // cache the resulting module object for next time
-    this.modules[moduleName] = module;
+  // cache the resulting module object for next time
+  this.modules[moduleName] = module;
 
-    return module;
-  };
+  return module;
+};
 
-  /**
-   * Expose the Domain constructor and a global sandbox on the define object
-   * (to avoid cluttering up the global namespace).
-   */
-  define.Domain = Domain;
-  define.globalDomain = new Domain();
+/**
+ * Expose the Domain constructor and a global domain (on the define function
+ * to avoid exporting more than we need. This is a common pattern with require
+ * systems)
+ */
+define.Domain = Domain;
+define.globalDomain = new Domain();
 
-  /**
-   * Expose a default require function which is the require of the global
-   * sandbox to make it easy to use.
-   */
-  window.define = define;
-  window.require = define.globalDomain.require.bind(define.globalDomain);
+/**
+ * Expose a default require function which is the require of the global
+ * sandbox to make it easy to use.
+ */
+window.define = define;
+window.require = define.globalDomain.require.bind(define.globalDomain);
+
 })();
 /* ***** BEGIN LICENSE BLOCK *****
  * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -1645,7 +1675,7 @@ CommandType.prototype._findCompletions = function(arg) {
 CommandType.prototype.parse = function(arg) {
     // Especially at startup, completions live over the time that things change
     // so we provide a completion function rather than completion values
-    var completer = function() {
+    var predictions = function() {
         var matches = this._findCompletions(arg);
         return Object.keys(matches).map(function(name) {
             return matches[name];
@@ -1672,7 +1702,7 @@ CommandType.prototype.parse = function(arg) {
         status = Status.INCOMPLETE;
     }
 
-    return new Conversion(value, arg, status, msg, completer);
+    return new Conversion(value, arg, status, msg, predictions);
 };
 
 CommandType.prototype.fromString = function(str) {
@@ -3207,14 +3237,18 @@ var Status = {
 types.Status = Status;
 
 /**
- * The type.parse() method returns a Conversion to inform the user about not
- * only the result of a Conversion but also about what went wrong.
- * We could use an exception, and throw if the conversion failed, but that
- * seems to violate the idea that exceptions should be exceptional. Typos are
- * not. Also in order to store both a status and a message we'd still need
- * some sort of exception type...
+ * The type.parse() method converts an Argument into a value, Conversion is
+ * a wrapper to that value.
+ * Conversion is needed to collect a number of properties related to that
+ * conversion in one place, i.e. to handle errors and provide traceability.
+ * Each Conversion has a Status [VALID|INCOMPLETE|ERROR] (see above). The
+ * value will be null unless status=VALID.
+ * If status=ERROR, there should be a message to describe the error. A message
+ * is not needed unless for other statuses.
+ * If status=INCOMPLETE, there could be predictions as to the options available
+ * to complete the input.
  */
-function Conversion(value, arg, status, message, completer) {
+function Conversion(value, arg, status, message, predictions) {
     // The result of the conversion process. Will be null if status != VALID
     this.value = value;
 
@@ -3230,8 +3264,7 @@ function Conversion(value, arg, status, message, completer) {
     // A message to go with the conversion. This could be present for any
     // status including VALID in the case where we want to note a warning for
     // example.
-    // I18N: On the one hand this nasty and un-internationalized, however with
-    // a command line it is hard to know where to start.
+    // See BUG 664676: GCLI conversion error messages should be localized
     this.message = message;
 
     // A array of strings which are the systems best guess at better inputs
@@ -3241,7 +3274,7 @@ function Conversion(value, arg, status, message, completer) {
     // or less. It is the job of the predictor to decide a smart cut-off.
     // For example if there are 4 very good matches and 4 very poor ones,
     // probably only the 4 very good matches should be presented.
-    this.completer = completer;
+    this.predictions = predictions;
 }
 
 types.Conversion = Conversion;
@@ -3316,8 +3349,8 @@ Conversion.prototype.toString = function() {
  * how the argument can be completed.
  */
 Conversion.prototype.getPredictions = function() {
-    if (this.completer) {
-        return this.completer();
+    if (typeof this.predictions === 'function') {
+        return this.predictions();
     }
     return this.predictions || [];
 };
@@ -3718,25 +3751,25 @@ SelectionType.prototype.parse = function(arg) {
         this.noMatch();
     }
 
-    // Especially at startup, completions live over the time that things change
-    // so we provide a completion function rather than completion values.
-    // This was primarily designed from commands, which have since moved into
-    // their own type, so technically we could remove this code, except that it
-    // provides more up-to-date answers, and it's hard to predict when it will
-    // be required.
-    var completer = function() {
-        var matches = this._findCompletions(arg);
-        return Object.keys(matches).map(function(name) {
-            return matches[name];
-        });
-    }.bind(this);
-
     if (matches > 0) {
-        return new Conversion(null, arg, Status.INCOMPLETE, '', completer);
+        // Especially at startup, completions live over the time that things
+        // change so we provide a completion function rather than completion
+        // values.
+        // This was primarily designed for commands, which have since moved
+        // into their own type, so technically we could remove this code,
+        // except that it provides more up-to-date answers, and it's hard to
+        // predict when it will be required.
+        var predictions = function() {
+            var completions = this._findCompletions(arg);
+            return Object.keys(completions).map(function(name) {
+                return completions[name];
+            });
+        }.bind(this);
+        return new Conversion(null, arg, Status.INCOMPLETE, '', predictions);
     }
 
     var msg = 'Can\'t use \'' + arg.text + '\'.';
-    return new Conversion(null, arg, Status.ERROR, msg, completer);
+    return new Conversion(null, arg, Status.ERROR, msg);
 };
 
 SelectionType.prototype.fromString = function(str) {
