@@ -19,7 +19,7 @@
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
- *   Joe Walker (jwalker@mozilla.com)
+ *   Joe Walker <jwalker@mozilla.com> (Original Author)
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -67,13 +67,15 @@
 
 /*
  * This build of GCLI for Firefox is really 4 bits of code:
- * - Browser support code - currently just an implementation of the console
+ * - Browser support code - Currently just an implementation of the console
  *   object that uses dump. We may need to add other browser shims to this.
  * - A very basic commonjs AMD (Asynchronous Modules Definition) 'require'
  *   implementation (which is just good enough to load GCLI). For more, see
  *   http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
  *   This alleviates the need for requirejs (http://requirejs.org/) which is
  *   used when running in the browser.
+ *   This section of code is a copy of mini_require.js without the header and
+ *   footers. Changes to one should be reflected in the other.
  * - A build of GCLI itself, packaged using dryice (for more details see the
  *   project https://github.com/mozilla/dryice and the build file in this
  *   project at Makefile.dryice.js)
@@ -382,38 +384,39 @@ var console = {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// There are 2 virtually identical copies of this code:
+// - $GCLI_HOME/build/prefix-gcli.jsm
+// - $GCLI_HOME/build/mini_require.js
+// They should both be kept in sync
+
 var debugDependencies = false;
 
 /**
  * Define a module along with a payload.
- *
- * @param {string} aModuleName
- *        Name for the payload
- * @param {ignored} aDeps
- *        Ignored. For compatibility with CommonJS AMD Spec
- * @param {function} aPayload
- *        Function with (require, exports, module) params
+ * @param {string} moduleName Name for the payload
+ * @param {ignored} deps Ignored. For compatibility with CommonJS AMD Spec
+ * @param {function} payload Function with (require, exports, module) params
  */
-function define(aModuleName, aDeps, aPayload) {
-  if (typeof aModuleName != "string") {
+function define(moduleName, deps, payload) {
+  if (typeof moduleName != "string") {
     console.error(this.depth + " Error: Module name is not a string.");
     console.trace();
     return;
   }
 
   if (arguments.length == 2) {
-    aPayload = aDeps;
+    payload = deps;
   }
 
   if (debugDependencies) {
-    console.log("define: " + aModuleName + " -> " + aPayload.toString()
+    console.log("define: " + moduleName + " -> " + payload.toString()
         .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
   }
 
-  if (aModuleName in define.modules) {
-    console.error(this.depth + " Error: Redefining module: " + aModuleName);
+  if (moduleName in define.modules) {
+    console.error(this.depth + " Error: Redefining module: " + moduleName);
   }
-  define.modules[aModuleName] = aPayload;
+  define.modules[moduleName] = payload;
 };
 
 /**
@@ -447,56 +450,51 @@ function Domain() {
  * where the dependency is resolved synchronously and returned.
  * The API is designed to be compatible with the CommonJS AMD spec and
  * RequireJS.
- *
- * @param {string[]|string} aDeps
- *        A name, or names for the payload
- * @param {function|undefined} aCallback
- *        Function to call when the deps are resolved
- * @return {undefined|object}
- *        The module required or undefined for array/callback method
+ * @param {string[]|string} deps A name, or names for the payload
+ * @param {function|undefined} callback Function to call when the dependencies
+ * are resolved
+ * @return {undefined|object} The module required or undefined for
+ * array/callback method
  */
-Domain.prototype.require = function(aDeps, aCallback) {
-  if (Array.isArray(aDeps)) {
-    var params = aDeps.map(function(dep) {
+Domain.prototype.require = function(deps, callback) {
+  if (Array.isArray(deps)) {
+    var params = deps.map(function(dep) {
       return this.lookup(dep);
     }, this);
-    if (aCallback) {
-      aCallback.apply(null, params);
+    if (callback) {
+      callback.apply(null, params);
     }
     return undefined;
   }
   else {
-    return this.lookup(aDeps);
+    return this.lookup(deps);
   }
 };
 
 /**
  * Lookup module names and resolve them by calling the definition function if
  * needed.
- *
- * @param {string} aModuleName
- *        A name for the payload to lookup
- * @return {object}
- *        The module specified by aModuleName or null if not found.
+ * @param {string} moduleName A name for the payload to lookup
+ * @return {object} The module specified by aModuleName or null if not found.
  */
-Domain.prototype.lookup = function(aModuleName) {
-  if (aModuleName in this.modules) {
-    var module = this.modules[aModuleName];
+Domain.prototype.lookup = function(moduleName) {
+  if (moduleName in this.modules) {
+    var module = this.modules[moduleName];
     if (debugDependencies) {
-      console.log(this.depth + " Using module: " + aModuleName);
+      console.log(this.depth + " Using module: " + moduleName);
     }
     return module;
   }
 
-  if (!(aModuleName in define.modules)) {
-    console.error(this.depth + " Missing module: " + aModuleName);
+  if (!(moduleName in define.modules)) {
+    console.error(this.depth + " Missing module: " + moduleName);
     return null;
   }
 
-  var module = define.modules[aModuleName];
+  var module = define.modules[moduleName];
 
   if (debugDependencies) {
-    console.log(this.depth + " Compiling module: " + aModuleName);
+    console.log(this.depth + " Compiling module: " + moduleName);
   }
 
   if (typeof module == "function") {
@@ -505,7 +503,13 @@ Domain.prototype.lookup = function(aModuleName) {
     }
 
     var exports = {};
-    module(this.require.bind(this), exports, { id: aModuleName, uri: "" });
+    try {
+      module(this.require.bind(this), exports, { id: moduleName, uri: "" });
+    }
+    catch (ex) {
+      console.error("Error using module: " + moduleName, ex);
+      throw ex;
+    }
     module = exports;
 
     if (debugDependencies) {
@@ -514,7 +518,7 @@ Domain.prototype.lookup = function(aModuleName) {
   }
 
   // cache the resulting module object for next time
-  this.modules[aModuleName] = module;
+  this.modules[moduleName] = module;
 
   return module;
 };
