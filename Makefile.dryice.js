@@ -50,9 +50,7 @@ var gcliHome = __dirname;
 console.log('Building build/gcli.js and build/gcli-uncompressed.js:');
 
 // Build the standard compressed and uncompressed javascript files
-var stdProject = copy.createCommonJsProject([
-  gcliHome + '/lib'
-]);
+var stdProject = copy.createCommonJsProject([ gcliHome + '/lib' ]);
 
 // Grab and process all the Javascript
 var stdSources = copy.createDataObject();
@@ -95,30 +93,16 @@ copy({ source: 'build/index.html', dest: 'build/index.html' });
  */
 console.log('Building build/gcli.jsm:');
 
-var ffProject = copy.createCommonJsProject([
-  gcliHome + '/lib'
-]);
-
 // Grab and process all the Javascript for GCLI
-var gcliSources = copy.createDataObject();
 copy({
-  source: copy.source.commonjs({ project: ffProject, require: [ 'gcli/index' ] }),
+  source: [
+    'build/prefix-gcli.jsm',
+    copy.source.commonjs({
+      project: copy.createCommonJsProject([ gcliHome + '/lib' ]),
+      require: [ 'gcli/index' ]
+    }),
+    'build/suffix-gcli.jsm'
+  ],
   filter: copy.filter.moduleDefines,
-  dest: gcliSources
-});
-
-// Process the CSS/HTML/PNG/GIF for GCLI
-copy({
-  source: { root: ffProject, include: /.*\.css$|.*\.html$/ },
-  filter: copy.filter.addDefines,
-  dest: gcliSources
-});
-copy({
-  source: { root: ffProject, include: /.*\.png$|.*\.gif$/ },
-  filter: copy.filter.base64,
-  dest: gcliSources
-});
-copy({
-  source: [ 'build/prefix-gcli.jsm', gcliSources, 'build/suffix-gcli.jsm' ],
   dest: 'build/gcli.jsm'
 });
