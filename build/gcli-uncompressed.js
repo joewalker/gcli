@@ -5400,7 +5400,7 @@ cliView.Popup = Popup;
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/ui/inputter', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types', 'gcli/ui/domtemplate', 'text!gcli/ui/inputter.css'], function(require, exports, module) {
+define('gcli/ui/inputter', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types', 'gcli/ui/domtemplate', 'gcli/ui/history', 'text!gcli/ui/inputter.css'], function(require, exports, module) {
 var cliView = exports;
 
 
@@ -5410,6 +5410,7 @@ var dom = require('gcli/util').dom;
 
 var Status = require('gcli/types').Status;
 var Templater = require('gcli/ui/domtemplate').Templater;
+var History = require('gcli/ui/history').History;
 
 var inputterCss = require('text!gcli/ui/inputter.css');
 
@@ -5467,6 +5468,10 @@ function Inputter(options) {
     }
     this.completer = options.completer;
     this.completer.decorate(this);
+
+    // Use the provided history object, or instantiate our own.
+    this.history = options.history = options.history || new History(options);
+    this._scrollingThroughHistory = false;
 
     // cursor position affects hint severity.
     event.addListener(this.element, 'mouseup', function(ev) {
@@ -5560,6 +5565,8 @@ Inputter.prototype.onKeyUp = function(ev) {
         // Deny RETURN unless the command might work
         if (worst === Status.VALID) {
             this.requ.exec();
+            this._scrollingThroughHistory = false;
+            this.history.add(this.element.value);
             this.element.value = '';
         }
         // See bug 664135 - On pressing return with an invalid input, GCLI
@@ -5578,14 +5585,34 @@ Inputter.prototype.onKeyUp = function(ev) {
             this.getCurrentAssignment().complete();
         }
         this.lastTabDownAt = 0;
+        this._scrollingThroughHistory = false;
     }
     else if (ev.keyCode === 38 /*UP*/) {
-        this.getCurrentAssignment().increment();
+        if (this.element.value === '' || this._scrollingThroughHistory) {
+            this._scrollingThroughHistory = true;
+            this.element.value = this.history.backward();
+            this.update();
+            dom.setSelectionStart(this.element, 0);
+            dom.setSelectionEnd(this.element, this.element.value.length);
+        }
+        else {
+            this.getCurrentAssignment().increment();
+        }
     }
     else if (ev.keyCode === 40 /*DOWN*/) {
-        this.getCurrentAssignment().decrement();
+        if (this.element.value === '' || this._scrollingThroughHistory) {
+            this._scrollingThroughHistory = true;
+            this.element.value = this.history.forward();
+            this.update();
+            dom.setSelectionStart(this.element, 0);
+            dom.setSelectionEnd(this.element, this.element.value.length);
+        }
+        else {
+            this.getCurrentAssignment().decrement();
+        }
     }
     else {
+        this._scrollingThroughHistory = false;
         this.update();
     }
 };
@@ -5787,6 +5814,65 @@ cliView.Completer = Completer;
 
 });
 /* ***** BEGIN LICENSE BLOCK *****
+ *
+ * TODO
+ *
+ * ***** END LICENSE BLOCK ***** */
+
+define('gcli/ui/history', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+/**
+ * A History object remembers commands that have been entered in the past and
+ * provides an API for accessing them again.
+ *
+ * TODO: Search through history (like C-r in bash)?
+ */
+function History(options) {
+    this._options = options;
+
+    // This is the actual buffer where previous commands are kept.
+    //
+    // `this._buffer[0]` should always be equal the empty string. This is so
+    // that when you try to go in to the "future", you will just get an empty
+    // command.
+    this._buffer = [""];
+
+    // This is an index in to the history buffer which points to where we
+    // currently are in the history.
+    this._current = 0;
+}
+
+/**
+ * Record and save a new command in the history.
+ */
+History.prototype.add = function(command) {
+    this._buffer.splice(1, 0, command);
+    this._current = 0;
+};
+
+/**
+ * Get the next (newer) command from history.
+ */
+History.prototype.forward = function() {
+    if (this._current > 0 ) {
+        this._current--;
+    }
+    return this._buffer[this._current];
+};
+
+/**
+ * Get the previous (older) item from history.
+ */
+History.prototype.backward = function() {
+    if (this._current < this._buffer.length - 1) {
+        this._current++;
+    }
+    return this._buffer[this._current];
+};
+
+exports.History = History;
+
+});/* ***** BEGIN LICENSE BLOCK *****
  * Version: MPL 1.1/GPL 2.0/LGPL 2.1
  *
  * The contents of this file are subject to the Mozilla Public License Version
@@ -8124,7 +8210,7 @@ experimental.shutdown = function(data, reason) {
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gclitest/index', ['require', 'exports', 'module' , 'test/index', 'gclitest/testTokenize', 'gclitest/testSplit', 'gclitest/testCli', 'gclitest/testRequire'], function(require, exports, module) {
+define('gclitest/index', ['require', 'exports', 'module' , 'test/index', 'gclitest/testTokenize', 'gclitest/testSplit', 'gclitest/testCli', 'gclitest/testHistory', 'gclitest/testRequire'], function(require, exports, module) {
 
     var test = require('test/index');
 
@@ -8134,6 +8220,7 @@ define('gclitest/index', ['require', 'exports', 'module' , 'test/index', 'gclite
         test.addSuite('gclitest/testTokenize', require('gclitest/testTokenize'));
         test.addSuite('gclitest/testSplit', require('gclitest/testSplit'));
         test.addSuite('gclitest/testCli', require('gclitest/testCli'));
+        test.addSuite('gclitest/testHistory', require('gclitest/testHistory'));
 
         test.addSuite('gclitest/testRequire', require('gclitest/testRequire'));
 
@@ -9604,6 +9691,67 @@ exports.testNestedCommand = function() {
     //t.verifyEqual(undefined, assign1.getValue());
 };
 
+
+});
+/* ***** BEGIN LICENSE BLOCK *****
+ *
+ * TODO
+ *
+ * ***** END LICENSE BLOCK ***** */
+
+define('gclitest/testHistory', ['require', 'exports', 'module' , 'test/assert', 'gcli/ui/history'], function(require, exports, module) {
+
+var t = require('test/assert');
+var History = require('gcli/ui/history').History;
+
+exports.setup = function() {
+};
+
+exports.shutdown = function() {
+};
+
+exports.testSimpleHistory = function () {
+    var history = new History({});
+    history.add('foo');
+    history.add('bar');
+    t.verifyEqual('bar', history.backward());
+    t.verifyEqual('foo', history.backward());
+
+    // Adding to the history again moves us back to the start of the history.
+    history.add('quux');
+    t.verifyEqual('quux', history.backward());
+    t.verifyEqual('bar', history.backward());
+    t.verifyEqual('foo', history.backward());
+};
+
+exports.testBackwardsPastIndex = function () {
+    var history = new History({});
+    history.add('foo');
+    history.add('bar');
+    t.verifyEqual('bar', history.backward());
+    t.verifyEqual('foo', history.backward());
+
+    // Moving backwards past recorded history just keeps giving you the last
+    // item.
+    t.verifyEqual('foo', history.backward());
+};
+
+exports.testForwardsPastIndex = function () {
+    var history = new History({});
+    history.add('foo');
+    history.add('bar');
+    t.verifyEqual('bar', history.backward());
+    t.verifyEqual('foo', history.backward());
+
+    // Going forward through the history again.
+    t.verifyEqual('bar', history.forward());
+
+    // 'Present' time.
+    t.verifyEqual('', history.forward());
+
+    // Going to the 'future' just keeps giving us the empty string.
+    t.verifyEqual('', history.forward());
+};
 
 });
 /* ***** BEGIN LICENSE BLOCK *****
