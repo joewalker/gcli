@@ -1,19 +1,19 @@
 
 <div class="gcliRow">
   <!-- The div for the input (i.e. what was typed) -->
-  <div class="gcliRowIn" save="${rowin}" aria-live="assertive"
+  <div class="gcliRowIn" save="${elems.rowin}" aria-live="assertive"
       onclick="${copyToInput}" ondblclick="${execute}">
 
     <!-- What the user actually typed -->
     <span class="gcliGt">&gt;</span>
-    <span class="gcliOutTyped">${request.typed}</span>
+    <span class="gcliOutTyped">${outputData.typed}</span>
 
     <!-- The extra details that appear on hover -->
-    <span class="gcliDuration gcliHover" save="${duration}"></span>
+    <span class="gcliDuration gcliHover" save="${elems.duration}"></span>
     <!--
-    <img class="gcliHover" onclick="${hideOutput}" save="${hide}"
+    <img class="gcliHover" onclick="${hideOutput}" save="${elems.hide}"
         alt="Hide command output" _src="${imageUrl('images/minus.png')}"/>
-    <img class="gcliHover gcliHidden" onclick="${showOutput}" save="${show}"
+    <img class="gcliHover gcliHidden" onclick="${showOutput}" save="${elems.show}"
         alt="Show command output" _src="${imageUrl('images/plus.png')}"/>
     <img class="gcliHover" onclick="${remove}"
         alt="Remove this command from the history"
@@ -22,8 +22,8 @@
   </div>
 
   <!-- The div for the command output -->
-  <div class="gcliRowOut" save="${rowout}" aria-live="assertive">
-    <div class="gcliRowOutput" save="${output}"></div>
-    <img _src="${imageUrl('images/throbber.gif')}" save="${throb}"/>
+  <div class="gcliRowOut" save="${elems.rowout}" aria-live="assertive">
+    <div class="gcliRowOutput" save="${elems.output}"></div>
+    <img _src="${imageUrl('images/throbber.gif')}" save="${elems.throb}"/>
   </div>
 </div>
