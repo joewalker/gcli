@@ -638,6 +638,7 @@ Each command should have the following properties:
 - A short ``description`` string. Generally no more than 20 characters without
   a terminating period/fullstop.
 - A function to ``exec``ute. (Optional for the parent containing sub-commands)
+  See below for more details.
 
 And optionally the following extra properties:
 
@@ -679,24 +680,11 @@ Optionally each parameter can have these properties:
   characters.
 
 
-### Other command formats
+### The Command Function (exec)
 
-There are 3 different formats in which commands can be written.
-
-1. Object Literal syntax. This is the format used in the examples used above.
-   It is the way GCLI stores commands internally, so it is to some extent the
-   'native' syntax.
-2. Function Metadata Syntax. This is ideal for decorating existing functions
-   with the metadata to allow use with GCLI.
-3. Object Metadata Syntax. This is ideal for grouping related commands
-   together.
-
-### Object Literal Syntax
-
-This is designed for situations when you are creating a single command
-specifically for GCLI. The parameters to the exec function are designed to be
-useful when you have a large number of parameters, and to give direct access to
-the environment (if set).
+The parameters to the exec function are designed to be useful when you have a
+large number of parameters, and to give direct access to the environment (if
+used).
 
     canon.addCommand({
       name: 'echo',
@@ -718,148 +706,22 @@ The ``args`` object contains the values specified on the params section and
 provided on the command line. In this example it would contain the message for
 display as ``args.message``.
 
-It is expected that the signature of the exec function will soon change to be
-``(args, env)``. Plain strings will be distinguished from HTML using a simple
-wrapper for HTML.
-Something like ``new HTML('<p>Hello, World!</p>');``, or by using a return
-type of ``html`` rather than ``string``, or by returning a DOM object.
-However we will strongly discourage use of HTML directly because that makes
-it hard to use the output of one command as the input of another command.
-Instead we will encourage the use of 'typed JSON' where possible. The
-``returnType`` property will allow us to select a converter to convert the JSON
-to HTML, and will allow us to support a system of multi-part output much like
-an application clipboard which declares that data is available in a number of
-alternate formats.
-
-Asynchronous output is achieved using a promise created using the top level API
-``gcli.createPromise()``.
-
-
-### Function Metadata Syntax
-
-The Object Literal Syntax can't be used to decorate existing functions partly
-because it could entail some confusing situations where commands are not
-executed with the context they were expecting, but more seriously because it
-requires a specific signature in terms of parameters.
-
-The Function Metadata Syntax is designed for cases when you want to decorate
-an existing function. This allows us to package window.alert as a GCLI
-function:
-
-    window.alert.metadata = {
-      name: 'alert',
-      context: window,
-      description: 'Show an alert dialog',
-      params: [ { name: 'message', type: 'string', description: '...' } ]
-    };
-    canon.addCommand(window.alert);
-
-It is important to define the parameters in the correct order to that in
-which the function you are decorating expects.
-
-It is possible to use Function Metadata Syntax more conventionally with
-functions designed for GCLI. There are 2 useful features which can help in
-this - [function hoisting](http://j.mp/fn-hoist) and the ability to fetch the
-environment or a request from the canon.
-
-Function hoisting makes it possible to define function metadata before the
-function. This may look a little strange initially, but it's common for
-documentation to come before the thing it documents.
-
-    echo.metadata = {
-      name: 'echo',
-      description: 'Show a message',
-      params: [ { name: 'message', type: 'string', description: '...' } ]
-    };
-    function echo(message) {
-      return message;
-    }
-    canon.addCommand(echo);
-
-The gcli function ``getEnvironment()`` allows access to env object that is
-normally provided as a parameter.
-
-
-### Object Metadata Syntax
-
-The benefit of the Object Metadata Syntax is that it is a convenient way to
-represent a group of commands, also there is a variant that can be used to
-decorate existing objects.
-
-Command groups can be created using Object Literal Syntax previously
-discussed:
-
-    canon.addCommand({
-      name: 'tar',
-      description: 'Commands to manipulate archives.',
-    });
-    canon.addCommand({
-      name: 'tar create',
-      description: 'Create a new archive.',
-      ...
-    });
-
-Alternatively the same commands can be created using Object Metadata Syntax:
-
-    var tar = {
-      description: 'Commands to manipulate archives.',
-      
-      create: {
-        description: 'Create a new archive.',
-        params: [
-          { name: 'file', type: 'file', description: 'The file to create.' },
-          { name: 'compress', type: 'boolean', description: '...' }
-        ],
-        exec: function(args, env) { ... },
-      },
-      
-      extract: {
-        description: 'Extract files from an archive.',
-        params: [
-          { name: 'file', type: 'file', description: 'The source file.' },
-          { name: 'compress', type: 'boolean', description: '...' }
-        ],
-        exec: function(args, env) { ... },
-      },
-      
-      ...
-    };
-    canon.addCommands(tar, 'tar');
-
-This alternative is potentially better for groups of commands which could
-share common features.
-
-Predictably it's also possible to decorate a pre-existing object post-creation
-with metadata. This is a somewhat contrived example:
-
-    var isemail = /^([a-z0-9_\.-]+)@([\da-z\.-]+)\.([a-z\.]{2,6})$/;
-    isemail.test.metadata = {
-      description: 'Tests to see if the address is an email',
-      params: [ name: 'email', type: 'string', description: 'The addr to test' ]
-    };
-    isemail.toString.metadata = {
-      description: 'Retrieve the regular expression used to test email addrs'
-    };
-    canon.addCommands(isemail, 'isemail');
-
-This could then be used like this:
-
-    > isemail test jwalker@mozilla.mistake
-    false
-    
-    > isemail toString
-    /^([a-z0-9_\.-]+)@([\da-z\.-]+)\.([a-z\.]{2,6})$/
-
-This alternative exists because it's obvious given the other examples and
-because implementing it wasn't hard, but it remains to be seen actually how
-useful it is. Support may be removed in the future, please tell us if you find
-it useful.
-
 
 ### Returning data
 
 The command meta-data specifies the type of data returned by the command using
 the ``returnValue`` setting.
+
+``returnValue`` processing is currently functioning, but incomplete, and being
+tracked in [Bug 657595](http://bugzil.la/657595). Currently you should specify
+a ``returnType`` of ``string`` or ``html``. If using HTML, you can return
+either a string for use in processing like ``innerHTML``, or a DOM node.
+
+In the future, JSON will be strongly encouraged as the return type, with some
+formatting functions to convert the JSON to HTML.
+
+Asynchronous output is achieved using a promise created using the top level API
+``gcli.createPromise()``.
 
 Some examples of this is practice:
 
