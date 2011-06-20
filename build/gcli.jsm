@@ -596,9 +596,7 @@ var Promise = require('gcli/promise').Promise;
 gcli.createView = createStartupChecker(ui.createView);
 
 gcli.addCommand = createStartupChecker(canon.addCommand);
-gcli.addCommands = createStartupChecker(canon.addCommands);
 gcli.removeCommand = createStartupChecker(canon.removeCommand);
-gcli.removeCommands = createStartupChecker(canon.removeCommands);
 
 gcli.createRequisition = createStartupChecker(function createRequisition() {
   return new cli.Requisition();
@@ -1589,6 +1587,141 @@ event.stopPropagation = function(e) {
 };
 
 /**
+ * Keyboard handling is a mess. http://unixpapa.com/js/key.html
+ * It would be good to use DOM L3 Keyboard events,
+ * http://www.w3.org/TR/2010/WD-DOM-Level-3-Events-20100907/#events-keyboardevents
+ * however only Webkit supports them, and there isn't a shim on Monernizr:
+ * https://github.com/Modernizr/Modernizr/wiki/HTML5-Cross-browser-Polyfills
+ * and when the code that uses this KeyEvent was written, nothing was clear,
+ * so instead, we're using this unmodern shim:
+ * http://stackoverflow.com/questions/5681146/chrome-10-keyevent-or-something-similar-to-firefoxs-keyevent
+ * See BUG 664991: GCLI's keyboard handling should be updated to use DOM-L3
+ * https://bugzilla.mozilla.org/show_bug.cgi?id=664991
+ */
+if ('KeyEvent' in this) {
+    event.KeyEvent = this.KeyEvent;
+}
+else {
+    event.KeyEvent = {
+        DOM_VK_CANCEL: 3,
+        DOM_VK_HELP: 6,
+        DOM_VK_BACK_SPACE: 8,
+        DOM_VK_TAB: 9,
+        DOM_VK_CLEAR: 12,
+        DOM_VK_RETURN: 13,
+        DOM_VK_ENTER: 14,
+        DOM_VK_SHIFT: 16,
+        DOM_VK_CONTROL: 17,
+        DOM_VK_ALT: 18,
+        DOM_VK_PAUSE: 19,
+        DOM_VK_CAPS_LOCK: 20,
+        DOM_VK_ESCAPE: 27,
+        DOM_VK_SPACE: 32,
+        DOM_VK_PAGE_UP: 33,
+        DOM_VK_PAGE_DOWN: 34,
+        DOM_VK_END: 35,
+        DOM_VK_HOME: 36,
+        DOM_VK_LEFT: 37,
+        DOM_VK_UP: 38,
+        DOM_VK_RIGHT: 39,
+        DOM_VK_DOWN: 40,
+        DOM_VK_PRINTSCREEN: 44,
+        DOM_VK_INSERT: 45,
+        DOM_VK_DELETE: 46,
+        DOM_VK_0: 48,
+        DOM_VK_1: 49,
+        DOM_VK_2: 50,
+        DOM_VK_3: 51,
+        DOM_VK_4: 52,
+        DOM_VK_5: 53,
+        DOM_VK_6: 54,
+        DOM_VK_7: 55,
+        DOM_VK_8: 56,
+        DOM_VK_9: 57,
+        DOM_VK_SEMICOLON: 59,
+        DOM_VK_EQUALS: 61,
+        DOM_VK_A: 65,
+        DOM_VK_B: 66,
+        DOM_VK_C: 67,
+        DOM_VK_D: 68,
+        DOM_VK_E: 69,
+        DOM_VK_F: 70,
+        DOM_VK_G: 71,
+        DOM_VK_H: 72,
+        DOM_VK_I: 73,
+        DOM_VK_J: 74,
+        DOM_VK_K: 75,
+        DOM_VK_L: 76,
+        DOM_VK_M: 77,
+        DOM_VK_N: 78,
+        DOM_VK_O: 79,
+        DOM_VK_P: 80,
+        DOM_VK_Q: 81,
+        DOM_VK_R: 82,
+        DOM_VK_S: 83,
+        DOM_VK_T: 84,
+        DOM_VK_U: 85,
+        DOM_VK_V: 86,
+        DOM_VK_W: 87,
+        DOM_VK_X: 88,
+        DOM_VK_Y: 89,
+        DOM_VK_Z: 90,
+        DOM_VK_CONTEXT_MENU: 93,
+        DOM_VK_NUMPAD0: 96,
+        DOM_VK_NUMPAD1: 97,
+        DOM_VK_NUMPAD2: 98,
+        DOM_VK_NUMPAD3: 99,
+        DOM_VK_NUMPAD4: 100,
+        DOM_VK_NUMPAD5: 101,
+        DOM_VK_NUMPAD6: 102,
+        DOM_VK_NUMPAD7: 103,
+        DOM_VK_NUMPAD8: 104,
+        DOM_VK_NUMPAD9: 105,
+        DOM_VK_MULTIPLY: 106,
+        DOM_VK_ADD: 107,
+        DOM_VK_SEPARATOR: 108,
+        DOM_VK_SUBTRACT: 109,
+        DOM_VK_DECIMAL: 110,
+        DOM_VK_DIVIDE: 111,
+        DOM_VK_F1: 112,
+        DOM_VK_F2: 113,
+        DOM_VK_F3: 114,
+        DOM_VK_F4: 115,
+        DOM_VK_F5: 116,
+        DOM_VK_F6: 117,
+        DOM_VK_F7: 118,
+        DOM_VK_F8: 119,
+        DOM_VK_F9: 120,
+        DOM_VK_F10: 121,
+        DOM_VK_F11: 122,
+        DOM_VK_F12: 123,
+        DOM_VK_F13: 124,
+        DOM_VK_F14: 125,
+        DOM_VK_F15: 126,
+        DOM_VK_F16: 127,
+        DOM_VK_F17: 128,
+        DOM_VK_F18: 129,
+        DOM_VK_F19: 130,
+        DOM_VK_F20: 131,
+        DOM_VK_F21: 132,
+        DOM_VK_F22: 133,
+        DOM_VK_F23: 134,
+        DOM_VK_F24: 135,
+        DOM_VK_NUM_LOCK: 144,
+        DOM_VK_SCROLL_LOCK: 145,
+        DOM_VK_COMMA: 188,
+        DOM_VK_PERIOD: 190,
+        DOM_VK_SLASH: 191,
+        DOM_VK_BACK_QUOTE: 192,
+        DOM_VK_OPEN_BRACKET: 219,
+        DOM_VK_BACK_SLASH: 220,
+        DOM_VK_CLOSE_BRACKET: 221,
+        DOM_VK_QUOTE: 222,
+        DOM_VK_META: 224
+    };
+}
+
+/**
  * Browser detection. Used only for places where feature detection doesn't make
  * sense.
  */
@@ -1642,7 +1775,10 @@ function normalizeCommandKeys(callback, ev, keyCode) {
         keyCode = 0;
     }
 
-    if (hashId & 8 && (keyCode == 91 || keyCode == 93)) {
+    // It seems likely that 91 is the left windows key, but this is not
+    // defined anywhere that is referenceable, so it's not in KeyEvent
+    if (hashId & 8 &&
+            (keyCode == 91 || keyCode == event.KeyEvent.DOM_VK_CONTEXT_MENU)) {
         keyCode = 0;
     }
 
@@ -3290,76 +3426,15 @@ canon.Parameter = Parameter;
  * This function is exposed to the outside world (via gcli/index). It is
  * documented in docs/index.md for all the world to see.
  * @param commandSpec The command and its metadata.
- * @param name When commands are added via addCommands() their names are
- * exposed only via the properties to which the functions are attached. This
- * allows addCommands() to inform the command what its name is.
  */
-canon.addCommand = function addCommand(commandSpec, name) {
-    if (typeof commandSpec === 'function') {
-        if (!commandSpec.metadata) {
-            throw new Error('Commands registered as functions need metdata');
-        }
-
-        if (!commandSpec.metadata.name) {
-            if (!name) {
-                throw new Error('All registered commands must have a name');
-            }
-            else {
-                commandSpec.metadata.name = name;
-            }
-        }
-
-        commandSpec.metadata.exec = commandSpec;
-        commandSpec.metadata.functional = true;
-        commandSpec = commandSpec.metadata;
-    }
-    else {
-        commandSpec.functional = false;
-        commandSpec.name = name || commandSpec.name;
-    }
+canon.addCommand = function addCommand(commandSpec) {
+    commandSpec.functional = false;
 
     commands[commandSpec.name] = new Command(commandSpec);
     commandNames.push(commandSpec.name);
     commandNames.sort();
 
     canon.canonChange();
-};
-
-/**
- * Take a command object and register all the commands that it contains.
- * This function is exposed to the outside world (via gcli/index). It is
- * documented in docs/index.md for all the world to see.
- * @param context The command object which contains the commands to be
- * registered.
- * @param name The name of the base command (for a command set)
- */
-canon.addCommands = function addCommands(context, name) {
-    if (name) {
-        if (!context.metadata) {
-            throw new Error('name supplied to addCommands (implies command ' +
-                'set) but missing metatdata on context');
-        }
-
-        canon.addCommand(context.metadata, name);
-    }
-
-    Object.keys(context).forEach(function(key) {
-        var command = context[key];
-        var commandName = name ? name + ' ' + key : key;
-        if (typeof command === 'function') {
-            command.metadata = command.metadata || context[key + 'Metadata'];
-            if (!command.metadata) {
-                return;
-            }
-            command.metadata.context = command.metadata.context || context;
-            canon.addCommand(command, commandName);
-        }
-        else {
-            if (key !== 'metadata') {
-                canon.addCommand(command, commandName);
-            }
-        }
-    });
 };
 
 /**
@@ -3376,26 +3451,6 @@ canon.removeCommand = function removeCommand(commandOrName) {
     });
 
     canon.canonChange();
-};
-
-/**
- * Remove a group of commands. The opposite of #addCommands().
- * @param context The command object which contains the commands to be
- * registered.
- * @param name The name of the base command (for a command set)
- */
-canon.removeCommands = function removeCommands(context, name) {
-    Object.keys(context).forEach(function(key) {
-        var command = context[key];
-        if (typeof command !== 'function' || !command.metadata) {
-            return;
-        }
-        canon.removeCommand(command.metadata);
-    });
-
-    if (name) {
-        canon.removeCommand(context.metadata, name);
-    }
 };
 
 /**
@@ -5560,7 +5615,7 @@ function Popup(options) {
         right.style.right = '0';
 
         // What height should the output panel be, by default?
-        this._outputHeight = 300;
+        this._outputHeight = options.outputHeight || 300;
     }
     else if (this.style === Popup.style.singleColumnVariable) {
         this._outputHeight = -1;
@@ -5760,6 +5815,7 @@ var cliView = exports;
 var console = require('gcli/util').console;
 var event = require('gcli/util').event;
 var dom = require('gcli/util').dom;
+var KeyEvent = event.KeyEvent;
 
 var Status = require('gcli/types').Status;
 var Templater = require('gcli/ui/domtemplate').Templater;
@@ -5834,6 +5890,9 @@ function Inputter(options) {
     this.requ.inputChange.add(this.onInputChange, this);
 }
 
+/**
+ * Handler for the Requisition.inputChange event
+ */
 Inputter.prototype.onInputChange = function() {
     this.element.value = this.requ.toString();
     this.completer.update();
@@ -5878,10 +5937,10 @@ Inputter.prototype.appendAfter = function(element) {
  * are not handled by the browser
  */
 Inputter.prototype.onCommandKey = function(ev, hashId, keyCode) {
-    if (keyCode === 38 /*UP*/ || keyCode === 40 /*DOWN*/) {
+    if (keyCode === KeyEvent.DOM_VK_UP || keyCode === KeyEvent.DOM_VK_DOWN) {
         event.stopEvent(ev);
     }
-    if (keyCode === 9 /*TAB*/) {
+    if (keyCode === KeyEvent.DOM_VK_TAB) {
         this.lastTabDownAt = 0;
         if (!ev.shiftKey) {
             event.stopEvent(ev);
@@ -5913,7 +5972,7 @@ Inputter.prototype.setInput = function(str) {
  */
 Inputter.prototype.onKeyUp = function(ev) {
     // RETURN does a special exec/highlight thing
-    if (ev.keyCode === 13 /*RETURN*/) {
+    if (ev.keyCode === KeyEvent.DOM_VK_RETURN) {
         var worst = this.requ.getStatus();
         // Deny RETURN unless the command might work
         if (worst === Status.VALID) {
@@ -5927,7 +5986,7 @@ Inputter.prototype.onKeyUp = function(ev) {
 
         this.update();
     }
-    else if (ev.keyCode === 9 /*TAB*/ && !ev.shiftKey) {
+    else if (ev.keyCode === KeyEvent.DOM_VK_TAB && !ev.shiftKey) {
         // If the TAB keypress took the cursor from another field to this one,
         // then they get the keydown/keypress, and we get the keyup. In this
         // case we don't want to do any completion.
@@ -5940,7 +5999,7 @@ Inputter.prototype.onKeyUp = function(ev) {
         this.lastTabDownAt = 0;
         this._scrollingThroughHistory = false;
     }
-    else if (ev.keyCode === 38 /*UP*/) {
+    else if (ev.keyCode === KeyEvent.DOM_VK_UP) {
         if (this.element.value === '' || this._scrollingThroughHistory) {
             this._scrollingThroughHistory = true;
             this.element.value = this.history.backward();
@@ -5952,7 +6011,7 @@ Inputter.prototype.onKeyUp = function(ev) {
             this.getCurrentAssignment().increment();
         }
     }
-    else if (ev.keyCode === 40 /*DOWN*/) {
+    else if (ev.keyCode === KeyEvent.DOM_VK_DOWN) {
         if (this.element.value === '' || this._scrollingThroughHistory) {
             this._scrollingThroughHistory = true;
             this.element.value = this.history.forward();
