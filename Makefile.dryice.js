@@ -57,7 +57,11 @@ var stdSources = copy.createDataObject();
 copy({
   source: copy.source.commonjs({
     project: stdProject,
-    require: [ 'gcli/index', 'demo/index', 'gcli/commands/help', 'gclitest/index' ]
+    // This list of dependencies should be the same as in index.html
+    require: [
+      'gcli/index', 'gcli/ui/start/browser', 'demo/index',
+      'gcli/commands/help', 'gclitest/index'
+    ]
   }),
   filter: copy.filter.moduleDefines,
   dest: stdSources
@@ -99,7 +103,8 @@ copy({
     'build/prefix-gcli.jsm',
     copy.source.commonjs({
       project: copy.createCommonJsProject([ gcliHome + '/lib' ]),
-      require: [ 'gcli/index' ]
+      // This list of dependencies should be the same as in suffix-gcli.jsm
+      require: [ 'gcli/index', 'gcli/ui/start/firefox' ]
     }),
     'build/suffix-gcli.jsm'
   ],

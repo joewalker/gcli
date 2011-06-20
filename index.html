@@ -19,14 +19,18 @@
       }
     });
 
-    var deps = [ 'gcli/index', 'demo/index', 'gcli/commands/help', 'gclitest/index' ];
+    var deps = [
+      // This list should be the same as the browser part of Makefile.dryice.js
+      'gcli/index', 'gcli/ui/start/browser', 'demo/index',
+      'gcli/commands/help', 'gclitest/index'
+    ];
 
-    require(deps, function(gcli, demo, help, gclitest) {
+    require(deps, function(gcli, browser, demo, help, gclitest) {
       try {
         gcli.startup();
         demo.startup();
         gclitest.startup({ autoRun: true });
-        gcli.createView();
+        browser.createView();
   
         help.helpMessages.prefix = "<h2>Welcome to GCLI</h2>" +
             "<p>GCLI is an experiment to create a highly usable JavaScript command line for developers." +
