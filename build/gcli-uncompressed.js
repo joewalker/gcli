@@ -243,9 +243,7 @@ var Promise = require('gcli/promise').Promise;
 gcli.createView = createStartupChecker(ui.createView);
 
 gcli.addCommand = createStartupChecker(canon.addCommand);
-gcli.addCommands = createStartupChecker(canon.addCommands);
 gcli.removeCommand = createStartupChecker(canon.removeCommand);
-gcli.removeCommands = createStartupChecker(canon.removeCommands);
 
 gcli.createRequisition = createStartupChecker(function createRequisition() {
   return new cli.Requisition();
@@ -1236,6 +1234,141 @@ event.stopPropagation = function(e) {
 };
 
 /**
+ * Keyboard handling is a mess. http://unixpapa.com/js/key.html
+ * It would be good to use DOM L3 Keyboard events,
+ * http://www.w3.org/TR/2010/WD-DOM-Level-3-Events-20100907/#events-keyboardevents
+ * however only Webkit supports them, and there isn't a shim on Monernizr:
+ * https://github.com/Modernizr/Modernizr/wiki/HTML5-Cross-browser-Polyfills
+ * and when the code that uses this KeyEvent was written, nothing was clear,
+ * so instead, we're using this unmodern shim:
+ * http://stackoverflow.com/questions/5681146/chrome-10-keyevent-or-something-similar-to-firefoxs-keyevent
+ * See BUG 664991: GCLI's keyboard handling should be updated to use DOM-L3
+ * https://bugzilla.mozilla.org/show_bug.cgi?id=664991
+ */
+if ('KeyEvent' in this) {
+    event.KeyEvent = this.KeyEvent;
+}
+else {
+    event.KeyEvent = {
+        DOM_VK_CANCEL: 3,
+        DOM_VK_HELP: 6,
+        DOM_VK_BACK_SPACE: 8,
+        DOM_VK_TAB: 9,
+        DOM_VK_CLEAR: 12,
+        DOM_VK_RETURN: 13,
+        DOM_VK_ENTER: 14,
+        DOM_VK_SHIFT: 16,
+        DOM_VK_CONTROL: 17,
+        DOM_VK_ALT: 18,
+        DOM_VK_PAUSE: 19,
+        DOM_VK_CAPS_LOCK: 20,
+        DOM_VK_ESCAPE: 27,
+        DOM_VK_SPACE: 32,
+        DOM_VK_PAGE_UP: 33,
+        DOM_VK_PAGE_DOWN: 34,
+        DOM_VK_END: 35,
+        DOM_VK_HOME: 36,
+        DOM_VK_LEFT: 37,
+        DOM_VK_UP: 38,
+        DOM_VK_RIGHT: 39,
+        DOM_VK_DOWN: 40,
+        DOM_VK_PRINTSCREEN: 44,
+        DOM_VK_INSERT: 45,
+        DOM_VK_DELETE: 46,
+        DOM_VK_0: 48,
+        DOM_VK_1: 49,
+        DOM_VK_2: 50,
+        DOM_VK_3: 51,
+        DOM_VK_4: 52,
+        DOM_VK_5: 53,
+        DOM_VK_6: 54,
+        DOM_VK_7: 55,
+        DOM_VK_8: 56,
+        DOM_VK_9: 57,
+        DOM_VK_SEMICOLON: 59,
+        DOM_VK_EQUALS: 61,
+        DOM_VK_A: 65,
+        DOM_VK_B: 66,
+        DOM_VK_C: 67,
+        DOM_VK_D: 68,
+        DOM_VK_E: 69,
+        DOM_VK_F: 70,
+        DOM_VK_G: 71,
+        DOM_VK_H: 72,
+        DOM_VK_I: 73,
+        DOM_VK_J: 74,
+        DOM_VK_K: 75,
+        DOM_VK_L: 76,
+        DOM_VK_M: 77,
+        DOM_VK_N: 78,
+        DOM_VK_O: 79,
+        DOM_VK_P: 80,
+        DOM_VK_Q: 81,
+        DOM_VK_R: 82,
+        DOM_VK_S: 83,
+        DOM_VK_T: 84,
+        DOM_VK_U: 85,
+        DOM_VK_V: 86,
+        DOM_VK_W: 87,
+        DOM_VK_X: 88,
+        DOM_VK_Y: 89,
+        DOM_VK_Z: 90,
+        DOM_VK_CONTEXT_MENU: 93,
+        DOM_VK_NUMPAD0: 96,
+        DOM_VK_NUMPAD1: 97,
+        DOM_VK_NUMPAD2: 98,
+        DOM_VK_NUMPAD3: 99,
+        DOM_VK_NUMPAD4: 100,
+        DOM_VK_NUMPAD5: 101,
+        DOM_VK_NUMPAD6: 102,
+        DOM_VK_NUMPAD7: 103,
+        DOM_VK_NUMPAD8: 104,
+        DOM_VK_NUMPAD9: 105,
+        DOM_VK_MULTIPLY: 106,
+        DOM_VK_ADD: 107,
+        DOM_VK_SEPARATOR: 108,
+        DOM_VK_SUBTRACT: 109,
+        DOM_VK_DECIMAL: 110,
+        DOM_VK_DIVIDE: 111,
+        DOM_VK_F1: 112,
+        DOM_VK_F2: 113,
+        DOM_VK_F3: 114,
+        DOM_VK_F4: 115,
+        DOM_VK_F5: 116,
+        DOM_VK_F6: 117,
+        DOM_VK_F7: 118,
+        DOM_VK_F8: 119,
+        DOM_VK_F9: 120,
+        DOM_VK_F10: 121,
+        DOM_VK_F11: 122,
+        DOM_VK_F12: 123,
+        DOM_VK_F13: 124,
+        DOM_VK_F14: 125,
+        DOM_VK_F15: 126,
+        DOM_VK_F16: 127,
+        DOM_VK_F17: 128,
+        DOM_VK_F18: 129,
+        DOM_VK_F19: 130,
+        DOM_VK_F20: 131,
+        DOM_VK_F21: 132,
+        DOM_VK_F22: 133,
+        DOM_VK_F23: 134,
+        DOM_VK_F24: 135,
+        DOM_VK_NUM_LOCK: 144,
+        DOM_VK_SCROLL_LOCK: 145,
+        DOM_VK_COMMA: 188,
+        DOM_VK_PERIOD: 190,
+        DOM_VK_SLASH: 191,
+        DOM_VK_BACK_QUOTE: 192,
+        DOM_VK_OPEN_BRACKET: 219,
+        DOM_VK_BACK_SLASH: 220,
+        DOM_VK_CLOSE_BRACKET: 221,
+        DOM_VK_QUOTE: 222,
+        DOM_VK_META: 224
+    };
+}
+
+/**
  * Browser detection. Used only for places where feature detection doesn't make
  * sense.
  */
@@ -1289,7 +1422,10 @@ function normalizeCommandKeys(callback, ev, keyCode) {
         keyCode = 0;
     }
 
-    if (hashId & 8 && (keyCode == 91 || keyCode == 93)) {
+    // It seems likely that 91 is the left windows key, but this is not
+    // defined anywhere that is referenceable, so it's not in KeyEvent
+    if (hashId & 8 &&
+            (keyCode == 91 || keyCode == event.KeyEvent.DOM_VK_CONTEXT_MENU)) {
         keyCode = 0;
     }
 
@@ -2937,76 +3073,15 @@ canon.Parameter = Parameter;
  * This function is exposed to the outside world (via gcli/index). It is
  * documented in docs/index.md for all the world to see.
  * @param commandSpec The command and its metadata.
- * @param name When commands are added via addCommands() their names are
- * exposed only via the properties to which the functions are attached. This
- * allows addCommands() to inform the command what its name is.
  */
-canon.addCommand = function addCommand(commandSpec, name) {
-    if (typeof commandSpec === 'function') {
-        if (!commandSpec.metadata) {
-            throw new Error('Commands registered as functions need metdata');
-        }
-
-        if (!commandSpec.metadata.name) {
-            if (!name) {
-                throw new Error('All registered commands must have a name');
-            }
-            else {
-                commandSpec.metadata.name = name;
-            }
-        }
-
-        commandSpec.metadata.exec = commandSpec;
-        commandSpec.metadata.functional = true;
-        commandSpec = commandSpec.metadata;
-    }
-    else {
-        commandSpec.functional = false;
-        commandSpec.name = name || commandSpec.name;
-    }
+canon.addCommand = function addCommand(commandSpec) {
+    commandSpec.functional = false;
 
     commands[commandSpec.name] = new Command(commandSpec);
     commandNames.push(commandSpec.name);
     commandNames.sort();
 
     canon.canonChange();
-};
-
-/**
- * Take a command object and register all the commands that it contains.
- * This function is exposed to the outside world (via gcli/index). It is
- * documented in docs/index.md for all the world to see.
- * @param context The command object which contains the commands to be
- * registered.
- * @param name The name of the base command (for a command set)
- */
-canon.addCommands = function addCommands(context, name) {
-    if (name) {
-        if (!context.metadata) {
-            throw new Error('name supplied to addCommands (implies command ' +
-                'set) but missing metatdata on context');
-        }
-
-        canon.addCommand(context.metadata, name);
-    }
-
-    Object.keys(context).forEach(function(key) {
-        var command = context[key];
-        var commandName = name ? name + ' ' + key : key;
-        if (typeof command === 'function') {
-            command.metadata = command.metadata || context[key + 'Metadata'];
-            if (!command.metadata) {
-                return;
-            }
-            command.metadata.context = command.metadata.context || context;
-            canon.addCommand(command, commandName);
-        }
-        else {
-            if (key !== 'metadata') {
-                canon.addCommand(command, commandName);
-            }
-        }
-    });
 };
 
 /**
@@ -3023,26 +3098,6 @@ canon.removeCommand = function removeCommand(commandOrName) {
     });
 
     canon.canonChange();
-};
-
-/**
- * Remove a group of commands. The opposite of #addCommands().
- * @param context The command object which contains the commands to be
- * registered.
- * @param name The name of the base command (for a command set)
- */
-canon.removeCommands = function removeCommands(context, name) {
-    Object.keys(context).forEach(function(key) {
-        var command = context[key];
-        if (typeof command !== 'function' || !command.metadata) {
-            return;
-        }
-        canon.removeCommand(command.metadata);
-    });
-
-    if (name) {
-        canon.removeCommand(context.metadata, name);
-    }
 };
 
 /**
@@ -5207,7 +5262,7 @@ function Popup(options) {
         right.style.right = '0';
 
         // What height should the output panel be, by default?
-        this._outputHeight = 300;
+        this._outputHeight = options.outputHeight || 300;
     }
     else if (this.style === Popup.style.singleColumnVariable) {
         this._outputHeight = -1;
@@ -5407,6 +5462,7 @@ var cliView = exports;
 var console = require('gcli/util').console;
 var event = require('gcli/util').event;
 var dom = require('gcli/util').dom;
+var KeyEvent = event.KeyEvent;
 
 var Status = require('gcli/types').Status;
 var Templater = require('gcli/ui/domtemplate').Templater;
@@ -5481,6 +5537,9 @@ function Inputter(options) {
     this.requ.inputChange.add(this.onInputChange, this);
 }
 
+/**
+ * Handler for the Requisition.inputChange event
+ */
 Inputter.prototype.onInputChange = function() {
     this.element.value = this.requ.toString();
     this.completer.update();
@@ -5525,10 +5584,10 @@ Inputter.prototype.appendAfter = function(element) {
  * are not handled by the browser
  */
 Inputter.prototype.onCommandKey = function(ev, hashId, keyCode) {
-    if (keyCode === 38 /*UP*/ || keyCode === 40 /*DOWN*/) {
+    if (keyCode === KeyEvent.DOM_VK_UP || keyCode === KeyEvent.DOM_VK_DOWN) {
         event.stopEvent(ev);
     }
-    if (keyCode === 9 /*TAB*/) {
+    if (keyCode === KeyEvent.DOM_VK_TAB) {
         this.lastTabDownAt = 0;
         if (!ev.shiftKey) {
             event.stopEvent(ev);
@@ -5560,7 +5619,7 @@ Inputter.prototype.setInput = function(str) {
  */
 Inputter.prototype.onKeyUp = function(ev) {
     // RETURN does a special exec/highlight thing
-    if (ev.keyCode === 13 /*RETURN*/) {
+    if (ev.keyCode === KeyEvent.DOM_VK_RETURN) {
         var worst = this.requ.getStatus();
         // Deny RETURN unless the command might work
         if (worst === Status.VALID) {
@@ -5574,7 +5633,7 @@ Inputter.prototype.onKeyUp = function(ev) {
 
         this.update();
     }
-    else if (ev.keyCode === 9 /*TAB*/ && !ev.shiftKey) {
+    else if (ev.keyCode === KeyEvent.DOM_VK_TAB && !ev.shiftKey) {
         // If the TAB keypress took the cursor from another field to this one,
         // then they get the keydown/keypress, and we get the keyup. In this
         // case we don't want to do any completion.
@@ -5587,7 +5646,7 @@ Inputter.prototype.onKeyUp = function(ev) {
         this.lastTabDownAt = 0;
         this._scrollingThroughHistory = false;
     }
-    else if (ev.keyCode === 38 /*UP*/) {
+    else if (ev.keyCode === KeyEvent.DOM_VK_UP) {
         if (this.element.value === '' || this._scrollingThroughHistory) {
             this._scrollingThroughHistory = true;
             this.element.value = this.history.backward();
@@ -5599,7 +5658,7 @@ Inputter.prototype.onKeyUp = function(ev) {
             this.getCurrentAssignment().increment();
         }
     }
-    else if (ev.keyCode === 40 /*DOWN*/) {
+    else if (ev.keyCode === KeyEvent.DOM_VK_DOWN) {
         if (this.element.value === '' || this._scrollingThroughHistory) {
             this._scrollingThroughHistory = true;
             this.element.value = this.history.forward();
@@ -7445,9 +7504,8 @@ var evalCommandSpec = {
 /**
  * Arm window.alert with metadata
  */
-window.alert.metadata = {
+var alert = {
     name: 'alert',
-    context: window,
     description: 'Show an alert dialog',
     params: [
         {
@@ -7455,13 +7513,16 @@ window.alert.metadata = {
             type: 'string',
             description: 'Message to display'
         }
-    ]
+    ],
+    exec: function(args, env) {
+        window.alert(args.message);
+    }
 };
 
 /**
  * 'echo' command
  */
-echo.metadata = {
+var echo = {
     name: 'echo',
     description: 'Show a message',
     params: [
@@ -7471,11 +7532,11 @@ echo.metadata = {
             description: 'Message to output'
         }
     ],
-    returnType: 'string'
+    returnType: 'string',
+    exec: function echo(message) {
+        return message;
+    }
 };
-function echo(message) {
-    return message;
-}
 
 
 var gcli = require('gcli/index');
@@ -7483,13 +7544,13 @@ var gcli = require('gcli/index');
 exports.startup = function() {
     gcli.addCommand(evalCommandSpec);
     gcli.addCommand(echo);
-    gcli.addCommand(window.alert);
+    gcli.addCommand(alert);
 };
 
 exports.shutdown = function() {
     gcli.removeCommand(evalCommandSpec);
     gcli.removeCommand(echo);
-    gcli.removeCommand(window.alert);
+    gcli.removeCommand(alert);
 };
 
 
@@ -7746,93 +7807,110 @@ var gcli = require('gcli/index');
 
 
 /**
- * 'gcli' command
+ * Parent Command
  */
-var example = {
-    metadata: {
-        description: 'Commands for playing with the UI'
-    },
+var gcliTop = {
+    name: 'gcli',
+    description: 'Commands for playing with the UI'
+};
 
-    onestring: {
-        description: 'Single string parameter',
-        params: [
-            { name: 'text', type: 'string', description: 'Demo param' }
-        ],
-        returnType: 'html',
-        exec: function(text) {
-            return motivate() + 'text=' + text;
-        }
-    },
 
-    twostrings: {
-        description: '2 string parameters',
-        params: [
-            { name: 'text1', type: 'string', description: 'First param' },
-            { name: 'text2', type: 'string', description: 'Second param' }
-        ],
-        returnType: 'html',
-        exec: function(text1, text2) {
-            return motivate() +
-                'text1=\'' + text1 + '\', text2=\'' + text2 + '\'';
-        }
-    },
-
-    twonums: {
-        description: '2 numeric parameters',
-        params: [
-            {
-              name: 'p1',
-              type: { name: 'number', min: 0, max: 10 },
-              description: 'First param'
-            },
-            {
-              name: 'p2',
-              type: { name: 'number', min: -20, max: 42, step: 5 },
-              description: 'Second param'
-            }
-        ],
-        returnType: 'html',
-        exec: function(p1, p2) {
-            return motivate() +
-                'p1=' + p1 + ', p2=' + p2;
-        }
-    },
-
-    selboolnum: {
-        description: 'A selection, a boolean and a number',
-        params: [
-            {
-                name: 'p1',
-                type: {
-                    name: 'selection',
-                    lookup: {
-                        'firefox': 4,
-                        'chrome': 12,
-                        'ie': 9,
-                        'opera': 10,
-                        'safari': 5
-                    }
-                },
-                description: 'First param'
-            },
-            {
-              name: 'p2',
-              type: { name: 'number', min: -4, max: 42, step: 5 },
-              description: 'Third param'
-            },
-            {
-                name: 'p3',
-                type: 'boolean',
-                description: 'Second param'
-            }
-        ],
-        returnType: 'html',
-        exec: function(p1, p2, p3) {
-            return motivate() +
-                'p1=' + p1 + ', p2=' + p2 + ', p3=' + p3;
-        }
+/**
+ * 'gcli onestring' command
+ */
+var gcliOnestring = {
+    name: 'gcli onestring',
+    description: 'Single string parameter',
+    params: [
+        { name: 'text', type: 'string', description: 'Demo param' }
+    ],
+    returnType: 'html',
+    exec: function(text) {
+        return motivate() + 'text=' + text;
     }
 };
+
+/**
+ * 'gcli twostrings' command
+ */
+var gcliTwostrings = {
+    name: 'gcli twostrings',
+    description: '2 string parameters',
+    params: [
+        { name: 'p1', type: 'string', description: 'First param' },
+        { name: 'p2', type: 'string', description: 'Second param' }
+    ],
+    returnType: 'html',
+    exec: function(args, env) {
+        return motivate() +
+            'p1=\'' + args.p1 + '\', p2=\'' + args.p2 + '\'';
+    }
+};
+
+/**
+ * 'gcli twonums' command
+ */
+var gcliTwonums = {
+    name: 'gcli twonums',
+    description: '2 numeric parameters',
+    params: [
+        {
+          name: 'p1',
+          type: { name: 'number', min: 0, max: 10 },
+          description: 'First param'
+        },
+        {
+          name: 'p2',
+          type: { name: 'number', min: -20, max: 42, step: 5 },
+          description: 'Second param'
+        }
+    ],
+    returnType: 'html',
+    exec: function(args, env) {
+        return motivate() +
+            'p1=' + args.p1 + ', p2=' + args.p2;
+    }
+};
+
+/**
+ * 'gcli selboolnum' command
+ */
+var gcliSelboolnum = {
+    name: 'gcli selboolnum',
+    description: 'A selection, a boolean and a number',
+    params: [
+        {
+            name: 'p1',
+            type: {
+                name: 'selection',
+                lookup: {
+                    'firefox': 4,
+                    'chrome': 12,
+                    'ie': 9,
+                    'opera': 10,
+                    'safari': 5
+                }
+            },
+            description: 'First param'
+        },
+        {
+          name: 'p2',
+          type: { name: 'number', min: -4, max: 42, step: 5 },
+          description: 'Third param'
+        },
+        {
+            name: 'p3',
+            type: 'boolean',
+            description: 'Second param'
+        }
+    ],
+    returnType: 'html',
+    exec: function(args, env) {
+        return motivate() +
+            'p1=' + args.p1 + ', p2=' + args.p2 + ', p3=' + args.p3;
+    }
+};
+
 
 var messages = [
     'GCLI wants you to trick it out in some way.</br>',
@@ -7847,11 +7925,19 @@ function motivate() {
 
 
 exports.startup = function() {
-    gcli.addCommands(example, 'gcli');
+    gcli.addCommand(gcliTop);
+    gcli.addCommand(gcliOnestring);
+    gcli.addCommand(gcliTwostrings);
+    gcli.addCommand(gcliTwonums);
+    gcli.addCommand(gcliSelboolnum);
 };
 
 exports.shutdown = function() {
-    gcli.removeCommands(example, 'gcli');
+    gcli.removeCommand(gcliTop);
+    gcli.removeCommand(gcliOnestring);
+    gcli.removeCommand(gcliTwostrings);
+    gcli.removeCommand(gcliTwonums);
+    gcli.removeCommand(gcliSelboolnum);
 };
 
 
@@ -7932,202 +8018,211 @@ existingFile.parse = function(arg) {
 
 existingFile.name = 'existingFile';
 
+
 /**
- * 'git' command
+ * Parent 'git' command
  */
 var git = {
-    metadata: {
-        description: 'Distributed revision control in a browser',
-        manual: 'Git is a fast, scalable, distributed revision control system' +
-            ' with an unusually rich command set that provides both' +
-            ' high-level operations and full access to internals.'
-    },
+    name: 'git',
+    description: 'Distributed revision control in a browser',
+    manual: 'Git is a fast, scalable, distributed revision control system' +
+        ' with an unusually rich command set that provides both' +
+        ' high-level operations and full access to internals.'
+};
 
-    add: {
-        description: 'Add file contents to the index',
-        manual: 'This command updates the index using the current content found in the working tree, to prepare the content staged for the next commit. It typically adds the current content of existing paths as a whole, but with some options it can also be used to add content with only part of the changes made to the working tree files applied, or remove paths that do not exist in the working tree anymore.' +
-                '<br/>The "index" holds a snapshot of the content of the working tree, and it is this snapshot that is taken as the contents of the next commit. Thus after making any changes to the working directory, and before running the commit command, you must use the add command to add any new or modified files to the index.' +
-                '<br/>This command can be performed multiple times before a commit. It only adds the content of the specified file(s) at the time the add command is run; if you want subsequent changes included in the next commit, then you must run git add again to add the new content to the index.' +
-                '<br/>The git status command can be used to obtain a summary of which files have changes that are staged for the next commit.' +
-                '<br/>The git add command will not add ignored files by default. If any ignored files were explicitly specified on the command line, git add will fail with a list of ignored files. Ignored files reached by directory recursion or filename globbing performed by Git (quote your globs before the shell) will be silently ignored. The git add command can be used to add ignored files with the -f (force) option.' +
-                '<br/>Please see git-commit(1) for alternative ways to add content to a commit.',
-        params: [
-            {
-                name: 'filepattern',
-                type: { name: 'array', subtype: 'string' },
-                description: 'Files to add',
-                manual: 'Fileglobs (e.g.  *.c) can be given to add all matching files. Also a leading directory name (e.g.  dir to add dir/file1 and dir/file2) can be given to add all files in the directory, recursively.'
-            },
-            {
-                group: 'Common Options',
-                params: [
-                    {
-                        name: 'all',
-                        short: 'A',
-                        type: 'boolean',
-                        description: 'All (unignored) files',
-                        manual: 'That means that it will find new files as well as staging modified content and removing files that are no longer in the working tree.'
-                    },
-                    {
-                        name: 'verbose',
-                        short: 'v',
-                        type: 'boolean',
-                        description: 'Verbose output'
-                    },
-                    {
-                        name: 'dry-run',
-                        short: 'n',
-                        type: 'boolean',
-                        description: 'Dry run',
-                        manual: 'Don\'t actually add the file(s), just show if they exist and/or will be ignored.'
-                    },
-                    {
-                        name: 'force',
-                        short: 'f',
-                        type: 'boolean',
-                        description: 'Allow ignored files',
-                        manual: 'Allow adding otherwise ignored files.'
-                    }
-                ]
-            },
-            {
-                group: 'Advanced Options',
-                params: [
-                    {
-                        name: 'update',
-                        short: 'u',
-                        type: 'boolean',
-                        description: 'Match only files already added',
-                        manual: 'That means that it will never stage new files, but that it will stage modified new contents of tracked files and that it will remove files from the index if the corresponding files in the working tree have been removed.<br/>If no <filepattern> is given, default to "."; in other words, update all tracked files in the current directory and its subdirectories.'
-                    },
-                    {
-                        name: 'refresh',
-                        type: 'boolean',
-                        description: 'Refresh only (don\'t add)',
-                        manual: 'Don\'t add the file(s), but only refresh their stat() information in the index.'
-                    },
-                    {
-                        name: 'ignore-errors',
-                        type: 'boolean',
-                        description: 'Ignore errors',
-                        manual: 'If some files could not be added because of errors indexing them, do not abort the operation, but continue adding the others. The command shall still exit with non-zero status.'
-                    },
-                    {
-                        name: 'ignore-missing',
-                        type: 'boolean',
-                        description: 'Ignore missing',
-                        manual: 'By using this option the user can check if any of the given files would be ignored, no matter if they are already present in the work tree or not. This option can only be used together with --dry-run.'
-                    }
-                ]
-            }
-        ],
-        exec: function(args, env) {
-            return "This is only a demo of UI generation.";
+/**
+ * 'git add' command
+ */
+var gitAdd = {
+    name: 'git add',
+    description: 'Add file contents to the index',
+    manual: 'This command updates the index using the current content found in the working tree, to prepare the content staged for the next commit. It typically adds the current content of existing paths as a whole, but with some options it can also be used to add content with only part of the changes made to the working tree files applied, or remove paths that do not exist in the working tree anymore.' +
+            '<br/>The "index" holds a snapshot of the content of the working tree, and it is this snapshot that is taken as the contents of the next commit. Thus after making any changes to the working directory, and before running the commit command, you must use the add command to add any new or modified files to the index.' +
+            '<br/>This command can be performed multiple times before a commit. It only adds the content of the specified file(s) at the time the add command is run; if you want subsequent changes included in the next commit, then you must run git add again to add the new content to the index.' +
+            '<br/>The git status command can be used to obtain a summary of which files have changes that are staged for the next commit.' +
+            '<br/>The git add command will not add ignored files by default. If any ignored files were explicitly specified on the command line, git add will fail with a list of ignored files. Ignored files reached by directory recursion or filename globbing performed by Git (quote your globs before the shell) will be silently ignored. The git add command can be used to add ignored files with the -f (force) option.' +
+            '<br/>Please see git-commit(1) for alternative ways to add content to a commit.',
+    params: [
+        {
+            name: 'filepattern',
+            type: { name: 'array', subtype: 'string' },
+            description: 'Files to add',
+            manual: 'Fileglobs (e.g.  *.c) can be given to add all matching files. Also a leading directory name (e.g.  dir to add dir/file1 and dir/file2) can be given to add all files in the directory, recursively.'
+        },
+        {
+            group: 'Common Options',
+            params: [
+                {
+                    name: 'all',
+                    short: 'A',
+                    type: 'boolean',
+                    description: 'All (unignored) files',
+                    manual: 'That means that it will find new files as well as staging modified content and removing files that are no longer in the working tree.'
+                },
+                {
+                    name: 'verbose',
+                    short: 'v',
+                    type: 'boolean',
+                    description: 'Verbose output'
+                },
+                {
+                    name: 'dry-run',
+                    short: 'n',
+                    type: 'boolean',
+                    description: 'Dry run',
+                    manual: 'Don\'t actually add the file(s), just show if they exist and/or will be ignored.'
+                },
+                {
+                    name: 'force',
+                    short: 'f',
+                    type: 'boolean',
+                    description: 'Allow ignored files',
+                    manual: 'Allow adding otherwise ignored files.'
+                }
+            ]
+        },
+        {
+            group: 'Advanced Options',
+            params: [
+                {
+                    name: 'update',
+                    short: 'u',
+                    type: 'boolean',
+                    description: 'Match only files already added',
+                    manual: 'That means that it will never stage new files, but that it will stage modified new contents of tracked files and that it will remove files from the index if the corresponding files in the working tree have been removed.<br/>If no <filepattern> is given, default to "."; in other words, update all tracked files in the current directory and its subdirectories.'
+                },
+                {
+                    name: 'refresh',
+                    type: 'boolean',
+                    description: 'Refresh only (don\'t add)',
+                    manual: 'Don\'t add the file(s), but only refresh their stat() information in the index.'
+                },
+                {
+                    name: 'ignore-errors',
+                    type: 'boolean',
+                    description: 'Ignore errors',
+                    manual: 'If some files could not be added because of errors indexing them, do not abort the operation, but continue adding the others. The command shall still exit with non-zero status.'
+                },
+                {
+                    name: 'ignore-missing',
+                    type: 'boolean',
+                    description: 'Ignore missing',
+                    manual: 'By using this option the user can check if any of the given files would be ignored, no matter if they are already present in the work tree or not. This option can only be used together with --dry-run.'
+                }
+            ]
         }
-    },
+    ],
+    exec: function(args, env) {
+        return "This is only a demo of UI generation.";
+    }
+};
 
-    commit: {
-        description: 'Record changes to the repository',
-        manual: 'Stores the current contents of the index in a new commit along with a log message from the user describing the changes.' +
-                '<br/>The content to be added can be specified in several ways:' +
-                '<br/>1. by using git add to incrementally "add" changes to the index before using the commit command (Note: even modified files must be "added");' +
-                '<br/>2. by using git rm to remove files from the working tree and the index, again before using the commit command;' +
-                '<br/>3. by listing files as arguments to the commit command, in which case the commit will ignore changes staged in the index, and instead record the current content of the listed files (which must already be known to git);' +
-                '<br/>4. by using the -a switch with the commit command to automatically "add" changes from all known files (i.e. all files that are already listed in the index) and to automatically "rm" files in the index that have been removed from the working tree, and then perform the actual commit;' +
-                '<br/>5. by using the --interactive switch with the commit command to decide one by one which files should be part of the commit, before finalizing the operation. Currently, this is done by invoking git add --interactive.' +
-                '<br/>The --dry-run option can be used to obtain a summary of what is included by any of the above for the next commit by giving the same set of parameters (options and paths).' +
-                '<br/>If you make a commit and then find a mistake immediately after that, you can recover from it with git reset.',
-        params: [
-            {
-                name: 'file',
-                short: 'F',
-                type: { name: 'array', subtype: 'existingFile' },
-                description: 'Files to commit',
-                manual: 'When files are given on the command line, the command commits the contents of the named files, without recording the changes already staged. The contents of these files are also staged for the next commit on top of what have been staged before.'
-            },
-            {
-                group: 'Common Options',
-                params: [
-                    {
-                        name: 'all',
-                        short: 'a',
-                        type: 'boolean',
-                        description: 'All (unignored) files',
-                        manual: 'Tell the command to automatically stage files that have been modified and deleted, but new files you have not told git about are not affected.'
+
+/**
+ * 'git commit' command
+ */
+var gitCommit = {
+    name: 'git commit',
+    description: 'Record changes to the repository',
+    manual: 'Stores the current contents of the index in a new commit along with a log message from the user describing the changes.' +
+            '<br/>The content to be added can be specified in several ways:' +
+            '<br/>1. by using git add to incrementally "add" changes to the index before using the commit command (Note: even modified files must be "added");' +
+            '<br/>2. by using git rm to remove files from the working tree and the index, again before using the commit command;' +
+            '<br/>3. by listing files as arguments to the commit command, in which case the commit will ignore changes staged in the index, and instead record the current content of the listed files (which must already be known to git);' +
+            '<br/>4. by using the -a switch with the commit command to automatically "add" changes from all known files (i.e. all files that are already listed in the index) and to automatically "rm" files in the index that have been removed from the working tree, and then perform the actual commit;' +
+            '<br/>5. by using the --interactive switch with the commit command to decide one by one which files should be part of the commit, before finalizing the operation. Currently, this is done by invoking git add --interactive.' +
+            '<br/>The --dry-run option can be used to obtain a summary of what is included by any of the above for the next commit by giving the same set of parameters (options and paths).' +
+            '<br/>If you make a commit and then find a mistake immediately after that, you can recover from it with git reset.',
+    params: [
+        {
+            name: 'file',
+            short: 'F',
+            type: { name: 'array', subtype: 'existingFile' },
+            description: 'Files to commit',
+            manual: 'When files are given on the command line, the command commits the contents of the named files, without recording the changes already staged. The contents of these files are also staged for the next commit on top of what have been staged before.'
+        },
+        {
+            group: 'Common Options',
+            params: [
+                {
+                    name: 'all',
+                    short: 'a',
+                    type: 'boolean',
+                    description: 'All (unignored) files',
+                    manual: 'Tell the command to automatically stage files that have been modified and deleted, but new files you have not told git about are not affected.'
+                },
+                {
+                    name: 'message',
+                    short: 'm',
+                    type: 'string',
+                    description: 'Commit message',
+                    manual: 'Use the given message as the commit message.'
+                },
+                {
+                    name: 'signoff',
+                    short: 's',
+                    type: 'string',
+                    description: 'Signed off by',
+                    manual: 'Add Signed-off-by line by the committer at the end of the commit log message.'
+                }
+            ]
+        },
+        {
+            group: 'Advanced Options',
+            params: [
+                {
+                    name: 'author',
+                    type: 'string',
+                    description: 'Override the author',
+                    manual: 'Specify an explicit author using the standard A U Thor <author@example.com[1]> format. Otherwise <author> is assumed to be a pattern and is used to search for an existing commit by that author (i.e. rev-list --all -i --author=<author>); the commit author is then copied from the first such commit found.'
+                },
+                {
+                    name: 'date',
+                    type: 'string', // Make this of date type
+                    description: 'Override the date',
+                    manual: 'Override the author date used in the commit.'
+                },
+                {
+                    name: 'amend',
+                    type: 'boolean',
+                    description: 'Amend tip',
+                    manual: 'Used to amend the tip of the current branch. Prepare the tree object you would want to replace the latest commit as usual (this includes the usual -i/-o and explicit paths), and the commit log editor is seeded with the commit message from the tip of the current branch. The commit you create replaces the current tip -- if it was a merge, it will have the parents of the current tip as parents -- so the current top commit is discarded.'
+                },
+                {
+                    name: 'verbose',
+                    short: 'v',
+                    type: 'boolean',
+                    description: 'Verbose',
+                    manual: 'Show unified diff between the HEAD commit and what would be committed at the bottom of the commit message template. Note that this diff output doesn\'t have its lines prefixed with #.'
+                },
+                {
+                    name: 'quiet',
+                    short: 'q',
+                    type: 'boolean',
+                    description: 'Quiet',
+                    manual: 'Suppress commit summary message.'
+                },
+                {
+                    name: 'dry-run',
+                    type: 'boolean',
+                    description: 'Dry run',
+                    manual: 'Do not create a commit, but show a list of paths that are to be committed, paths with local changes that will be left uncommitted and paths that are untracked.'
+                },
+                {
+                    name: 'untracked-files',
+                    short: 'u',
+                    type: {
+                        name: 'selection',
+                        data: [ 'no', 'normal', 'all' ]
                     },
-                    {
-                        name: 'message',
-                        short: 'm',
-                        type: 'string',
-                        description: 'Commit message',
-                        manual: 'Use the given message as the commit message.'
-                    },
-                    {
-                        name: 'signoff',
-                        short: 's',
-                        type: 'string',
-                        description: 'Signed off by',
-                        manual: 'Add Signed-off-by line by the committer at the end of the commit log message.'
-                    }
-                ]
-            },
-            {
-                group: 'Advanced Options',
-                params: [
-                    {
-                        name: 'author',
-                        type: 'string',
-                        description: 'Override the author',
-                        manual: 'Specify an explicit author using the standard A U Thor <author@example.com[1]> format. Otherwise <author> is assumed to be a pattern and is used to search for an existing commit by that author (i.e. rev-list --all -i --author=<author>); the commit author is then copied from the first such commit found.'
-                    },
-                    {
-                        name: 'date',
-                        type: 'string', // Make this of date type
-                        description: 'Override the date',
-                        manual: 'Override the author date used in the commit.'
-                    },
-                    {
-                        name: 'amend',
-                        type: 'boolean',
-                        description: 'Amend tip',
-                        manual: 'Used to amend the tip of the current branch. Prepare the tree object you would want to replace the latest commit as usual (this includes the usual -i/-o and explicit paths), and the commit log editor is seeded with the commit message from the tip of the current branch. The commit you create replaces the current tip -- if it was a merge, it will have the parents of the current tip as parents -- so the current top commit is discarded.'
-                    },
-                    {
-                        name: 'verbose',
-                        short: 'v',
-                        type: 'boolean',
-                        description: 'Verbose',
-                        manual: 'Show unified diff between the HEAD commit and what would be committed at the bottom of the commit message template. Note that this diff output doesn\'t have its lines prefixed with #.'
-                    },
-                    {
-                        name: 'quiet',
-                        short: 'q',
-                        type: 'boolean',
-                        description: 'Quiet',
-                        manual: 'Suppress commit summary message.'
-                    },
-                    {
-                        name: 'dry-run',
-                        type: 'boolean',
-                        description: 'Dry run',
-                        manual: 'Do not create a commit, but show a list of paths that are to be committed, paths with local changes that will be left uncommitted and paths that are untracked.'
-                    },
-                    {
-                        name: 'untracked-files',
-                        short: 'u',
-                        type: {
-                            name: 'selection',
-                            data: [ 'no', 'normal', 'all' ]
-                        },
-                        description: 'Show untracked files',
-                        manual: 'The mode parameter is optional, and is used to specify the handling of untracked files. The possible options are: <em>no</em> - Show no untracked files.<br/><em>normal</em> Shows untracked files and directories<br/><em>all</em> Also shows individual files in untracked directories.'
-                    }
-                ]
-            },
-        ],
-        exec: function(args, env) {
-            return "This is only a demo of UI generation.";
-        }
+                    description: 'Show untracked files',
+                    manual: 'The mode parameter is optional, and is used to specify the handling of untracked files. The possible options are: <em>no</em> - Show no untracked files.<br/><em>normal</em> Shows untracked files and directories<br/><em>all</em> Also shows individual files in untracked directories.'
+                }
+            ]
+        },
+    ],
+    exec: function(args, env) {
+        return "This is only a demo of UI generation.";
     }
 };
 
@@ -8135,7 +8230,7 @@ var git = {
 /**
  * 'vi' command
  */
-vi.metadata = {
+var vi = {
     name: 'vi',
     description: 'Edit a file',
     params: [
@@ -8145,14 +8240,14 @@ vi.metadata = {
             description: 'The file to edit'
         }
     ],
-    returnType: 'html'
+    returnType: 'html',
+    exec: function(args, env) {
+        return '' +
+            '<textarea rows=3 cols=80 style="font-family:monospace">' +
+            'One day it could be very useful to have an editor embedded in GCLI' +
+            '</textarea>';
+    }
 };
-function vi(args, env) {
-    return '' +
-        '<textarea rows=3 cols=80 style="font-family:monospace">' +
-        'One day it could be very useful to have an editor embedded in GCLI' +
-        '</textarea>';
-}
 
 
 var canon = require('gcli/canon');
@@ -8160,15 +8255,23 @@ var canon = require('gcli/canon');
 experimental.startup = function(data, reason) {
     types.registerType(commitObject);
     types.registerType(existingFile);
-    canon.addCommands(git, 'git');
+
+    canon.addCommand(git);
+    canon.addCommand(gitAdd);
+    canon.addCommand(gitCommit);
+
     canon.addCommand(vi);
 };
 
 experimental.shutdown = function(data, reason) {
-    canon.removeCommands('git');
+    canon.removeCommand(vi);
+
+    canon.removeCommand(git);
+    canon.removeCommand(gitAdd);
+    canon.removeCommand(gitCommit);
+
     types.unregisterType(commitObject);
     types.unregisterType(existingFile);
-    canon.removeCommand(vi);
 };
 
 
@@ -9229,45 +9332,50 @@ commands.tsv = {
     exec: function(args, env) { }
 };
 
-commands.tsr = function() { };
-commands.tsr.metadata = {
+commands.tsr = {
     name: 'tsr',
-    params: [ { name: 'text', type: 'string' } ]
+    params: [ { name: 'text', type: 'string' } ],
+    exec: function(args, env) { }
 };
 
-commands.tsu = function() { };
-commands.tsu.metadata = {
+commands.tsu = {
     name: 'tsu',
-    params: [ { name: 'num', type: 'number' } ]
+    params: [ { name: 'num', type: 'number' } ],
+    exec: function(args, env) { }
 };
 
 commands.tsn = {
-    metadata: { },
+    name: 'tsn'
+};
 
-    dif: {
-        params: [ { name: 'text', type: 'string' } ],
-        exec: function(text) { }
-    },
+commands.tsnDif = {
+    name: 'tsn dif',
+    params: [ { name: 'text', type: 'string' } ],
+    exec: function(text) { }
+};
 
-    ext: {
-        params: [ { name: 'text', type: 'string' } ],
-        exec: function(text) { }
-    },
+commands.tsnExt = {
+    name: 'tsn ext',
+    params: [ { name: 'text', type: 'string' } ],
+    exec: function(text) { }
+};
 
-    exte: {
-        params: [ { name: 'text', type: 'string' } ],
-        exec: function(text) { }
-    },
+commands.tsnExte = {
+    name: 'tsn exte',
+    params: [ { name: 'text', type: 'string' } ],
+    exec: function(text) { }
+};
 
-    exten: {
-        params: [ { name: 'text', type: 'string' } ],
-        exec: function(text) { }
-    },
+commands.tsnExten = {
+    name: 'tsn exten',
+    params: [ { name: 'text', type: 'string' } ],
+    exec: function(text) { }
+};
 
-    extend: {
-        params: [ { name: 'text', type: 'string' } ],
-        exec: function(text) { }
-    }
+commands.tsnExtend = {
+    name: 'tsn extend',
+    params: [ { name: 'text', type: 'string' } ],
+    exec: function(text) { }
 };
 
 commands.tselarr = {
@@ -9301,7 +9409,12 @@ commands.setup = function() {
     canon.addCommand(commands.tsv);
     canon.addCommand(commands.tsr);
     canon.addCommand(commands.tsu);
-    canon.addCommands(commands.tsn, 'tsn');
+    canon.addCommand(commands.tsn);
+    canon.addCommand(commands.tsnDif);
+    canon.addCommand(commands.tsnExt);
+    canon.addCommand(commands.tsnExte);
+    canon.addCommand(commands.tsnExten);
+    canon.addCommand(commands.tsnExtend);
     canon.addCommand(commands.tselarr);
     canon.addCommand(commands.tsm);
 };
@@ -9310,7 +9423,12 @@ commands.shutdown = function() {
     canon.removeCommand(commands.tsv);
     canon.removeCommand(commands.tsr);
     canon.removeCommand(commands.tsu);
-    canon.removeCommands(commands.tsn, 'tsn');
+    canon.removeCommand(commands.tsn);
+    canon.removeCommand(commands.tsnDif);
+    canon.removeCommand(commands.tsnExt);
+    canon.removeCommand(commands.tsnExte);
+    canon.removeCommand(commands.tsnExten);
+    canon.removeCommand(commands.tsnExtend);
     canon.removeCommand(commands.tselarr);
     canon.removeCommand(commands.tsm);
 
