@@ -706,6 +706,10 @@ The ``args`` object contains the values specified on the params section and
 provided on the command line. In this example it would contain the message for
 display as ``args.message``.
 
+The ``env`` object contains any environment object passed to GCLI at startup.
+The environment is opaque to GCLI, and can be anything to pass some context to
+your commands.
+
 
 ### Returning data
 
