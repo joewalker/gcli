@@ -49,7 +49,7 @@
  * Your changes are likely to be overwritten without warning.
  *
  * The original source for this file is:
- *  https://github.com/mozilla/gcli/build/prefix-gcli.jsm
+ *  https://github.com/mozilla/gcli/
  *
  *******************************************************************************
  *
@@ -539,10 +539,4 @@ var require = define.globalDomain.require.bind(define.globalDomain);
 
 
 ///////////////////////////////////////////////////////////////////////////////
-
-/*
- * The API of interest to people wanting to create GCLI commands is as
- * follows. The implementation of this API is left to bug 659061 and other
- * bugs.
- */
 
