@@ -49,7 +49,7 @@
  * Your changes are likely to be overwritten without warning.
  *
  * The original source for this file is:
- *  https://github.com/mozilla/gcli/build/prefix-gcli.jsm
+ *  https://github.com/mozilla/gcli/
  *
  *******************************************************************************
  *
@@ -540,12 +540,6 @@ var require = define.globalDomain.require.bind(define.globalDomain);
 
 ///////////////////////////////////////////////////////////////////////////////
 
-/*
- * The API of interest to people wanting to create GCLI commands is as
- * follows. The implementation of this API is left to bug 659061 and other
- * bugs.
- */
-
 /* ***** BEGIN LICENSE BLOCK *****
  * Version: MPL 1.1/GPL 2.0/LGPL 2.1
  *
@@ -591,6 +585,10 @@ var canon = require('gcli/canon');
 
 gcli.addCommand = createStartupChecker(canon.addCommand);
 gcli.removeCommand = createStartupChecker(canon.removeCommand);
+
+// Expose the command output manager so that GCLI can be integrated with
+// Firefox.
+gcli.commandOutputManager = canon.commandOutputManager;
 
 
 var started = false;
@@ -895,8 +893,6 @@ canon.Parameter = Parameter;
  * @param commandSpec The command and its metadata.
  */
 canon.addCommand = function addCommand(commandSpec) {
-    commandSpec.functional = false;
-
     commands[commandSpec.name] = new Command(commandSpec);
     commandNames.push(commandSpec.name);
     commandNames.sort();
@@ -4462,18 +4458,8 @@ Requisition.prototype.exec = function(input) {
 
     try {
         cachedEnv = this.env;
-        var reply;
 
-        if (command.functional) {
-            var argValues = Object.keys(args).map(function(key) {
-                return args[key];
-            });
-            var context = command.context || command;
-            reply = command.exec.apply(context, argValues);
-        }
-        else {
-            reply = command.exec(args, this.env);
-        }
+        var reply = command.exec(args, this.env);
 
         if (reply != null && reply.isPromise) {
             reply.then(
@@ -6100,8 +6086,10 @@ exports.History = History;
 });///////////////////////////////////////////////////////////////////////////////
 
 /*
- * require GCLI so it can be exported as declared at the start
+ * require GCLI so it can be exported as declared in EXPORTED_SYMBOLS
  * The dependencies specified here should be the same as in Makefile.dryice.js
  */
 var gcli = require("gcli/index");
 gcli.createView = require("gcli/ui/start/firefox");
+gcli._internal = { require: require, define: define, console: console };
+

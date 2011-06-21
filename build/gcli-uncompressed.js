@@ -239,6 +239,10 @@ var canon = require('gcli/canon');
 gcli.addCommand = createStartupChecker(canon.addCommand);
 gcli.removeCommand = createStartupChecker(canon.removeCommand);
 
+// Expose the command output manager so that GCLI can be integrated with
+// Firefox.
+gcli.commandOutputManager = canon.commandOutputManager;
+
 
 var started = false;
 
@@ -542,8 +546,6 @@ canon.Parameter = Parameter;
  * @param commandSpec The command and its metadata.
  */
 canon.addCommand = function addCommand(commandSpec) {
-    commandSpec.functional = false;
-
     commands[commandSpec.name] = new Command(commandSpec);
     commandNames.push(commandSpec.name);
     commandNames.sort();
@@ -4109,18 +4111,8 @@ Requisition.prototype.exec = function(input) {
 
     try {
         cachedEnv = this.env;
-        var reply;
 
-        if (command.functional) {
-            var argValues = Object.keys(args).map(function(key) {
-                return args[key];
-            });
-            var context = command.context || command;
-            reply = command.exec.apply(context, argValues);
-        }
-        else {
-            reply = command.exec(args, this.env);
-        }
+        var reply = command.exec(args, this.env);
 
         if (reply != null && reply.isPromise) {
             reply.then(
