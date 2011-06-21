@@ -335,7 +335,7 @@ This is how to create a basic ``greet`` command:
         }
       ],
       returnType: 'string',
-      exec: function(args, env) {
+      exec: function(args, context) {
         return "Hello, " + args.name;
       }
     });
@@ -367,7 +367,7 @@ defaultValue to the parameter:
         }
       ],
       returnType: 'string',
-      exec: function(args, env) {
+      exec: function(args, context) {
         return "Hello, " + args.name;
       }
     });
@@ -409,7 +409,7 @@ groups.
         }
       ],
       ...,
-      exec: function(args, env) {
+      exec: function(args, context) {
         var output = '';
         if (args.debug) output += 'About to send greeting';
         for (var i = 0; i < args.repeat; i++) {
@@ -484,7 +484,7 @@ Parameters can have a type of ``array``. For example:
         }
       ],
       ...
-      exec: function(args, env) {
+      exec: function(args, context) {
         return "Hello, " + args.names.join(', ') + '.';
       }
     });
@@ -619,13 +619,13 @@ exec function:
     canon.addCommand({
       name: 'tar create',
       description: 'Create a new archive',
-      exec: function(args, env) { ... },
+      exec: function(args, context) { ... },
       ...
     });
     canon.addCommand({
       name: 'tar extract',
       description: 'Extract from an archive',
-      exec: function(args, env) { ... },
+      exec: function(args, context) { ... },
       ...
     });
 
@@ -697,7 +697,7 @@ used).
         }
       ],
       returnType: 'string',
-      exec: function(args, env) {
+      exec: function(args, context) {
         return args.message;
       }
     });
@@ -706,9 +706,29 @@ The ``args`` object contains the values specified on the params section and
 provided on the command line. In this example it would contain the message for
 display as ``args.message``.
 
-The ``env`` object contains any environment object passed to GCLI at startup.
-The environment is opaque to GCLI, and can be anything to pass some context to
-your commands.
+The ``context`` object has the following signature:
+
+    {
+      environment: /* object passed in options.environment to createView() */
+      document: /* object passed in options.document to createView() */
+      createPromise: function() { ... }
+    }
+
+The ``environment`` object is opaque to GCLI. It can be used for providing
+arbitrary data to your commands about their environment. It is most useful
+when more than one command line exists on a page with similar commands in both
+which should act in their own ways.
+An example use for ``environment`` would be a page with several tabs, each
+containing an editor with a command line. Commands executed in those editors
+should apply to the relevant editor.
+The ``environment`` object is passed to GCLI at startup (probably in the
+``createView()`` function).
+
+The ``document`` object is also passed to GCLI at startup. In some environments
+(e.g. embedded in Firefox) there is no global ``document``. This object
+provides a way to create DOM nodes.
+
+``createPromise()`` allows commands to execute asynchronously.
 
 
 ### Returning data
@@ -724,8 +744,8 @@ either a string for use in processing like ``innerHTML``, or a DOM node.
 In the future, JSON will be strongly encouraged as the return type, with some
 formatting functions to convert the JSON to HTML.
 
-Asynchronous output is achieved using a promise created using the top level API
-``gcli.createPromise()``.
+Asynchronous output is achieved using a promise created from the ``context``
+parameter: ``context.createPromise()``.
 
 Some examples of this is practice:
 
@@ -745,12 +765,10 @@ display.
 
     { returnType: "html" }
     ...
-    return document.createElement('div');
+    return context.document.createElement('div');
 
-GCLI will use the returned HTML element as returned. Important: In some
-environments (e.g. embedded in Firefox) there is no global ``document``. We
-will provide an API like ``var doc = gcli.getDocument();`` to get access to
-a source of raw DOM nodes.
+GCLI will use the returned HTML element as returned. See notes on ``context``
+above.
 
     { returnType: "number" }
     ...
@@ -774,7 +792,7 @@ information.
 
     { returnType: "string" }
     ...
-    var promise = gcli.createPromise();
+    var promise = context.createPromise();
     setTimeout(function() {
       promise.resolve("hello");
     }, 500);
