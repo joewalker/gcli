@@ -230,7 +230,7 @@ window.require = define.globalDomain.require.bind(define.globalDomain);
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types', 'gcli/commands/help', 'gcli/cli', 'gcli/promise'], function(require, exports, module) {
+define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types', 'gcli/commands/help', 'gcli/cli'], function(require, exports, module) {
 var gcli = exports;
 
 
@@ -239,6 +239,9 @@ var canon = require('gcli/canon');
 gcli.addCommand = createStartupChecker(canon.addCommand);
 gcli.removeCommand = createStartupChecker(canon.removeCommand);
 
+// Expose the command output manager so that GCLI can be integrated with
+// Firefox.
+gcli.commandOutputManager = canon.commandOutputManager;
 
 var started = false;
 
@@ -251,8 +254,7 @@ function createStartupChecker(func) {
     };
 }
 
-gcli.startup = function(options) {
-    doc = (options && options.document) ? options.document : document;
+gcli.startup = function() {
     started = true;
 
     require('gcli/types').startup();
@@ -261,37 +263,12 @@ gcli.startup = function(options) {
 };
 
 gcli.shutdown = function() {
-    doc = undefined;
     started = false;
 
     require('gcli/cli').shutdown();
     require('gcli/commands/help').shutdown();
     require('gcli/types').shutdown();
 };
-
-
-////////////////////////////////////////////////////////////////////////////////
-// See Bug 665517
-
-var Promise = require('gcli/promise').Promise;
-gcli.createPromise = createStartupChecker(function createPromise() {
-    return new Promise();
-});
-
-// createStartupChecker is not required here because this function is only
-// available from within a command execution.
-gcli.getEnvironment = require('gcli/cli').getEnvironment;
-
-/**
- * Not all environments have easy access to the current document, or we might
- * wish to work in the non-default document.
- */
-gcli.getDocument = function() {
-    return doc;
-};
-
-var doc = undefined;
-
 
 
 });
@@ -542,8 +519,6 @@ canon.Parameter = Parameter;
  * @param commandSpec The command and its metadata.
  */
 canon.addCommand = function addCommand(commandSpec) {
-    commandSpec.functional = false;
-
     commands[commandSpec.name] = new Command(commandSpec);
     commandNames.push(commandSpec.name);
     commandNames.sort();
@@ -3086,7 +3061,7 @@ var helpCommandSpec = {
     ],
     returnType: 'html',
     description: 'Get help on the available commands',
-    exec: function(args, env) {
+    exec: function(args, context) {
         var output = [];
 
         var command = canon.getCommand(args.search);
@@ -3206,13 +3181,14 @@ basic.shutdown = function() {
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
+define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
 
 
 var console = require('gcli/util').console;
 var createEvent = require('gcli/util').createEvent;
 
 var canon = require('gcli/canon');
+var Promise = require('gcli/promise').Promise;
 
 var types = require('gcli/types');
 var Status = require('gcli/types').Status;
@@ -3650,10 +3626,15 @@ UnassignedAssignment.prototype.setUnassigned = function(args) {
  * <li>inputChange: The text to be mirrored in a command line has changed.
  * The event object looks like { newText: X }.
  * </ul>
+ *
+ * @param environment An opaque object passed to commands using ExecutionContext
+ * @param document A DOM Document passed to commands using ExecutionContext in
+ * order to allow creation of DOM nodes.
  * @constructor
  */
-function Requisition(env) {
-    this.env = env;
+function Requisition(environment, document) {
+    this.environment = environment;
+    this.document = document;
 
     // The command that we are about to execute.
     // @see setCommandConversion()
@@ -4045,13 +4026,11 @@ Requisition.prototype.getAssignmentAt = function(cursor) {
 /**
  * Entry point for keyboard accelerators or anything else that wants to execute
  * a command.
- * @param command Either a command, or the name of one
- * @param env Current environment to execute the command in
- * @param args Arguments for the command
- * @param typed The typed command. This indicates that the user has taken some
- * time to craft input, in which case feedback will be given, probably using
- * the output part of the command line. If undefined, we will assume that this
- * is computer generated, and skip altering the output.
+ * @param input Object containing data about how to execute the command.
+ * Properties of input include:
+ * - args: Arguments for the command
+ * - typed: The typed command
+ * - visible: Ensure that the output from this command is visible
  */
 Requisition.prototype.exec = function(input) {
     var command;
@@ -4108,19 +4087,8 @@ Requisition.prototype.exec = function(input) {
     }).bind(this);
 
     try {
-        cachedEnv = this.env;
-        var reply;
-
-        if (command.functional) {
-            var argValues = Object.keys(args).map(function(key) {
-                return args[key];
-            });
-            var context = command.context || command;
-            reply = command.exec.apply(context, argValues);
-        }
-        else {
-            reply = command.exec(args, this.env);
-        }
+        var context = new ExecutionContext(this.environment, this.document);
+        var reply = command.exec(args, context);
 
         if (reply != null && reply.isPromise) {
             reply.then(
@@ -4138,18 +4106,7 @@ Requisition.prototype.exec = function(input) {
         onComplete(ex, true);
     }
 
-    cachedEnv = undefined;
     return true;
-};
-
-/**
- * Hack to allow us to offer an API to get at the environment while we are
- * executing a command, but not at other times.
- */
-var cachedEnv = undefined;
-
-exports.getEnvironment = function() {
-    return cachedEnv;
 };
 
 /**
@@ -4512,6 +4469,19 @@ Requisition.prototype._assign = function(args) {
 exports.Requisition = Requisition;
 
 
+/**
+ * Functions and data related to the execution of a command
+ */
+function ExecutionContext(environment, document) {
+    this.environment = environment;
+    this.document = document;
+}
+
+ExecutionContext.prototype.createPromise = function() {
+    return new Promise();
+};
+
+
 });
 /* ***** BEGIN LICENSE BLOCK *****
  * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -4820,9 +4790,13 @@ var Templater = require('gcli/ui/domtemplate').Templater;
 exports.createView = function(options) {
     options = options || {};
 
+    if (!options.document) {
+        options.document = document;
+    }
+
     // The requisition depends on no UI components
     if (options.requisition == null) {
-        options.requisition = new Requisition(options.env);
+        options.requisition = new Requisition(options.environment, options.document);
     }
     else if (typeof options.requisition === 'function') {
         options.requisition = new options.requisition(options);
@@ -7450,7 +7424,7 @@ var evalCommandSpec = {
     ],
     returnType: 'html',
     description: 'Call \'eval\' on some JavaScript',
-    exec: function(args, env) {
+    exec: function(args, context) {
         var resultPrefix = 'Result for <em>\'' + args.javascript + '\'</em>: ';
         try {
             var result = eval(args.javascript);
@@ -7488,7 +7462,7 @@ var alert = {
             description: 'Message to display'
         }
     ],
-    exec: function(args, env) {
+    exec: function(args, context) {
         window.alert(args.message);
     }
 };
@@ -7578,8 +7552,8 @@ var bugzCommandSpec = {
     name: 'bugz',
     returnType: 'html',
     description: 'List the bugs open in Bugzilla',
-    exec: function(args, env) {
-        var promise = gcli.createPromise();
+    exec: function(args, context) {
+        var promise = context.createPromise();
 
         function onFailure(msg) {
             promise.resolve(msg);
@@ -7596,7 +7570,7 @@ var bugzCommandSpec = {
                 return bug1.priority.localeCompare(bug2.priority);
             });
 
-            var doc = gcli.getDocument();
+            var doc = context.document;
             var div = doc.createElement('div');
 
             var p = doc.createElement('p');
@@ -7815,7 +7789,7 @@ var gcliTwostrings = {
         { name: 'p2', type: 'string', description: 'Second param' }
     ],
     returnType: 'html',
-    exec: function(args, env) {
+    exec: function(args, context) {
         return motivate() +
             'p1=\'' + args.p1 + '\', p2=\'' + args.p2 + '\'';
     }
@@ -7840,7 +7814,7 @@ var gcliTwonums = {
         }
     ],
     returnType: 'html',
-    exec: function(args, env) {
+    exec: function(args, context) {
         return motivate() +
             'p1=' + args.p1 + ', p2=' + args.p2;
     }
@@ -7879,7 +7853,7 @@ var gcliSelboolnum = {
         }
     ],
     returnType: 'html',
-    exec: function(args, env) {
+    exec: function(args, context) {
         return motivate() +
             'p1=' + args.p1 + ', p2=' + args.p2 + ', p3=' + args.p3;
     }
@@ -8086,7 +8060,7 @@ var gitAdd = {
             ]
         }
     ],
-    exec: function(args, env) {
+    exec: function(args, context) {
         return "This is only a demo of UI generation.";
     }
 };
@@ -8195,7 +8169,7 @@ var gitCommit = {
             ]
         },
     ],
-    exec: function(args, env) {
+    exec: function(args, context) {
         return "This is only a demo of UI generation.";
     }
 };
@@ -8215,7 +8189,7 @@ var vi = {
         }
     ],
     returnType: 'html',
-    exec: function(args, env) {
+    exec: function(args, context) {
         return '' +
             '<textarea rows=3 cols=80 style="font-family:monospace">' +
             'One day it could be very useful to have an editor embedded in GCLI' +
@@ -8367,8 +8341,8 @@ var testCommandSpec = {
     name: 'test',
     description: 'Runs the GCLI Unit Tests',
     params: [],
-    exec: function() {
-        var promise = gcli.createPromise();
+    exec: function(env, context) {
+        var promise = context.createPromise();
         test.runAsync(function() {
             var newNode = template.cloneNode(true);
             new Templater().processNode(newNode, test.toRemote());
@@ -9303,19 +9277,19 @@ commands.tsv = {
         { name: 'optionType', type: 'optionType' },
         { name: 'optionValue', type: 'optionValue' }
     ],
-    exec: function(args, env) { }
+    exec: function(args, context) { }
 };
 
 commands.tsr = {
     name: 'tsr',
     params: [ { name: 'text', type: 'string' } ],
-    exec: function(args, env) { }
+    exec: function(args, context) { }
 };
 
 commands.tsu = {
     name: 'tsu',
     params: [ { name: 'num', type: 'number' } ],
-    exec: function(args, env) { }
+    exec: function(args, context) { }
 };
 
 commands.tsn = {
@@ -9358,7 +9332,7 @@ commands.tselarr = {
         { name: 'num', type: { name: 'selection', data: [ '1', '2', '3' ] } },
         { name: 'arr', type: { name: 'array', subtype: 'string' } },
     ],
-    exec: function(args, env) {}
+    exec: function(args, context) {}
 };
 
 commands.tsm = {
@@ -9370,7 +9344,7 @@ commands.tsm = {
         { name: 'txt', type: 'string' },
         { name: 'num', type: { name: 'number', max: 42, min: 0 } },
     ],
-    exec: function(args, env) {}
+    exec: function(args, context) {}
 };
 
 commands.setup = function() {

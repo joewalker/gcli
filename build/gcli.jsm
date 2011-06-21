@@ -49,7 +49,7 @@
  * Your changes are likely to be overwritten without warning.
  *
  * The original source for this file is:
- *  https://github.com/mozilla/gcli/build/prefix-gcli.jsm
+ *  https://github.com/mozilla/gcli/
  *
  *******************************************************************************
  *
@@ -540,12 +540,6 @@ var require = define.globalDomain.require.bind(define.globalDomain);
 
 ///////////////////////////////////////////////////////////////////////////////
 
-/*
- * The API of interest to people wanting to create GCLI commands is as
- * follows. The implementation of this API is left to bug 659061 and other
- * bugs.
- */
-
 /* ***** BEGIN LICENSE BLOCK *****
  * Version: MPL 1.1/GPL 2.0/LGPL 2.1
  *
@@ -583,7 +577,7 @@ var require = define.globalDomain.require.bind(define.globalDomain);
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types', 'gcli/commands/help', 'gcli/cli', 'gcli/promise'], function(require, exports, module) {
+define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types', 'gcli/commands/help', 'gcli/cli'], function(require, exports, module) {
 var gcli = exports;
 
 
@@ -592,6 +586,9 @@ var canon = require('gcli/canon');
 gcli.addCommand = createStartupChecker(canon.addCommand);
 gcli.removeCommand = createStartupChecker(canon.removeCommand);
 
+// Expose the command output manager so that GCLI can be integrated with
+// Firefox.
+gcli.commandOutputManager = canon.commandOutputManager;
 
 var started = false;
 
@@ -604,8 +601,7 @@ function createStartupChecker(func) {
     };
 }
 
-gcli.startup = function(options) {
-    doc = (options && options.document) ? options.document : document;
+gcli.startup = function() {
     started = true;
 
     require('gcli/types').startup();
@@ -614,37 +610,12 @@ gcli.startup = function(options) {
 };
 
 gcli.shutdown = function() {
-    doc = undefined;
     started = false;
 
     require('gcli/cli').shutdown();
     require('gcli/commands/help').shutdown();
     require('gcli/types').shutdown();
 };
-
-
-////////////////////////////////////////////////////////////////////////////////
-// See Bug 665517
-
-var Promise = require('gcli/promise').Promise;
-gcli.createPromise = createStartupChecker(function createPromise() {
-    return new Promise();
-});
-
-// createStartupChecker is not required here because this function is only
-// available from within a command execution.
-gcli.getEnvironment = require('gcli/cli').getEnvironment;
-
-/**
- * Not all environments have easy access to the current document, or we might
- * wish to work in the non-default document.
- */
-gcli.getDocument = function() {
-    return doc;
-};
-
-var doc = undefined;
-
 
 
 });
@@ -895,8 +866,6 @@ canon.Parameter = Parameter;
  * @param commandSpec The command and its metadata.
  */
 canon.addCommand = function addCommand(commandSpec) {
-    commandSpec.functional = false;
-
     commands[commandSpec.name] = new Command(commandSpec);
     commandNames.push(commandSpec.name);
     commandNames.sort();
@@ -3439,7 +3408,7 @@ var helpCommandSpec = {
     ],
     returnType: 'html',
     description: 'Get help on the available commands',
-    exec: function(args, env) {
+    exec: function(args, context) {
         var output = [];
 
         var command = canon.getCommand(args.search);
@@ -3559,13 +3528,14 @@ basic.shutdown = function() {
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
+define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
 
 
 var console = require('gcli/util').console;
 var createEvent = require('gcli/util').createEvent;
 
 var canon = require('gcli/canon');
+var Promise = require('gcli/promise').Promise;
 
 var types = require('gcli/types');
 var Status = require('gcli/types').Status;
@@ -4003,10 +3973,15 @@ UnassignedAssignment.prototype.setUnassigned = function(args) {
  * <li>inputChange: The text to be mirrored in a command line has changed.
  * The event object looks like { newText: X }.
  * </ul>
+ *
+ * @param environment An opaque object passed to commands using ExecutionContext
+ * @param document A DOM Document passed to commands using ExecutionContext in
+ * order to allow creation of DOM nodes.
  * @constructor
  */
-function Requisition(env) {
-    this.env = env;
+function Requisition(environment, document) {
+    this.environment = environment;
+    this.document = document;
 
     // The command that we are about to execute.
     // @see setCommandConversion()
@@ -4398,13 +4373,11 @@ Requisition.prototype.getAssignmentAt = function(cursor) {
 /**
  * Entry point for keyboard accelerators or anything else that wants to execute
  * a command.
- * @param command Either a command, or the name of one
- * @param env Current environment to execute the command in
- * @param args Arguments for the command
- * @param typed The typed command. This indicates that the user has taken some
- * time to craft input, in which case feedback will be given, probably using
- * the output part of the command line. If undefined, we will assume that this
- * is computer generated, and skip altering the output.
+ * @param input Object containing data about how to execute the command.
+ * Properties of input include:
+ * - args: Arguments for the command
+ * - typed: The typed command
+ * - visible: Ensure that the output from this command is visible
  */
 Requisition.prototype.exec = function(input) {
     var command;
@@ -4461,19 +4434,8 @@ Requisition.prototype.exec = function(input) {
     }).bind(this);
 
     try {
-        cachedEnv = this.env;
-        var reply;
-
-        if (command.functional) {
-            var argValues = Object.keys(args).map(function(key) {
-                return args[key];
-            });
-            var context = command.context || command;
-            reply = command.exec.apply(context, argValues);
-        }
-        else {
-            reply = command.exec(args, this.env);
-        }
+        var context = new ExecutionContext(this.environment, this.document);
+        var reply = command.exec(args, context);
 
         if (reply != null && reply.isPromise) {
             reply.then(
@@ -4491,18 +4453,7 @@ Requisition.prototype.exec = function(input) {
         onComplete(ex, true);
     }
 
-    cachedEnv = undefined;
     return true;
-};
-
-/**
- * Hack to allow us to offer an API to get at the environment while we are
- * executing a command, but not at other times.
- */
-var cachedEnv = undefined;
-
-exports.getEnvironment = function() {
-    return cachedEnv;
 };
 
 /**
@@ -4863,6 +4814,19 @@ Requisition.prototype._assign = function(args) {
 };
 
 exports.Requisition = Requisition;
+
+
+/**
+ * Functions and data related to the execution of a command
+ */
+function ExecutionContext(environment, document) {
+    this.environment = environment;
+    this.document = document;
+}
+
+ExecutionContext.prototype.createPromise = function() {
+    return new Promise();
+};
 
 
 });
@@ -6100,8 +6064,10 @@ exports.History = History;
 });///////////////////////////////////////////////////////////////////////////////
 
 /*
- * require GCLI so it can be exported as declared at the start
+ * require GCLI so it can be exported as declared in EXPORTED_SYMBOLS
  * The dependencies specified here should be the same as in Makefile.dryice.js
  */
 var gcli = require("gcli/index");
 gcli.createView = require("gcli/ui/start/firefox");
+gcli._internal = { require: require, define: define, console: console };
+
