@@ -578,45 +578,15 @@ var require = define.globalDomain.require.bind(define.globalDomain);
  * ***** END LICENSE BLOCK ***** */
 
 define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types', 'gcli/commands/help', 'gcli/cli'], function(require, exports, module) {
-var gcli = exports;
 
+    // The API for use by command authors
+    exports.addCommand = require('gcli/canon').addCommand;
+    exports.removeCommand = require('gcli/canon').removeCommand;
 
-var canon = require('gcli/canon');
-
-gcli.addCommand = createStartupChecker(canon.addCommand);
-gcli.removeCommand = createStartupChecker(canon.removeCommand);
-
-// Expose the command output manager so that GCLI can be integrated with
-// Firefox.
-gcli.commandOutputManager = canon.commandOutputManager;
-
-var started = false;
-
-function createStartupChecker(func) {
-    return function() {
-        if (!started) {
-            gcli.startup();
-        }
-        return func.apply(null, arguments);
-    };
-}
-
-gcli.startup = function() {
-    started = true;
-
+    // Internal startup process. Not exported
     require('gcli/types').startup();
     require('gcli/commands/help').startup();
     require('gcli/cli').startup();
-};
-
-gcli.shutdown = function() {
-    started = false;
-
-    require('gcli/cli').shutdown();
-    require('gcli/commands/help').shutdown();
-    require('gcli/types').shutdown();
-};
-
 
 });
 /* ***** BEGIN LICENSE BLOCK *****
@@ -3368,7 +3338,7 @@ argument.ArrayArgument = ArrayArgument;
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/commands/help', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/index'], function(require, exports, module) {
+define('gcli/commands/help', ['require', 'exports', 'module' , 'gcli/canon'], function(require, exports, module) {
 var basic = exports;
 
 
@@ -3479,14 +3449,14 @@ var helpCommandSpec = {
 };
 
 
-var gcli = require('gcli/index');
+var canon = require('gcli/canon');
 
 basic.startup = function() {
-    gcli.addCommand(helpCommandSpec);
+    canon.addCommand(helpCommandSpec);
 };
 
 basic.shutdown = function() {
-    gcli.removeCommand(helpCommandSpec);
+    canon.removeCommand(helpCommandSpec);
 };
 
 
@@ -5116,7 +5086,7 @@ exports._recent = _recent;
  *
  * ***** END LICENSE BLOCK ***** */
 
-define('gcli/ui/start/firefox', ['require', 'exports', 'module' , 'gcli/cli', 'gcli/ui/inputter'], function(require, exports, module) {
+define('gcli/ui/start/firefox', ['require', 'exports', 'module' , 'gcli/cli', 'gcli/ui/inputter', 'gcli/canon'], function(require, exports, module) {
 
 var Requisition = require('gcli/cli').Requisition;
 var Inputter = require('gcli/ui/inputter').Inputter;
@@ -5137,6 +5107,11 @@ exports.createView = function(options) {
     options.inputter = new Inputter(options);
     options.inputter.update();
 };
+
+// The API for use by UI integrators
+// Expose the command output manager so that GCLI can be integrated with
+// Firefox.
+exports.commandOutputManager = require('gcli/canon').commandOutputManager;
 
 });
 /* ***** BEGIN LICENSE BLOCK *****
@@ -6068,6 +6043,12 @@ exports.History = History;
  * The dependencies specified here should be the same as in Makefile.dryice.js
  */
 var gcli = require("gcli/index");
-gcli.createView = require("gcli/ui/start/firefox");
-gcli._internal = { require: require, define: define, console: console };
+var firefox = require("gcli/ui/start/firefox");
 
+gcli._internal = {
+  require: require,
+  define: define,
+  console: console,
+  createView: firefox.createView,
+  commandOutputManager: firefox.commandOutputManager
+};
