@@ -40,71 +40,82 @@ var copy = require('dryice').copy;
 // SETUP
 var gcliHome = __dirname;
 
+buildStandard();
+buildFirefox();
+
 /**
  * There are 2 important ways to build GCLI with 2 outputs each.
  * - One build is for use within a normal web page. It has compressed and
  *   uncompressed versions of the output script file.
- * - The other build is for use within firefox. It consists of 1 output
- *   file: gcli.jsm
  */
-console.log('Building build/gcli.js and build/gcli-uncompressed.js:');
+function buildStandard() {
+  console.log('Building build/gcli.js and build/gcli-uncompressed.js:');
 
-// Build the standard compressed and uncompressed javascript files
-var stdProject = copy.createCommonJsProject([ gcliHome + '/lib' ]);
+  // Build the standard compressed and uncompressed javascript files
+  var project = copy.createCommonJsProject([ gcliHome + '/lib' ]);
 
-// Grab and process all the Javascript
-var stdSources = copy.createDataObject();
-copy({
-  source: copy.source.commonjs({
-    project: stdProject,
-    // This list of dependencies should be the same as in build/*.html
-    require: [ 'gcli/index', 'gcli/ui/start/browser', 'demo/index' ]
-  }),
-  filter: copy.filter.moduleDefines,
-  dest: stdSources
-});
+  // Grab and process all the Javascript
+  var sources = copy.createDataObject();
+  copy({
+    source: copy.source.commonjs({
+      project: project,
+      // This list of dependencies should be the same as in build/*.html
+      require: [ 'gcli/index', 'gcli/ui/start/browser', 'demo/index' ]
+    }),
+    filter: copy.filter.moduleDefines,
+    dest: sources
+  });
 
-// Process the CSS/HTML/PNG/GIF
-copy({
-  source: { root: stdProject, include: /.*\.css$|.*\.html$/ },
-  filter: copy.filter.addDefines,
-  dest: stdSources
-});
-copy({
-  source: { root: stdProject, include: /.*\.png$|.*\.gif$/ },
-  filter: copy.filter.base64,
-  dest: stdSources
-});
+  console.log(project.report());
 
-// Create the output scripts, compressed and uncompressed
-copy({
-  source: [ 'build/mini_require.js', stdSources ],
-  filter: copy.filter.uglifyjs,
-  dest: 'build/gcli.js'
-});
-copy({
-  source: [ 'build/mini_require.js', stdSources ],
-  dest: 'build/gcli-uncompressed.js'
-});
-copy({ source: 'build/index.html', dest: 'build/index.html' });
+  // Process the CSS/HTML/PNG/GIF
+  copy({
+    source: { root: project, include: /.*\.css$|.*\.html$/ },
+    filter: copy.filter.addDefines,
+    dest: sources
+  });
+  copy({
+    source: { root: project, include: /.*\.png$|.*\.gif$/ },
+    filter: copy.filter.base64,
+    dest: sources
+  });
+
+  // Create the output scripts, compressed and uncompressed
+  copy({
+    source: [ 'build/mini_require.js', sources ],
+    filter: copy.filter.uglifyjs,
+    dest: 'build/gcli.js'
+  });
+  copy({
+    source: [ 'build/mini_require.js', sources ],
+    dest: 'build/gcli-uncompressed.js'
+  });
+  copy({ source: 'build/index.html', dest: 'build/index.html' });
+}
 
 
 /**
  * Build the Javascript JSM files for Firefox
+ * It consists of 1 output file: gcli.jsm
  */
-console.log('Building build/gcli.jsm:');
+function buildFirefox() {
+  console.log('Building build/gcli.jsm:');
 
-// Grab and process all the Javascript for GCLI
-copy({
-  source: [
-    'build/prefix-gcli.jsm',
-    copy.source.commonjs({
-      project: copy.createCommonJsProject([ gcliHome + '/lib' ]),
-      // This list of dependencies should be the same as in suffix-gcli.jsm
-      require: [ 'gcli/index', 'gcli/ui/start/firefox' ]
-    }),
-    'build/suffix-gcli.jsm'
-  ],
-  filter: copy.filter.moduleDefines,
-  dest: 'build/gcli.jsm'
-});
+  var project = copy.createCommonJsProject([ gcliHome + '/lib' ]);
+
+  copy({
+    source: [
+      'build/prefix-gcli.jsm',
+      copy.source.commonjs({
+        project: project,
+        // This list of dependencies should be the same as in suffix-gcli.jsm
+        require: [ 'gcli/index', 'gcli/ui/start/firefox' ]
+      }),
+      'build/suffix-gcli.jsm'
+    ],
+    filter: copy.filter.moduleDefines,
+    dest: 'build/gcli.jsm'
+  });
+
+  console.log(project.report());
+}
