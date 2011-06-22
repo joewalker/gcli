@@ -1097,3 +1097,17 @@ We may have markers in the code as follows:
 
 * ``BUG XXXXXX``: Where a known bug affects some code, we mark it with the bug
   to help us keep track of bugs and the code that is affected.
+
+
+### Startup
+
+Internally GCLI modules have ``startup()``/``shutdown()`` functions which are
+called on module init from the top level ``index.js`` of that 'package'.
+
+In order to initialize a package all that is needed is to require the package
+index (e.g. ``require('package/index')``).
+
+The ``shutdown()`` function was useful when GCLI was used in Bespin as part of
+dynamic registration/de-registration. It is not known if this feature will be
+useful in the future. So it has not been entirely removed, it may be at some
+future date.

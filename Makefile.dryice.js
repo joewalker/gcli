@@ -57,11 +57,8 @@ var stdSources = copy.createDataObject();
 copy({
   source: copy.source.commonjs({
     project: stdProject,
-    // This list of dependencies should be the same as in index.html
-    require: [
-      'gcli/index', 'gcli/ui/start/browser', 'demo/index',
-      'gcli/commands/help', 'gclitest/index'
-    ]
+    // This list of dependencies should be the same as in build/*.html
+    require: [ 'gcli/index', 'gcli/ui/start/browser', 'demo/index' ]
   }),
   filter: copy.filter.moduleDefines,
   dest: stdSources
