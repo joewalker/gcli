@@ -36,9 +36,14 @@
  * ***** END LICENSE BLOCK ***** */
 
 var copy = require('dryice').copy;
+var fs = require('fs');
 
 // SETUP
 var gcliHome = __dirname;
+
+if (!fs.statSync(gcliHome + '/built').isDirectory()) {
+  fs.mkdirSync(gcliHome + '/built', 0755);
+}
 
 buildStandard();
 buildFirefox();
@@ -84,13 +89,15 @@ function buildStandard() {
   copy({
     source: [ 'build/mini_require.js', sources ],
     filter: copy.filter.uglifyjs,
-    dest: 'build/gcli.js'
+    dest: 'built/gcli.js'
   });
   copy({
     source: [ 'build/mini_require.js', sources ],
-    dest: 'build/gcli-uncompressed.js'
+    dest: 'built/gcli-uncompressed.js'
   });
-  copy({ source: 'build/index.html', dest: 'build/index.html' });
+  copy({ source: 'build/index.html', dest: 'built/index.html' });
+  copy({ source: 'build/nohelp.html', dest: 'built/nohelp.html' });
+  copy({ source: 'scripts/es5-shim.js', dest: 'built/es5-shim.js' });
 }
 
 
@@ -100,6 +107,10 @@ function buildStandard() {
  */
 function buildFirefox() {
   console.log('Building build/gcli.jsm:');
+
+  if (!fs.statSync(gcliHome + '/built/ff').isDirectory()) {
+    fs.mkdirSync(gcliHome + '/built/ff', 0755);
+  }
 
   var project = copy.createCommonJsProject([ gcliHome + '/lib' ]);
 
@@ -114,7 +125,7 @@ function buildFirefox() {
       'build/suffix-gcli.jsm'
     ],
     filter: copy.filter.moduleDefines,
-    dest: 'build/gcli.jsm'
+    dest: 'built/ff/gcli.jsm'
   });
 
   console.log(project.report());
