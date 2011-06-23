@@ -5071,6 +5071,7 @@ exports._recent = _recent;
  * Contributor(s):
  *      Joe Walker (jwalker@mozilla.com) (original author)
  *      Julian Viereck (julian.viereck@gmail.com)
+ *      Nick Fitzgerald <nfitzgerald@mozilla.com>
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -5104,6 +5105,7 @@ exports.createView = function(options) {
     options.preStyled = true;
     options.autoHide = true;
     options.requisition = new Requisition();
+    options.completionPrompt = '';
     options.inputter = new Inputter(options);
     options.inputter.update();
 };
@@ -5137,6 +5139,7 @@ exports.commandOutputManager = require('gcli/canon').commandOutputManager;
  * Contributor(s):
  *      Joe Walker (jwalker@mozilla.com) (original author)
  *      Julian Viereck (julian.viereck@gmail.com)
+ *      Nick Fitzgerald <nfitzgerald@mozilla.com>
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -5417,6 +5420,7 @@ cliView.Inputter = Inputter;
  * - document (required) DOM document to be used in creating elements
  * - requisition (required) A GCLI Requisition object whose state is monitored
  * - completeElement (optional) An element to use
+ * - completionPrompt (optional) The prompt to show before a completion. Defaults to '>'.
  */
 function Completer(options) {
     this.doc = options.document;
@@ -5436,6 +5440,10 @@ function Completer(options) {
             this.element.setAttribute('aria-live', 'polite');
         }
     }
+
+    this.completionPrompt = typeof options.completionPrompt === 'string'
+        ? options.completionPrompt
+        : '&gt;'
 
     if (options.inputBackgroundElement) {
         this.backgroundElement = options.inputBackgroundElement;
@@ -5519,7 +5527,7 @@ Completer.prototype.update = function() {
     dom.removeCssClass(this.backgroundElement, 'gcli' + Status.INCOMPLETE.toString());
     dom.removeCssClass(this.backgroundElement, 'gcli' + Status.ERROR.toString());
 
-    var completion = '<span class="gcliPrompt">&gt;</span> ';
+    var completion = '<span class="gcliPrompt">' + this.completionPrompt + '</span> ';
     if (this.input.value.length > 0) {
         var scores = this.requ.getInputStatusMarkup();
         completion += this.markupStatusScore(scores);
