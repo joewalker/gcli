@@ -822,21 +822,15 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
  
  .jsterm-output-line {
    font-size: 1em;
-@@ -399,3 +406,44 @@
+@@ -399,3 +406,38 @@
    width: 100%;
    background-color: white;
  }
 +
-+.jsterm-stack-node.gcliVALID {
-+  background-color: #FFF;
-+}
-+
-+.jsterm-stack-node.gcliINCOMPLETE {
-+  background-color: #DDD;
-+}
-+
++.jsterm-stack-node.gcliVALID,
++.jsterm-stack-node.gcliINCOMPLETE,
 +.jsterm-stack-node.gcliERROR {
-+  background-color: #DDD;
++  background-color: #FFF;
 +}
 +
 +.jsterm-complete-node span {
