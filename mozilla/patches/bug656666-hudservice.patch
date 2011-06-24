@@ -656,11 +656,33 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
      dom.addCssClass(this.backgroundElement, 'gcli' + status.toString());
 +
 +    if (status === Status.VALID) {
-+        dom.addCssClass(this.backgroundElement, 'gclihide');
++        dom.addCssClass(this.element, 'gclihide');
 +    }
  };
  
  /**
+@@ -6036,7 +6049,20 @@
+ 
+ exports.History = History;
+ 
+-});///////////////////////////////////////////////////////////////////////////////
++});define("text!gcli/ui/inputter.css", [], "" +
++  ".gcliCompletion { padding: 0; position: absolute; z-index: -1000; }" +
++  ".gcliCompletion.gcliVALID { background-color: #FFF; }" +
++  ".gcliCompletion.gcliINCOMPLETE { background-color: #DDD; }" +
++  ".gcliCompletion.gcliERROR { background-color: #DDD; }" +
++  ".gcliCompletion span { color: #FFF; }" +
++  ".gcliCompletion span.gcliINCOMPLETE { color: #DDD; border-bottom: 2px dotted #999; }" +
++  ".gcliCompletion span.gcliERROR { color: #DDD; border-bottom: 2px dotted #F00; }" +
++  "span.gcliPrompt { color: #66F; font-weight: bold; }" +
++  "span.gcliCompl { color: #999; }" +
++  ".gclihide { display: none; }" +
++  "");
++
++///////////////////////////////////////////////////////////////////////////////
+ 
+ /*
+  * require GCLI so it can be exported as declared in EXPORTED_SYMBOLS
 diff --git a/toolkit/components/console/hudservice/tests/browser/Makefile.in b/toolkit/components/console/hudservice/tests/browser/Makefile.in
 --- a/toolkit/components/console/hudservice/tests/browser/Makefile.in
 +++ b/toolkit/components/console/hudservice/tests/browser/Makefile.in
@@ -822,7 +844,7 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
  
  .jsterm-output-line {
    font-size: 1em;
-@@ -399,3 +406,44 @@
+@@ -399,3 +406,48 @@
    width: 100%;
    background-color: white;
  }
@@ -866,4 +888,8 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
 +
 +.jsterm-complete-node span.gcliCompl {
 +  color: #999;
++}
++
++.gclihide {
++    display: none;
 +}
