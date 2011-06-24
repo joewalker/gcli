@@ -1,10 +1,79 @@
 # HG changeset patch
-# Parent 2570481f30cf970a970875a0d09ffa216f5f49e6
+# Parent c44b904e4857017ee13f0d4fc954b97f5a2fcc71
 
+diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components/console/hudservice/gcli.jsm
+--- a/toolkit/components/console/hudservice/gcli.jsm
++++ b/toolkit/components/console/hudservice/gcli.jsm
+@@ -5071,6 +5071,7 @@
+  * Contributor(s):
+  *      Joe Walker (jwalker@mozilla.com) (original author)
+  *      Julian Viereck (julian.viereck@gmail.com)
++ *      Nick Fitzgerald <nfitzgerald@mozilla.com>
+  *
+  * Alternatively, the contents of this file may be used under the terms of
+  * either the GNU General Public License Version 2 or later (the "GPL"), or
+@@ -5104,6 +5105,7 @@
+     options.preStyled = true;
+     options.autoHide = true;
+     options.requisition = new Requisition();
++    options.completionPrompt = '';
+     options.inputter = new Inputter(options);
+     options.inputter.update();
+ };
+@@ -5137,6 +5139,7 @@
+  * Contributor(s):
+  *      Joe Walker (jwalker@mozilla.com) (original author)
+  *      Julian Viereck (julian.viereck@gmail.com)
++ *      Nick Fitzgerald <nfitzgerald@mozilla.com>
+  *
+  * Alternatively, the contents of this file may be used under the terms of
+  * either the GNU General Public License Version 2 or later (the "GPL"), or
+@@ -5417,6 +5420,7 @@
+  * - document (required) DOM document to be used in creating elements
+  * - requisition (required) A GCLI Requisition object whose state is monitored
+  * - completeElement (optional) An element to use
++ * - completionPrompt (optional) The prompt to show before a completion. Defaults to '>'.
+  */
+ function Completer(options) {
+     this.doc = options.document;
+@@ -5437,6 +5441,10 @@
+         }
+     }
+ 
++    this.completionPrompt = typeof options.completionPrompt === 'string'
++        ? options.completionPrompt
++        : '&gt;'
++
+     if (options.inputBackgroundElement) {
+         this.backgroundElement = options.inputBackgroundElement;
+     }
+@@ -5518,8 +5526,9 @@
+     dom.removeCssClass(this.backgroundElement, 'gcli' + Status.VALID.toString());
+     dom.removeCssClass(this.backgroundElement, 'gcli' + Status.INCOMPLETE.toString());
+     dom.removeCssClass(this.backgroundElement, 'gcli' + Status.ERROR.toString());
+-
+-    var completion = '<span class="gcliPrompt">&gt;</span> ';
++    dom.removeCssClass(this.backgroundElement, 'gclihide');
++
++    var completion = '<span class="gcliPrompt">' + this.completionPrompt + '</span> ';
+     if (this.input.value.length > 0) {
+         var scores = this.requ.getInputStatusMarkup();
+         completion += this.markupStatusScore(scores);
+@@ -5536,6 +5545,10 @@
+     var status = this.requ.getStatus();
+ 
+     dom.addCssClass(this.backgroundElement, 'gcli' + status.toString());
++
++    if (status === Status.VALID) {
++        dom.addCssClass(this.backgroundElement, 'gclihide');
++    }
+ };
+ 
+ /**
 diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pinstripe/global/webConsole.css
 --- a/toolkit/themes/pinstripe/global/webConsole.css
 +++ b/toolkit/themes/pinstripe/global/webConsole.css
-@@ -426,6 +426,10 @@
+@@ -427,6 +427,10 @@
    color: #F00;
  }
  
