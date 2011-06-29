@@ -1,0 +1,184 @@
+# HG changeset patch
+# Parent 76d4cde086cfd4da5ae0375abcaa6bafa7da9556
+Bug 659885 - Create GCLI command to support restarting the debugger
+
+diff --git a/toolkit/components/console/hudservice/DebuggerCommands.jsm b/toolkit/components/console/hudservice/DebuggerCommands.jsm
+new file mode 100644
+--- /dev/null
++++ b/toolkit/components/console/hudservice/DebuggerCommands.jsm
+@@ -0,0 +1,114 @@
++/* -*- Mode: js2; js2-basic-offset: 2; indent-tabs-mode: nil; -*- */
++/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is DevTools (HeadsUpDisplay) Console Code
++ *
++ * The Initial Developer of the Original Code is
++ *   Mozilla Foundation
++ * Portions created by the Initial Developer are Copyright (C) 2010
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Joe Walker <jwalker@mozilla.com> (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++Components.utils.import("resource:///modules/require.jsm");
++Components.utils.import("resource:///modules/console.jsm");
++
++let gcli = require("gcli/index");
++
++let DebuggerUI;
++let gBrowser;
++
++/**
++ * Parent command to commands to control the debugger.
++ */
++let debug = {
++  name: "debug",
++  description: "Control the JS debugger"
++};
++
++/**
++ * Command to return the status of the debugger
++ */
++let debugStatus = {
++  name: "debug status",
++  description: "Get the debugger status",
++  exec: function(args, context) {
++    return DebuggerUI.getDebugger(gBrowser.selectedTab).activeThread.state;
++  }
++};
++
++/**
++ * Command to resume a debugger paused at a debugger statement.
++ */
++let debugResume = {
++  name: "debug resume",
++  description: "Resume a paused debugger",
++  exec: function(aArgs) {
++    let threadClient = DebuggerUI.getDebugger(gBrowser.selectedTab).activeThread;
++
++    console.log("threadClient.state", threadClient.state);
++    if (threadClient.state == "paused") {
++      threadClient.resume();
++      console.log("resumed");
++      return "Resumed";
++    }
++    else {
++      console.log("no resume");
++      return "Can't resume, the debugger is not paused.";
++    }
++  }
++};
++
++/**
++ * Register all the commands with GCLI
++ */
++function registerDebuggerCommands(aNode) {
++  // Cache for later - is there a way to get these out of thin air?
++  DebuggerUI = aNode.ownerDocument.defaultView.DebuggerUI;
++  gBrowser = aNode.ownerDocument.defaultView.gBrowser;
++
++  // Fire up a debugger on the currently-selected tab
++  DebuggerUI.startDebugger();
++
++  gcli.addCommand(debug);
++  gcli.addCommand(debugResume);
++  gcli.addCommand(debugStatus);
++}
++
++/**
++ * Unregister all the commands with GCLI
++ */
++function unregisterDebuggerCommands() {
++  gcli.removeCommand(debug);
++  gcli.removeCommand(debugResume);
++  gcli.removeCommand(debugStatus);
++}
++
++let EXPORTED_SYMBOLS = [ "registerDebuggerCommands", "unregisterDebuggerCommands" ];
+diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/components/console/hudservice/HUDService.jsm
+--- a/toolkit/components/console/hudservice/HUDService.jsm
++++ b/toolkit/components/console/hudservice/HUDService.jsm
+@@ -6253,16 +6253,17 @@ catch (ex) {
+ 
+ ///////////////////////////////////////////////////////////////////////////
+ // GcliTerm
+ ///////////////////////////////////////////////////////////////////////////
+ 
+ Cu.import("resource:///modules/gcli.jsm");
+ Cu.import("resource:///modules/require.jsm");
+ Cu.import("resource:///modules/console.jsm");
++Cu.import("resource:///modules/DebuggerCommands.jsm");
+ 
+ /**
+  * GcliTerm
+  *
+  * JavaScript Terminal: creates input nodes for console code interpretation
+  * and 'JS Workspaces'
+  *
+  * Create a GcliTerminal or attach a GcliTerm input node to an existing output
+@@ -6274,16 +6275,18 @@ Cu.import("resource:///modules/console.j
+  * @param object aConsole Console object to use within the GcliTerm.
+  */
+ function GcliTerm(aContext, aParentNode, aNodes, aConsole)
+ {
+   this.context = aContext;
+   this.parentNode = aParentNode;
+   this.console = aConsole;
+ 
++  registerDebuggerCommands(aParentNode);
++
+   // References to the HUD to help us add output
+   // TODO: This feels like it should be part of a HUD object
+   let node = aParentNode;
+   while (!node.hasAttribute("id")) {
+     node = node.parentNode;
+   }
+   this.hudId = node.getAttribute("id");
+ 
+diff --git a/toolkit/components/console/hudservice/Makefile.in b/toolkit/components/console/hudservice/Makefile.in
+--- a/toolkit/components/console/hudservice/Makefile.in
++++ b/toolkit/components/console/hudservice/Makefile.in
+@@ -44,16 +44,17 @@ VPATH		= @srcdir@
+ include $(DEPTH)/config/autoconf.mk
+ 
+ EXTRA_JS_MODULES = HUDService.jsm \
+ 		PropertyPanel.jsm \
+ 		NetworkHelper.jsm \
+ 		require.jsm \
+ 		console.jsm \
+ 		gcli.jsm \
++		DebuggerCommands.jsm \
+ 		$(NULL)
+ 
+ ifdef ENABLE_TESTS
+ ifneq (mobile,$(MOZ_BUILD_APP))
+ 	DIRS += tests
+ endif
+ endif
+ 
