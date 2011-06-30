@@ -638,19 +638,49 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
      if (options.inputBackgroundElement) {
          this.backgroundElement = options.inputBackgroundElement;
      }
-@@ -5518,8 +5526,9 @@
+@@ -5506,6 +5514,10 @@
+     this.element.style.width = rect.width + 'px';
+ };
+ 
++function isStrictCompletion(inputValue, completion) {
++    return completion.indexOf(inputValue.replace(/^\s*/, '')) > -1;
++}
++
+ /**
+  * Bring the completion element up to date with what the requisition says
+  */
+@@ -5518,24 +5530,37 @@
      dom.removeCssClass(this.backgroundElement, 'gcli' + Status.VALID.toString());
      dom.removeCssClass(this.backgroundElement, 'gcli' + Status.INCOMPLETE.toString());
      dom.removeCssClass(this.backgroundElement, 'gcli' + Status.ERROR.toString());
 -
 -    var completion = '<span class="gcliPrompt">&gt;</span> ';
-+    dom.removeCssClass(this.backgroundElement, 'gclihide');
++    dom.removeCssClass(this.element, 'gclihide');
 +
 +    var completion = '<span class="gcliPrompt">' + this.completionPrompt + '</span> ';
      if (this.input.value.length > 0) {
          var scores = this.requ.getInputStatusMarkup();
          completion += this.markupStatusScore(scores);
-@@ -5536,6 +5545,10 @@
+     }
+ 
+-    // Display the '-> prediction' at the end of the completer element
+     if (this.input.value.length > 0 && predictions.length > 0) {
+         var tab = predictions[0];
+         tab = tab.name ? tab.name : tab;
+-        completion += ' &#xa0;<span class="gcliCompl">&#x21E5; ' +
++        if (isStrictCompletion(this.input.value, tab)) {
++            // Display the suffix of the prediction as the completion.
++            var numLeadingSpaces = this.input.value.match(/^(\s*)/)[0].length;
++            var suffix = tab.slice(this.input.value.length - numLeadingSpaces);
++            completion += '<span class="gcliCompl">' +
++                suffix + '</span>';
++        } else {
++            // Display the '-> prediction' at the end of the completer element
++            completion += ' &#xa0;<span class="gcliCompl">&#x21E5; ' +
+                 tab + '</span>';
++        }
+     }
+     dom.setInnerHtml(this.element, '<span>' + completion + '</span>');
      var status = this.requ.getStatus();
  
      dom.addCssClass(this.backgroundElement, 'gcli' + status.toString());
@@ -661,7 +691,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
  };
  
  /**
-@@ -6036,7 +6049,20 @@
+@@ -6036,7 +6061,20 @@
  
  exports.History = History;
  
