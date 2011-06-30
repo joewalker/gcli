@@ -440,14 +440,14 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +  onCommand: function Gcli_onCommand(ev) {
 +    // When we can update the history of the console, then we should stop
 +    // filtering incomplete reports.
-+    if (!ev.report.completed) {
++    if (!ev.output.completed) {
 +      return;
 +    }
 +
-+    this.writeOutput(ev.report.typed, { category: CATEGORY_INPUT });
++    this.writeOutput(ev.output.typed, { category: CATEGORY_INPUT });
 +
-+    let output = ev.report.output;
-+    if (ev.report.command.returnType == "html" && typeof output == "string") {
++    let output = ev.output.output;
++    if (ev.output.command.returnType == "html" && typeof output == "string") {
 +      let frag = this.doc.createRange().createContextualFragment(
 +          '<div xmlns="http://www.w3.org/1999/xhtml"' +
 +          ' xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">' +
