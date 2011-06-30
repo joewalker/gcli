@@ -286,7 +286,7 @@ custom module loader to replace RequireJS for built applications.
 
         $ tar -zcf foo.tar.gz .
         // Creates an archive of the current directory into foo.tar.gz
-        
+
         $ tar -zxf foo.tar.gz .
         // Extracts foo.tar.gz into the current directory
 
@@ -943,33 +943,33 @@ This is an example of a very simple new password field type:
     function PasswordField(doc) {
       this.doc = doc;
     }
-    
+
     PasswordField.prototype = Object.create(Field.prototype);
-    
+
     PasswordField.prototype.createElement = function(assignment) {
       this.assignment = assignment;
       this.input = this.doc.createElement('input');
       this.input.type = 'password';
       this.input.value = assignment.arg ? assignment.arg.text : '';
-    
+
       this.onKeyup = function() {
           this.assignment.setValue(this.input.value);
       }.bind(this);
       this.input.addEventListener('keyup', this.onKeyup, false);
-    
+
       this.onChange = function() {
           this.input.value = this.assignment.arg.text;
       };
       this.assignment.assignmentChange.add(this.onChange, this);
-    
+
       return this.input;
     };
-    
+
     PasswordField.prototype.destroy = function() {
       this.input.removeEventListener('keyup', this.onKeyup, false);
       this.assignment.assignmentChange.remove(this.onChange, this);
     };
-    
+
     PasswordField.claim = function(type) {
       return type.name === 'password' ? Field.claim.MATCH : Field.claim.NO_MATCH;
     };
