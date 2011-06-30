@@ -266,6 +266,8 @@ If dryice is installed (``npm install dryice``) then you can create a built
 version of GCLI simply using ``node Makefile.dryice.js``. GCLI comes with a
 custom module loader to replace RequireJS for built applications.
 
+The build will be outputted in the ``built`` directory. The directory will be
+created if it doesn't exist.
 
 ## Writing Commands
 
@@ -979,9 +981,12 @@ This is an example of a very simple new password field type:
 
 The majority of the GCLI source is stored in the ``lib`` directory.
 
+The ``docs`` directory contains documentation.
 The ``scripts`` directory contains RequireJS and ES5-shim code that GCLI uses.
-The ``build`` directory contains build artifacts (checked in so no build step
-is needed) and files to use those build artifacts.
+The ``build`` directory contains files used when creating builds.
+The ``mozilla`` directory contains the mercurial patch queue of patches to apply
+to mozilla-central.
+The ``selenium-tests`` directory contains selenium web-page integration tests.
 
 The source in the ``lib`` directory is split into 4 sections:
 
@@ -1111,3 +1116,29 @@ The ``shutdown()`` function was useful when GCLI was used in Bespin as part of
 dynamic registration/de-registration. It is not known if this feature will be
 useful in the future. So it has not been entirely removed, it may be at some
 future date.
+
+### Running the tests
+
+#### Unit tests
+
+Start the GCLI static server:
+
+    cd path/to/gcli
+    python static.py
+
+Now point your browser to [http://localhost:9999/][]. When the page loads, you
+should see the command line; enter the ``test`` command to run the unit tests.
+
+#### Web-page integration tests
+
+Install the [Selenium IDE Firefox addon](http://seleniumhq.org/download/) and
+once it is installed, start the GCLI static server:
+
+    cd path/to/gcli
+    python static.py
+
+Now open [http://localhost:9999/][] in your browser. Open the Selenium IDE
+(Tools > Selenium IDE). Now open GCLI's Selenium test suite (File > Open >
+path/to/gcli/selenium-tests/selenium-tests.html). Run the test suite via the
+menu (Actions > Play entire test suite) or via pressing the little button with a
+play symbol and some lines in the background.
