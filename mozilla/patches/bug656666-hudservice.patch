@@ -592,6 +592,97 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +    this.completeNode.value = "";
 +  },
 +};
+diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components/console/hudservice/gcli.jsm
+--- a/toolkit/components/console/hudservice/gcli.jsm
++++ b/toolkit/components/console/hudservice/gcli.jsm
+@@ -5071,6 +5071,7 @@
+  * Contributor(s):
+  *      Joe Walker (jwalker@mozilla.com) (original author)
+  *      Julian Viereck (julian.viereck@gmail.com)
++ *      Nick Fitzgerald <nfitzgerald@mozilla.com>
+  *
+  * Alternatively, the contents of this file may be used under the terms of
+  * either the GNU General Public License Version 2 or later (the "GPL"), or
+@@ -5104,6 +5105,7 @@
+     options.preStyled = true;
+     options.autoHide = true;
+     options.requisition = new Requisition();
++    options.completionPrompt = '';
+     options.inputter = new Inputter(options);
+     options.inputter.update();
+ };
+@@ -5137,6 +5139,7 @@
+  * Contributor(s):
+  *      Joe Walker (jwalker@mozilla.com) (original author)
+  *      Julian Viereck (julian.viereck@gmail.com)
++ *      Nick Fitzgerald <nfitzgerald@mozilla.com>
+  *
+  * Alternatively, the contents of this file may be used under the terms of
+  * either the GNU General Public License Version 2 or later (the "GPL"), or
+@@ -5417,6 +5420,7 @@
+  * - document (required) DOM document to be used in creating elements
+  * - requisition (required) A GCLI Requisition object whose state is monitored
+  * - completeElement (optional) An element to use
++ * - completionPrompt (optional) The prompt to show before a completion. Defaults to '>'.
+  */
+ function Completer(options) {
+     this.doc = options.document;
+@@ -5437,6 +5441,10 @@
+         }
+     }
+ 
++    this.completionPrompt = typeof options.completionPrompt === 'string'
++        ? options.completionPrompt
++        : '&gt;'
++
+     if (options.inputBackgroundElement) {
+         this.backgroundElement = options.inputBackgroundElement;
+     }
+@@ -5518,8 +5526,9 @@
+     dom.removeCssClass(this.backgroundElement, 'gcli' + Status.VALID.toString());
+     dom.removeCssClass(this.backgroundElement, 'gcli' + Status.INCOMPLETE.toString());
+     dom.removeCssClass(this.backgroundElement, 'gcli' + Status.ERROR.toString());
+-
+-    var completion = '<span class="gcliPrompt">&gt;</span> ';
++    dom.removeCssClass(this.backgroundElement, 'gclihide');
++
++    var completion = '<span class="gcliPrompt">' + this.completionPrompt + '</span> ';
+     if (this.input.value.length > 0) {
+         var scores = this.requ.getInputStatusMarkup();
+         completion += this.markupStatusScore(scores);
+@@ -5536,6 +5545,10 @@
+     var status = this.requ.getStatus();
+ 
+     dom.addCssClass(this.backgroundElement, 'gcli' + status.toString());
++
++    if (status === Status.VALID) {
++        dom.addCssClass(this.element, 'gclihide');
++    }
+ };
+ 
+ /**
+@@ -6036,7 +6049,20 @@
+ 
+ exports.History = History;
+ 
+-});///////////////////////////////////////////////////////////////////////////////
++});define("text!gcli/ui/inputter.css", [], "" +
++  ".gcliCompletion { padding: 0; position: absolute; z-index: -1000; }" +
++  ".gcliCompletion.gcliVALID { background-color: #FFF; }" +
++  ".gcliCompletion.gcliINCOMPLETE { background-color: #DDD; }" +
++  ".gcliCompletion.gcliERROR { background-color: #DDD; }" +
++  ".gcliCompletion span { color: #FFF; }" +
++  ".gcliCompletion span.gcliINCOMPLETE { color: #DDD; border-bottom: 2px dotted #999; }" +
++  ".gcliCompletion span.gcliERROR { color: #DDD; border-bottom: 2px dotted #F00; }" +
++  "span.gcliPrompt { color: #66F; font-weight: bold; }" +
++  "span.gcliCompl { color: #999; }" +
++  ".gclihide { display: none; }" +
++  "");
++
++///////////////////////////////////////////////////////////////////////////////
+ 
+ /*
+  * require GCLI so it can be exported as declared in EXPORTED_SYMBOLS
 diff --git a/toolkit/components/console/hudservice/tests/browser/Makefile.in b/toolkit/components/console/hudservice/tests/browser/Makefile.in
 --- a/toolkit/components/console/hudservice/tests/browser/Makefile.in
 +++ b/toolkit/components/console/hudservice/tests/browser/Makefile.in
@@ -753,7 +844,7 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
  
  .jsterm-output-line {
    font-size: 1em;
-@@ -399,3 +406,40 @@
+@@ -399,3 +406,48 @@
    width: 100%;
    background-color: white;
  }
@@ -778,6 +869,10 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
 +  color: #F00;
 +}
 +
++div.jsterm-complete-node {
++  margin: 4px;
++}
++
 +.jsterm-complete-node span.gcliINCOMPLETE {
 +  color: #DDD;
 +  border-bottom: 2px dotted #999;
@@ -793,4 +888,8 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
 +
 +.jsterm-complete-node span.gcliCompl {
 +  color: #999;
++}
++
++.gclihide {
++    display: none;
 +}
