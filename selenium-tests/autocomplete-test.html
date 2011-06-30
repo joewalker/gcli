@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head profile="http://selenium-ide.openqa.org/profiles/test-case">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link rel="selenium.base" href="http://localhost:9999/" />
+<title>Autocomplete</title>
+</head>
+<body>
+<table cellpadding="1" cellspacing="1" border="1">
+<thead>
+<tr><td rowspan="1" colspan="3">Autocomplete</td></tr>
+</thead><tbody>
+<tr>
+	<td>open</td>
+	<td>/</td>
+	<td></td>
+</tr>
+<tr>
+	<td>waitForElementPresent</td>
+	<td>css=div.gcliHints</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertElementPresent</td>
+	<td>css=div.gcliHints</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertElementPresent</td>
+	<td>gcliInput</td>
+	<td></td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>gcliInput</td>
+	<td>ec</td>
+</tr>
+<tr>
+	<td>keyUp</td>
+	<td>gcliInput</td>
+	<td>\67</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>css=span.gcliCompl</td>
+	<td>ho</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>css=div.gcliHints</td>
+	<td>echo Show a message</td>
+</tr>
+<!--Can't get TAB to work in selenium, so just click the hint instead-->
+<tr>
+	<td>click</td>
+	<td>css=span.gcliOptName</td>
+	<td></td>
+</tr>
+<tr>
+	<td>assertValue</td>
+	<td>gcliInput</td>
+	<td>echo</td>
+</tr>
+<tr>
+	<td>type</td>
+	<td>gcliInput</td>
+	<td>echo hello world</td>
+</tr>
+<tr>
+	<td>keyUp</td>
+	<td>gcliInput</td>
+	<td>\68</td>
+</tr>
+<tr>
+	<td>keyUp</td>
+	<td>gcliInput</td>
+	<td>\13</td>
+</tr>
+<tr>
+	<td>assertText</td>
+	<td>css=span.gcliOutTyped</td>
+	<td>echo hello world</td>
+</tr>
+</tbody></table>
+</body>
+</html>
