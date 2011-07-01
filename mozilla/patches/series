@@ -1,0 +1,4 @@
+bug653140-require.patch
+bug656668-gcli.patch
+bug656666-hudservice.patch
+bug659885-debugger.patch #+debugger

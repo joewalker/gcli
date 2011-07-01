@@ -1,3 +1,9 @@
+# Ignore any hg stuff in the patch queue
+mozilla/patches/.hg
+mozilla/patches/.hgignore
+mozilla/patches/.mq
+mozilla/patches/status
+mozilla/patches/guards
 
 # Junk that could exist anywhere:
 .DS_Store
