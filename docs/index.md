@@ -266,6 +266,8 @@ If dryice is installed (``npm install dryice``) then you can create a built
 version of GCLI simply using ``node Makefile.dryice.js``. GCLI comes with a
 custom module loader to replace RequireJS for built applications.
 
+The build will be outputted in the ``built`` directory. The directory will be
+created if it doesn't exist.
 
 ## Writing Commands
 
@@ -286,7 +288,7 @@ custom module loader to replace RequireJS for built applications.
 
         $ tar -zcf foo.tar.gz .
         // Creates an archive of the current directory into foo.tar.gz
-        
+
         $ tar -zxf foo.tar.gz .
         // Extracts foo.tar.gz into the current directory
 
@@ -943,33 +945,33 @@ This is an example of a very simple new password field type:
     function PasswordField(doc) {
       this.doc = doc;
     }
-    
+
     PasswordField.prototype = Object.create(Field.prototype);
-    
+
     PasswordField.prototype.createElement = function(assignment) {
       this.assignment = assignment;
       this.input = this.doc.createElement('input');
       this.input.type = 'password';
       this.input.value = assignment.arg ? assignment.arg.text : '';
-    
+
       this.onKeyup = function() {
           this.assignment.setValue(this.input.value);
       }.bind(this);
       this.input.addEventListener('keyup', this.onKeyup, false);
-    
+
       this.onChange = function() {
           this.input.value = this.assignment.arg.text;
       };
       this.assignment.assignmentChange.add(this.onChange, this);
-    
+
       return this.input;
     };
-    
+
     PasswordField.prototype.destroy = function() {
       this.input.removeEventListener('keyup', this.onKeyup, false);
       this.assignment.assignmentChange.remove(this.onChange, this);
     };
-    
+
     PasswordField.claim = function(type) {
       return type.name === 'password' ? Field.claim.MATCH : Field.claim.NO_MATCH;
     };
@@ -979,9 +981,12 @@ This is an example of a very simple new password field type:
 
 The majority of the GCLI source is stored in the ``lib`` directory.
 
+The ``docs`` directory contains documentation.
 The ``scripts`` directory contains RequireJS and ES5-shim code that GCLI uses.
-The ``build`` directory contains build artifacts (checked in so no build step
-is needed) and files to use those build artifacts.
+The ``build`` directory contains files used when creating builds.
+The ``mozilla`` directory contains the mercurial patch queue of patches to apply
+to mozilla-central.
+The ``selenium-tests`` directory contains selenium web-page integration tests.
 
 The source in the ``lib`` directory is split into 4 sections:
 
@@ -1049,6 +1054,56 @@ ArgFetch displays a number of Fields. There are fields for most of the Types
 discussed earlier. See 'Writing Fields' above for more information.
 
 
+### Assumed Environment
+
+There are differences between the environment provided by a browser and the
+environment in a JSM in Firefox. We attempt to make this environment as
+browser-like as possible.
+
+- ``console``: The console object doesn't exist in firefox (although it could
+  and dump() is close)
+  There is an implementation of ``console`` in the ``build/prefix-gcli.jsm``
+  which uses ``dump()``.
+  Since the GCLI jsm is built from all the GCLI JS files concatenated together,
+  we could use this implementation directly as all the files are in the same
+  lexical scope. However for historical reasons (not all browsers used to have
+  console objects, and their implementation isn't uniform) we wrap this as a
+  CommonJS module, and import it as needed, which allows us to provide
+  different stubs to certain browsers.
+  At some stage we should probably allow use of ``console`` without importing
+  it first.
+
+- ``document/window``: It is common to want access to ``document`` and
+  ``window`` when doing DOM manipulation or using timeouts/intervals, however
+  there is no concept of the current window when in chrome.
+  The web console, however is tied to a window, so we could allow use of a
+  CommonJS imported ``document/window`` object however this would only work for
+  commands defined inside gcli.jsm. Instead we provide a getDocument() method
+  on the ExecutionContext.
+
+- ``Node``/``DOMElement``/etc: The Mozilla JSM environment does not define DOM
+  objects like the Node constructor etc for use in constants and instanceof.
+  Currently the lack of these objects is mostly hacked around, however we
+  probably should support this better. (See [bug 668488)
+  [https://bugzilla.mozilla.org/show_bug.cgi?id=668488])
+
+
+### Testing
+
+GCLI contains 3 test suites:
+
+- JS level testing is run with the ``test`` command. The tests are located in
+  ``lib/gclitest`` and they use the test runner in ``lib/test``. This is fairly
+  comprehensive, however it does not do UI level testing.
+  If writing a new test it needs to be registered in ``lib/gclitest/index``.
+  For an example of how to write tests, see ``lib/gclitest/testSplit.js``.
+  The test functions are implemented in ``lib/test/assert``.
+- Browser integration tests are included in ``browser_webconsole_gcli_*.js``,
+  in ``toolkit/components/console/hudservice/tests/browser``. These are
+  run with the rest of the Mozilla test suite.
+- Selenium tests for testing UI interaction are included in ``selenium-tests``.
+
+
 ### Coding Conventions
 
 The coding conventions for the GCLI project come from the Bespin/Skywriter and
@@ -1111,3 +1166,29 @@ The ``shutdown()`` function was useful when GCLI was used in Bespin as part of
 dynamic registration/de-registration. It is not known if this feature will be
 useful in the future. So it has not been entirely removed, it may be at some
 future date.
+
+### Running the tests
+
+#### Unit tests
+
+Start the GCLI static server:
+
+    cd path/to/gcli
+    python static.py
+
+Now point your browser to [http://localhost:9999/][]. When the page loads, you
+should see the command line; enter the ``test`` command to run the unit tests.
+
+#### Web-page integration tests
+
+Install the [Selenium IDE Firefox addon](http://seleniumhq.org/download/) and
+once it is installed, start the GCLI static server:
+
+    cd path/to/gcli
+    python static.py
+
+Now open [http://localhost:9999/][] in your browser. Open the Selenium IDE
+(Tools > Selenium IDE). Now open GCLI's Selenium test suite (File > Open >
+path/to/gcli/selenium-tests/selenium-tests.html). Run the test suite via the
+menu (Actions > Play entire test suite) or via pressing the little button with a
+play symbol and some lines in the background.

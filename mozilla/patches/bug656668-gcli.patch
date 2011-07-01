@@ -1,0 +1,5575 @@
+# HG changeset patch
+# User Joe Walker <jwalker@mozilla.com>
+# Date 1306496118 -3600
+# Node ID c9f0d4142413be8bd4cf553732568c1249999196
+# Parent 9f44a0a83964d26610f6b39f659c45817199a0b9
+Bug 656668 - Create Export from GCLI project to JSM
+
+diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components/console/hudservice/gcli.jsm
+--- a/toolkit/components/console/hudservice/gcli.jsm
++++ b/toolkit/components/console/hudservice/gcli.jsm
+@@ -540,21 +540,5536 @@ var require = define.globalDomain.requir
+ 
+ ///////////////////////////////////////////////////////////////////////////////
+ 
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Mozilla Skywriter.
++ *
++ * The Initial Developer of the Original Code is
++ * Mozilla.
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *      Joe Walker (jwalker@mozilla.com) (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types', 'gcli/commands/help', 'gcli/cli'], function(require, exports, module) {
++
++    // The API for use by command authors
++    exports.addCommand = require('gcli/canon').addCommand;
++    exports.removeCommand = require('gcli/canon').removeCommand;
++
++    // Internal startup process. Not exported
++    require('gcli/types').startup();
++    require('gcli/commands/help').startup();
++    require('gcli/cli').startup();
++
++});
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Mozilla Skywriter.
++ *
++ * The Initial Developer of the Original Code is
++ * Mozilla.
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *      Joe Walker (jwalker@mozilla.com) (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++define('gcli/canon', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types'], function(require, exports, module) {
++var canon = exports;
++
++
++var console = require('gcli/util').console;
++var createEvent = require('gcli/util').createEvent;
++
++var Status = require('gcli/types').Status;
++var types = require('gcli/types');
++var BooleanType = require('gcli/types').BooleanType;
++
++
++/**
++ * A lookup hash of our registered commands
++ */
++var commands = {};
++
++/**
++ * A sorted list of command names, we regularly want them in order, so pre-sort
++ */
++var commandNames = [];
++
++/**
++ * The command object is mostly just setup around a commandSpec (as passed to
++ * #addCommand()). It provides some helpers like #getDescription() which is a
++ * safe .description.
++ */
++function Command(commandSpec) {
++    Object.keys(commandSpec).forEach(function(key) {
++        this[key] = commandSpec[key];
++    }, this);
++
++    if (!this.name) {
++        throw new Error('All registered commands must have a name');
++    }
++
++    if (this.params == null) {
++        this.params = [];
++    }
++    if (!Array.isArray(this.params)) {
++        throw new Error('command.params must be an array in ' + this.name);
++    }
++
++    // Parameters work out a short name for themselves, but to do this they
++    // need a complete list of the paramNames
++    var paramNames = [];
++    var paramSpecs = this.params;
++    this.params = [];
++
++    paramSpecs.forEach(function(spec) {
++        if (spec.group) {
++            spec.params.forEach(function(paramSpec) {
++                paramNames.push(paramSpec.name);
++            }, this);
++        }
++        else {
++            paramNames.push(spec.name);
++        }
++    }, this);
++
++    // Track if the user is trying to mix default params and param groups.
++    // All the non-grouped parameters must come before all the param groups
++    // because non-grouped parameters can be assigned positionally, so their
++    // index is important. We don't want 'holes' in the order caused by
++    // parameter groups.
++
++    var usingGroups = false;
++
++    // In theory this could easily be made recursive, so param groups could
++    // contain nested param groups. Current thinking is that the added
++    // complexity for the UI probably isn't worth it, so this implementation
++    // prevents nesting.
++
++    paramSpecs.forEach(function(spec) {
++        if (!spec.group) {
++            if (usingGroups) {
++                console.error('Parameters can\'t come after param groups.' +
++                        ' Ignoring ' + this.name + '/' + spec.name);
++            }
++            else {
++                var param = new Parameter(spec, this, paramNames, null);
++                this.params.push(param);
++            }
++        }
++        else {
++            spec.params.forEach(function(ispec) {
++                var param = new Parameter(ispec, this, paramNames, spec.group);
++                this.params.push(param);
++            }, this);
++
++            usingGroups = true;
++        }
++    }, this);
++}
++
++/**
++ * A safe version of '.description' returning '(No description)' when there
++ * is no description available.
++ */
++Command.prototype.getDescription = function() {
++    return this.description ? this.description : '(No description)';
++};
++
++
++/**
++ * A wrapper for a paramSpec so we can sort out shortened versions names for
++ * option switches
++ */
++function Parameter(paramSpec, command, paramNames, groupName) {
++    this.command = command || { name: 'unnamed' };
++
++    Object.keys(paramSpec).forEach(function(key) {
++        this[key] = paramSpec[key];
++    }, this);
++    this.description = this.description || '';
++    this.groupName = groupName;
++
++    if (!this.name) {
++        throw new Error('In ' + this.command.name +
++            ': all params must have a name');
++    }
++
++    // Find the shortest unique prefix of this name
++    if (paramNames) {
++        var uniquePrefix = this.name[0];
++        for (var i = 0; i < paramNames.length; i++) {
++            // Lengthen while unique is a prefix of testParam.name
++            while (paramNames[i].indexOf(uniquePrefix) === 0 &&
++                    uniquePrefix !== this.name) {
++                uniquePrefix = this.name.substr(0, uniquePrefix.length + 1);
++            }
++            if (uniquePrefix === this.name) {
++                break;
++            }
++        }
++        this.uniquePrefix = uniquePrefix;
++        this.regexp = new RegExp('^--?' + this.uniquePrefix);
++    }
++
++    var lookup = this.type;
++    this.type = types.getType(lookup);
++    if (this.type == null) {
++        console.error('Known types: ' + types.getTypeNames().join(', '));
++        throw new Error('In ' + this.command.name + '/' + this.name +
++            ': can\'t find type for: ' + JSON.stringify(lookup));
++    }
++
++    // boolean parameters have an implicit defaultValue:false, which should
++    // not be changed. See the docs.
++    if (this.type instanceof BooleanType) {
++        if ('defaultValue' in this) {
++            console.error('In ' + this.command.name + '/' + this.name +
++                    ': boolean parameters can not have a defaultValue.' +
++                    ' Ignoring');
++        }
++        this.defaultValue = false;
++    }
++
++    // Check the defaultValue for validity. Unnecessary?
++    if (this.defaultValue !== undefined) {
++        try {
++            var defaultText = this.type.stringify(this.defaultValue);
++            var defaultConversion = this.type.parseString(defaultText);
++            if (defaultConversion.getStatus() !== Status.VALID) {
++                console.error('In ' + this.command.name + '/' + this.name +
++                        ': Error round tripping defaultValue. status = ' +
++                        defaultConversion.getStatus());
++            }
++        }
++        catch (ex) {
++            console.error('In ' + this.command.name + '/' + this.name +
++                ': ' + ex);
++        }
++    }
++}
++
++/**
++ * Does the given name uniquely identify this param (among the other params
++ * in this command)
++ * @param name The name to check
++ */
++Parameter.prototype.isKnownAs = function(name) {
++    return this.regexp && this.regexp.test(name);
++};
++
++/**
++ * Is the user required to enter data for this parameter? (i.e. has
++ * defaultValue been set to something other than undefined)
++ */
++Parameter.prototype.isDataRequired = function() {
++    return this.defaultValue === undefined;
++};
++
++/**
++ * Are we allowed to assign data to this parameter using positional
++ * parameters?
++ */
++Parameter.prototype.isPositionalAllowed = function() {
++    return this.groupName == null;
++};
++
++canon.Parameter = Parameter;
++
++/**
++ * Add a command to the canon of known commands.
++ * This function is exposed to the outside world (via gcli/index). It is
++ * documented in docs/index.md for all the world to see.
++ * @param commandSpec The command and its metadata.
++ */
++canon.addCommand = function addCommand(commandSpec) {
++    commands[commandSpec.name] = new Command(commandSpec);
++    commandNames.push(commandSpec.name);
++    commandNames.sort();
++
++    canon.canonChange();
++};
++
++/**
++ * Remove an individual command. The opposite of #addCommand().
++ * @param commandOrName Either a command name or the command itself.
++ */
++canon.removeCommand = function removeCommand(commandOrName) {
++    var name = typeof commandOrName === 'string' ?
++        commandOrName :
++        commandOrName.name;
++    delete commands[name];
++    commandNames = commandNames.filter(function(test) {
++        return test !== name;
++    });
++
++    canon.canonChange();
++};
++
++/**
++ * Retrieve a command by name
++ * @param name The name of the command to retrieve
++ */
++canon.getCommand = function getCommand(name) {
++    return commands[name];
++};
++
++/**
++ * Get an array of all the registered commands.
++ */
++canon.getCommands = function getCommands() {
++    // return Object.values(commands);
++    return Object.keys(commands).map(function(name) {
++        return commands[name];
++    }, this);
++};
++
++/**
++ * Get an array containing the names of the registered commands.
++ */
++canon.getCommandNames = function getCommandNames() {
++    return commandNames.slice(0);
++};
++
++/**
++ * Enable people to be notified of changes to the list of commands
++ */
++canon.canonChange = createEvent('canon.canonChange');
++
++/**
++ * CommandOutputManager stores the output objects generated by executed
++ * commands.
++ *
++ * CommandOutputManager is exposed (via canon.commandOutputManager) to the the
++ * outside world and could (but shouldn't) be used before gcli.startup() has
++ * been called. This could should be defensive to that where possible, and we
++ * should certainly document if the use of it or similar will fail if used too
++ * soon.
++ */
++function CommandOutputManager() {
++    this._event = createEvent('CommandOutputManager');
++}
++
++/**
++ * Call this method to notify the manager (and therefor all listeners) of a new
++ * or updated command output.
++ * @param output The command output object that has been created or updated.
++ */
++CommandOutputManager.prototype.sendCommandOutput = function(output) {
++    this._event({ output: output });
++};
++
++/**
++ * Register a function to be called whenever there is a new command output
++ * object.
++ */
++CommandOutputManager.prototype.addListener = function (fn, ctx) {
++    this._event.add(fn, ctx);
++};
++
++canon.CommandOutputManager = CommandOutputManager;
++
++/**
++ * We maintain a global command output manager for the majority case where there
++ * is only one important set of outputs.
++ */
++canon.commandOutputManager = new CommandOutputManager();
++
++
++});
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Skywriter.
++ *
++ * The Initial Developer of the Original Code is
++ * Mozilla.
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *      Joe Walker (jwalker@mozilla.com) (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++define('gcli/util', ['require', 'exports', 'module' ], function(require, exports, module) {
++
+ /*
+- * The API of interest to people wanting to create GCLI commands is as
+- * follows. The implementation of this API is left to bug 659061 and other
+- * bugs.
+- */
+-
+-define('gcli/index', [ ], function(require, exports, module) {
+-
+-  exports.addCommand = function() { /* implementation goes here */ };
+-  exports.removeCommand = function() { /* implementation goes here */ };
+-  exports.startup = function() { /* implementation goes here */ };
+-  exports.shutdown = function() { /* implementation goes here */ };
++ * This module is a Pilot-Lite. It exports a number of objects that replicate
++ * parts of the Pilot project. It aims to be mostly API compatible, while
++ * removing the submodule complexity and helping us make things work inside
++ * Firefox.
++ * The Pilot compatible exports are: console/dom/event
++ *
++ * In addition it contains a small event library similar to EventEmitter but
++ * which makes it harder to mistake the event in use.
++ */
++
++
++//------------------------------------------------------------------------------
++
++exports.console = console;
++
++//------------------------------------------------------------------------------
++
++/**
++ * Create an event.
++ * For use as follows:
++ *   function Hat() {
++ *     this.putOn = createEvent();
++ *     ...
++ *   }
++ *   Hat.prototype.adorn = function(person) {
++ *     this.putOn({ hat: hat, person: person });
++ *     ...
++ *   }
++ *
++ *   var hat = new Hat();
++ *   hat.putOn.add(function(ev) {
++ *     console.log('The hat ', ev.hat, ' has is worn by ', ev.person);
++ *   }, scope);
++ * @param {string} name Optional name that helps us work out what event this
++ * is when debugging.
++ */
++exports.createEvent = function(name) {
++    var handlers = [];
++
++    /**
++     * This is how the event is triggered.
++     * @param {object} ev The event object to be passed to the event listeners
++     */
++    var event = function(ev) {
++        // Use for rather than forEach because it step debugs better, which is
++        // important for debugging events
++        for (var i = 0; i < handlers.length; i++) {
++            var handler = handlers[i];
++            handler.func.call(handler.scope, ev);
++        }
++    };
++
++    /**
++     * Add a new handler function
++     * @param {function} func The function to call when this event is triggered
++     * @param {object} scope Optional 'this' object for the function call
++     */
++    event.add = function(func, scope) {
++        handlers.push({ func: func, scope: scope });
++    };
++
++    /**
++     * Remove a handler function added through add(). Both func and scope must
++     * be strict equals (===) the values used in the call to add()
++     * @param {function} func The function to call when this event is triggered
++     * @param {object} scope Optional 'this' object for the function call
++     */
++    event.remove = function(func, scope) {
++        handlers = handlers.filter(function(test) {
++            return test.func !== func && test.scope !== scope;
++        });
++    };
++
++    /**
++     * Remove all handlers.
++     * Reset the state of this event back to it's post create state
++     */
++    event.removeAll = function() {
++        handlers = [];
++    };
++
++    return event;
++};
++
++
++//------------------------------------------------------------------------------
++
++var dom = {};
++
++var NS_XHTML = "http://www.w3.org/1999/xhtml";
++
++/**
++ * Pass-through to createElement or createElementNS
++ * @param {string} tag The name of the tag to create
++ * @param {string} ns Custom namespace
++ * @param {HTMLDocument} doc The document in which to create the element
++ * @returns {HTMLElement} The created element
++ */
++dom.createElement = function(tag, ns, doc) {
++    var doc = doc || document;
++    return doc.createElement(tag);
++    /*
++    return doc.createElementNS ?
++                 doc.createElementNS(ns || NS_XHTML, tag) :
++                 doc.createElement(tag);
++     */
++};
++
++/**
++ * Remove all the child nodes from this node
++ * @param {HTMLElement} el The element that should have it's children removed
++ */
++dom.clearElement = function(el) {
++    while (el.hasChildNodes()) {
++        el.removeChild(el.firstChild);
++    }
++};
++
++if (this.document && !this.document.documentElement.classList) {
++    /**
++     * Is the given element marked with the given CSS class?
++     */
++    dom.hasCssClass = function(el, name) {
++        var classes = el.className.split(/\s+/g);
++        return classes.indexOf(name) !== -1;
++    };
++
++    /**
++     * Add a CSS class to the list of classes on the given node
++     */
++    dom.addCssClass = function(el, name) {
++        if (!dom.hasCssClass(el, name)) {
++            el.className += " " + name;
++        }
++    };
++
++    /**
++     * Remove a CSS class from the list of classes on the given node
++     */
++    dom.removeCssClass = function(el, name) {
++        var classes = el.className.split(/\s+/g);
++        while (true) {
++            var index = classes.indexOf(name);
++            if (index == -1) {
++                break;
++            }
++            classes.splice(index, 1);
++        }
++        el.className = classes.join(" ");
++    };
++
++    /**
++     * Add the named CSS class from the element if it is not already present or
++     * remove it if is present.
++     */
++    dom.toggleCssClass = function(el, name) {
++        var classes = el.className.split(/\s+/g), add = true;
++        while (true) {
++            var index = classes.indexOf(name);
++            if (index == -1) {
++                break;
++            }
++            add = false;
++            classes.splice(index, 1);
++        }
++        if (add) {
++            classes.push(name);
++        }
++
++        el.className = classes.join(" ");
++        return add;
++    };
++} else {
++    /*
++     * classList shim versions of methods above.
++     * See the functions above for documentation
++     */
++    dom.hasCssClass = function(el, name) {
++        return el.classList.contains(name);
++    };
++
++    dom.addCssClass = function(el, name) {
++        el.classList.add(name);
++    };
++
++    dom.removeCssClass = function(el, name) {
++        el.classList.remove(name);
++    };
++
++    dom.toggleCssClass = function(el, name) {
++        return el.classList.toggle(name);
++    };
++}
++
++/**
++ * Add or remove a CSS class from the list of classes on the given node
++ * depending on the value of <tt>include</tt>
++ */
++dom.setCssClass = function(node, className, include) {
++    if (include) {
++        dom.addCssClass(node, className);
++    } else {
++        dom.removeCssClass(node, className);
++    }
++};
++
++/**
++ * Create a style element in the document head, and add the given CSS text to
++ * it.
++ * @param {string} cssText The CSS declarations to append
++ * @param {HTMLDocument} doc The document element to work from
++ */
++dom.importCssString = function(cssText, doc) {
++    doc = doc || document;
++
++    if (doc.createStyleSheet) {
++        var sheet = doc.createStyleSheet();
++        sheet.cssText = cssText;
++    }
++    else {
++        var style = doc.createElementNS ?
++                doc.createElementNS(NS_XHTML, "style") :
++                doc.createElement("style");
++
++        style.appendChild(doc.createTextNode(cssText));
++
++        var head = doc.getElementsByTagName("head")[0] || doc.documentElement;
++        head.appendChild(style);
++    }
++};
++
++/**
++ * Shim for window.getComputedStyle
++ */
++dom.computedStyle = function(element, style) {
++    var win = element.ownerDocument.defaultView;
++    if (win.getComputedStyle) {
++        var styles = win.getComputedStyle(element, "") || {};
++        return styles[style] || "";
++    }
++    else {
++        return element.currentStyle[style];
++    }
++};
++
++/**
++ * Using setInnerHtml(foo) rather than innerHTML = foo allows us to enable
++ * tweaks in XHTML documents.
++ */
++dom.setInnerHtml = function(el, html) {
++    if (!this.document || el.namespaceURI === NS_XHTML) {
++        try {
++            dom.clearElement(el);
++            var range = el.ownerDocument.createRange();
++            html = "<div xmlns='" + NS_XHTML + "'>" + html + "</div>";
++            el.appendChild(range.createContextualFragment(html));
++        }
++        catch (ex) {
++            el.innerHTML = html;
++        }
++    }
++    else {
++        el.innerHTML = html;
++    }
++};
++
++/**
++ * Shim to textarea.selectionStart
++ */
++dom.getSelectionStart = function(textarea) {
++    try {
++        return textarea.selectionStart || 0;
++    }
++    catch (e) {
++        return 0;
++    }
++};
++
++/**
++ * Shim to textarea.selectionStart
++ */
++dom.setSelectionStart = function(textarea, start) {
++    return textarea.selectionStart = start;
++};
++
++/**
++ * Shim to textarea.selectionEnd
++ */
++dom.getSelectionEnd = function(textarea) {
++    try {
++        return textarea.selectionEnd || 0;
++    } catch (e) {
++        return 0;
++    }
++};
++
++/**
++ * Shim to textarea.selectionEnd
++ */
++dom.setSelectionEnd = function(textarea, end) {
++    return textarea.selectionEnd = end;
++};
++
++exports.dom = dom;
++
++
++//------------------------------------------------------------------------------
++
++/**
++ * A plural form is a way to pluralize as noun. There are 2 plural forms in
++ * English, with (s) and without - tree and trees. (We ignore verbs which
++ * confuse things greatly by being the other way around)
++ * A plural rule works out from a number, which plural form to use. In English
++ * the rule is to use one form for 0 and 1, and the other for everything else
++ * See https://developer.mozilla.org/en/Localization_and_Plurals
++ * See https://secure.wikimedia.org/wikipedia/en/wiki/List_of_ISO_639-1_codes
++ *
++ * Contains code inspired by Mozilla L10n code originally developed by
++ *         Edward Lee <edward.lee@engineering.uiuc.edu>
++ */
++var pluralRules = [
++    /**
++     * Index 0 - Only one form for all
++     * Asian family: Japanese, Vietnamese, Korean
++     */
++    {
++        locales: [
++            'fa', 'fa-ir',
++            'id',
++            'ja', 'ja-jp-mac',
++            'ka',
++            'ko', 'ko-kr',
++            'th', 'th-th',
++            'tr', 'tr-tr',
++            'zh', 'zh-tw', 'zh-cn'
++        ],
++        numForms: 1,
++        get: function(n) {
++            return 0;
++        }
++    },
++
++    /**
++     * Index 1 - Two forms, singular used for one only
++     * Germanic family: English, German, Dutch, Swedish, Danish, Norwegian,
++     *                  Faroese
++     * Romanic family: Spanish, Portuguese, Italian, Bulgarian
++     * Latin/Greek family: Greek
++     * Finno-Ugric family: Finnish, Estonian
++     * Semitic family: Hebrew
++     * Artificial: Esperanto
++     * Finno-Ugric family: Hungarian
++     * Turkic/Altaic family: Turkish
++     */
++    {
++        locales: [
++            'af', 'af-za',
++            'as', 'ast',
++            'bg',
++            'br',
++            'bs', 'bs-ba',
++            'ca',
++            'cy', 'cy-gb',
++            'da',
++            'de', 'de-de', 'de-ch',
++            'en', 'en-gb', 'en-us', 'en-za',
++            'el', 'el-gr',
++            'eo',
++            'es', 'es-es', 'es-ar', 'es-cl', 'es-mx',
++            'et', 'et-ee',
++            'eu',
++            'fi', 'fi-fi',
++            'fy', 'fy-nl',
++            'gl', 'gl-gl',
++            'he',
++         //       'hi-in', Without an unqualified language, looks dodgy
++            'hu', 'hu-hu',
++            'hy', 'hy-am',
++            'it', 'it-it',
++            'kk',
++            'ku',
++            'lg',
++            'mai',
++         // 'mk', 'mk-mk', Should be 14?
++            'ml', 'ml-in',
++            'mn',
++            'nb', 'nb-no',
++            'no', 'no-no',
++            'nl',
++            'nn', 'nn-no',
++            'no', 'no-no',
++            'nb', 'nb-no',
++            'nso', 'nso-za',
++            'pa', 'pa-in',
++            'pt', 'pt-pt',
++            'rm', 'rm-ch',
++         // 'ro', 'ro-ro', Should be 5?
++            'si', 'si-lk',
++         // 'sl',          Should be 10?
++            'son', 'son-ml',
++            'sq', 'sq-al',
++            'sv', 'sv-se',
++            'vi', 'vi-vn',
++            'zu', 'zu-za'
++      ],
++      numForms: 2,
++      get: function(n) {
++          return n != 1 ?
++              1 :
++              0;
++      }
++    },
++
++    /**
++     * Index 2 - Two forms, singular used for zero and one
++     * Romanic family: Brazilian Portuguese, French
++     */
++    {
++        locales: [
++            'ak', 'ak-gh',
++            'bn', 'bn-in', 'bn-bd',
++            'fr', 'fr-fr',
++            'gu', 'gu-in',
++            'kn', 'kn-in',
++            'mr', 'mr-in',
++            'oc', 'oc-oc',
++            'or', 'or-in',
++                  'pt-br',
++            'ta', 'ta-in', 'ta-lk',
++            'te', 'te-in'
++        ],
++        numForms: 2,
++        get: function(n) {
++            return n > 1 ?
++                1 :
++                0;
++        }
++    },
++
++    /**
++     * Index 3 - Three forms, special case for zero
++     * Latvian
++     */
++    {
++        locales: [ 'lv' ],
++        numForms: 3,
++        get: function(n) {
++            return n % 10 == 1 && n % 100 != 11 ?
++                1 :
++                n != 0 ?
++                    2 :
++                    0;
++        }
++    },
++
++    /**
++     * Index 4 -
++     * Scottish Gaelic
++     */
++    {
++        locales: [ 'gd', 'gd-gb' ],
++        numForms: 4,
++        get: function(n) {
++            return n == 1 || n == 11 ?
++                0 :
++                n == 2 || n == 12 ?
++                    1 :
++                    n > 0 && n < 20 ?
++                        2 :
++                        3;
++        }
++    },
++
++    /**
++     * Index 5 - Three forms, special case for numbers ending in 00 or
++     *           [2-9][0-9]
++     * Romanian
++     */
++    {
++        locales: [ 'ro', 'ro-ro' ],
++        numForms: 3,
++        get: function(n) {
++            return n == 1 ?
++                0 :
++                n == 0 || n % 100 > 0 && n % 100 < 20 ?
++                    1 :
++                    2;
++        }
++    },
++
++    /**
++     * Index 6 - Three forms, special case for numbers ending in 1[2-9]
++     * Lithuanian
++     */
++    {
++        locales: [ 'lt' ],
++        numForms: 3,
++        get: function(n) {
++            return n % 10 == 1 && n % 100 != 11 ?
++                0 :
++                n % 10 >= 2 && (n % 100 < 10 || n % 100 >= 20) ?
++                    2 :
++                    1;
++        }
++    },
++
++    /**
++     * Index 7 - Three forms, special cases for numbers ending in 1 and
++     *           2, 3, 4, except those ending in 1[1-4]
++     * Slavic family: Russian, Ukrainian, Serbian, Croatian
++     */
++    {
++        locales: [
++            'be', 'be-by',
++            'hr', 'hr-hr',
++            'ru', 'ru-ru',
++            'sr', 'sr-rs', 'sr-cs',
++            'uk'
++        ],
++        numForms: 3,
++        get: function(n) {
++            return n % 10 == 1 && n % 100 != 11 ?
++                0 :
++                n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ?
++                    1 :
++                    2;
++        }
++    },
++
++    /**
++     * Index 8 - Three forms, special cases for 1 and 2, 3, 4
++     * Slavic family: Czech, Slovak
++     */
++    {
++        locales: [ 'cs', 'sk' ],
++        numForms: 3,
++        get: function(n) {
++            return n == 1 ?
++                0 :
++                n >= 2 && n <= 4 ?
++                    1 :
++                    2;
++        }
++    },
++
++    /**
++     * Index 9 - Three forms, special case for one and some numbers ending in
++     *           2, 3, or 4
++     * Polish
++     */
++    {
++        locales: [ 'pl' ],
++        numForms: 3,
++        get: function(n) {
++            return n == 1 ?
++                0 :
++                n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ?
++                    1 :
++                    2;
++        }
++    },
++
++    /**
++     * Index 10 - Four forms, special case for one and all numbers ending in
++     *            02, 03, or 04
++     * Slovenian
++     */
++    {
++        locales: [ 'sl' ],
++        numForms: 4,
++        get: function(n) {
++            return n % 100 == 1 ?
++                0 :
++                n % 100 == 2 ?
++                    1 :
++                    n % 100 == 3 || n % 100 == 4 ?
++                        2 :
++                        3;
++        }
++    },
++
++    /**
++     * Index 11 -
++     * Irish Gaeilge
++     */
++    {
++        locales: [ 'ga-IE', 'ga-ie', 'ga', 'en-ie' ],
++        numForms: 5,
++        get: function(n) {
++            return n == 1 ?
++                0 :
++                n == 2 ?
++                    1 :
++                    n >= 3 && n <= 6 ?
++                        2 :
++                        n >= 7 && n <= 10 ?
++                            3 :
++                            4;
++        }
++    },
++
++    /**
++     * Index 12 -
++     * Arabic
++     */
++    {
++        locales: [ 'ar' ],
++        numForms: 6,
++        get: function(n) {
++            return n == 0 ?
++                5 :
++                n == 1 ?
++                    0 :
++                    n == 2 ?
++                        1 :
++                        n % 100 >= 3 && n % 100 <= 10 ?
++                            2 :
++                            n % 100 >= 11 && n % 100 <= 99 ?
++                                3 :
++                                4;
++        }
++    },
++
++    /**
++     * Index 13 -
++     * Maltese
++     */
++    {
++        locales: [ 'mt' ],
++        numForms: 4,
++        get: function(n) {
++            return n == 1 ?
++                0 :
++                n == 0 || n % 100 > 0 && n % 100 <= 10 ?
++                    1 :
++                    n % 100 > 10 && n % 100 < 20 ?
++                        2 :
++                        3;
++      }
++    },
++
++    /**
++     * Index 14 -
++     * Macedonian
++     */
++    {
++        locales: [ 'mk', 'mk-mk' ],
++        numForms: 3,
++        get: function(n) {
++            return n % 10 == 1 ?
++                0 :
++                n % 10 == 2 ?
++                    1 :
++                    2;
++        }
++    },
++
++    /**
++     * Index 15 -
++     * Icelandic
++     */
++    {
++        locales: [ 'is' ],
++        numForms: 2,
++        get: function(n) {
++            return n % 10 == 1 && n % 100 != 11 ?
++                0 :
++                1;
++        }
++    }
++
++    /*
++    // Known locales without a known plural rule
++    'km', 'ms', 'ne-np', 'ne-np', 'ne', 'nr', 'nr-za', 'rw', 'ss', 'ss-za',
++    'st', 'st-za', 'tn', 'tn-za', 'ts', 'ts-za', 've', 've-za', 'xh', 'xh-za'
++    */
++];
++
++/**
++ * Use rule 0 by default, which is no plural forms at all
++ */
++var pluralRule = pluralRules[0];
++
++/**
++ * What language should we use?
++ * This is complicated, we should possibly be using the HTTP 'Accept-Language'
++ * header, however this is somewhat hard to get at.
++ * http://stackoverflow.com/questions/1043339/javascript-for-detecting-browser-language-preference
++ * For now we'll go with the more simple window.navigator.language in the
++ * browser
++ */
++function getPluralRule() {
++    if (!pluralRule) {
++        var index;
++        try {
++            var svc = Components.classes["@mozilla.org/intl/stringbundle;1"]
++                    .getService(Components.interfaces.nsIStringBundleService);
++            var bundle = svc.createBundle("chrome://global/locale/intl.properties");
++            var pluralRule = bundle.GetStringFromName("pluralRule");
++            index = parseInt(pluralRule);
++            pluralRule = pluralRules(index);
++        }
++        catch (ex) {
++            // Will happen in non firefox instances
++
++            var lang = window.navigator.language;
++            // Next: convert lang to a rule index
++            pluralRules.some(function(rule) {
++                if (rule.locales.indexOf(lang) !== -1) {
++                    pluralRule = rule;
++                    return true;
++                }
++                return false;
++            });
++        }
++    }
++
++    return pluralRule;
++}
++
++
++//------------------------------------------------------------------------------
++
++/**
++ * Various event utilities
++ */
++var event = {};
++
++/**
++ * Shim for lack of addEventListener on old IE.
++ */
++event.addListener = function(elem, type, callback) {
++    if (elem.addEventListener) {
++        return elem.addEventListener(type, callback, false);
++    }
++    if (elem.attachEvent) {
++        var wrapper = function() {
++            callback(window.event);
++        };
++        callback._wrapper = wrapper;
++        elem.attachEvent("on" + type, wrapper);
++    }
++};
++
++/**
++ * Shim for lack of removeEventListener on old IE.
++ */
++event.removeListener = function(elem, type, callback) {
++    if (elem.removeEventListener) {
++        return elem.removeEventListener(type, callback, false);
++    }
++    if (elem.detachEvent) {
++        elem.detachEvent("on" + type, callback._wrapper || callback);
++    }
++};
++
++/**
++ * Prevents propagation and clobbers the default action of the passed event
++ */
++event.stopEvent = function(e) {
++    event.stopPropagation(e);
++    if (e.preventDefault) {
++        e.preventDefault();
++    }
++    return false;
++};
++
++/**
++ * Prevents propagation of the event
++ */
++event.stopPropagation = function(e) {
++    if (e.stopPropagation) {
++        e.stopPropagation();
++    }
++    else {
++        e.cancelBubble = true;
++    }
++};
++
++/**
++ * Keyboard handling is a mess. http://unixpapa.com/js/key.html
++ * It would be good to use DOM L3 Keyboard events,
++ * http://www.w3.org/TR/2010/WD-DOM-Level-3-Events-20100907/#events-keyboardevents
++ * however only Webkit supports them, and there isn't a shim on Monernizr:
++ * https://github.com/Modernizr/Modernizr/wiki/HTML5-Cross-browser-Polyfills
++ * and when the code that uses this KeyEvent was written, nothing was clear,
++ * so instead, we're using this unmodern shim:
++ * http://stackoverflow.com/questions/5681146/chrome-10-keyevent-or-something-similar-to-firefoxs-keyevent
++ * See BUG 664991: GCLI's keyboard handling should be updated to use DOM-L3
++ * https://bugzilla.mozilla.org/show_bug.cgi?id=664991
++ */
++if ('KeyEvent' in this) {
++    event.KeyEvent = this.KeyEvent;
++}
++else {
++    event.KeyEvent = {
++        DOM_VK_CANCEL: 3,
++        DOM_VK_HELP: 6,
++        DOM_VK_BACK_SPACE: 8,
++        DOM_VK_TAB: 9,
++        DOM_VK_CLEAR: 12,
++        DOM_VK_RETURN: 13,
++        DOM_VK_ENTER: 14,
++        DOM_VK_SHIFT: 16,
++        DOM_VK_CONTROL: 17,
++        DOM_VK_ALT: 18,
++        DOM_VK_PAUSE: 19,
++        DOM_VK_CAPS_LOCK: 20,
++        DOM_VK_ESCAPE: 27,
++        DOM_VK_SPACE: 32,
++        DOM_VK_PAGE_UP: 33,
++        DOM_VK_PAGE_DOWN: 34,
++        DOM_VK_END: 35,
++        DOM_VK_HOME: 36,
++        DOM_VK_LEFT: 37,
++        DOM_VK_UP: 38,
++        DOM_VK_RIGHT: 39,
++        DOM_VK_DOWN: 40,
++        DOM_VK_PRINTSCREEN: 44,
++        DOM_VK_INSERT: 45,
++        DOM_VK_DELETE: 46,
++        DOM_VK_0: 48,
++        DOM_VK_1: 49,
++        DOM_VK_2: 50,
++        DOM_VK_3: 51,
++        DOM_VK_4: 52,
++        DOM_VK_5: 53,
++        DOM_VK_6: 54,
++        DOM_VK_7: 55,
++        DOM_VK_8: 56,
++        DOM_VK_9: 57,
++        DOM_VK_SEMICOLON: 59,
++        DOM_VK_EQUALS: 61,
++        DOM_VK_A: 65,
++        DOM_VK_B: 66,
++        DOM_VK_C: 67,
++        DOM_VK_D: 68,
++        DOM_VK_E: 69,
++        DOM_VK_F: 70,
++        DOM_VK_G: 71,
++        DOM_VK_H: 72,
++        DOM_VK_I: 73,
++        DOM_VK_J: 74,
++        DOM_VK_K: 75,
++        DOM_VK_L: 76,
++        DOM_VK_M: 77,
++        DOM_VK_N: 78,
++        DOM_VK_O: 79,
++        DOM_VK_P: 80,
++        DOM_VK_Q: 81,
++        DOM_VK_R: 82,
++        DOM_VK_S: 83,
++        DOM_VK_T: 84,
++        DOM_VK_U: 85,
++        DOM_VK_V: 86,
++        DOM_VK_W: 87,
++        DOM_VK_X: 88,
++        DOM_VK_Y: 89,
++        DOM_VK_Z: 90,
++        DOM_VK_CONTEXT_MENU: 93,
++        DOM_VK_NUMPAD0: 96,
++        DOM_VK_NUMPAD1: 97,
++        DOM_VK_NUMPAD2: 98,
++        DOM_VK_NUMPAD3: 99,
++        DOM_VK_NUMPAD4: 100,
++        DOM_VK_NUMPAD5: 101,
++        DOM_VK_NUMPAD6: 102,
++        DOM_VK_NUMPAD7: 103,
++        DOM_VK_NUMPAD8: 104,
++        DOM_VK_NUMPAD9: 105,
++        DOM_VK_MULTIPLY: 106,
++        DOM_VK_ADD: 107,
++        DOM_VK_SEPARATOR: 108,
++        DOM_VK_SUBTRACT: 109,
++        DOM_VK_DECIMAL: 110,
++        DOM_VK_DIVIDE: 111,
++        DOM_VK_F1: 112,
++        DOM_VK_F2: 113,
++        DOM_VK_F3: 114,
++        DOM_VK_F4: 115,
++        DOM_VK_F5: 116,
++        DOM_VK_F6: 117,
++        DOM_VK_F7: 118,
++        DOM_VK_F8: 119,
++        DOM_VK_F9: 120,
++        DOM_VK_F10: 121,
++        DOM_VK_F11: 122,
++        DOM_VK_F12: 123,
++        DOM_VK_F13: 124,
++        DOM_VK_F14: 125,
++        DOM_VK_F15: 126,
++        DOM_VK_F16: 127,
++        DOM_VK_F17: 128,
++        DOM_VK_F18: 129,
++        DOM_VK_F19: 130,
++        DOM_VK_F20: 131,
++        DOM_VK_F21: 132,
++        DOM_VK_F22: 133,
++        DOM_VK_F23: 134,
++        DOM_VK_F24: 135,
++        DOM_VK_NUM_LOCK: 144,
++        DOM_VK_SCROLL_LOCK: 145,
++        DOM_VK_COMMA: 188,
++        DOM_VK_PERIOD: 190,
++        DOM_VK_SLASH: 191,
++        DOM_VK_BACK_QUOTE: 192,
++        DOM_VK_OPEN_BRACKET: 219,
++        DOM_VK_BACK_SLASH: 220,
++        DOM_VK_CLOSE_BRACKET: 221,
++        DOM_VK_QUOTE: 222,
++        DOM_VK_META: 224
++    };
++}
++
++/**
++ * Browser detection. Used only for places where feature detection doesn't make
++ * sense.
++ */
++var isOldGecko = false;
++var isOperaMac = false;
++if (this.navigator) {
++    // oldGecko == rev < 2.0
++    isOldGecko = window.controllers && window.navigator.product === "Gecko" &&
++        /rv\:1/.test(navigator.userAgent);
++    // Is the user using a browser that identifies itself as Opera on Mac OS
++    isOperaMac = (navigator.platform.match(/mac/i) === "mac") && window.opera &&
++        Object.prototype.toString.call(window.opera) == "[object Opera]";
++}
++
++var MODIFIER_KEYS = { 16: 'Shift', 17: 'Ctrl', 18: 'Alt', 224: 'Meta' };
++var FUNCTION_KEYS = {
++    8: "Backspace", 9: "Tab", 13: "Return", 19: "Pause", 27: "Esc",
++    32: "Space", 33: "PageUp", 34: "PageDown", 35: "End", 36: "Home",
++    37: "Left", 38: "Up", 39: "Right", 40: "Down",
++    44: "Print", 45: "Insert", 46: "Delete",
++    112: "F1", 113: "F2", 114: "F3", 115: "F4", 116: "F5", 117: "F6",
++    118: "F7", 119: "F8", 120: "F9", 121: "F10", 122: "F11", 123: "F12",
++    144: "Numlock", 145: "Scrolllock"
++};
++
++function normalizeCommandKeys(callback, ev, keyCode) {
++    var hashId = 0;
++    if (isOperaMac) {
++        hashId = 0 | (ev.metaKey ? 1 : 0) | (ev.altKey ? 2 : 0)
++            | (ev.shiftKey ? 4 : 0) | (ev.ctrlKey ? 8 : 0);
++    } else {
++        hashId = 0 | (ev.ctrlKey ? 1 : 0) | (ev.altKey ? 2 : 0)
++            | (ev.shiftKey ? 4 : 0) | (ev.metaKey ? 8 : 0);
++    }
++
++    if (keyCode in MODIFIER_KEYS) {
++        switch (MODIFIER_KEYS[keyCode]) {
++            case "Alt":
++                hashId = 2;
++                break;
++            case "Shift":
++                hashId = 4;
++                break;
++            case "Ctrl":
++                hashId = 1;
++                break;
++            default:
++                hashId = 8;
++                break;
++        }
++        keyCode = 0;
++    }
++
++    // It seems likely that 91 is the left windows key, but this is not
++    // defined anywhere that is referenceable, so it's not in KeyEvent
++    if (hashId & 8 &&
++            (keyCode == 91 || keyCode == event.KeyEvent.DOM_VK_CONTEXT_MENU)) {
++        keyCode = 0;
++    }
++
++    // If there is no hashID and the keyCode is not a function key, then
++    // we don't call the callback as we don't handle a command key here
++    // (it's a normal key/character input).
++    if (hashId == 0 && !(keyCode in FUNCTION_KEYS)) {
++        return false;
++    }
++
++    return callback(ev, hashId, keyCode);
++}
++
++/**
++ * Shim to fix bugs in old Firefox and Mac/Opera
++ */
++event.addCommandKeyListener = function(el, callback) {
++    var addListener = event.addListener;
++    if (isOldGecko) {
++        // Old versions of Gecko aka. Firefox < 4.0 didn't repeat the keydown
++        // event if the user pressed the key for a longer time. Instead, the
++        // keydown event was fired once and later on only the keypress event.
++        // To emulate the 'right' keydown behavior, the keyCode of the initial
++        // keyDown event is stored and in the following keypress events the
++        // stores keyCode is used to emulate a keyDown event.
++        var lastKeyDownKeyCode = null;
++        addListener(el, "keydown", function(e) {
++            lastKeyDownKeyCode = e.keyCode;
++        });
++        addListener(el, "keypress", function(e) {
++            return normalizeCommandKeys(callback, e, lastKeyDownKeyCode);
++        });
++    } else {
++        var lastDown = null;
++
++        addListener(el, "keydown", function(e) {
++            lastDown = e.keyIdentifier || e.keyCode;
++            return normalizeCommandKeys(callback, e, e.keyCode);
++        });
++
++        // repeated keys are fired as keypress and not keydown events
++        if (isOperaMac) {
++            addListener(el, "keypress", function(e) {
++                var keyId = e.keyIdentifier || e.keyCode;
++                if (lastDown !== keyId) {
++                    return normalizeCommandKeys(callback, e, e.keyCode);
++                } else {
++                    lastDown = null;
++                }
++            });
++        }
++    }
++};
++
++exports.event = event;
++
+ 
+ });
+-
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Skywriter.
++ *
++ * The Initial Developer of the Original Code is
++ * Mozilla.
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *      Joe Walker (jwalker@mozilla.com) (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++define('gcli/types', ['require', 'exports', 'module' , 'gcli/util', 'gcli/argument'], function(require, exports, module) {
++var types = exports;
++
++
++var console = require('gcli/util').console;
++
++var Argument = require('gcli/argument').Argument;
++var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
++var FalseNamedArgument = require('gcli/argument').FalseNamedArgument;
++var ArrayArgument = require('gcli/argument').ArrayArgument;
++
++
++/**
++ * Some types can detect validity, that is to say they can distinguish between
++ * valid and invalid values.
++ * We might want to change these constants to be numbers for better performance
++ */
++var Status = {
++    /**
++     * The conversion process worked without any problem, and the value is
++     * valid. There are a number of failure states, so the best way to check
++     * for failure is (x !== Status.VALID)
++     */
++    VALID: {
++        toString: function() { return 'VALID'; },
++        valueOf: function() { return 0; }
++    },
++
++    /**
++     * A conversion process failed, however it was noted that the string
++     * provided to 'parse()' could be VALID by the addition of more characters,
++     * so the typing may not be actually incorrect yet, just unfinished.
++     * @see Status.ERROR
++     */
++    INCOMPLETE: {
++        toString: function() { return 'INCOMPLETE'; },
++        valueOf: function() { return 1; }
++    },
++
++    /**
++     * The conversion process did not work, the value should be null and a
++     * reason for failure should have been provided. In addition some
++     * completion values may be available.
++     * @see Status.INCOMPLETE
++     */
++    ERROR: {
++        toString: function() { return 'ERROR'; },
++        valueOf: function() { return 2; }
++    },
++
++    /**
++     * A combined status is the worser of the provided statuses. The statuses
++     * can be provided either as a set of arguments or a single array
++     */
++    combine: function() {
++        var combined = Status.VALID;
++        for (var i = 0; i < arguments.length; i++) {
++            var status = arguments[i];
++            if (Array.isArray(status)) {
++                status = Status.combine.apply(null, status);
++            }
++            if (status > combined) {
++                combined = status;
++            }
++        }
++        return combined;
++    }
++};
++types.Status = Status;
++
++/**
++ * The type.parse() method converts an Argument into a value, Conversion is
++ * a wrapper to that value.
++ * Conversion is needed to collect a number of properties related to that
++ * conversion in one place, i.e. to handle errors and provide traceability.
++ * Each Conversion has a Status [VALID|INCOMPLETE|ERROR] (see above). The
++ * value will be null unless status=VALID.
++ * If status=ERROR, there should be a message to describe the error. A message
++ * is not needed unless for other statuses.
++ * If status=INCOMPLETE, there could be predictions as to the options available
++ * to complete the input.
++ */
++function Conversion(value, arg, status, message, predictions) {
++    // The result of the conversion process. Will be null if status != VALID
++    this.value = value;
++
++    // Allow us to trace where this Conversion came from
++    this.arg = arg;
++    if (arg == null) {
++        throw new Error('missing arg');
++    }
++
++    // The status of the conversion.
++    this._status = status || Status.VALID;
++
++    // A message to go with the conversion. This could be present for any
++    // status including VALID in the case where we want to note a warning for
++    // example.
++    // See BUG 664676: GCLI conversion error messages should be localized
++    this.message = message;
++
++    // A array of strings which are the systems best guess at better inputs
++    // than the one presented.
++    // We generally expect there to be about 7 predictions (to match human list
++    // comprehension ability) however it is valid to provide up to about 20,
++    // or less. It is the job of the predictor to decide a smart cut-off.
++    // For example if there are 4 very good matches and 4 very poor ones,
++    // probably only the 4 very good matches should be presented.
++    this.predictions = predictions;
++}
++
++types.Conversion = Conversion;
++
++/**
++ * Ensure that all arguments that are part of this conversion know what they
++ * are assigned to.
++ * @param assignment The Assignment (param/conversion link) to inform the
++ * argument about.
++ */
++Conversion.prototype.assign = function(assignment) {
++    this.arg.assign(assignment);
++};
++
++/**
++ * Work out if there is information provided in the contained argument.
++ */
++Conversion.prototype.isDataProvided = function() {
++    var argProvided = this.arg.text !== '';
++    return this.value !== undefined || argProvided;
++};
++
++/**
++ * 2 conversions are equal if and only if their args are equal (argEquals) and
++ * their values are equal (valueEquals).
++ * @param that The conversion object to compare against.
++ */
++Conversion.prototype.equals = function(that) {
++    if (this === that) {
++        return true;
++    }
++    if (that == null) {
++        return false;
++    }
++    return this.valueEquals(that) && this.argEquals(that);
++};
++
++/**
++ * Check that the value in this conversion is strict equal to the value in the
++ * provided conversion.
++ * @param that The conversion to compare values with
++ */
++Conversion.prototype.valueEquals = function(that) {
++    return this.value === that.value;
++};
++
++/**
++ * Check that the argument in this conversion is equal to the value in the
++ * provided conversion as defined by the argument (i.e. arg.equals).
++ * @param that The conversion to compare arguments with
++ */
++Conversion.prototype.argEquals = function(that) {
++    return this.arg.equals(that.arg);
++};
++
++/**
++ * Accessor for the status of this conversion
++ */
++Conversion.prototype.getStatus = function(arg) {
++    return this._status;
++};
++
++/**
++ * Defined by the toString() value provided by the argument
++ */
++Conversion.prototype.toString = function() {
++    return this.arg.toString();
++};
++
++/**
++ * If status === INCOMPLETE, then we may be able to provide predictions as to
++ * how the argument can be completed.
++ */
++Conversion.prototype.getPredictions = function() {
++    if (typeof this.predictions === 'function') {
++        return this.predictions();
++    }
++    return this.predictions || [];
++};
++
++/**
++ * ArrayConversion is a special Conversion, needed because arrays are converted
++ * member by member rather then as a whole, which means we can track the
++ * conversion if individual array elements. So an ArrayConversion acts like a
++ * normal Conversion (which is needed as Assignment requires a Conversion) but
++ * it can also be devolved into a set of Conversions for each array member.
++ */
++function ArrayConversion(conversions, arg) {
++    this.arg = arg;
++    this.conversions = conversions;
++    this.value = conversions.map(function(conversion) {
++        return conversion.value;
++    }, this);
++
++    this._status = Status.combine(conversions.map(function(conversion) {
++        return conversion.getStatus();
++    }));
++
++    // This message is just for reporting errors like "not enough values"
++    // rather that for problems with individual values.
++    this.message = '';
++
++    // Predictions are generally provided by individual values
++    this.predictions = [];
++}
++
++ArrayConversion.prototype = Object.create(Conversion.prototype);
++
++ArrayConversion.prototype.assign = function(assignment) {
++    this.conversions.forEach(function(conversion) {
++        conversion.assign(assignment);
++    }, this);
++    this.assignment = assignment;
++};
++
++ArrayConversion.prototype.getStatus = function(arg) {
++    if (arg && arg.conversion) {
++        return arg.conversion.getStatus();
++    }
++    return this._status;
++};
++
++ArrayConversion.prototype.isDataProvided = function() {
++    return this.conversions.length > 0;
++};
++
++ArrayConversion.prototype.valueEquals = function(that) {
++    if (!(that instanceof ArrayConversion)) {
++        throw new Error('Can\'t compare values with non ArrayConversion');
++    }
++
++    if (this.value === that.value) {
++        return true;
++    }
++
++    if (this.value.length !== that.value.length) {
++        return false;
++    }
++
++    for (var i = 0; i < this.conversions.length; i++) {
++        if (!this.conversions[i].valueEquals(that.conversions[i])) {
++            return false;
++        }
++    }
++
++    return true;
++};
++
++ArrayConversion.prototype.toString = function() {
++    return '[ ' + this.conversions.map(function(conversion) {
++        return conversion.toString();
++    }, this).join(', ') + ' ]';
++};
++
++types.ArrayConversion = ArrayConversion;
++
++
++/**
++ * Most of our types are 'static' e.g. there is only one type of 'string',
++ * however some types like 'selection' and 'deferred' are customizable.
++ * The basic Type type isn't useful, but does provide documentation about what
++ * types do.
++ */
++function Type() {
++};
++
++/**
++ * Convert the given <tt>value</tt> to a string representation.
++ * Where possible, there should be round-tripping between values and their
++ * string representations.
++ */
++Type.prototype.stringify = function(value) {
++    throw new Error("not implemented");
++};
++
++/**
++ * Convert the given <tt>arg</tt> to an instance of this type.
++ * Where possible, there should be round-tripping between values and their
++ * string representations.
++ * @param arg An instance of <tt>Argument</tt> to convert.
++ * @return Conversion
++ */
++Type.prototype.parse = function(arg) {
++    throw new Error("not implemented");
++};
++
++/**
++ * A convenience method for times when you don't have an argument to parse
++ * but instead have a string.
++ * @see #parse(arg)
++ */
++Type.prototype.parseString = function(str) {
++    return this.parse(new Argument(str));
++},
++
++/**
++ * The plug-in system, and other things need to know what this type is
++ * called. The name alone is not enough to fully specify a type. Types like
++ * 'selection' and 'deferred' need extra data, however this function returns
++ * only the name, not the extra data.
++ */
++Type.prototype.name = undefined;
++
++/**
++ * If there is some concept of a higher value, return it,
++ * otherwise return undefined.
++ */
++Type.prototype.increment = function(value) {
++    return undefined;
++};
++
++/**
++ * If there is some concept of a lower value, return it,
++ * otherwise return undefined.
++ */
++Type.prototype.decrement = function(value) {
++    return undefined;
++};
++
++/**
++ * There is interesting information (like predictions) in a conversion of
++ * nothing, the output of this can sometimes be customized.
++ * @return Conversion
++ */
++Type.prototype.getDefault = undefined;
++
++types.Type = Type;
++
++/**
++ * Private registry of types
++ * Invariant: types[name] = type.name
++ */
++var registeredTypes = {};
++
++types.getTypeNames = function() {
++    return Object.keys(registeredTypes);
++};
++
++/**
++ * Add a new type to the list available to the system.
++ * You can pass 2 things to this function - either an instance of Type, in
++ * which case we return this instance when #getType() is called with a 'name'
++ * that matches type.name.
++ * Also you can pass in a constructor (i.e. function) in which case when
++ * #getType() is called with a 'name' that matches Type.prototype.name we will
++ * pass the typeSpec into this constructor.
++ */
++types.registerType = function(type) {
++    if (typeof type === 'object') {
++        if (type instanceof Type) {
++            if (!type.name) {
++                throw new Error('All registered types must have a name');
++            }
++            registeredTypes[type.name] = type;
++        }
++        else {
++            throw new Error('Can\'t registerType using: ' + type);
++        }
++    }
++    else if (typeof type === 'function') {
++        if (!type.prototype.name) {
++            throw new Error('All registered types must have a name');
++        }
++        registeredTypes[type.prototype.name] = type;
++    }
++    else {
++        throw new Error('Unknown type: ' + type);
++    }
++};
++
++types.registerTypes = function registerTypes(newTypes) {
++    Object.keys(newTypes).forEach(function(name) {
++        var type = newTypes[name];
++        type.name = name;
++        newTypes.registerType(type);
++    });
++};
++
++/**
++ * Remove a type from the list available to the system
++ */
++types.deregisterType = function(type) {
++    delete registeredTypes[type.name];
++};
++
++/**
++ * Find a type, previously registered using #registerType()
++ */
++types.getType = function(typeSpec) {
++    var type;
++    if (typeof typeSpec === 'string') {
++        type = registeredTypes[typeSpec];
++        if (typeof type === 'function') {
++            type = new type();
++        }
++        return type;
++    }
++
++    if (typeof typeSpec === 'object') {
++        if (!typeSpec.name) {
++            throw new Error('Missing \'name\' member to typeSpec');
++        }
++
++        type = registeredTypes[typeSpec.name];
++        if (typeof type === 'function') {
++            type = new type(typeSpec);
++        }
++        return type;
++    }
++
++    throw new Error('Can\'t extract type from ' + typeSpec);
++};
++
++
++/**
++ * 'string' the most basic string type that doesn't need to convert
++ */
++function StringType(typeSpec) {
++    if (typeSpec != null) {
++        throw new Error('StringType can not be customized');
++    }
++}
++
++StringType.prototype = new Type();
++
++StringType.prototype.stringify = function(value) {
++    if (value == null) {
++        return '';
++    }
++    return value.toString();
++};
++
++StringType.prototype.parse = function(arg) {
++    return new Conversion(arg.text, arg);
++};
++
++StringType.prototype.name = 'string';
++
++types.StringType = StringType;
++
++
++/**
++ * We don't currently plan to distinguish between integers and floats
++ */
++function NumberType(typeSpec) {
++    if (typeSpec) {
++        this.min = typeSpec.min;
++        this.max = typeSpec.max;
++        this.step = typeSpec.step;
++    }
++}
++
++NumberType.prototype = new Type();
++
++NumberType.prototype.stringify = function(value) {
++    if (value == null) {
++        return '';
++    }
++    return '' + value;
++};
++
++NumberType.prototype.parse = function(arg) {
++    if (arg.text.replace(/\s/g, '').length === 0) {
++        return new Conversion(null, arg, Status.INCOMPLETE, '');
++    }
++
++    var value = parseInt(arg.text, 10);
++    if (isNaN(value)) {
++        return new Conversion(value, arg, Status.ERROR,
++            'Can\'t convert "' + arg.text + '" to a number.');
++    }
++
++    if (this.max != null && value > this.max) {
++        return new Conversion(value, arg, Status.ERROR,
++            '' + value + ' is greater that maximum allowed: ' + this.max + '.');
++    }
++
++    if (this.min != null && value < this.min) {
++        return new Conversion(value, arg, Status.ERROR,
++            '' + value + ' is smaller that minimum allowed: ' + this.min + '.');
++    }
++
++    return new Conversion(value, arg);
++};
++
++NumberType.prototype.decrement = function(value) {
++    return (this.min != null && value - 1 >= this.min) ? value - 1 : value;
++};
++
++NumberType.prototype.increment = function(value) {
++    return (this.max != null && value + 1 <= this.max) ? value + 1 : value;
++};
++
++NumberType.prototype.name = 'number';
++
++types.NumberType = NumberType;
++
++
++/**
++ * One of a known set of options
++ */
++function SelectionType(typeSpec) {
++    if (typeSpec) {
++        Object.keys(typeSpec).forEach(function(key) {
++            this[key] = typeSpec[key];
++        }, this);
++    }
++}
++
++SelectionType.prototype = new Type();
++
++SelectionType.prototype.stringify = function(value) {
++    return typeof value === 'string' ? value : value.name;
++};
++
++SelectionType.prototype.getLookup = function() {
++    if (this.lookup) {
++        if (typeof this.lookup === 'function') {
++            return this.lookup();
++        }
++        return this.lookup;
++    }
++
++    if (Array.isArray(this.data)) {
++        this.lookup = this._dataToLookup(this.data);
++        return this.lookup;
++    }
++
++    if (typeof(this.data) === 'function') {
++        return this._dataToLookup(this.data());
++    }
++
++    throw new Error('SelectionType has no data');
++};
++
++SelectionType.prototype._dataToLookup = function(data) {
++    var lookup = {};
++    data.forEach(function(option) {
++        var name = (typeof option === 'string') ? option : option.name;
++        lookup[name] = option;
++    }, this);
++    return lookup;
++};
++
++SelectionType.prototype._findCompletions = function(arg) {
++    var completions = {};
++
++    var lookup = this.getLookup();
++    var matchedValue = lookup[arg.text];
++    if (matchedValue !== undefined) {
++        completions[arg.text] = matchedValue;
++    }
++    else {
++        Object.keys(lookup).forEach(function(name) {
++            if (name.indexOf(arg.text) === 0) {
++                completions[name] = lookup[name];
++            }
++        }, this);
++    }
++
++    return completions;
++};
++
++SelectionType.prototype.parse = function(arg) {
++    var completions = this._findCompletions(arg);
++    var matches = Object.keys(completions).length;
++    if (matches === 1 && completions[arg.text] != null) {
++        return new Conversion(completions[arg.text], arg);
++    }
++
++    // This is something of a hack it basically allows us to tell the
++    // setting type to forget its last setting hack.
++    if (this.noMatch) {
++        this.noMatch();
++    }
++
++    if (matches > 0) {
++        // Especially at startup, completions live over the time that things
++        // change so we provide a completion function rather than completion
++        // values.
++        // This was primarily designed for commands, which have since moved
++        // into their own type, so technically we could remove this code,
++        // except that it provides more up-to-date answers, and it's hard to
++        // predict when it will be required.
++        var predictions = function() {
++            var completions = this._findCompletions(arg);
++            return Object.keys(completions).map(function(name) {
++                return completions[name];
++            });
++        }.bind(this);
++        return new Conversion(null, arg, Status.INCOMPLETE, '', predictions);
++    }
++
++    var msg = 'Can\'t use \'' + arg.text + '\'.';
++    return new Conversion(null, arg, Status.ERROR, msg);
++};
++
++SelectionType.prototype.fromString = function(str) {
++    return str;
++};
++
++SelectionType.prototype.decrement = function(value) {
++    var data = (typeof this.data === 'function') ? this.data() : this.data;
++    var index;
++    if (value == null) {
++        index = data.length - 1;
++    }
++    else {
++        var name = this.stringify(value);
++        index = data.indexOf(name);
++        index = (index === 0 ? data.length - 1 : index - 1);
++    }
++    return this.fromString(data[index]);
++};
++
++SelectionType.prototype.increment = function(value) {
++    var data = (typeof this.data === 'function') ? this.data() : this.data;
++    var index;
++    if (value == null) {
++        index = 0;
++    }
++    else {
++        var name = this.stringify(value);
++        index = data.indexOf(name);
++        index = (index === data.length - 1 ? 0 : index + 1);
++    }
++    return this.fromString(data[index]);
++};
++
++SelectionType.prototype.name = 'selection';
++
++types.SelectionType = SelectionType;
++
++
++/**
++ * true/false values
++ */
++function BooleanType(typeSpec) {
++    if (typeSpec != null) {
++        throw new Error('BooleanType can not be customized');
++    }
++}
++
++BooleanType.prototype = new SelectionType();
++
++BooleanType.prototype.lookup = { 'true': true, 'false': false };
++
++BooleanType.prototype.parse = function(arg) {
++    if (arg instanceof TrueNamedArgument) {
++        return new Conversion(true, arg);
++    }
++    if (arg instanceof FalseNamedArgument) {
++        return new Conversion(false, arg);
++    }
++    return SelectionType.prototype.parse.call(this, arg);
++};
++
++BooleanType.prototype.stringify = function(value) {
++    return '' + value;
++};
++
++BooleanType.prototype.fromString = function(str) {
++    return str === 'true' ? true : false;
++};
++
++BooleanType.prototype.getDefault = function() {
++    return new Conversion(false, new Argument(''));
++};
++
++BooleanType.prototype.name = 'boolean';
++
++types.BooleanType = BooleanType;
++
++
++/**
++ * A type for "we don't know right now, but hope to soon".
++ */
++function DeferredType(typeSpec) {
++    if (typeof typeSpec.defer !== 'function') {
++        throw new Error('Instances of DeferredType need typeSpec.defer to be a function that returns a type');
++    }
++    Object.keys(typeSpec).forEach(function(key) {
++        this[key] = typeSpec[key];
++    }, this);
++}
++
++DeferredType.prototype = new Type();
++
++DeferredType.prototype.stringify = function(value) {
++    return this.defer().stringify(value);
++};
++
++DeferredType.prototype.parse = function(arg) {
++    return this.defer().parse(arg);
++};
++
++DeferredType.prototype.decrement = function(value) {
++    var deferred = this.defer();
++    return (deferred.decrement ? deferred.decrement(value) : undefined);
++};
++
++DeferredType.prototype.increment = function(value) {
++    var deferred = this.defer();
++    return (deferred.increment ? deferred.increment(value) : undefined);
++};
++
++DeferredType.prototype.increment = function(value) {
++    var deferred = this.defer();
++    return (deferred.increment ? deferred.increment(value) : undefined);
++};
++
++DeferredType.prototype.name = 'deferred';
++
++types.DeferredType = DeferredType;
++
++
++/**
++ * 'blank' is a type for use with DeferredType when we don't know yet.
++ * It should not be used anywhere else.
++ */
++function BlankType(typeSpec) {
++    if (typeSpec != null) {
++        throw new Error('BlankType can not be customized');
++    }
++}
++
++BlankType.prototype = new Type();
++
++BlankType.prototype.stringify = function(value) {
++    return '';
++};
++
++BlankType.prototype.parse = function(arg) {
++    return new Conversion(null, arg);
++};
++
++BlankType.prototype.name = 'blank';
++
++types.BlankType = BlankType;
++
++
++/**
++ * A set of objects of the same type
++ */
++function ArrayType(typeSpec) {
++    if (!typeSpec.subtype) {
++        console.error('Array.typeSpec is missing subtype. Assuming string.' +
++            JSON.stringify(typeSpec));
++        typeSpec.subtype = 'string';
++    }
++
++    Object.keys(typeSpec).forEach(function(key) {
++        this[key] = typeSpec[key];
++    }, this);
++    this.subtype = types.getType(this.subtype);
++}
++
++ArrayType.prototype = new Type();
++
++ArrayType.prototype.stringify = function(values) {
++    // BUG 664204: Check for strings with spaces and add quotes
++    return values.join(' ');
++};
++
++ArrayType.prototype.parse = function(arg) {
++    if (arg instanceof ArrayArgument) {
++        var conversions = arg.getArguments().map(function(subArg) {
++            var conversion = this.subtype.parse(subArg);
++            // Hack alert. ArrayConversion needs to be able to answer questions
++            // about the status of individual conversions in addition to the
++            // overall state. This allows us to do that easily.
++            subArg.conversion = conversion;
++            return conversion;
++        }, this);
++        return new ArrayConversion(conversions, arg);
++    }
++    else {
++        console.error('non ArrayArgument to ArrayType.parse', arg);
++        throw new Error('non ArrayArgument to ArrayType.parse');
++    }
++};
++
++ArrayType.prototype.getDefault = function() {
++    return new ArrayConversion([], new ArrayArgument());
++};
++
++ArrayType.prototype.name = 'array';
++
++types.ArrayType = ArrayType;
++
++
++/**
++ * Registration and de-registration.
++ */
++types.startup = function() {
++    types.registerType(StringType);
++    types.registerType(NumberType);
++    types.registerType(BooleanType);
++    types.registerType(BlankType);
++    types.registerType(SelectionType);
++    types.registerType(DeferredType);
++    types.registerType(ArrayType);
++};
++
++types.shutdown = function() {
++    types.unregisterType(StringType);
++    types.unregisterType(NumberType);
++    types.unregisterType(BooleanType);
++    types.unregisterType(BlankType);
++    types.unregisterType(SelectionType);
++    types.unregisterType(DeferredType);
++    types.unregisterType(ArrayType);
++};
++
++
++});
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Skywriter.
++ *
++ * The Initial Developer of the Original Code is
++ * Mozilla.
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *      Joe Walker (jwalker@mozilla.com) (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++define('gcli/argument', ['require', 'exports', 'module' ], function(require, exports, module) {
++var argument = exports;
++
++
++/**
++ * We record where in the input string an argument comes so we can report
++ * errors against those string positions.
++ * @param text The string (trimmed) that contains the argument
++ * @param prefix Knowledge of quotation marks and whitespace used prior to the
++ * text in the input string allows us to re-generate the original input from
++ * the arguments.
++ * @param suffix Any quotation marks and whitespace used after the text.
++ * Whitespace is normally placed in the prefix to the succeeding argument, but
++ * can be used here when this is the last argument.
++ * @constructor
++ */
++function Argument(text, prefix, suffix) {
++    if (text === undefined) {
++        this.text = '';
++        this.prefix = '';
++        this.suffix = '';
++    }
++    else {
++        this.text = text;
++        this.prefix = prefix !== undefined ? prefix : '';
++        this.suffix = suffix !== undefined ? suffix : '';
++    }
++}
++
++/**
++ * Return the result of merging these arguments.
++ * case and some of the arguments are in quotation marks?
++ */
++Argument.prototype.merge = function(following) {
++    // Is it possible that this gets called when we're merging arguments
++    // for the single string?
++    return new Argument(
++        this.text + this.suffix + following.prefix + following.text,
++        this.prefix, following.suffix);
++};
++
++/**
++ * Returns a new Argument like this one but with the text set to
++ * <tt>replText</tt> and the end adjusted to fit.
++ * @param replText Text to replace the old text value
++ */
++Argument.prototype.beget = function(replText, options) {
++    var prefix = this.prefix;
++    var suffix = this.suffix;
++
++    var quote = (replText.indexOf(' ') >= 0 || replText.length == 0) ?
++            '\'' : '';
++
++    if (options) {
++        prefix = (options.prefixSpace ? ' ' : '') + quote;
++        suffix = quote;
++    }
++
++    return new Argument(replText, prefix, suffix);
++};
++
++/**
++ * Is there any visible content to this argument?
++ */
++Argument.prototype.isBlank = function() {
++    return this.text === '' &&
++            this.prefix.trim() === '' &&
++            this.suffix.trim() === '';
++};
++
++/**
++ * We need to keep track of which assignment we've been assigned to
++ */
++Argument.prototype.assign = function(assignment) {
++    this.assignment = assignment;
++};
++
++/**
++ * Sub-classes of Argument are collections of arguments, getArgs() gets access
++ * to the members of the collection in order to do things like re-create input
++ * command lines. For the simple Argument case it's just an array containing
++ * only this.
++ */
++Argument.prototype.getArgs = function() {
++    return [ this ];
++};
++
++/**
++ * We define equals to mean all arg properties are strict equals.
++ * Used by Conversion.argEquals and Conversion.equals and ultimately
++ * Assignment.equals to avoid reporting a change event when a new conversion
++ * is assigned.
++ */
++Argument.prototype.equals = function(that) {
++    if (this === that) {
++        return true;
++    }
++    if (that == null || !(that instanceof Argument)) {
++        return false;
++    }
++
++    return this.text === that.text &&
++           this.prefix === that.prefix && this.suffix === that.suffix;
++};
++
++/**
++ * Helper when we're putting arguments back together
++ */
++Argument.prototype.toString = function() {
++    // BUG 664207: We should re-escape escaped characters
++    // But can we do that reliably?
++    return this.prefix + this.text + this.suffix;
++};
++
++/**
++ * Merge an array of arguments into a single argument.
++ * All Arguments in the array are expected to have the same emitter
++ */
++Argument.merge = function(argArray, start, end) {
++    start = (start === undefined) ? 0 : start;
++    end = (end === undefined) ? argArray.length : end;
++
++    var joined;
++    for (var i = start; i < end; i++) {
++        var arg = argArray[i];
++        if (!joined) {
++            joined = arg;
++        }
++        else {
++            joined = joined.merge(arg);
++        }
++    }
++    return joined;
++};
++
++argument.Argument = Argument;
++
++
++/**
++ * Commands like 'echo' with a single string argument, and used with the
++ * special format like: 'echo a b c' effectively have a number of arguments
++ * merged together.
++ */
++function MergedArgument(args, start, end) {
++    if (!Array.isArray(args)) {
++        throw new Error('args is not an array of Arguments');
++    }
++
++    if (start === undefined) {
++        this.args = args;
++    }
++    else {
++        this.args = args.slice(start, end);
++    }
++
++    var arg = Argument.merge(this.args);
++    this.text = arg.text;
++    this.prefix = arg.prefix;
++    this.suffix = arg.suffix;
++}
++
++MergedArgument.prototype = Object.create(Argument.prototype);
++
++/**
++ * Keep track of which assignment we've been assigned to, and allow the
++ * original args to do the same.
++ */
++MergedArgument.prototype.assign = function(assignment) {
++    this.args.forEach(function(arg) {
++        arg.assign(assignment);
++    }, this);
++
++    this.assignment = assignment;
++};
++
++MergedArgument.prototype.getArgs = function() {
++    return this.args;
++};
++
++MergedArgument.prototype.equals = function(that) {
++    if (this === that) {
++        return true;
++    }
++    if (that == null || !(that instanceof MergedArgument)) {
++        return false;
++    }
++
++    // We might need to add a check that args is the same here
++
++    return this.text === that.text &&
++           this.prefix === that.prefix && this.suffix === that.suffix;
++};
++
++argument.MergedArgument = MergedArgument;
++
++
++/**
++ * TrueNamedArguments are for when we have an argument like --verbose which
++ * has a boolean value, and thus the opposite of '--verbose' is ''.
++ */
++function TrueNamedArgument(name, arg) {
++    this.arg = arg;
++    this.text = arg ? arg.text : '--' + name;
++    this.prefix = arg ? arg.prefix : ' ';
++    this.suffix = arg ? arg.suffix : '';
++}
++
++TrueNamedArgument.prototype = Object.create(Argument.prototype);
++
++TrueNamedArgument.prototype.assign = function(assignment) {
++    if (this.arg) {
++        this.arg.assign(assignment);
++    }
++    this.assignment = assignment;
++};
++
++TrueNamedArgument.prototype.getArgs = function() {
++    // NASTY! getArgs has a fairly specific use: in removing used arguments
++    // from a command line. Unlike other arguments which are EITHER used
++    // in assignments directly OR grouped in things like MergedArguments,
++    // TrueNamedArgument is used raw from the UI, or composed of another arg
++    // from the CLI, so we return both here so they can both be removed.
++    return this.arg ? [ this, this.arg ] : [ this ];
++};
++
++TrueNamedArgument.prototype.equals = function(that) {
++    if (this === that) {
++        return true;
++    }
++    if (that == null || !(that instanceof TrueNamedArgument)) {
++        return false;
++    }
++
++    return this.text === that.text &&
++           this.prefix === that.prefix && this.suffix === that.suffix;
++};
++
++argument.TrueNamedArgument = TrueNamedArgument;
++
++
++/**
++ * FalseNamedArguments are for when we don't have an argument like --verbose
++ * which has a boolean value, and thus the opposite of '' is '--verbose'.
++ */
++function FalseNamedArgument() {
++    this.text = '';
++    this.prefix = '';
++    this.suffix = '';
++}
++
++FalseNamedArgument.prototype = Object.create(Argument.prototype);
++
++FalseNamedArgument.prototype.getArgs = function() {
++    return [ ];
++};
++
++FalseNamedArgument.prototype.equals = function(that) {
++    if (this === that) {
++        return true;
++    }
++    if (that == null || !(that instanceof FalseNamedArgument)) {
++        return false;
++    }
++
++    return this.text === that.text &&
++           this.prefix === that.prefix && this.suffix === that.suffix;
++};
++
++argument.FalseNamedArgument = FalseNamedArgument;
++
++
++/**
++ * A named argument is for cases where we have input in one of the following
++ * formats:
++ * <ul>
++ * <li>--param value
++ * <li>-p value
++ * <li>--pa value
++ * <li>-p:value
++ * <li>--param=value
++ * <li>etc
++ * </ul>
++ * The general format is:
++ * /--?{unique-param-name-prefix}[ :=]{value}/
++ * We model this as a normal argument but with a long prefix.
++ */
++function NamedArgument(nameArg, valueArg) {
++    this.nameArg = nameArg;
++    this.valueArg = valueArg;
++
++    this.text = valueArg.text;
++    this.prefix = nameArg.toString() + valueArg.prefix;
++    this.suffix = valueArg.suffix;
++}
++
++NamedArgument.prototype = Object.create(Argument.prototype);
++
++NamedArgument.prototype.assign = function(assignment) {
++    this.nameArg.assign(assignment);
++    this.valueArg.assign(assignment);
++    this.assignment = assignment;
++};
++
++NamedArgument.prototype.getArgs = function() {
++    return [ this.nameArg, this.valueArg ];
++};
++
++NamedArgument.prototype.equals = function(that) {
++    if (this === that) {
++        return true;
++    }
++    if (that == null) {
++        return false;
++    }
++
++    if (!(that instanceof NamedArgument)) {
++        return false;
++    }
++
++    // We might need to add a check that nameArg and valueArg are the same
++
++    return this.text === that.text &&
++           this.prefix === that.prefix && this.suffix === that.suffix;
++};
++
++argument.NamedArgument = NamedArgument;
++
++
++/**
++ *
++ */
++function ArrayArgument() {
++    this.args = [];
++}
++
++ArrayArgument.prototype = Object.create(Argument.prototype);
++
++ArrayArgument.prototype.addArgument = function(arg) {
++    this.args.push(arg);
++};
++
++ArrayArgument.prototype.addArguments = function(args) {
++    Array.prototype.push.apply(this.args, args);
++};
++
++ArrayArgument.prototype.getArguments = function() {
++    return this.args;
++};
++
++ArrayArgument.prototype.assign = function(assignment) {
++    this.args.forEach(function(arg) {
++        arg.assign(assignment);
++    }, this);
++
++    this.assignment = assignment;
++};
++
++ArrayArgument.prototype.getArgs = function() {
++    return this.args;
++};
++
++ArrayArgument.prototype.equals = function(that) {
++    if (this === that) {
++        return true;
++    }
++    if (that == null) {
++        return false;
++    }
++
++    if (!(that instanceof ArrayArgument)) {
++        return false;
++    }
++
++    if (this.args.length !== that.args.length) {
++        return false;
++    }
++
++    for (var i = 0; i < this.args.length; i++) {
++        if (!this.args[i].equals(that.args[i])) {
++            return false;
++        }
++    }
++
++    return true;
++};
++
++/**
++ * Helper when we're putting arguments back together
++ */
++ArrayArgument.prototype.toString = function() {
++    return '{' + this.args.map(function(arg) {
++        return arg.toString();
++    }, this).join(',') + '}';
++};
++
++argument.ArrayArgument = ArrayArgument;
++
++
++});
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Skywriter.
++ *
++ * The Initial Developer of the Original Code is
++ * Mozilla.
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *      Joe Walker (jwalker@mozilla.com) (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++define('gcli/commands/help', ['require', 'exports', 'module' , 'gcli/canon'], function(require, exports, module) {
++var basic = exports;
++
++
++// This API is NOT public it may change without warning in the future.
++var canon = require('gcli/canon');
++
++/**
++ * We export a way to customize the help message with some HTML text
++ */
++basic.helpMessages = {
++    prefix: null,
++    suffix: null
++};
++
++/**
++ * 'help' command
++ */
++var helpCommandSpec = {
++    name: 'help',
++    params: [
++        {
++            name: 'search',
++            type: 'string',
++            description: 'Search string',
++            defaultValue: null
++        },
++        {
++            group: 'Options',
++            params: [
++                {
++                    name: 'hidden',
++                    type: 'boolean',
++                    description: 'Include hidden'
++                }
++            ]
++        }
++    ],
++    returnType: 'html',
++    description: 'Get help on the available commands',
++    exec: function(args, context) {
++        var output = [];
++
++        var command = canon.getCommand(args.search);
++        if (command && command.exec) {
++            // caught a real command
++            output.push(command.description ?
++                    command.description :
++                    'No description for ' + args.search);
++        } else {
++            if (!args.search && basic.helpMessages.prefix) {
++                output.push(basic.helpMessages.prefix);
++            }
++
++            if (command) {
++                // We must be looking at sub-commands
++                output.push('<h2>Sub-Commands of ' + command.name + '</h2>');
++                output.push('<p>' + command.description + '</p>');
++            }
++            else if (args.search) {
++                output.push('<h2>Commands starting with \'' + args.search + '\':</h2>');
++            }
++            else {
++                output.push('<h2>Available Commands:</h2>');
++            }
++
++            var commandNames = canon.getCommandNames();
++            commandNames.sort();
++
++            output.push('<table>');
++            for (var i = 0; i < commandNames.length; i++) {
++                command = canon.getCommand(commandNames[i]);
++                if (!args.hidden && command.hidden) {
++                    continue;
++                }
++                if (command.description === undefined) {
++                    // Ignore editor actions
++                    continue;
++                }
++                if (args.search && command.name.indexOf(args.search) !== 0) {
++                    // Filtered out by the user
++                    continue;
++                }
++                if (!args.search && command.name.indexOf(' ') != -1) {
++                    // sub command
++                    continue;
++                }
++                if (command && command.name == args.search) {
++                    // sub command, and we've already given that help
++                    continue;
++                }
++
++                // todo add back a column with parameter information, perhaps?
++
++                output.push('<tr>');
++                output.push('<th class="right">' + command.name + '</th>');
++                output.push('<td>' + command.description + '</td>');
++                output.push('</tr>');
++            }
++            output.push('</table>');
++
++            if (!args.search && basic.helpMessages.suffix) {
++                output.push(basic.helpMessages.suffix);
++            }
++        }
++
++        return output.join('');
++    }
++};
++
++
++var canon = require('gcli/canon');
++
++basic.startup = function() {
++    canon.addCommand(helpCommandSpec);
++};
++
++basic.shutdown = function() {
++    canon.removeCommand(helpCommandSpec);
++};
++
++
++});
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Skywriter.
++ *
++ * The Initial Developer of the Original Code is
++ * Mozilla.
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *      Joe Walker (jwalker@mozilla.com) (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
++
++
++var console = require('gcli/util').console;
++var createEvent = require('gcli/util').createEvent;
++
++var canon = require('gcli/canon');
++var Promise = require('gcli/promise').Promise;
++
++var types = require('gcli/types');
++var Status = require('gcli/types').Status;
++var Conversion = require('gcli/types').Conversion;
++var ArrayType = require('gcli/types').ArrayType;
++var StringType = require('gcli/types').StringType;
++var BooleanType = require('gcli/types').BooleanType;
++var Type = require('gcli/types').Type;
++
++var Argument = require('gcli/argument').Argument;
++var ArrayArgument = require('gcli/argument').ArrayArgument;
++var NamedArgument = require('gcli/argument').NamedArgument;
++var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
++var MergedArgument = require('gcli/argument').MergedArgument;
++
++
++/**
++ * Assignment is a link between a parameter and the data for that parameter.
++ * The data for the parameter is available as in the preferred type and as
++ * an Argument for the CLI.
++ * <p>We also record validity information where applicable.
++ * <p>For values, null and undefined have distinct definitions. null means
++ * that a value has been provided, undefined means that it has not.
++ * Thus, null is a valid default value, and common because it identifies an
++ * parameter that is optional. undefined means there is no value from
++ * the command line.
++ *
++ * <h2>Events<h2>
++ * Assignment publishes the following event:<ul>
++ * <li>assignmentChange: Either the value or the text has changed. It is likely
++ * that any UI component displaying this argument will need to be updated.
++ * The event object looks like:
++ * <tt>{ assignment: ..., conversion: ..., oldConversion: ... }</tt>
++ * @constructor
++ */
++function Assignment(param, paramIndex) {
++    this.param = param;
++    this.paramIndex = paramIndex;
++    this.assignmentChange = createEvent('Assignment.assignmentChange');
++
++    this.setDefault();
++}
++
++/**
++ * The parameter that we are assigning to
++ * @readonly
++ */
++Assignment.prototype.param = undefined;
++
++Assignment.prototype.conversion = undefined;
++
++/**
++ * The index of this parameter in the parent Requisition. paramIndex === -1
++ * is the command assignment although this should not be relied upon, it is
++ * better to test param instanceof CommandAssignment
++ */
++Assignment.prototype.paramIndex = undefined;
++
++/**
++ * Easy accessor for conversion.arg
++ */
++Assignment.prototype.getArg = function() {
++    return this.conversion.arg;
++};
++
++/**
++ * Easy accessor for conversion.value
++ */
++Assignment.prototype.getValue = function() {
++    return this.conversion.value;
++};
++
++/**
++ * Easy (and safe) accessor for conversion.message
++ */
++Assignment.prototype.getMessage = function() {
++    return this.conversion.message ? this.conversion.message : '';
++};
++
++/**
++ * Easy (and safe) accessor for conversion.getPredictions()
++ */
++Assignment.prototype.getPredictions = function() {
++    return this.conversion.getPredictions();
++};
++
++/**
++ * Report on the status of the last parse() conversion.
++ * We force mutations to happen through this method rather than have
++ * setValue and setArgument functions to help maintain integrity when we
++ * have ArrayArguments and don't want to get confused. This way assignments
++ * are just containers for a conversion rather than things that store
++ * a connection between an arg/value.
++ * @see types.Conversion
++ */
++Assignment.prototype.setConversion = function(conversion) {
++    var oldConversion = this.conversion;
++
++    this.conversion = conversion;
++    this.conversion.assign(this);
++
++    if (this.conversion.equals(oldConversion)) {
++        return;
++    }
++
++    this.assignmentChange({
++        assignment: this,
++        conversion: this.conversion,
++        oldConversion: oldConversion
++    });
++};
++
++/**
++ * Find a default value for the conversion either from the parameter, or from
++ * the type, or failing that by parsing an empty argument.
++ */
++Assignment.prototype.setDefault = function() {
++    var conversion;
++    if (this.param.getDefault) {
++        conversion = this.param.getDefault();
++    }
++    else if (this.param.type.getDefault) {
++        conversion = this.param.type.getDefault();
++    }
++    else {
++        conversion = this.param.type.parse(new Argument());
++    }
++
++    this.setConversion(conversion);
++};
++
++/**
++ * Make sure that there is some content for this argument by using an
++ * Argument of '' if needed.
++ */
++Assignment.prototype.ensureVisibleArgument = function() {
++    // It isn't clear if we should be sending events from this method.
++    // It should only be called when structural changes are happening in which
++    // case we're going to ignore the event anyway. But on the other hand
++    // perhaps this function shouldn't need to know how it is used, and should
++    // do the inefficient thing.
++    if (!this.conversion.arg.isBlank()) {
++        return false;
++    }
++
++    var arg = this.conversion.arg.beget('', {
++        prefixSpace: this.param instanceof CommandAssignment
++    });
++    this.conversion = this.param.type.parse(arg);
++    this.conversion.assign(this);
++
++    return true;
++};
++
++/**
++ * Work out what the status of the current conversion is which involves looking
++ * not only at the conversion, but also checking if data has been provided
++ * where it should.
++ * @param arg For assignments with multiple args (e.g. array assignments) we
++ * can narrow the search for status to a single argument.
++ */
++Assignment.prototype.getStatus = function(arg) {
++    if (this.param.isDataRequired() && !this.conversion.isDataProvided()) {
++        return Status.ERROR;
++    }
++
++    // Selection/Boolean types with a defined range of values will say that
++    // '' is INCOMPLETE, but the parameter may be optional, so we don't ask
++    // if the user doesn't need to enter something and hasn't done so.
++    if (!this.param.isDataRequired() && this.getArg().isBlank()) {
++        return Status.VALID;
++    }
++
++    return this.conversion.getStatus(arg);
++};
++
++/**
++ * Basically <tt>value = conversion.predictions[0])</tt> done in a safe way.
++ */
++Assignment.prototype.complete = function() {
++    var predictions = this.conversion.getPredictions();
++    if (predictions.length > 0) {
++        var value = predictions[0];
++        var text = this.param.type.stringify(value);
++        var arg = this.conversion.arg.beget(text);
++        var conversion = this.param.type.parse(arg);
++//        var conversion = new Conversion(value, arg);
++        this.setConversion(conversion);
++    }
++};
++
++/**
++ * Replace the current value with the lower value if such a concept exists.
++ */
++Assignment.prototype.decrement = function() {
++    var replacement = this.param.type.decrement(this.conversion.value);
++    if (replacement != null) {
++        var str = this.param.type.stringify(replacement);
++        var arg = this.conversion.arg.beget(str);
++        var conversion = new Conversion(replacement, arg);
++        this.setConversion(conversion);
++    }
++};
++
++/**
++ * Replace the current value with the higher value if such a concept exists.
++ */
++Assignment.prototype.increment = function() {
++    var replacement = this.param.type.increment(this.conversion.value);
++    if (replacement != null) {
++        var str = this.param.type.stringify(replacement);
++        var arg = this.conversion.arg.beget(str);
++        var conversion = new Conversion(replacement, arg);
++        this.setConversion(conversion);
++    }
++};
++
++/**
++ * Helper when we're rebuilding command lines.
++ */
++Assignment.prototype.toString = function() {
++    return this.conversion.toString();
++};
++
++exports.Assignment = Assignment;
++
++
++/**
++ * Select from the available commands.
++ * This is very similar to a SelectionType, however the level of hackery in
++ * SelectionType to make it handle Commands correctly was to high, so we
++ * simplified.
++ */
++function CommandType(typeSpec) {
++    if (typeSpec) {
++        Object.keys(typeSpec).forEach(function(key) {
++            this[key] = typeSpec[key];
++        }, this);
++    }
++}
++
++CommandType.prototype = new Type();
++
++CommandType.prototype.name = 'command';
++
++CommandType.prototype.stringify = function(command) {
++    return command.name;
++};
++
++CommandType.prototype._findCompletions = function(arg) {
++    var completions = {};
++
++    // This is ripe for optimization, canon.getCommands() creates an array from
++    // an object and we just turn it back again.
++    var commands = {};
++    canon.getCommands().forEach(function(command) {
++        commands[command.name] = command;
++    }, this);
++
++    var matchedValue = commands[arg.text];
++    if (matchedValue && matchedValue.exec) {
++        completions[arg.text] = matchedValue;
++    }
++    else {
++        Object.keys(commands).forEach(function(name) {
++            if (name.indexOf(arg.text) === 0) {
++                // The command type needs to exclude sub-commands when the CLI
++                // is blank, but include them when we're filtering. This hack
++                // excludes matches when the filter text is '' and when the
++                // name includes a space.
++                if (arg.text.length !== 0 || name.indexOf(' ') === -1) {
++                    completions[name] = commands[name];
++                }
++            }
++        }, this);
++    }
++
++    return completions;
++};
++
++CommandType.prototype.parse = function(arg) {
++    // Especially at startup, completions live over the time that things change
++    // so we provide a completion function rather than completion values
++    var predictions = function() {
++        var matches = this._findCompletions(arg);
++        return Object.keys(matches).map(function(name) {
++            return matches[name];
++        });
++    }.bind(this);
++
++    var completions = this._findCompletions(arg);
++
++    var value = completions[arg.text];
++    var status;
++    var msg = '';
++
++    var matchCount = Object.keys(completions).length;
++    if (matchCount === 0) {
++        msg = 'Can\'t use \'' + arg.text + '\'.';
++        status = Status.ERROR;
++    }
++    else if (matchCount === 1) {
++        // Is it an exact match of an executable command,
++        // or just the only possibility?
++        status = value && value.exec ? Status.VALID : Status.INCOMPLETE;
++    }
++    else if (matchCount > 0) {
++        status = Status.INCOMPLETE;
++    }
++
++    return new Conversion(value, arg, status, msg, predictions);
++};
++
++CommandType.prototype.fromString = function(str) {
++    return canon.getCommand(str);
++};
++
++CommandType.prototype.decrement = function(value) {
++    var data = (typeof this.data === 'function') ? this.data() : this.data;
++    var index;
++    if (value == null) {
++        index = data.length - 1;
++    }
++    else {
++        var name = this.stringify(value);
++        index = data.indexOf(name);
++        index = (index === 0 ? data.length - 1 : index - 1);
++    }
++    return this.fromString(data[index]);
++};
++
++CommandType.prototype.increment = function(value) {
++    var data = (typeof this.data === 'function') ? this.data() : this.data;
++    var index;
++    if (value == null) {
++        index = 0;
++    }
++    else {
++        var name = this.stringify(value);
++        index = data.indexOf(name);
++        index = (index === data.length - 1 ? 0 : index + 1);
++    }
++    return this.fromString(data[index]);
++};
++
++
++/**
++ * Registration and de-registration.
++ */
++exports.startup = function() {
++    types.registerType(CommandType);
++};
++
++exports.shutdown = function() {
++    types.unregisterType(CommandType);
++};
++
++/**
++ * This is a special assignment to reflect the command itself.
++ */
++function CommandAssignment() {
++    this.param = new canon.Parameter({
++        name: '__command',
++        type: 'command',
++        description: 'The command to execute'
++    });
++    this.paramIndex = -1;
++    this.assignmentChange = createEvent('CommandAssignment.assignmentChange');
++
++    this.setDefault();
++}
++
++CommandAssignment.prototype = Object.create(Assignment.prototype);
++
++CommandAssignment.prototype.getStatus = function(arg) {
++    return Status.combine(
++        Assignment.prototype.getStatus.call(this, arg),
++        this.conversion.value && !this.conversion.value.exec ?
++            Status.INCOMPLETE : Status.VALID
++    );
++};
++
++
++/**
++ * Special assignment used when ignoring parameters that don't have a home
++ */
++function UnassignedAssignment() {
++    this.param = new canon.Parameter({
++        name: '__unassigned',
++        type: 'string'
++    });
++    this.paramIndex = -1;
++    this.assignmentChange = createEvent('UnassignedAssignment.assignmentChange');
++
++    this.setDefault();
++}
++
++UnassignedAssignment.prototype = Object.create(Assignment.prototype);
++
++UnassignedAssignment.prototype.getStatus = function(arg) {
++    return Status.ERROR;
++};
++
++UnassignedAssignment.prototype.setUnassigned = function(args) {
++    if (!args || args.length === 0) {
++        this.setDefault();
++    }
++    else {
++        var conversion = this.param.type.parse(new MergedArgument(args));
++        this.setConversion(conversion);
++    }
++};
++
++
++/**
++ * A Requisition collects the information needed to execute a command.
++ *
++ * (For a definition of the term, see http://en.wikipedia.org/wiki/Requisition)
++ * This term is used because carries the notion of a work-flow, or process to
++ * getting the information to execute a command correct.
++ * There is little point in a requisition for parameter-less commands because
++ * there is no information to collect. A Requisition is a collection of
++ * assignments of values to parameters, each handled by an instance of
++ * Assignment.
++ *
++ * <h2>Events<h2>
++ * <p>Requisition publishes the following events:
++ * <ul>
++ * <li>commandChange: The command has changed. It is likely that a UI
++ * structure will need updating to match the parameters of the new command.
++ * The event object looks like { command: A }
++ * <li>assignmentChange: This is a forward of the Assignment.assignmentChange
++ * event. It is fired when any assignment (except the commandAssignment)
++ * changes.
++ * <li>inputChange: The text to be mirrored in a command line has changed.
++ * The event object looks like { newText: X }.
++ * </ul>
++ *
++ * @param environment An opaque object passed to commands using ExecutionContext
++ * @param document A DOM Document passed to commands using ExecutionContext in
++ * order to allow creation of DOM nodes.
++ * @constructor
++ */
++function Requisition(environment, document) {
++    this.environment = environment;
++    this.document = document;
++
++    // The command that we are about to execute.
++    // @see setCommandConversion()
++    this.commandAssignment = new CommandAssignment();
++
++    // The object that stores of Assignment objects that we are filling out.
++    // The Assignment objects are stored under their param.name for named
++    // lookup. Note: We make use of the property of Javascript objects that
++    // they are not just hashmaps, but linked-list hashmaps which iterate in
++    // insertion order.
++    // _assignments excludes the commandAssignment.
++    this._assignments = {};
++
++    // The count of assignments. Excludes the commandAssignment
++    this.assignmentCount = 0;
++
++    // Used to store cli arguments in the order entered on the cli
++    this._args = null;
++
++    // Used to store cli arguments that were not assigned to parameters
++    this._unassigned = new UnassignedAssignment();
++
++    // Temporarily set this to true to prevent _onAssignmentChange resetting
++    // argument positions
++    this._structuralChangeInProgress = false;
++
++    // Pre-bind the event listeners
++    this.commandAssignment.assignmentChange.add(this._onCommandAssignmentChange, this);
++    this.commandAssignment.assignmentChange.add(this._onAssignmentChange, this);
++
++    this.commandOutputManager = canon.commandOutputManager;
++
++    this.assignmentChange = createEvent('Requisition.assignmentChange');
++    this.commandChange = createEvent('Requisition.commandChange');
++    this.inputChange = createEvent('Requisition.inputChange');
++}
++
++/**
++ * Some number that is higher than the most args we'll ever have. Would use
++ * MAX_INTEGER if that made sense
++ */
++var MORE_THAN_THE_MOST_ARGS_POSSIBLE = 1000000;
++
++/**
++ * When any assignment changes, we might need to update the _args array to
++ * match and inform people of changes to the typed input text.
++ */
++Requisition.prototype._onAssignmentChange = function(ev) {
++    // Don't report an event if the value is unchanged
++    if (ev.oldConversion != null &&
++            ev.conversion.valueEquals(ev.oldConversion)) {
++        return;
++    }
++
++    if (this._structuralChangeInProgress) {
++        return;
++    }
++
++    this.assignmentChange(ev);
++
++    // Both for argument position and the inputChange event, we only care
++    // about changes to the argument.
++    if (ev.conversion.argEquals(ev.oldConversion)) {
++        return;
++    }
++
++    this._structuralChangeInProgress = true;
++
++    // Refactor? See bug 660765
++    // Do preceding arguments need to have dummy values applied so we don't
++    // get a hole in the command line?
++    if (ev.assignment.param.isPositionalAllowed()) {
++        for (var i = 0; i < ev.assignment.paramIndex; i++) {
++            var assignment = this.getAssignment(i);
++            if (assignment.param.isPositionalAllowed()) {
++                if (assignment.ensureVisibleArgument()) {
++                    this._args.push(assignment.getArg());
++                }
++            }
++        }
++    }
++
++    // Remember where we found the first match
++    var index = MORE_THAN_THE_MOST_ARGS_POSSIBLE;
++    for (var i = 0; i < this._args.length; i++) {
++        if (this._args[i].assignment === ev.assignment) {
++            if (i < index) {
++                index = i;
++            }
++            this._args.splice(i, 1);
++            i--;
++        }
++    }
++
++    if (index === MORE_THAN_THE_MOST_ARGS_POSSIBLE) {
++        this._args.push(ev.assignment.getArg());
++    }
++    else {
++        // Is there a way to do this that doesn't involve a loop?
++        var newArgs = ev.conversion.arg.getArgs();
++        for (var i = 0; i < newArgs.length; i++) {
++            this._args.splice(index + i, 0, newArgs[i]);
++        }
++    }
++    this._structuralChangeInProgress = false;
++
++    this.inputChange();
++};
++
++/**
++ * When the command changes, we need to keep a bunch of stuff in sync
++ */
++Requisition.prototype._onCommandAssignmentChange = function(ev) {
++    this._assignments = {};
++
++    var command = this.commandAssignment.getValue();
++    if (command) {
++        for (var i = 0; i < command.params.length; i++) {
++            var param = command.params[i];
++            var assignment = new Assignment(param, i);
++            assignment.assignmentChange.add(this._onAssignmentChange, this);
++            this._assignments[param.name] = assignment;
++        }
++    }
++    this.assignmentCount = Object.keys(this._assignments).length;
++
++    this.commandChange({
++        requisition: this,
++        oldValue: ev.oldValue,
++        newValue: command
++    });
++//    this.inputChange();
++};
++
++/**
++ * Assignments have an order, so we need to store them in an array.
++ * But we also need named access ...
++ */
++Requisition.prototype.getAssignment = function(nameOrNumber) {
++    var name = (typeof nameOrNumber === 'string') ?
++        nameOrNumber :
++        Object.keys(this._assignments)[nameOrNumber];
++    return this._assignments[name];
++},
++
++/**
++ * Where parameter name == assignment names - they are the same.
++ */
++Requisition.prototype.getParameterNames = function() {
++    return Object.keys(this._assignments);
++},
++
++/**
++ * A *shallow* clone of the assignments.
++ * This is useful for systems that wish to go over all the assignments
++ * finding values one way or another and wish to trim an array as they go.
++ */
++Requisition.prototype.cloneAssignments = function() {
++    return Object.keys(this._assignments).map(function(name) {
++        return this._assignments[name];
++    }, this);
++};
++
++/**
++ * Returns the most severe status
++ */
++Requisition.prototype.getStatus = function() {
++    var status = Status.VALID;
++    this.getAssignments(true).forEach(function(assignment) {
++        var assignStatus = assignment.getStatus();
++        if (assignment.getStatus() > status) {
++            status = assignStatus;
++        }
++    }, this);
++    return status;
++};
++
++/**
++ * Extract the names and values of all the assignments, and return as
++ * an object.
++ */
++Requisition.prototype.getArgsObject = function() {
++    var args = {};
++    this.getAssignments().forEach(function(assignment) {
++        args[assignment.param.name] = assignment.getValue();
++    }, this);
++    return args;
++};
++
++/**
++ * Access the arguments as an array.
++ * @param includeCommand By default only the parameter arguments are
++ * returned unless (includeCommand === true), in which case the list is
++ * prepended with commandAssignment.getArg()
++ */
++Requisition.prototype.getAssignments = function(includeCommand) {
++    var assignments = [];
++    if (includeCommand === true) {
++        assignments.push(this.commandAssignment);
++    }
++    Object.keys(this._assignments).forEach(function(name) {
++        assignments.push(this.getAssignment(name));
++    }, this);
++    return assignments;
++};
++
++/**
++ * Reset all the assignments to their default values
++ */
++Requisition.prototype.setDefaultArguments = function() {
++    this.getAssignments().forEach(function(assignment) {
++        assignment.setDefault();
++    }, this);
++};
++
++/**
++ * Extract a canonical version of the input
++ */
++Requisition.prototype.toCanonicalString = function() {
++    var line = [];
++
++    var cmd = this.commandAssignment.getValue() ?
++            this.commandAssignment.getValue().name :
++            this.commandAssignment.getArg().text;
++    line.push(cmd);
++
++    Object.keys(this._assignments).forEach(function(name) {
++        var assignment = this._assignments[name];
++        var type = assignment.param.type;
++        // Bug 664377: This will cause problems if there is a non-default value
++        // after a default value. Also we need to decide when to use
++        // named parameters in place of positional params. Both can wait.
++        if (assignment.getValue() !== assignment.param.defaultValue) {
++            line.push(' ');
++            line.push(type.stringify(assignment.getValue()));
++        }
++    }, this);
++    return line.join('');
++};
++
++/**
++ * Input trace gives us an array of Argument tracing objects, one for each
++ * character in the typed input, from which we can derive information about how
++ * to display this typed input. It's a bit like toString on steroids.
++ * <p>
++ * The returned object has the following members:<ul>
++ * <li>char: The character to which this arg trace refers.
++ * <li>arg: The Argument to which this character is assigned.
++ * <li>part: One of ['prefix'|'text'|suffix'] - how was this char understood
++ * </ul>
++ * <p>
++ * The Argument objects are as output from #_tokenize() rather than as applied
++ * to Assignments by #_assign() (i.e. they are not instances of NamedArgument,
++ * ArrayArgument, etc).
++ * <p>
++ * To get at the arguments applied to the assignments simply call
++ * <tt>arg.assignment.arg</tt>. If <tt>arg.assignment.arg !== arg</tt> then
++ * the arg applied to the assignment will contain the original arg.
++ * See #_assign() for details.
++ */
++Requisition.prototype.createInputArgTrace = function() {
++    if (!this._args) {
++        throw new Error('createInputMap requires a command line. See source.');
++        // If this is a problem then we can fake command line input using
++        // something like the code in #toCanonicalString().
++    }
++
++    var args = [];
++    this._args.forEach(function(arg) {
++        for (var i = 0; i < arg.prefix.length; i++) {
++            args.push({ arg: arg, char: arg.prefix[i], part: 'prefix' });
++        }
++        for (var i = 0; i < arg.text.length; i++) {
++            args.push({ arg: arg, char: arg.text[i], part: 'text' });
++        }
++        for (var i = 0; i < arg.suffix.length; i++) {
++            args.push({ arg: arg, char: arg.suffix[i], part: 'suffix' });
++        }
++    });
++
++    return args;
++};
++
++/**
++ * Reconstitute the input from the args
++ */
++Requisition.prototype.toString = function() {
++    if (this._args) {
++        return this._args.map(function(arg) {
++            return arg.toString();
++        }).join('');
++    }
++
++    return this.toCanonicalString();
++};
++
++/**
++ * Return an array of Status scores so we can create a marked up
++ * version of the command line input.
++ */
++Requisition.prototype.getInputStatusMarkup = function() {
++    var argTraces = this.createInputArgTrace();
++    // We only take a status of INCOMPLETE to be INCOMPLETE when the cursor is
++    // actually in the argument. Otherwise it's an error.
++    // Generally the 'argument at the cursor' is the argument before the cursor
++    // unless it is before the first char, in which case we take the first.
++    var cursor = this.input.cursor.start === 0 ?
++            0 :
++            this.input.cursor.start - 1;
++    var cTrace = argTraces[cursor];
++
++    var statuses = [];
++    for (var i = 0; i < argTraces.length; i++) {
++        var argTrace = argTraces[i];
++        var arg = argTrace.arg;
++        var status = Status.VALID;
++        if (argTrace.part === 'text') {
++            status = arg.assignment.getStatus(arg);
++            // Promote INCOMPLETE to ERROR  ...
++            if (status === Status.INCOMPLETE) {
++                // If the cursor is not in a position to be able to complete it
++                if (arg !== cTrace.arg || cTrace.part !== 'text') {
++                    // And if we're not in the command
++                    if (!(arg.assignment instanceof CommandAssignment)) {
++                        status = Status.ERROR;
++                    }
++                }
++            }
++        }
++
++        statuses.push(status);
++    }
++
++    return statuses;
++};
++
++/**
++ * Look through the arguments attached to our assignments for the assignment
++ * at the given position.
++ * @param {number} cursor The cursor position to query
++ */
++Requisition.prototype.getAssignmentAt = function(cursor) {
++    if (!this._args) {
++        throw new Error('Missing args');
++    }
++
++    // We short circuit this one because we may have no args, or no args with
++    // any size and the alg below only finds arguments with size.
++    if (cursor === 0) {
++        return this.commandAssignment;
++    }
++
++    var assignForPos = [];
++    var i, j;
++    for (i = 0; i < this._args.length; i++) {
++        var arg = this._args[i];
++        var assignment = arg.assignment;
++
++        // prefix and text are clearly part of the argument
++        for (j = 0; j < arg.prefix.length; j++) {
++            assignForPos.push(assignment);
++        }
++        for (j = 0; j < arg.text.length; j++) {
++            assignForPos.push(assignment);
++        }
++
++        // suffix looks forwards
++        if (this._args.length > i + 1) {
++            // first to the next argument
++            assignment = this._args[i + 1].assignment;
++        }
++        else if (assignment &&
++                assignment.paramIndex + 1 < this.assignmentCount) {
++            // then to the next assignment
++            assignment = this.getAssignment(assignment.paramIndex + 1);
++        }
++
++        for (j = 0; j < arg.suffix.length; j++) {
++            assignForPos.push(assignment);
++        }
++    }
++
++    // Possible shortcut, we don't really need to go through all the args
++    // to work out the solution to this
++
++    return assignForPos[cursor - 1];
++};
++
++/**
++ * Entry point for keyboard accelerators or anything else that wants to execute
++ * a command.
++ * @param input Object containing data about how to execute the command.
++ * Properties of input include:
++ * - args: Arguments for the command
++ * - typed: The typed command
++ * - visible: Ensure that the output from this command is visible
++ */
++Requisition.prototype.exec = function(input) {
++    var command;
++    var args;
++    var visible = true;
++
++    if (input) {
++        if (input.args != null) {
++            // Fast track by looking up the command directly since passed args
++            // means there is no command line to parse.
++            command = canon.getCommand(input.typed);
++            if (!command) {
++                console.error('Command not found: ' + command);
++            }
++            args = input.args;
++
++            // Default visible to false since this is exec is probably the
++            // result of a keyboard shortcut
++            visible = 'visible' in input ? input.visible : false;
++        }
++        else {
++            this.update(input);
++        }
++    }
++
++    if (!command) {
++        command = this.commandAssignment.getValue();
++        args = this.getArgsObject();
++    }
++
++    if (!command) {
++        return false;
++    }
++
++    var outputObject = {
++        command: command,
++        args: args,
++        typed: this.toCanonicalString(),
++        completed: false,
++        start: new Date()
++    };
++
++    this.commandOutputManager.sendCommandOutput(outputObject);
++
++    var onComplete = (function(output, error) {
++        if (visible) {
++            outputObject.end = new Date();
++            outputObject.duration = outputObject.end.getTime() - outputObject.start.getTime();
++            outputObject.error = error;
++            outputObject.output = output;
++            outputObject.completed = true;
++            this.commandOutputManager.sendCommandOutput(outputObject);
++        }
++    }).bind(this);
++
++    try {
++        var context = new ExecutionContext(this.environment, this.document);
++        var reply = command.exec(args, context);
++
++        if (reply != null && reply.isPromise) {
++            reply.then(
++                function(data) { onComplete(data, false); },
++                function(error) { onComplete(error, true); });
++
++            // Add progress to our promise and add a handler for it here
++            // See bug 659300
++        }
++        else {
++            onComplete(reply, false);
++        }
++    }
++    catch (ex) {
++        onComplete(ex, true);
++    }
++
++    return true;
++};
++
++/**
++ * Called by the UI when ever the user interacts with a command line input
++ * @param input A structure that details the state of the input field.
++ * It should look something like: { typed:a, cursor: { start:b, end:c } }
++ * Where a is the contents of the input field, and b and c are the start
++ * and end of the cursor/selection respectively.
++ * <p>The general sequence is:
++ * <ul>
++ * <li>_tokenize(): convert _typed into _parts
++ * <li>_split(): convert _parts into _command and _unparsedArgs
++ * <li>_assign(): convert _unparsedArgs into requisition
++ * </ul>
++ */
++Requisition.prototype.update = function(input) {
++    this.input = input;
++    if (this.input.cursor == null) {
++        this.input.cursor = { start: input.length, end: input.length };
++    }
++
++    this._structuralChangeInProgress = true;
++
++    this._args = this._tokenize(input.typed);
++
++    var args = this._args.slice(0); // i.e. clone
++    this._split(args);
++    this._assign(args);
++
++    this._structuralChangeInProgress = false;
++
++    this.inputChange();
++};
++
++var OUTSIDE = 1;     // The last character was whitespace
++var IN_SIMPLE = 2;   // The last character was part of a parameter
++var IN_SINGLE_Q = 3; // We're inside a single quote: '
++var IN_DOUBLE_Q = 4; // We're inside double quotes: "
++
++/**
++ * If the input has no spaces, quotes or escapes, we can take the fast track
++ */
++function isSimple(typed) {
++   for (var i = 0; i < typed.length; i++) {
++       var c = typed.charAt(i);
++       if (c === ' ' || c === '"' || c === '\'' || c === '\\') {
++           return false;
++       }
++   }
++   return true;
++}
++
++/**
++ * Split up the input taking into account ' and "
++ */
++Requisition.prototype._tokenize = function(typed) {
++    // For blank input, place a dummy empty argument into the list
++    if (typed == null || typed.length === 0) {
++        return [ new Argument('', '', '') ];
++    }
++
++    if (isSimple(typed)) {
++        return [ new Argument(typed, '', '') ];
++    }
++
++    var mode = OUTSIDE;
++
++    // First we un-escape. This list was taken from:
++    // https://developer.mozilla.org/en/Core_JavaScript_1.5_Guide/Core_Language_Features#Unicode
++    // We are generally converting to their real values except for \', \"
++    // and '\ ' which we are converting to unicode private characters so we
++    // can distinguish them from ', " and ' ', which have special meaning.
++    // They need swapping back post-split - see unescape2()
++    typed = typed
++            .replace(/\\\\/g, '\\')
++            .replace(/\\b/g, '\b')
++            .replace(/\\f/g, '\f')
++            .replace(/\\n/g, '\n')
++            .replace(/\\r/g, '\r')
++            .replace(/\\t/g, '\t')
++            .replace(/\\v/g, '\v')
++            .replace(/\\n/g, '\n')
++            .replace(/\\r/g, '\r')
++            .replace(/\\ /g, '\uF000')
++            .replace(/\\'/g, '\uF001')
++            .replace(/\\"/g, '\uF002');
++
++    function unescape2(escaped) {
++        return escaped
++            .replace(/\uF000/g, ' ')
++            .replace(/\uF001/g, '\'')
++            .replace(/\uF002/g, '"');
++    }
++
++    var i = 0; // The index of the current character
++    var start = 0; // Where did this section start?
++    var prefix = ''; // Stuff that comes before the current argument
++    var args = [];
++
++    while (true) {
++        if (i >= typed.length) {
++            // There is nothing else to read - tidy up
++            if (mode !== OUTSIDE) {
++                var str = unescape2(typed.substring(start, i));
++                args.push(new Argument(str, prefix, ''));
++            }
++            else {
++                if (i !== start) {
++                    // There's a bunch of whitespace at the end of the
++                    // command add it to the last argument's suffix,
++                    // creating an empty argument if needed.
++                    var extra = typed.substring(start, i);
++                    var lastArg = args[args.length - 1];
++                    if (!lastArg) {
++                        args.push(new Argument('', extra, ''));
++                    }
++                    else {
++                        lastArg.suffix += extra;
++                    }
++                }
++            }
++            break;
++        }
++
++        var c = typed[i];
++        switch (mode) {
++            case OUTSIDE:
++                if (c === '\'') {
++                    prefix = typed.substring(start, i + 1);
++                    mode = IN_SINGLE_Q;
++                    start = i + 1;
++                }
++                else if (c === '"') {
++                    prefix = typed.substring(start, i + 1);
++                    mode = IN_DOUBLE_Q;
++                    start = i + 1;
++                }
++                else if (/ /.test(c)) {
++                    // Still whitespace, do nothing
++                }
++                else {
++                    prefix = typed.substring(start, i);
++                    mode = IN_SIMPLE;
++                    start = i;
++                }
++                break;
++
++            case IN_SIMPLE:
++                // There is an edge case of xx'xx which we are assuming to
++                // be a single parameter (and same with ")
++                if (c === ' ') {
++                    var str = unescape2(typed.substring(start, i));
++                    args.push(new Argument(str, prefix, ''));
++                    mode = OUTSIDE;
++                    start = i;
++                    prefix = '';
++                }
++                break;
++
++            case IN_SINGLE_Q:
++                if (c === '\'') {
++                    var str = unescape2(typed.substring(start, i));
++                    args.push(new Argument(str, prefix, c));
++                    mode = OUTSIDE;
++                    start = i + 1;
++                    prefix = '';
++                }
++                break;
++
++            case IN_DOUBLE_Q:
++                if (c === '"') {
++                    var str = unescape2(typed.substring(start, i));
++                    args.push(new Argument(str, prefix, c));
++                    mode = OUTSIDE;
++                    start = i + 1;
++                    prefix = '';
++                }
++                break;
++        }
++
++        i++;
++    }
++
++    return args;
++};
++
++/**
++ * Looks in the canon for a command extension that matches what has been
++ * typed at the command line.
++ */
++Requisition.prototype._split = function(args) {
++    var argsUsed = 1;
++    var conversion;
++
++    while (argsUsed <= args.length) {
++        var arg = (argsUsed === 1) ?
++            args[0] :
++            new MergedArgument(args, 0, argsUsed);
++        conversion = this.commandAssignment.param.type.parse(arg);
++
++        // We only want to carry on if this command is a parent command,
++        // which means that there is a commandAssignment, but not one with
++        // an exec function.
++        if (!conversion.value || conversion.value.exec) {
++            break;
++        }
++
++        // Previously we needed a way to hide commands depending context.
++        // We have not resurrected that feature yet, but if we do we should
++        // insert code here to ignore certain commands depending on the
++        // context/environment
++
++        argsUsed++;
++    }
++
++    this.commandAssignment.setConversion(conversion);
++
++    for (var i = 0; i < argsUsed; i++) {
++        args.shift();
++    }
++
++    // This could probably be re-written to consume args as we go
++};
++
++/**
++ * Work out which arguments are applicable to which parameters.
++ */
++Requisition.prototype._assign = function(args) {
++    if (!this.commandAssignment.getValue()) {
++        this._unassigned.setUnassigned(args);
++        return;
++    }
++
++    if (args.length === 0) {
++        this.setDefaultArguments();
++        this._unassigned.setDefault();
++        return;
++    }
++
++    // Create an error if the command does not take parameters, but we have
++    // been given them ...
++    if (this.assignmentCount === 0) {
++        this._unassigned.setUnassigned(args);
++        return;
++    }
++
++    // Special case: if there is only 1 parameter, and that's of type
++    // text, then we put all the params into the first param
++    if (this.assignmentCount === 1) {
++        var assignment = this.getAssignment(0);
++        if (assignment.param.type instanceof StringType) {
++            var arg = (args.length === 1) ?
++                args[0] :
++                new MergedArgument(args);
++            var conversion = assignment.param.type.parse(arg);
++            assignment.setConversion(conversion);
++            this._unassigned.setDefault();
++            return;
++        }
++    }
++
++    // Positional arguments can still be specified by name, but if they are
++    // then we need to ignore them when working them out positionally
++    var names = this.getParameterNames();
++
++    // We collect the arguments used in arrays here before assigning
++    var arrayArgs = {};
++
++    // Extract all the named parameters
++    this.getAssignments(false).forEach(function(assignment) {
++        // Loop over the arguments
++        // Using while rather than loop because we remove args as we go
++        var i = 0;
++        while (i < args.length) {
++            if (assignment.param.isKnownAs(args[i].text)) {
++                var arg = args.splice(i, 1)[0];
++                names = names.filter(function(test) {
++                  return test !== assignment.param.name;
++                });
++
++                // boolean parameters don't have values, default to false
++                if (assignment.param.type instanceof BooleanType) {
++                    arg = new TrueNamedArgument(null, arg);
++                }
++                else {
++                    var valueArg = null;
++                    if (i + 1 >= args.length) {
++                        valueArg = args.splice(i, 1)[0];
++                    }
++                    arg = new NamedArgument(arg, valueArg);
++                }
++
++                if (assignment.param.type instanceof ArrayType) {
++                    var arrayArg = arrayArgs[assignment.param.name];
++                    if (!arrayArg) {
++                        arrayArg = new ArrayArgument();
++                        arrayArgs[assignment.param.name] = arrayArg;
++                    }
++                    arrayArg.addArgument(arg);
++                }
++                else {
++                    var conversion = assignment.param.type.parse(arg);
++                    assignment.setConversion(conversion);
++                }
++            }
++            else {
++                // Skip this parameter and handle as a positional parameter
++                i++;
++            }
++        }
++    }, this);
++
++    // What's left are positional parameters assign in order
++    names.forEach(function(name) {
++        var assignment = this.getAssignment(name);
++
++        // If not set positionally, and we can't set it non-positionally,
++        // we have to default it to prevent previous values surviving
++        if (!assignment.param.isPositionalAllowed()) {
++            assignment.setDefault();
++            return;
++        }
++
++        // If this is a positional array argument, then it swallows the
++        // rest of the arguments.
++        if (assignment.param.type instanceof ArrayType) {
++            var arrayArg = arrayArgs[assignment.param.name];
++            if (!arrayArg) {
++                arrayArg = new ArrayArgument();
++                arrayArgs[assignment.param.name] = arrayArg;
++            }
++            arrayArg.addArguments(args);
++            args = [];
++        }
++        else {
++            var arg = (args.length > 0) ?
++                    args.splice(0, 1)[0] :
++                    new Argument();
++
++            var conversion = assignment.param.type.parse(arg);
++            assignment.setConversion(conversion);
++        }
++    }, this);
++
++    // Now we need to assign the array argument (if any)
++    Object.keys(arrayArgs).forEach(function(name) {
++        var assignment = this.getAssignment(name);
++        var conversion = assignment.param.type.parse(arrayArgs[name]);
++        assignment.setConversion(conversion);
++    }, this);
++
++    if (args.length > 0) {
++        this._unassigned.setUnassigned(args);
++    }
++    else {
++        this._unassigned.setDefault();
++    }
++};
++
++exports.Requisition = Requisition;
++
++
++/**
++ * Functions and data related to the execution of a command
++ */
++function ExecutionContext(environment, document) {
++    this.environment = environment;
++    this.document = document;
++}
++
++ExecutionContext.prototype.createPromise = function() {
++    return new Promise();
++};
++
++
++});
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Mozilla Skywriter.
++ *
++ * The Initial Developer of the Original Code is
++ * Mozilla.
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Joe Walker (jwalker@mozilla.com)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++define('gcli/promise', ['require', 'exports', 'module' , 'gcli/util'], function(require, exports, module) {
++
++var console = require('gcli/util').console;
++
++
++/**
++ * A promise can be in one of 2 states.
++ * The ERROR and SUCCESS states are terminal, the PENDING state is the only
++ * start state.
++ */
++var ERROR = -1;
++var PENDING = 0;
++var SUCCESS = 1;
++
++/**
++ * We give promises and ID so we can track which are outstanding
++ */
++var _nextId = 0;
++
++/**
++ * Outstanding promises. Handy list for debugging only.
++ */
++var _outstanding = [];
++
++/**
++ * Recently resolved promises. Also for debugging only.
++ */
++var _recent = [];
++
++/**
++ * Create an unfulfilled promise
++ */
++Promise = function () {
++    this._status = PENDING;
++    this._value = undefined;
++    this._onSuccessHandlers = [];
++    this._onErrorHandlers = [];
++
++    // Debugging help
++    this._id = _nextId++;
++    _outstanding[this._id] = this;
++};
++
++/**
++ * Yeay for RTTI.
++ */
++Promise.prototype.isPromise = true;
++
++/**
++ * Have we either been resolve()ed or reject()ed?
++ */
++Promise.prototype.isComplete = function() {
++    return this._status != PENDING;
++};
++
++/**
++ * Have we resolve()ed?
++ */
++Promise.prototype.isResolved = function() {
++    return this._status == SUCCESS;
++};
++
++/**
++ * Have we reject()ed?
++ */
++Promise.prototype.isRejected = function() {
++    return this._status == ERROR;
++};
++
++/**
++ * Take the specified action of fulfilment of a promise, and (optionally)
++ * a different action on promise rejection.
++ */
++Promise.prototype.then = function(onSuccess, onError) {
++    if (typeof onSuccess === 'function') {
++        if (this._status === SUCCESS) {
++            onSuccess.call(null, this._value);
++        } else if (this._status === PENDING) {
++            this._onSuccessHandlers.push(onSuccess);
++        }
++    }
++
++    if (typeof onError === 'function') {
++        if (this._status === ERROR) {
++            onError.call(null, this._value);
++        } else if (this._status === PENDING) {
++            this._onErrorHandlers.push(onError);
++        }
++    }
++
++    return this;
++};
++
++/**
++ * Like then() except that rather than returning <tt>this</tt> we return
++ * a promise which
++ */
++Promise.prototype.chainPromise = function(onSuccess) {
++    var chain = new Promise();
++    chain._chainedFrom = this;
++    this.then(function(data) {
++        try {
++            chain.resolve(onSuccess(data));
++        } catch (ex) {
++            chain.reject(ex);
++        }
++    }, function(ex) {
++        chain.reject(ex);
++    });
++    return chain;
++};
++
++/**
++ * Supply the fulfillment of a promise
++ */
++Promise.prototype.resolve = function(data) {
++    return this._complete(this._onSuccessHandlers, SUCCESS, data, 'resolve');
++};
++
++/**
++ * Renege on a promise
++ */
++Promise.prototype.reject = function(data) {
++    return this._complete(this._onErrorHandlers, ERROR, data, 'reject');
++};
++
++/**
++ * Internal method to be called on resolve() or reject().
++ * @private
++ */
++Promise.prototype._complete = function(list, status, data, name) {
++    // Complain if we've already been completed
++    if (this._status != PENDING) {
++        console.group('Promise already closed');
++        console.error('Attempted ' + name + '() with ', data);
++        console.error('Previous status = ', this._status,
++                ', previous value = ', this._value);
++        console.trace();
++
++        console.groupEnd();
++        return this;
++    }
++
++    this._status = status;
++    this._value = data;
++
++    // Call all the handlers, and then delete them
++    list.forEach(function(handler) {
++        handler.call(null, this._value);
++    }, this);
++    this._onSuccessHandlers.length = 0;
++    this._onErrorHandlers.length = 0;
++
++    // Remove the given {promise} from the _outstanding list, and add it to the
++    // _recent list, pruning more than 20 recent promises from that list.
++    delete _outstanding[this._id];
++    _recent.push(this);
++    while (_recent.length > 20) {
++        _recent.shift();
++    }
++
++    return this;
++};
++
++/**
++ * Takes an array of promises and returns a promise that that is fulfilled once
++ * all the promises in the array are fulfilled
++ * @param promiseList The array of promises
++ * @return the promise that is fulfilled when all the array is fulfilled
++ */
++Promise.group = function(promiseList) {
++    if (!(promiseList instanceof Array)) {
++        promiseList = Array.prototype.slice.call(arguments);
++    }
++
++    // If the original array has nothing in it, return now to avoid waiting
++    if (promiseList.length === 0) {
++        return new Promise().resolve([]);
++    }
++
++    var groupPromise = new Promise();
++    var results = [];
++    var fulfilled = 0;
++
++    var onSuccessFactory = function(index) {
++        return function(data) {
++            results[index] = data;
++            fulfilled++;
++            // If the group has already failed, silently drop extra results
++            if (groupPromise._status !== ERROR) {
++                if (fulfilled === promiseList.length) {
++                    groupPromise.resolve(results);
++                }
++            }
++        };
++    };
++
++    promiseList.forEach(function(promise, index) {
++        var onSuccess = onSuccessFactory(index);
++        var onError = groupPromise.reject.bind(groupPromise);
++        promise.then(onSuccess, onError);
++    });
++
++    return groupPromise;
++};
++
++exports.Promise = Promise;
++exports._outstanding = _outstanding;
++exports._recent = _recent;
++
++});
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Skywriter.
++ *
++ * The Initial Developer of the Original Code is
++ * Mozilla.
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *      Joe Walker (jwalker@mozilla.com) (original author)
++ *      Julian Viereck (julian.viereck@gmail.com)
++ *      Nick Fitzgerald <nfitzgerald@mozilla.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++define('gcli/ui/start/firefox', ['require', 'exports', 'module' , 'gcli/cli', 'gcli/ui/inputter', 'gcli/canon'], function(require, exports, module) {
++
++var Requisition = require('gcli/cli').Requisition;
++var Inputter = require('gcli/ui/inputter').Inputter;
++
++/**
++ * createView() for Firefox requires an options object with the following
++ * members:
++ *
++ * - document: this.doc
++ * - inputElement: this.inputNode
++ * - completeElement: this.completeNode
++ * - inputBackgroundElement: this.inputStack
++ */
++exports.createView = function(options) {
++    options.preStyled = true;
++    options.autoHide = true;
++    options.requisition = new Requisition();
++    options.completionPrompt = '';
++    options.inputter = new Inputter(options);
++    options.inputter.update();
++};
++
++// The API for use by UI integrators
++// Expose the command output manager so that GCLI can be integrated with
++// Firefox.
++exports.commandOutputManager = require('gcli/canon').commandOutputManager;
++
++});
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Skywriter.
++ *
++ * The Initial Developer of the Original Code is
++ * Mozilla.
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *      Joe Walker (jwalker@mozilla.com) (original author)
++ *      Julian Viereck (julian.viereck@gmail.com)
++ *      Nick Fitzgerald <nfitzgerald@mozilla.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++define('gcli/ui/inputter', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types', 'gcli/ui/domtemplate', 'gcli/ui/history', 'text!gcli/ui/inputter.css'], function(require, exports, module) {
++var cliView = exports;
++
++
++var console = require('gcli/util').console;
++var event = require('gcli/util').event;
++var dom = require('gcli/util').dom;
++var KeyEvent = event.KeyEvent;
++
++var Status = require('gcli/types').Status;
++var Templater = require('gcli/ui/domtemplate').Templater;
++var History = require('gcli/ui/history').History;
++
++var inputterCss = require('text!gcli/ui/inputter.css');
++
++
++/**
++ * We only want to import inputterCss once so this tracks whether or not we have
++ * done it. Note technically it's only once per document, so perhaps we should
++ * have a list of documents into which we've imported the CSS?
++ */
++var inputterCssImported = false;
++
++/**
++ * A wrapper to take care of the functions concerning an input element
++ */
++function Inputter(options) {
++    if (!inputterCssImported && !options.preStyled) {
++        dom.importCssString(inputterCss, this.doc);
++        inputterCssImported = true;
++    }
++
++    this.requ = options.requisition;
++
++    // Suss out where the input element is
++    this.element = options.inputElement || 'gcliInput';
++    if (typeof this.element === 'string') {
++        this.doc = options.document || document;
++        var name = this.element;
++        this.element = this.doc.getElementById(name);
++        if (!this.element) {
++            throw new Error('No element with id=' + name + '.');
++        }
++    }
++    else {
++        // Assume we've been passed in the correct node
++        this.doc = this.element.ownerDocument;
++    }
++
++    this.element.spellcheck = false;
++
++    // Used to distinguish focus from TAB in CLI. See onKeyUp()
++    this.lastTabDownAt = 0;
++
++    // Ensure that TAB/UP/DOWN isn't handled by the browser
++    event.addCommandKeyListener(this.element, this.onCommandKey.bind(this));
++    event.addListener(this.element, 'keyup', this.onKeyUp.bind(this));
++
++    // Use our document if no other is supplied
++    options.document = options.document || this.doc;
++
++    if (options.completer == null) {
++        options.completer = new Completer(options);
++    }
++    else if (typeof options.completer === 'function') {
++        options.completer = new options.completer(options);
++    }
++    this.completer = options.completer;
++    this.completer.decorate(this);
++
++    // Use the provided history object, or instantiate our own.
++    this.history = options.history = options.history || new History(options);
++    this._scrollingThroughHistory = false;
++
++    // cursor position affects hint severity.
++    event.addListener(this.element, 'mouseup', function(ev) {
++        this.completer.update();
++    }.bind(this));
++
++    this.requ.inputChange.add(this.onInputChange, this);
++}
++
++/**
++ * Handler for the Requisition.inputChange event
++ */
++Inputter.prototype.onInputChange = function() {
++    this.element.value = this.requ.toString();
++    this.completer.update();
++};
++
++/**
++ * When the input element gets/loses focus make sure we tell the popup so it
++ * can show/hide accordingly.
++ */
++Inputter.prototype.sendFocusEventsToPopup = function(popup) {
++    event.addListener(this.element, 'focus', popup.showOutput);
++    event.addListener(this.element, 'blur', popup.hideOutput);
++};
++
++/**
++ * Focus the input element
++ */
++Inputter.prototype.focus = function() {
++    this.element.focus();
++};
++
++/**
++ * A version of getBoundingClientRect that also tells us the width and height
++ * of the input element.
++ */
++Inputter.prototype.getDimensionRect = function() {
++    var rect = this.element.getBoundingClientRect();
++    rect.width = rect.right - rect.left;
++    rect.height = rect.bottom - rect.top;
++    return rect;
++};
++
++/**
++ * Utility to add an element into the DOM after the input element.
++ */
++Inputter.prototype.appendAfter = function(element) {
++    this.element.parentNode.insertBefore(element, this.element.nextSibling);
++};
++
++/**
++ * Ensure certain keys (arrows, tab, etc) that we would like to handle
++ * are not handled by the browser
++ */
++Inputter.prototype.onCommandKey = function(ev, hashId, keyCode) {
++    if (keyCode === KeyEvent.DOM_VK_UP || keyCode === KeyEvent.DOM_VK_DOWN) {
++        event.stopEvent(ev);
++    }
++    if (keyCode === KeyEvent.DOM_VK_TAB) {
++        this.lastTabDownAt = 0;
++        if (!ev.shiftKey) {
++            event.stopEvent(ev);
++            // Record the timestamp of this TAB down so onKeyUp can distinguish
++            // focus from TAB in the CLI.
++            this.lastTabDownAt = ev.timeStamp;
++        }
++        if (ev.metaKey || ev.altKey || ev.crtlKey) {
++            if (this.doc.commandDispatcher) {
++                this.doc.commandDispatcher.advanceFocus();
++            }
++            else {
++                this.element.blur();
++            }
++        }
++    }
++};
++
++/**
++ * Just set the input field to a value without executing anything
++ */
++Inputter.prototype.setInput = function(str) {
++    this.element.value = str;
++    this.update();
++};
++
++/**
++ * The main keyboard processing loop
++ */
++Inputter.prototype.onKeyUp = function(ev) {
++    // RETURN does a special exec/highlight thing
++    if (ev.keyCode === KeyEvent.DOM_VK_RETURN) {
++        var worst = this.requ.getStatus();
++        // Deny RETURN unless the command might work
++        if (worst === Status.VALID) {
++            this.requ.exec();
++            this._scrollingThroughHistory = false;
++            this.history.add(this.element.value);
++            this.element.value = '';
++        }
++        // See bug 664135 - On pressing return with an invalid input, GCLI
++        // should select the incorrect input for an easy fix
++
++        this.update();
++    }
++    else if (ev.keyCode === KeyEvent.DOM_VK_TAB && !ev.shiftKey) {
++        // If the TAB keypress took the cursor from another field to this one,
++        // then they get the keydown/keypress, and we get the keyup. In this
++        // case we don't want to do any completion.
++        // If the time of the keydown/keypress of TAB was close (i.e. within
++        // 1 second) to the time of the keyup then we assume that we got them
++        // both, and do the completion.
++        if (this.lastTabDownAt + 1000 > ev.timeStamp) {
++            this.getCurrentAssignment().complete();
++        }
++        this.lastTabDownAt = 0;
++        this._scrollingThroughHistory = false;
++    }
++    else if (ev.keyCode === KeyEvent.DOM_VK_UP) {
++        if (this.element.value === '' || this._scrollingThroughHistory) {
++            this._scrollingThroughHistory = true;
++            this.element.value = this.history.backward();
++            this.update();
++            dom.setSelectionStart(this.element, 0);
++            dom.setSelectionEnd(this.element, this.element.value.length);
++        }
++        else {
++            this.getCurrentAssignment().increment();
++        }
++    }
++    else if (ev.keyCode === KeyEvent.DOM_VK_DOWN) {
++        if (this.element.value === '' || this._scrollingThroughHistory) {
++            this._scrollingThroughHistory = true;
++            this.element.value = this.history.forward();
++            this.update();
++            dom.setSelectionStart(this.element, 0);
++            dom.setSelectionEnd(this.element, this.element.value.length);
++        }
++        else {
++            this.getCurrentAssignment().decrement();
++        }
++    }
++    else {
++        this._scrollingThroughHistory = false;
++        this.update();
++    }
++};
++
++/**
++ * Accessor for the assignment at the cursor.
++ * i.e Requisition.getAssignmentAt(cursorPos);
++ */
++Inputter.prototype.getCurrentAssignment = function() {
++    var start = dom.getSelectionStart(this.element);
++    return this.requ.getAssignmentAt(start);
++};
++
++/**
++ * Actually parse the input and make sure we're all up to date
++ */
++Inputter.prototype.update = function() {
++    this.updateCli();
++    this.completer.update();
++};
++
++/**
++ * Update the requisition with the contents of the input element
++ */
++Inputter.prototype.updateCli = function() {
++    var input = {
++        typed: this.element.value,
++        cursor: {
++            start: dom.getSelectionStart(this.element),
++            end: dom.getSelectionEnd(this.element.selectionEnd)
++        }
++    };
++
++    this.requ.update(input);
++};
++
++cliView.Inputter = Inputter;
++
++
++/**
++ * Completer is an 'input-like' element that sits  an input element annotating
++ * it with visual goodness.
++ * @param {object} options An object that contains various options which
++ * customizes how the completer functions.
++ * Properties on the options object:
++ * - document (required) DOM document to be used in creating elements
++ * - requisition (required) A GCLI Requisition object whose state is monitored
++ * - completeElement (optional) An element to use
++ * - completionPrompt (optional) The prompt to show before a completion. Defaults to '>'.
++ */
++function Completer(options) {
++    this.doc = options.document;
++    this.requ = options.requisition;
++    this.elementCreated = false;
++
++    this.element = options.completeElement || 'gcliComplete';
++    if (typeof this.element === 'string') {
++        var name = this.element;
++        this.element = this.doc.getElementById(name);
++
++        if (!this.element) {
++            this.elementCreated = true;
++            this.element = dom.createElement('div', null, this.doc);
++            this.element.className = 'gcliCompletion gcliVALID';
++            this.element.setAttribute('tabindex', '-1');
++            this.element.setAttribute('aria-live', 'polite');
++        }
++    }
++
++    this.completionPrompt = typeof options.completionPrompt === 'string'
++        ? options.completionPrompt
++        : '&gt;';
++
++    if (options.inputBackgroundElement) {
++        this.backgroundElement = options.inputBackgroundElement;
++    }
++    else {
++        this.backgroundElement = this.element;
++    }
++}
++
++/**
++ * A list of the styles that decorate() should copy to make the completion
++ * element look like the input element. backgroundColor is a spiritual part of
++ * this list, but see comment in decorate().
++ */
++Completer.copyStyles = [
++    'color', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle'
++];
++
++/**
++ * Make ourselves visually similar to the input element, and make the input
++ * element transparent so our background shines through
++ */
++Completer.prototype.decorate = function(inputter) {
++    this.inputter = inputter;
++    this.input = inputter.element;
++
++    // If we were told which element to use, then assume it is already
++    // correctly positioned. Otherwise insert it alongside the input element
++    if (this.elementCreated) {
++        this.inputter.appendAfter(this.element);
++
++        Completer.copyStyles.forEach(function(style) {
++            this.element.style[style] = dom.computedStyle(this.input, style);
++        }, this);
++
++        // If there is a separate backgroundElement, then we make the element
++        // transparent, otherwise it inherits the color of the input node
++        // It's not clear why backgroundColor doesn't work when used from
++        // computedStyle, but it doesn't. Patches welcome!
++        this.element.style.backgroundColor = (this.backgroundElement != this.element) ?
++              'transparent' :
++              this.input.style.backgroundColor;
++        this.input.style.backgroundColor = 'transparent';
++
++        // Make room for the prompt
++        this.input.style.paddingLeft = '16px';
++
++        var resizer = this.resizer.bind(this);
++        event.addListener(this.doc.defaultView, 'resize', resizer);
++        resizer();
++    }
++};
++
++/**
++ * Ensure that the completion element is the same size and the inputter element
++ */
++Completer.prototype.resizer = function() {
++    var rect = this.inputter.getDimensionRect();
++    if (!rect) {
++        console.log('Skipping resize, missing getClientRects');
++        return;
++    }
++
++    this.element.style.top = rect.top + 'px';
++    this.element.style.height = rect.height + 'px';
++    this.element.style.lineHeight = rect.height + 'px';
++    this.element.style.left = rect.left + 'px';
++    this.element.style.width = rect.width + 'px';
++};
++
++/**
++ * Is the completion given a "strict" completion of the user inputted value?
++ */
++function isStrictCompletion(inputValue, completion) {
++    // Strip any leading whitespace from the user inputted value because the
++    // completion will never have leading whitespace.
++    inputValue = inputValue.replace(/^\s*/, '');
++    // A completion is "strict" only if it the user inputted value is an exact
++    // prefix of the completion.
++    //
++    // Strict: "ec" -> "echo"
++    // Non-Strict: "ls *" -> "ls foo bar baz"
++    return completion.indexOf(inputValue) === 0;
++}
++
++/**
++ * Bring the completion element up to date with what the requisition says
++ */
++Completer.prototype.update = function() {
++    var start = dom.getSelectionStart(this.input);
++    var current = this.requ.getAssignmentAt(start);
++    var predictions = current.getPredictions();
++
++    // Update the completer element with prompt/error marker/TAB info
++    dom.removeCssClass(this.backgroundElement, 'gcli' + Status.VALID.toString());
++    dom.removeCssClass(this.backgroundElement, 'gcli' + Status.INCOMPLETE.toString());
++    dom.removeCssClass(this.backgroundElement, 'gcli' + Status.ERROR.toString());
++    dom.removeCssClass(this.element, 'gclihide');
++
++    var completion = '<span class="gcliPrompt">' + this.completionPrompt + '</span> ';
++    if (this.input.value.length > 0) {
++        var scores = this.requ.getInputStatusMarkup();
++        completion += this.markupStatusScore(scores);
++    }
++
++    if (this.input.value.length > 0 && predictions.length > 0) {
++        var tab = predictions[0];
++        tab = tab.name ? tab.name : tab;
++        if (isStrictCompletion(this.input.value, tab)) {
++            // Display the suffix of the prediction as the completion.
++            var numLeadingSpaces = this.input.value.match(/^(\s*)/)[0].length;
++            var suffix = tab.slice(this.input.value.length - numLeadingSpaces);
++            completion += '<span class="gcliCompl">' +
++                suffix + '</span>';
++        } else {
++            // Display the '-> prediction' at the end of the completer element
++            completion += ' &#xa0;<span class="gcliCompl">&#x21E5; ' +
++                tab + '</span>';
++        }
++    }
++    dom.setInnerHtml(this.element, '<span>' + completion + '</span>');
++    var status = this.requ.getStatus();
++
++    dom.addCssClass(this.backgroundElement, 'gcli' + status.toString());
++
++    if (status === Status.VALID) {
++        dom.addCssClass(this.element, 'gclihide');
++    }
++};
++
++/**
++ * Mark-up an array of Status values with spans
++ */
++Completer.prototype.markupStatusScore = function(scores) {
++    var completion = '';
++    // Create mark-up
++    var i = 0;
++    var lastStatus = -1;
++    while (true) {
++        if (lastStatus !== scores[i]) {
++            completion += '<span class="gcli' + scores[i].toString() + '">';
++            lastStatus = scores[i];
++        }
++        completion += this.input.value[i];
++        i++;
++        if (i === this.input.value.length) {
++            completion += '</span>';
++            break;
++        }
++        if (lastStatus !== scores[i]) {
++            completion += '</span>';
++        }
++    }
++
++    return completion;
++};
++
++cliView.Completer = Completer;
++
++
++});
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is DomTemplate.
++ *
++ * The Initial Developer of the Original Code is Mozilla.
++ * Portions created by the Initial Developer are Copyright (C) 2009
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *      Joe Walker (jwalker@mozilla.com) (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++define('gcli/ui/domtemplate', ['require', 'exports', 'module' , 'gcli/util'], function(require, exports, module) {
++var domtemplate = exports;
++
++
++var console = require('gcli/util').console;
++
++// WARNING: do not 'use_strict' without reading the notes in envEval;
++
++/**
++ * A templater that allows one to quickly template DOM nodes.
++ */
++function Templater() {
++  this.scope = [];
++}
++
++/**
++ * Recursive function to walk the tree processing the attributes as it goes.
++ * @param node the node to process. If you pass a string in instead of a DOM
++ * element, it is assumed to be an id for use with document.getElementById()
++ * @param data the data to use for node processing.
++ */
++Templater.prototype.processNode = function(node, data) {
++  if (typeof node === 'string') {
++    node = document.getElementById(node);
++  }
++  if (data === null || data === undefined) {
++    data = {};
++  }
++  this.scope.push(node.nodeName + (node.id ? '#' + node.id : ''));
++  try {
++    // Process attributes
++    if (node.attributes && node.attributes.length) {
++      // We need to handle 'foreach' and 'if' first because they might stop
++      // some types of processing from happening, and foreach must come first
++      // because it defines new data on which 'if' might depend.
++      if (node.hasAttribute('foreach')) {
++        this.processForEach(node, data);
++        return;
++      }
++      if (node.hasAttribute('if')) {
++        if (!this.processIf(node, data)) {
++          return;
++        }
++      }
++      // Only make the node available once we know it's not going away
++      data.__element = node;
++      // It's good to clean up the attributes when we've processed them,
++      // but if we do it straight away, we mess up the array index
++      var attrs = Array.prototype.slice.call(node.attributes);
++      for (var i = 0; i < attrs.length; i++) {
++        var value = attrs[i].value;
++        var name = attrs[i].name;
++        this.scope.push(name);
++        try {
++          if (name === 'save') {
++            // Save attributes are a setter using the node
++            value = this.stripBraces(value);
++            this.property(value, data, node);
++            node.removeAttribute('save');
++          } else if (name.substring(0, 2) === 'on') {
++            // Event registration relies on property doing a bind
++            value = this.stripBraces(value);
++            var func = this.property(value, data);
++            if (typeof func !== 'function') {
++              this.handleError('Expected ' + value +
++                ' to resolve to a function, but got ' + typeof func);
++            }
++            node.removeAttribute(name);
++            var capture = node.hasAttribute('capture' + name.substring(2));
++            node.addEventListener(name.substring(2), func, capture);
++            if (capture) {
++              node.removeAttribute('capture' + name.substring(2));
++            }
++          } else {
++            // Replace references in all other attributes
++            var self = this;
++            var newValue = value.replace(/\$\{[^}]*\}/g, function(path) {
++              return self.envEval(path.slice(2, -1), data, value);
++            });
++            // Remove '_' prefix of attribute names so the DOM won't try
++            // to use them before we've processed the template
++            if (name.charAt(0) === '_') {
++              node.removeAttribute(name);
++              node.setAttribute(name.substring(1), newValue);
++            } else if (value !== newValue) {
++              attrs[i].value = newValue;
++            }
++          }
++        } finally {
++          this.scope.pop();
++        }
++      }
++    }
++
++    // Loop through our children calling processNode. First clone them, so the
++    // set of nodes that we visit will be unaffected by additions or removals.
++    var childNodes = Array.prototype.slice.call(node.childNodes);
++    for (var j = 0; j < childNodes.length; j++) {
++      this.processNode(childNodes[j], data);
++    }
++
++    if (node.nodeType === 3 /*Node.TEXT_NODE*/) {
++      this.processTextNode(node, data);
++    }
++  } finally {
++    this.scope.pop();
++  }
++};
++
++/**
++ * Handle <x if="${...}">
++ * @param node An element with an 'if' attribute
++ * @param data The data to use with envEval
++ * @returns true if processing should continue, false otherwise
++ */
++Templater.prototype.processIf = function(node, data) {
++  this.scope.push('if');
++  try {
++    var originalValue = node.getAttribute('if');
++    var value = this.stripBraces(originalValue);
++    var recurse = true;
++    try {
++      var reply = this.envEval(value, data, originalValue);
++      recurse = !!reply;
++    } catch (ex) {
++      this.handleError('Error with \'' + value + '\'', ex);
++      recurse = false;
++    }
++    if (!recurse) {
++      node.parentNode.removeChild(node);
++    }
++    node.removeAttribute('if');
++    return recurse;
++  } finally {
++    this.scope.pop();
++  }
++};
++
++/**
++ * Handle <x foreach="param in ${array}"> and the special case of
++ * <loop foreach="param in ${array}">
++ * @param node An element with a 'foreach' attribute
++ * @param data The data to use with envEval
++ */
++Templater.prototype.processForEach = function(node, data) {
++  this.scope.push('foreach');
++  try {
++    var originalValue = node.getAttribute('foreach');
++    var value = originalValue;
++
++    var paramName = 'param';
++    if (value.charAt(0) === '$') {
++      // No custom loop variable name. Use the default: 'param'
++      value = this.stripBraces(value);
++    } else {
++      // Extract the loop variable name from 'NAME in ${ARRAY}'
++      var nameArr = value.split(' in ');
++      paramName = nameArr[0].trim();
++      value = this.stripBraces(nameArr[1].trim());
++    }
++    node.removeAttribute('foreach');
++    try {
++      var self = this;
++      // Process a single iteration of a loop
++      var processSingle = function(member, clone, ref) {
++        ref.parentNode.insertBefore(clone, ref);
++        data[paramName] = member;
++        self.processNode(clone, data);
++        delete data[paramName];
++      };
++
++      // processSingle is no good for <loop> nodes where we want to work on
++      // the childNodes rather than the node itself
++      var processAll = function(scope, member) {
++        self.scope.push(scope);
++        try {
++          if (node.nodeName === 'LOOP') {
++            for (var i = 0; i < node.childNodes.length; i++) {
++              var clone = node.childNodes[i].cloneNode(true);
++              processSingle(member, clone, node);
++            }
++          } else {
++            var clone = node.cloneNode(true);
++            clone.removeAttribute('foreach');
++            processSingle(member, clone, node);
++          }
++        } finally {
++          self.scope.pop();
++        }
++      };
++
++      var reply = this.envEval(value, data, originalValue);
++      if (Array.isArray(reply)) {
++        reply.forEach(function(data, i) {
++          processAll('' + i, data);
++        }, this);
++      } else {
++        for (var param in reply) {
++          if (reply.hasOwnProperty(param)) {
++            processAll(param, param);
++          }
++        }
++      }
++      node.parentNode.removeChild(node);
++    } catch (ex) {
++      this.handleError('Error with \'' + value + '\'', ex);
++    }
++  } finally {
++    this.scope.pop();
++  }
++};
++
++/**
++ * Take a text node and replace it with another text node with the ${...}
++ * sections parsed out. We replace the node by altering node.parentNode but
++ * we could probably use a DOM Text API to achieve the same thing.
++ * @param node The Text node to work on
++ * @param data The data to use in calls to envEval
++ */
++Templater.prototype.processTextNode = function(node, data) {
++  // Replace references in other attributes
++  var value = node.data;
++  // We can't use the string.replace() with function trick (see generic
++  // attribute processing in processNode()) because we need to support
++  // functions that return DOM nodes, so we can't have the conversion to a
++  // string.
++  // Instead we process the string as an array of parts. In order to split
++  // the string up, we first replace '${' with '\uF001$' and '}' with '\uF002'
++  // We can then split using \uF001 or \uF002 to get an array of strings
++  // where scripts are prefixed with $.
++  // \uF001 and \uF002 are just unicode chars reserved for private use.
++  value = value.replace(/\$\{([^}]*)\}/g, '\uF001$$$1\uF002');
++  var parts = value.split(/\uF001|\uF002/);
++  if (parts.length > 1) {
++    parts.forEach(function(part) {
++      if (part === null || part === undefined || part === '') {
++        return;
++      }
++      if (part.charAt(0) === '$') {
++        part = this.envEval(part.slice(1), data, node.data);
++      }
++      // It looks like this was done a few lines above but see envEval
++      if (part === null) {
++        part = "null";
++      }
++      if (part === undefined) {
++        part = "undefined";
++      }
++      // if (isDOMElement(part)) { ... }
++      if (typeof part.cloneNode !== 'function') {
++        part = node.ownerDocument.createTextNode(part.toString());
++      }
++      node.parentNode.insertBefore(part, node);
++    }, this);
++    node.parentNode.removeChild(node);
++  }
++};
++
++/**
++ * Warn of string does not begin '${' and end '}'
++ * @param str the string to check.
++ * @return The string stripped of ${ and }, or untouched if it does not match
++ */
++Templater.prototype.stripBraces = function(str) {
++  if (!str.match(/\$\{.*\}/g)) {
++    this.handleError('Expected ' + str + ' to match ${...}');
++    return str;
++  }
++  return str.slice(2, -1);
++};
++
++/**
++ * Combined getter and setter that works with a path through some data set.
++ * For example:
++ * <ul>
++ * <li>property('a.b', { a: { b: 99 }}); // returns 99
++ * <li>property('a', { a: { b: 99 }}); // returns { b: 99 }
++ * <li>property('a', { a: { b: 99 }}, 42); // returns 99 and alters the
++ * input data to be { a: { b: 42 }}
++ * </ul>
++ * @param path An array of strings indicating the path through the data, or
++ * a string to be cut into an array using <tt>split('.')</tt>
++ * @param data An object to look in for the <tt>path</tt> argument
++ * @param newValue (optional) If defined, this value will replace the
++ * original value for the data at the path specified.
++ * @return The value pointed to by <tt>path</tt> before any
++ * <tt>newValue</tt> is applied.
++ */
++Templater.prototype.property = function(path, data, newValue) {
++  this.scope.push(path);
++  try {
++    if (typeof path === 'string') {
++      path = path.split('.');
++    }
++    var value = data[path[0]];
++    if (path.length === 1) {
++      if (newValue !== undefined) {
++        data[path[0]] = newValue;
++      }
++      if (typeof value === 'function') {
++        return function() {
++          return value.apply(data, arguments);
++        };
++      }
++      return value;
++    }
++    if (!value) {
++      this.handleError('Can\'t find path=' + path);
++      return null;
++    }
++    return this.property(path.slice(1), value, newValue);
++  } finally {
++    this.scope.pop();
++  }
++};
++
++/**
++ * Like eval, but that creates a context of the variables in <tt>env</tt> in
++ * which the script is evaluated.
++ * WARNING: This script uses 'with' which is generally regarded to be evil.
++ * The alternative is to create a Function at runtime that takes X parameters
++ * according to the X keys in the env object, and then call that function using
++ * the values in the env object. This is likely to be slow, but workable.
++ * @param script The string to be evaluated.
++ * @param env The environment in which to eval the script.
++ * @param context Optional debugging string in case of failure
++ * @return The return value of the script, or the error message if the script
++ * execution failed.
++ */
++Templater.prototype.envEval = function(script, env, context) {
++  with (env) {
++    try {
++      this.scope.push(context);
++      return eval(script);
++    } catch (ex) {
++      this.handleError('Template error evaluating \'' + script + '\'' +
++          ' environment=' + Object.keys(env).join(', '), ex);
++      return script;
++    } finally {
++      this.scope.pop();
++    }
++  }
++};
++
++/**
++ * A generic way of reporting errors, for easy overloading in different
++ * environments.
++ * @param message the error message to report.
++ * @param ex optional associated exception.
++ */
++Templater.prototype.handleError = function(message, ex) {
++  this.logError(message);
++  this.logError('In: ' + this.scope.join(' > '));
++  if (ex) {
++    this.logError(ex);
++  }
++};
++
++
++/**
++ * A generic way of reporting errors, for easy overloading in different
++ * environments.
++ * @param message the error message to report.
++ */
++Templater.prototype.logError = function(message) {
++  console.log(message);
++};
++
++domtemplate.Templater = Templater;
++
++
++});
++/* ***** BEGIN LICENSE BLOCK *****
++ *
++ * TODO
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++define('gcli/ui/history', ['require', 'exports', 'module' ], function(require, exports, module) {
++
++/**
++ * A History object remembers commands that have been entered in the past and
++ * provides an API for accessing them again.
++ *
++ * TODO: Search through history (like C-r in bash)?
++ */
++function History(options) {
++    this._options = options;
++
++    // This is the actual buffer where previous commands are kept.
++    //
++    // `this._buffer[0]` should always be equal the empty string. This is so
++    // that when you try to go in to the "future", you will just get an empty
++    // command.
++    this._buffer = [""];
++
++    // This is an index in to the history buffer which points to where we
++    // currently are in the history.
++    this._current = 0;
++}
++
++/**
++ * Record and save a new command in the history.
++ */
++History.prototype.add = function(command) {
++    this._buffer.splice(1, 0, command);
++    this._current = 0;
++};
++
++/**
++ * Get the next (newer) command from history.
++ */
++History.prototype.forward = function() {
++    if (this._current > 0 ) {
++        this._current--;
++    }
++    return this._buffer[this._current];
++};
++
++/**
++ * Get the previous (older) item from history.
++ */
++History.prototype.backward = function() {
++    if (this._current < this._buffer.length - 1) {
++        this._current++;
++    }
++    return this._buffer[this._current];
++};
++
++exports.History = History;
++
++});define("text!gcli/ui/inputter.css", [], void 0);
+ ///////////////////////////////////////////////////////////////////////////////
+ 
+ /*
+@@ -562,6 +6077,12 @@ define('gcli/index', [ ], function(requi
+  * The dependencies specified here should be the same as in Makefile.dryice.js
+  */
+ var gcli = require("gcli/index");
+-gcli.createView = require("gcli/ui/start/firefox");
+-gcli._internal = { require: require, define: define, console: console };
+-
++var firefox = require("gcli/ui/start/firefox");
++
++gcli._internal = {
++  require: require,
++  define: define,
++  console: console,
++  createView: firefox.createView,
++  commandOutputManager: firefox.commandOutputManager
++};

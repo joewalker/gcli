@@ -8,3 +8,4 @@
 .gcliCompletion span.gcliERROR { color: #DDD; border-bottom: 2px dotted #F00; }
 span.gcliPrompt { color: #66F; font-weight: bold; }
 span.gcliCompl { color: #999; }
+.gclihide { display: none; }

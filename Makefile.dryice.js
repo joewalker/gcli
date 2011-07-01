@@ -57,7 +57,9 @@ function buildStandard() {
   console.log('Building build/gcli.js and build/gcli-uncompressed.js:');
 
   // Build the standard compressed and uncompressed javascript files
-  var project = copy.createCommonJsProject([ gcliHome + '/lib' ]);
+  var project = copy.createCommonJsProject({
+    roots: [ gcliHome + '/lib' ]
+  });
 
   // Grab and process all the Javascript
   var sources = copy.createDataObject();
@@ -112,7 +114,10 @@ function buildFirefox() {
     fs.mkdirSync(gcliHome + '/built/ff', 0755);
   }
 
-  var project = copy.createCommonJsProject([ gcliHome + '/lib' ]);
+  var project = copy.createCommonJsProject({
+    roots: [ gcliHome + '/lib' ],
+    ignores: [ 'text!gcli/ui/inputter.css' ]
+  });
 
   copy({
     source: [
