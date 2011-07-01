@@ -8,7 +8,12 @@ Bug 656666 - Update HudService.jsm to allow GCLI integration
 diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/components/console/hudservice/HUDService.jsm
 --- a/toolkit/components/console/hudservice/HUDService.jsm
 +++ b/toolkit/components/console/hudservice/HUDService.jsm
-@@ -27,6 +27,7 @@
+@@ -22,16 +22,17 @@
+  *
+  * Contributor(s):
+  *   David Dahl <ddahl@mozilla.com> (original author)
+  *   Rob Campbell <rcampbell@mozilla.com>
+  *   Johnathan Nightingale <jnightingale@mozilla.com>
   *   Patrick Walton <pcwalton@mozilla.com>
   *   Julian Viereck <jviereck@mozilla.com>
   *   Mihai Șucan <mihai.sucan@gmail.com>
@@ -16,7 +21,17 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
   *
   * Alternatively, the contents of this file may be used under the terms of
   * either the GNU General Public License Version 2 or later (the "GPL"), or
-@@ -2681,9 +2682,25 @@
+  * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+  * in which case the provisions of the GPL or the LGPL are applicable instead
+  * of those above. If you wish to allow use of your version of this file only
+  * under the terms of either the GPL or the LGPL, and not to allow others to
+  * use your version of this file under the terms of the MPL, indicate your
+@@ -2676,19 +2677,35 @@ HUD_SERVICE.prototype =
+    *        Console object used within the JSTerm instance to report errors
+    *        and log data (by calling console.error(), console.log(), etc).
+    */
+   initializeJSTerm: function HS_initializeJSTerm(aContext, aParentNode, aConsole)
+   {
      // create Initial JS Workspace:
      var context = Cu.getWeakReference(aContext);
  
@@ -44,7 +59,17 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
  
      // TODO: injection of additional functionality needs re-thinking/api
      // see bug 559748
-@@ -3156,7 +3173,12 @@
+   },
+ 
+   /**
+    * Passed a HUDId, the corresponding window is returned
+    *
+@@ -3147,17 +3164,22 @@ function HeadsUpDisplay(aConfig)
+ 
+   // create a panel dynamically and attach to the parentNode
+   this.createHUD();
+ 
+   this.HUDBox.lastTimestamp = 0;
    // create the JSTerm input element
    try {
      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
@@ -58,7 +83,17 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
    }
    catch (ex) {
      Cu.reportError(ex);
-@@ -3269,8 +3291,13 @@
+   }
+ 
+   // A cache for tracking repeated CSS Nodes.
+   this.cssNodes = {};
+ }
+@@ -3262,18 +3284,23 @@ HeadsUpDisplay.prototype = {
+ 
+       panel.setAttribute("height", height);
+ 
+       // Scroll the outputNode back to the last location.
+       if (lastIndex > -1 && lastIndex < this.outputNode.getRowCount()) {
          this.outputNode.ensureIndexIsVisible(lastIndex);
        }
  
@@ -74,7 +109,17 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
        }
      }).bind(this);
  
-@@ -3457,8 +3484,13 @@
+     panel.addEventListener("popupshown", onPopupShown,false);
+ 
+     let onPopupHiding = (function HUD_onPopupHiding(aEvent) {
+       if (aEvent.target != panel) {
+         return;
+@@ -3439,18 +3466,23 @@ HeadsUpDisplay.prototype = {
+       this.HUDBox.removeAttribute("height");
+       this.HUDBox.style.height = height + "px";
+ 
+       // must destroy the consolePanel
+       this.consoleWindowUnregisterOnHide = false;
        this.consolePanel.hidePopup();
      }
  
@@ -90,7 +135,17 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
      }
    },
  
-@@ -3492,6 +3524,12 @@
+   /**
+    * L10N shortcut function
+    *
+    * @param string aName
+    * @returns string
+@@ -3474,30 +3506,54 @@ HeadsUpDisplay.prototype = {
+ 
+   /**
+    * The JSTerm object that contains the console's inputNode
+    *
+    */
    jsterm: null,
  
    /**
@@ -103,7 +158,10 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
     * creates and attaches the console input node
     *
     * @param nsIDOMWindow aWindow
-@@ -3502,10 +3540,28 @@
+    * @returns void
+    */
+   createConsoleInput:
+   function HUD_createConsoleInput(aWindow, aParentNode, aExistingConsole)
    {
      var context = Cu.getWeakReference(aWindow);
  
@@ -135,7 +193,17 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
      }
      else {
        throw new Error("Unsupported Gecko Application");
-@@ -3535,6 +3591,8 @@
+     }
+   },
+ 
+   /**
+    * Re-attaches a console when the contentWindow is recreated
+@@ -3513,16 +3569,18 @@ HeadsUpDisplay.prototype = {
+ 
+     if (!this.jsterm) {
+       this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
+     }
+     else {
        this.jsterm.context = Cu.getWeakReference(this.contentWindow);
        this.jsterm.console = this.console;
        this.jsterm.createSandbox();
@@ -144,7 +212,17 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
      }
    },
  
-@@ -5380,6 +5438,7 @@
+   /**
+    * Shortcut to make XUL nodes
+    *
+    * @param string aTag
+    * @returns nsIDOMNode
+@@ -5357,45 +5415,40 @@ JSTermFirefoxMixin.prototype = {
+    * @returns void
+    */
+   generateUI: function JSTF_generateUI()
+   {
+     this.completeNode = this.xulElementFactory("textbox");
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -152,7 +230,13 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5393,22 +5452,16 @@
+     this.inputNode.setAttribute("multiline", "true");
+     this.inputNode.setAttribute("rows", "1");
+ 
+     let inputStack = this.xulElementFactory("stack");
+     inputStack.setAttribute("class", "jsterm-stack-node");
+     inputStack.setAttribute("flex", "1");
+     inputStack.appendChild(this.completeNode);
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -185,7 +269,17 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
    },
  
    get inputValue()
-@@ -5536,9 +5589,8 @@
+   {
+     return this.inputNode.value;
+   },
+ 
+   attachUI: function JSTF_attachUI()
+@@ -5513,19 +5566,18 @@ ConsoleUtils = {
+    * @return nsIDOMNode
+    *         The message node: a XUL richlistitem ready to be inserted into
+    *         the Web Console output node.
+    */
+   createMessageNode:
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
                                            aBody, aSourceURL, aSourceLine,
                                            aClipboardText) {
@@ -197,7 +291,17 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5568,8 +5620,13 @@
+     // ensure that the icon stays anchored at the top of the message even for
+     // long multi-line messages.
+     let iconContainer = aDocument.createElementNS(XUL_NS, "xul:vbox");
+     iconContainer.classList.add("webconsole-msg-icon-container");
+ 
+@@ -5545,18 +5597,23 @@ ConsoleUtils = {
+     bodyNode.setAttribute("flex", "1");
+     bodyNode.classList.add("webconsole-msg-body");
+ 
+     // If a string was supplied for the body, turn it into a DOM node and an
+     // associated clipboard string now.
      aClipboardText = aClipboardText ||
                       (aBody + (aSourceURL ? " @ " + aSourceURL : "") +
                                (aSourceLine ? ":" + aSourceLine : ""));
@@ -213,7 +317,17 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
  
      bodyNode.appendChild(aBody);
  
-@@ -6661,3 +6718,378 @@
+     let repeatNode = aDocument.createElementNS(XUL_NS, "xul:label");
+     repeatNode.setAttribute("value", "1");
+     repeatNode.classList.add("webconsole-msg-repeat");
+ 
+     // Create the timestamp.
+@@ -6638,8 +6695,384 @@ try {
+   // *any* of this fails
+   var HUDService = new HUD_SERVICE();
+ }
+ catch (ex) {
+   Cu.reportError("HUDService failed initialization.\n" + ex);
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -331,12 +445,19 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +  this.createUI();
 +  this.createSandbox();
 +
-+  gcli._internal.commandOutputManager.addListener(this.onCommand, this);
++  this.showhints = false;
++  try {
++    this.showhints = Services.prefs.getBoolPref("devtools.gcli.showhints");
++  }
++  catch (ex) {}
++
++  gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
 +  gcli._internal.createView({
 +    document: this.doc,
 +    inputElement: this.inputNode,
 +    completeElement: this.completeNode,
-+    inputBackgroundElement: this.inputStack
++    inputBackgroundElement: this.inputStack,
++    completionPrompt: ''
 +  });
 +
 +  gcli.addCommand({
@@ -387,16 +508,16 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +    // Generate and attach the UI for an entire JS Workspace or
 +    // just the input node used under the console output
 +    this.completeNode = this.doc.createElement("div");
-+    this.completeNode.setAttribute("class", "jsterm-complete-node");
++    this.completeNode.setAttribute("class", "gcliterm-complete-node");
 +    this.completeNode.setAttribute("aria-live", "polite");
 +
 +    this.inputNode = this.doc.createElement("textbox");
-+    this.inputNode.setAttribute("class", "jsterm-input-node");
++    this.inputNode.setAttribute("class", "gcliterm-input-node");
 +    this.inputNode.setAttribute("multiline", "true");
 +    this.inputNode.setAttribute("rows", "1");
 +
 +    this.inputStack = this.doc.createElement("stack");
-+    this.inputStack.setAttribute("class", "jsterm-stack-node");
++    this.inputStack.setAttribute("class", "gcliterm-stack-node");
 +    this.inputStack.setAttribute("flex", "1");
 +    this.inputStack.appendChild(this.completeNode);
 +    this.inputStack.appendChild(this.inputNode);
@@ -404,20 +525,14 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +    this.outputNode = this.console;
 +
 +    this.term = this.doc.createElement("hbox");
-+    this.term.setAttribute("class", "jsterm-input-container");
++    this.term.setAttribute("class", "gcliterm-input-container");
 +    this.term.setAttribute("style", "direction: ltr;");
 +    this.term.setAttribute("flex", "1");
 +    this.term.appendChild(this.inputStack);
 +
-+    let showhints = false;
-+    try {
-+      showhints = Services.prefs.getBoolPref("devtools.gcli.showhints");
-+    }
-+    catch (ex) {}
-+
-+    if (showhints) {
++    if (this.showhints) {
 +      this.hintNode = this.doc.createElement("div");
-+      this.hintNode.setAttribute("class", "jsterm-hint-node");
++      this.hintNode.setAttribute("class", "gcliterm-hint-node");
 +      this.hintNode.setAttribute("flex", "0");
 +
 +      this.parentNode.appendChild(this.hintNode);
@@ -437,17 +552,17 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +  /**
 +   * Called by GCLI/canon when command line output changes
 +   */
-+  onCommand: function Gcli_onCommand(ev) {
++  onCommandOutput: function Gcli_onCommandOutput(ev) {
 +    // When we can update the history of the console, then we should stop
 +    // filtering incomplete reports.
-+    if (!ev.output.completed) {
++    if (!ev.outputData.completed) {
 +      return;
 +    }
 +
-+    this.writeOutput(ev.output.typed, { category: CATEGORY_INPUT });
++    this.writeOutput(ev.outputData.typed, { category: CATEGORY_INPUT });
 +
-+    let output = ev.output.output;
-+    if (ev.output.command.returnType == "html" && typeof output == "string") {
++    let output = ev.outputData.output;
++    if (ev.outputData.command.returnType == "html" && typeof output == "string") {
 +      let frag = this.doc.createRange().createContextualFragment(
 +          '<div xmlns="http://www.w3.org/1999/xhtml"' +
 +          ' xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">' +
@@ -592,131 +707,15 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +    this.completeNode.value = "";
 +  },
 +};
-diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components/console/hudservice/gcli.jsm
---- a/toolkit/components/console/hudservice/gcli.jsm
-+++ b/toolkit/components/console/hudservice/gcli.jsm
-@@ -5071,6 +5071,7 @@
-  * Contributor(s):
-  *      Joe Walker (jwalker@mozilla.com) (original author)
-  *      Julian Viereck (julian.viereck@gmail.com)
-+ *      Nick Fitzgerald <nfitzgerald@mozilla.com>
-  *
-  * Alternatively, the contents of this file may be used under the terms of
-  * either the GNU General Public License Version 2 or later (the "GPL"), or
-@@ -5104,6 +5105,7 @@
-     options.preStyled = true;
-     options.autoHide = true;
-     options.requisition = new Requisition();
-+    options.completionPrompt = '';
-     options.inputter = new Inputter(options);
-     options.inputter.update();
- };
-@@ -5137,6 +5139,7 @@
-  * Contributor(s):
-  *      Joe Walker (jwalker@mozilla.com) (original author)
-  *      Julian Viereck (julian.viereck@gmail.com)
-+ *      Nick Fitzgerald <nfitzgerald@mozilla.com>
-  *
-  * Alternatively, the contents of this file may be used under the terms of
-  * either the GNU General Public License Version 2 or later (the "GPL"), or
-@@ -5417,6 +5420,7 @@
-  * - document (required) DOM document to be used in creating elements
-  * - requisition (required) A GCLI Requisition object whose state is monitored
-  * - completeElement (optional) An element to use
-+ * - completionPrompt (optional) The prompt to show before a completion. Defaults to '>'.
-  */
- function Completer(options) {
-     this.doc = options.document;
-@@ -5437,6 +5441,10 @@
-         }
-     }
- 
-+    this.completionPrompt = typeof options.completionPrompt === 'string'
-+        ? options.completionPrompt
-+        : '&gt;'
-+
-     if (options.inputBackgroundElement) {
-         this.backgroundElement = options.inputBackgroundElement;
-     }
-@@ -5506,6 +5514,10 @@
-     this.element.style.width = rect.width + 'px';
- };
- 
-+function isStrictCompletion(inputValue, completion) {
-+    return completion.indexOf(inputValue.replace(/^\s*/, '')) > -1;
-+}
-+
- /**
-  * Bring the completion element up to date with what the requisition says
-  */
-@@ -5518,24 +5530,37 @@
-     dom.removeCssClass(this.backgroundElement, 'gcli' + Status.VALID.toString());
-     dom.removeCssClass(this.backgroundElement, 'gcli' + Status.INCOMPLETE.toString());
-     dom.removeCssClass(this.backgroundElement, 'gcli' + Status.ERROR.toString());
--
--    var completion = '<span class="gcliPrompt">&gt;</span> ';
-+    dom.removeCssClass(this.element, 'gclihide');
-+
-+    var completion = '<span class="gcliPrompt">' + this.completionPrompt + '</span> ';
-     if (this.input.value.length > 0) {
-         var scores = this.requ.getInputStatusMarkup();
-         completion += this.markupStatusScore(scores);
-     }
- 
--    // Display the '-> prediction' at the end of the completer element
-     if (this.input.value.length > 0 && predictions.length > 0) {
-         var tab = predictions[0];
-         tab = tab.name ? tab.name : tab;
--        completion += ' &#xa0;<span class="gcliCompl">&#x21E5; ' +
-+        if (isStrictCompletion(this.input.value, tab)) {
-+            // Display the suffix of the prediction as the completion.
-+            var numLeadingSpaces = this.input.value.match(/^(\s*)/)[0].length;
-+            var suffix = tab.slice(this.input.value.length - numLeadingSpaces);
-+            completion += '<span class="gcliCompl">' +
-+                suffix + '</span>';
-+        } else {
-+            // Display the '-> prediction' at the end of the completer element
-+            completion += ' &#xa0;<span class="gcliCompl">&#x21E5; ' +
-                 tab + '</span>';
-+        }
-     }
-     dom.setInnerHtml(this.element, '<span>' + completion + '</span>');
-     var status = this.requ.getStatus();
- 
-     dom.addCssClass(this.backgroundElement, 'gcli' + status.toString());
-+
-+    if (status === Status.VALID) {
-+        dom.addCssClass(this.element, 'gclihide');
-+    }
- };
- 
- /**
-@@ -6036,7 +6061,20 @@
- 
- exports.History = History;
- 
--});///////////////////////////////////////////////////////////////////////////////
-+});define("text!gcli/ui/inputter.css", [], "" +
-+  ".gcliCompletion { padding: 0; position: absolute; z-index: -1000; }" +
-+  ".gcliCompletion.gcliVALID { background-color: #FFF; }" +
-+  ".gcliCompletion.gcliINCOMPLETE { background-color: #DDD; }" +
-+  ".gcliCompletion.gcliERROR { background-color: #DDD; }" +
-+  ".gcliCompletion span { color: #FFF; }" +
-+  ".gcliCompletion span.gcliINCOMPLETE { color: #DDD; border-bottom: 2px dotted #999; }" +
-+  ".gcliCompletion span.gcliERROR { color: #DDD; border-bottom: 2px dotted #F00; }" +
-+  "span.gcliPrompt { color: #66F; font-weight: bold; }" +
-+  "span.gcliCompl { color: #999; }" +
-+  ".gclihide { display: none; }" +
-+  "");
-+
-+///////////////////////////////////////////////////////////////////////////////
- 
- /*
-  * require GCLI so it can be exported as declared in EXPORTED_SYMBOLS
 diff --git a/toolkit/components/console/hudservice/tests/browser/Makefile.in b/toolkit/components/console/hudservice/tests/browser/Makefile.in
 --- a/toolkit/components/console/hudservice/tests/browser/Makefile.in
 +++ b/toolkit/components/console/hudservice/tests/browser/Makefile.in
-@@ -111,6 +111,7 @@
+@@ -106,16 +106,17 @@ _BROWSER_TEST_FILES = \
+ 	browser_webconsole_bug_593003_iframe_wrong_hud.js \
+ 	browser_webconsole_bug_601909_remember_height.js \
+ 	browser_webconsole_bug_613013_console_api_iframe.js \
+ 	browser_webconsole_bug_597756_reopen_closed_tab.js \
+ 	browser_webconsole_bug_600183_charset.js \
  	browser_webconsole_bug_601177_log_levels.js \
  	browser_webconsole_bug_597460_filter_scroll.js \
  	browser_webconsole_gcli_require.js \
@@ -724,6 +723,11 @@ diff --git a/toolkit/components/console/hudservice/tests/browser/Makefile.in b/t
  	browser_webconsole_console_extras.js \
  	browser_webconsole_bug_598357_jsterm_output.js \
  	browser_webconsole_bug_603750_websocket.js \
+ 	browser_webconsole_abbreviate_source_url.js \
+ 	browser_webconsole_view_source.js \
+ 	browser_webconsole_bug_602572_log_bodies_checkbox.js \
+ 	browser_webconsole_bug_614793_jsterm_scroll.js \
+ 	browser_webconsole_bug_599725_response_headers.js \
 diff --git a/toolkit/components/console/hudservice/tests/browser/browser_webconsole_gcli_integrate.js b/toolkit/components/console/hudservice/tests/browser/browser_webconsole_gcli_integrate.js
 new file mode 100644
 --- /dev/null
@@ -829,7 +833,12 @@ new file mode 100644
 diff --git a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
 --- a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
 +++ b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
-@@ -153,3 +153,17 @@
+@@ -148,8 +148,22 @@ Autocomplete.label=Autocomplete popup
+ # they are said to be anonymous. See stacktrace.outputMessage.
+ stacktrace.anonymousFunction=<anonymous>
+ 
+ # LOCALIZATION NOTE (stacktrace.outputMessage):
+ # This string is used in the Web Console output to identify a web developer call
  # to console.trace(). The stack trace of JavaScript function calls is displayed.
  # In this minimal message we only show the last call.
  stacktrace.outputMessage=Stack trace from %S, function %S, line %S.
@@ -850,64 +859,115 @@ diff --git a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties b/too
 diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pinstripe/global/webConsole.css
 --- a/toolkit/themes/pinstripe/global/webConsole.css
 +++ b/toolkit/themes/pinstripe/global/webConsole.css
-@@ -143,6 +143,11 @@
+@@ -133,20 +133,29 @@
+ 
+ .hud-msg-node[selected="true"] > .webconsole-timestamp,
+ .hud-msg-node[selected="true"] > .webconsole-location {
+   color: inherit;
+ }
+ 
+ .hud-output-node,
+ .jsterm-input-node,
+-.jsterm-complete-node {
++.jsterm-complete-node,
++.gcliterm-input-node,
++.gcliterm-complete-node {
    font: 11px Menlo, Monaco, monospace;
  }
  
 +.jsterm-input-node,
-+.jsterm-complete-node {
++.jsterm-complete-node,
++.gcliterm-input-node,
++.gcliterm-complete-node {
 +  background-color: transparent;
 +}
 +
  .hud-output-node {
    -moz-appearance: none;
    border-bottom: 1px solid ThreeDShadow;
-@@ -369,9 +374,11 @@
+   border-top: 1px solid ThreeDShadow;
+   margin: 0;
+ }
+ 
+ .hud-filtered-by-type,
+@@ -348,28 +357,34 @@
+   height: 1px;
+   width: 1px;
+   position: relative;
+   top: 92%;
+   display: block;
+ }
+ 
+ .jsterm-input-node,
+-.jsterm-complete-node {
++.jsterm-complete-node,
++.gcliterm-input-node,
++.gcliterm-complete-node {
+   border: none;
+   padding: 0 0 0 16px;
+   -moz-appearance: none;
+ }
+ 
+-.jsterm-input-node {
++.jsterm-input-node,
++.gcliterm-input-node {
+   background: url("chrome://global/skin/icons/commandline.png") 4px 2px no-repeat;
+ }
+ 
+ :-moz-any(.jsterm-input-node,
+-          .jsterm-complete-node) > .textbox-input-box > .textbox-textarea {
++          .jsterm-complete-node,
++          .gcliterm-input-node,
++          .gcliterm-complete-node
++          ) > .textbox-input-box > .textbox-textarea {
    overflow-x: hidden;
  }
  
-+/*
  .jsterm-complete-node > .textbox-input-box > .textbox-textarea {
    color: GrayText;
  }
-+*/
  
  .jsterm-output-line {
-   font-size: 1em;
-@@ -399,3 +406,32 @@
+@@ -393,8 +408,42 @@
+   background-color: white;
+ }
+ 
+ .web-console-panel > .hud-box {
+   height: 100%;
    width: 100%;
    background-color: white;
  }
 +
-+.jsterm-complete-node span {
-+  /*color: #FFF;*/
++.gcliterm-stack-node.gcliVALID {
++  background-color: #FFF;
 +}
 +
-+.jsterm-complete-node {
++.gcliterm-stack-node.gcliINCOMPLETE {
++  background-color: #DDD;
++}
++
++.gcliterm-stack-node.gcliERROR {
++  background-color: #DDD;
++}
++
++.gcliterm-complete-node {
 +  color: #F00;
-+}
-+
-+div.jsterm-complete-node {
 +  margin: 4px;
 +}
 +
-+.jsterm-complete-node span.gcliINCOMPLETE {
++.gcliterm-complete-node span.gcliINCOMPLETE {
 +  color: #DDD;
 +  border-bottom: 2px dotted #999;
 +}
 +
-+.jsterm-complete-node span.gcliERROR {
++.gcliterm-complete-node span.gcliERROR {
 +  color: #DDD; border-bottom: 2px dotted #F00;
 +}
 +
-+.jsterm-complete-node span.gcliPrompt {
++.gcliterm-complete-node span.gcliPrompt {
 +  color: #66F; font-weight: bold;
 +}
 +
-+.jsterm-complete-node span.gcliCompl {
++.gcliterm-complete-node span.gcliCompl {
 +  color: #999;
-+}
-+
-+.gclihide {
-+    display: none;
 +}

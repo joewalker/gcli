@@ -623,22 +623,24 @@ diff --git a/toolkit/components/console/hudservice/tests/browser/browser_webcons
 new file mode 100644
 --- /dev/null
 +++ b/toolkit/components/console/hudservice/tests/browser/browser_webconsole_gcli_require.js
-@@ -0,0 +1,109 @@
+@@ -0,0 +1,120 @@
 +/* Any copyright is dedicated to the Public Domain.
 + * http://creativecommons.org/publicdomain/zero/1.0/ */
 +
 +// Tests that source URLs in the Web Console can be clicked to display the
 +// standard View Source window.
 +
-+Components.utils.import("resource:///modules/gcli.jsm");
++var modules = { gcli: null };
++
++Components.utils.import("resource:///modules/gcli.jsm", modules);
 +
 +var define, require, console;
 +
 +function test() {
 +
-+  define = gcli._internal.define;
-+  require = gcli._internal.require;
-+  console = gcli._internal.console;
++  define = modules.gcli._internal.define;
++  require = modules.gcli._internal.require;
++  console = modules.gcli._internal.console;
 +
 +  define('gclitest/requirable', [], function(require, exports, module) {
 +    exports.thing1 = 'thing1';
@@ -665,9 +667,18 @@ new file mode 100644
 +
 +  finishTest();
 +
-+  delete define;
-+  delete require;
-+  delete console;
++  delete define.modules['gclitest/requirable'];
++  delete define.globalDomain.modules['gclitest/requirable'];
++  delete define.modules['gclitest/unrequirable'];
++  delete define.globalDomain.modules['gclitest/unrequirable'];
++  delete define.modules['gclitest/recurse'];
++  delete define.globalDomain.modules['gclitest/recurse'];
++
++  define = null;
++  require = null;
++  console = null;
++
++  modules = null;
 +}
 +
 +function testWorking() {

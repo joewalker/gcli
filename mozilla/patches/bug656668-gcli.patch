@@ -2,18 +2,13 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306496118 -3600
 # Node ID c9f0d4142413be8bd4cf553732568c1249999196
-# Parent 8a983a3b9cebafcabd9c3b1196ec9325c3a73be3
+# Parent 9f44a0a83964d26610f6b39f659c45817199a0b9
 Bug 656668 - Create Export from GCLI project to JSM
 
 diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components/console/hudservice/gcli.jsm
 --- a/toolkit/components/console/hudservice/gcli.jsm
 +++ b/toolkit/components/console/hudservice/gcli.jsm
-@@ -535,33 +535,5520 @@ define.globalDomain = new Domain();
-  * Expose a default require function which is the require of the global
-  * sandbox to make it easy to use.
-  */
- var require = define.globalDomain.require.bind(define.globalDomain);
- 
+@@ -540,21 +540,5536 @@ var require = define.globalDomain.requir
  
  ///////////////////////////////////////////////////////////////////////////////
  
@@ -196,7 +191,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +            usingGroups = true;
 +        }
 +    }, this);
-+};
++}
 +
 +/**
 + * A safe version of '.description' returning '(No description)' when there
@@ -548,7 +543,6 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +var dom = {};
 +
 +var NS_XHTML = "http://www.w3.org/1999/xhtml";
-+var NS_XUL = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 +
 +/**
 + * Pass-through to createElement or createElementNS
@@ -1490,7 +1484,6 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
  
  });
 -
--///////////////////////////////////////////////////////////////////////////////
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -2044,7 +2037,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +            this[key] = typeSpec[key];
 +        }, this);
 +    }
-+};
++}
 +
 +SelectionType.prototype = new Type();
 +
@@ -2146,7 +2139,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +    }
 +    else {
 +        var name = this.stringify(value);
-+        var index = data.indexOf(name);
++        index = data.indexOf(name);
 +        index = (index === 0 ? data.length - 1 : index - 1);
 +    }
 +    return this.fromString(data[index]);
@@ -2160,7 +2153,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +    }
 +    else {
 +        var name = this.stringify(value);
-+        var index = data.indexOf(name);
++        index = data.indexOf(name);
 +        index = (index === data.length - 1 ? 0 : index + 1);
 +    }
 +    return this.fromString(data[index]);
@@ -2221,7 +2214,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +    Object.keys(typeSpec).forEach(function(key) {
 +        this[key] = typeSpec[key];
 +    }, this);
-+};
++}
 +
 +DeferredType.prototype = new Type();
 +
@@ -2292,7 +2285,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +        this[key] = typeSpec[key];
 +    }, this);
 +    this.subtype = types.getType(this.subtype);
-+};
++}
 +
 +ArrayType.prototype = new Type();
 +
@@ -2390,11 +2383,9 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 + *
 + * ***** END LICENSE BLOCK ***** */
 +
-+define('gcli/argument', ['require', 'exports', 'module' , 'gcli/util'], function(require, exports, module) {
++define('gcli/argument', ['require', 'exports', 'module' ], function(require, exports, module) {
 +var argument = exports;
 +
-+
-+var console = require('gcli/util').console;
 +
 +/**
 + * We record where in the input string an argument comes so we can report
@@ -3037,7 +3028,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +    this.assignmentChange = createEvent('Assignment.assignmentChange');
 +
 +    this.setDefault();
-+};
++}
 +
 +/**
 + * The parameter that we are assigning to
@@ -3235,7 +3226,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +            this[key] = typeSpec[key];
 +        }, this);
 +    }
-+};
++}
 +
 +CommandType.prototype = new Type();
 +
@@ -3321,7 +3312,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +    }
 +    else {
 +        var name = this.stringify(value);
-+        var index = data.indexOf(name);
++        index = data.indexOf(name);
 +        index = (index === 0 ? data.length - 1 : index - 1);
 +    }
 +    return this.fromString(data[index]);
@@ -3335,7 +3326,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +    }
 +    else {
 +        var name = this.stringify(value);
-+        var index = data.indexOf(name);
++        index = data.indexOf(name);
 +        index = (index === data.length - 1 ? 0 : index + 1);
 +    }
 +    return this.fromString(data[index]);
@@ -3899,7 +3890,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +
 +        if (reply != null && reply.isPromise) {
 +            reply.then(
-+                function(reply) { onComplete(reply, false); },
++                function(data) { onComplete(data, false); },
 +                function(error) { onComplete(error, true); });
 +
 +            // Add progress to our promise and add a handler for it here
@@ -4001,8 +3992,8 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +            .replace(/\\'/g, '\uF001')
 +            .replace(/\\"/g, '\uF002');
 +
-+    function unescape2(str) {
-+        return str
++    function unescape2(escaped) {
++        return escaped
 +            .replace(/\uF000/g, ' ')
 +            .replace(/\uF001/g, '\'')
 +            .replace(/\uF002/g, '"');
@@ -4397,7 +4388,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +};
 +
 +/**
-+ * Take the specified action of fulfillment of a promise, and (optionally)
++ * Take the specified action of fulfilment of a promise, and (optionally)
 + * a different action on promise rejection.
 + */
 +Promise.prototype.then = function(onSuccess, onError) {
@@ -4494,7 +4485,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +/**
 + * Takes an array of promises and returns a promise that that is fulfilled once
 + * all the promises in the array are fulfilled
-+ * @param group The array of promises
++ * @param promiseList The array of promises
 + * @return the promise that is fulfilled when all the array is fulfilled
 + */
 +Promise.group = function(promiseList) {
@@ -4561,6 +4552,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 + * Contributor(s):
 + *      Joe Walker (jwalker@mozilla.com) (original author)
 + *      Julian Viereck (julian.viereck@gmail.com)
++ *      Nick Fitzgerald <nfitzgerald@mozilla.com>
 + *
 + * Alternatively, the contents of this file may be used under the terms of
 + * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -4594,6 +4586,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +    options.preStyled = true;
 +    options.autoHide = true;
 +    options.requisition = new Requisition();
++    options.completionPrompt = '';
 +    options.inputter = new Inputter(options);
 +    options.inputter.update();
 +};
@@ -4627,6 +4620,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 + * Contributor(s):
 + *      Joe Walker (jwalker@mozilla.com) (original author)
 + *      Julian Viereck (julian.viereck@gmail.com)
++ *      Nick Fitzgerald <nfitzgerald@mozilla.com>
 + *
 + * Alternatively, the contents of this file may be used under the terms of
 + * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -4907,6 +4901,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 + * - document (required) DOM document to be used in creating elements
 + * - requisition (required) A GCLI Requisition object whose state is monitored
 + * - completeElement (optional) An element to use
++ * - completionPrompt (optional) The prompt to show before a completion. Defaults to '>'.
 + */
 +function Completer(options) {
 +    this.doc = options.document;
@@ -4926,6 +4921,10 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +            this.element.setAttribute('aria-live', 'polite');
 +        }
 +    }
++
++    this.completionPrompt = typeof options.completionPrompt === 'string'
++        ? options.completionPrompt
++        : '&gt;';
 +
 +    if (options.inputBackgroundElement) {
 +        this.backgroundElement = options.inputBackgroundElement;
@@ -4997,6 +4996,21 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +};
 +
 +/**
++ * Is the completion given a "strict" completion of the user inputted value?
++ */
++function isStrictCompletion(inputValue, completion) {
++    // Strip any leading whitespace from the user inputted value because the
++    // completion will never have leading whitespace.
++    inputValue = inputValue.replace(/^\s*/, '');
++    // A completion is "strict" only if it the user inputted value is an exact
++    // prefix of the completion.
++    //
++    // Strict: "ec" -> "echo"
++    // Non-Strict: "ls *" -> "ls foo bar baz"
++    return completion.indexOf(inputValue) === 0;
++}
++
++/**
 + * Bring the completion element up to date with what the requisition says
 + */
 +Completer.prototype.update = function() {
@@ -5008,24 +5022,37 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +    dom.removeCssClass(this.backgroundElement, 'gcli' + Status.VALID.toString());
 +    dom.removeCssClass(this.backgroundElement, 'gcli' + Status.INCOMPLETE.toString());
 +    dom.removeCssClass(this.backgroundElement, 'gcli' + Status.ERROR.toString());
++    dom.removeCssClass(this.element, 'gclihide');
 +
-+    var completion = '<span class="gcliPrompt">&gt;</span> ';
++    var completion = '<span class="gcliPrompt">' + this.completionPrompt + '</span> ';
 +    if (this.input.value.length > 0) {
 +        var scores = this.requ.getInputStatusMarkup();
 +        completion += this.markupStatusScore(scores);
 +    }
 +
-+    // Display the '-> prediction' at the end of the completer element
 +    if (this.input.value.length > 0 && predictions.length > 0) {
 +        var tab = predictions[0];
 +        tab = tab.name ? tab.name : tab;
-+        completion += ' &#xa0;<span class="gcliCompl">&#x21E5; ' +
++        if (isStrictCompletion(this.input.value, tab)) {
++            // Display the suffix of the prediction as the completion.
++            var numLeadingSpaces = this.input.value.match(/^(\s*)/)[0].length;
++            var suffix = tab.slice(this.input.value.length - numLeadingSpaces);
++            completion += '<span class="gcliCompl">' +
++                suffix + '</span>';
++        } else {
++            // Display the '-> prediction' at the end of the completer element
++            completion += ' &#xa0;<span class="gcliCompl">&#x21E5; ' +
 +                tab + '</span>';
++        }
 +    }
 +    dom.setInnerHtml(this.element, '<span>' + completion + '</span>');
 +    var status = this.requ.getStatus();
 +
 +    dom.addCssClass(this.backgroundElement, 'gcli' + status.toString());
++
++    if (status === Status.VALID) {
++        dom.addCssClass(this.element, 'gclihide');
++    }
 +};
 +
 +/**
@@ -5108,7 +5135,7 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 + */
 +function Templater() {
 +  this.scope = [];
-+};
++}
 +
 +/**
 + * Recursive function to walk the tree processing the attributes as it goes.
@@ -5526,10 +5553,11 @@ diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components
 +
 +exports.History = History;
 +
-+});///////////////////////////////////////////////////////////////////////////////
++});define("text!gcli/ui/inputter.css", [], void 0);
+ ///////////////////////////////////////////////////////////////////////////////
  
  /*
-  * require GCLI so it can be exported as declared in EXPORTED_SYMBOLS
+@@ -562,6 +6077,12 @@ define('gcli/index', [ ], function(requi
   * The dependencies specified here should be the same as in Makefile.dryice.js
   */
  var gcli = require("gcli/index");
