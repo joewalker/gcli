@@ -2,18 +2,13 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent e02b0c16a5330e8b5dccb973818d39e0f92acaba
+# Parent a0d987c14834dff22b10e3ed5d39c76224da946f
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/components/console/hudservice/HUDService.jsm
 --- a/toolkit/components/console/hudservice/HUDService.jsm
 +++ b/toolkit/components/console/hudservice/HUDService.jsm
-@@ -22,16 +22,17 @@
-  *
-  * Contributor(s):
-  *   David Dahl <ddahl@mozilla.com> (original author)
-  *   Rob Campbell <rcampbell@mozilla.com>
-  *   Johnathan Nightingale <jnightingale@mozilla.com>
+@@ -27,6 +27,7 @@
   *   Patrick Walton <pcwalton@mozilla.com>
   *   Julian Viereck <jviereck@mozilla.com>
   *   Mihai Șucan <mihai.sucan@gmail.com>
@@ -21,17 +16,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
   *
   * Alternatively, the contents of this file may be used under the terms of
   * either the GNU General Public License Version 2 or later (the "GPL"), or
-  * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
-  * in which case the provisions of the GPL or the LGPL are applicable instead
-  * of those above. If you wish to allow use of your version of this file only
-  * under the terms of either the GPL or the LGPL, and not to allow others to
-  * use your version of this file under the terms of the MPL, indicate your
-@@ -2676,19 +2677,35 @@ HUD_SERVICE.prototype =
-    *        Console object used within the JSTerm instance to report errors
-    *        and log data (by calling console.error(), console.log(), etc).
-    */
-   initializeJSTerm: function HS_initializeJSTerm(aContext, aParentNode, aConsole)
-   {
+@@ -2680,9 +2681,25 @@ HUD_SERVICE.prototype =
      // create Initial JS Workspace:
      var context = Cu.getWeakReference(aContext);
  
@@ -59,17 +44,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
  
      // TODO: injection of additional functionality needs re-thinking/api
      // see bug 559748
-   },
- 
-   /**
-    * Passed a HUDId, the corresponding window is returned
-    *
-@@ -3147,17 +3164,22 @@ function HeadsUpDisplay(aConfig)
- 
-   // create a panel dynamically and attach to the parentNode
-   this.createHUD();
- 
-   this.HUDBox.lastTimestamp = 0;
+@@ -3155,7 +3172,12 @@ function HeadsUpDisplay(aConfig)
    // create the JSTerm input element
    try {
      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
@@ -83,17 +58,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
    }
    catch (ex) {
      Cu.reportError(ex);
-   }
- 
-   // A cache for tracking repeated CSS Nodes.
-   this.cssNodes = {};
- }
-@@ -3262,18 +3284,23 @@ HeadsUpDisplay.prototype = {
- 
-       panel.setAttribute("height", height);
- 
-       // Scroll the outputNode back to the last location.
-       if (lastIndex > -1 && lastIndex < this.outputNode.getRowCount()) {
+@@ -3268,8 +3290,13 @@ HeadsUpDisplay.prototype = {
          this.outputNode.ensureIndexIsVisible(lastIndex);
        }
  
@@ -109,17 +74,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
        }
      }).bind(this);
  
-     panel.addEventListener("popupshown", onPopupShown,false);
- 
-     let onPopupHiding = (function HUD_onPopupHiding(aEvent) {
-       if (aEvent.target != panel) {
-         return;
-@@ -3439,18 +3466,23 @@ HeadsUpDisplay.prototype = {
-       this.HUDBox.removeAttribute("height");
-       this.HUDBox.style.height = height + "px";
- 
-       // must destroy the consolePanel
-       this.consoleWindowUnregisterOnHide = false;
+@@ -3456,8 +3483,13 @@ HeadsUpDisplay.prototype = {
        this.consolePanel.hidePopup();
      }
  
@@ -135,17 +90,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
      }
    },
  
-   /**
-    * L10N shortcut function
-    *
-    * @param string aName
-    * @returns string
-@@ -3474,30 +3506,54 @@ HeadsUpDisplay.prototype = {
- 
-   /**
-    * The JSTerm object that contains the console's inputNode
-    *
-    */
+@@ -3491,6 +3523,12 @@ HeadsUpDisplay.prototype = {
    jsterm: null,
  
    /**
@@ -158,10 +103,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
     * creates and attaches the console input node
     *
     * @param nsIDOMWindow aWindow
-    * @returns void
-    */
-   createConsoleInput:
-   function HUD_createConsoleInput(aWindow, aParentNode, aExistingConsole)
+@@ -3501,10 +3539,28 @@ HeadsUpDisplay.prototype = {
    {
      var context = Cu.getWeakReference(aWindow);
  
@@ -193,17 +135,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
      }
      else {
        throw new Error("Unsupported Gecko Application");
-     }
-   },
- 
-   /**
-    * Re-attaches a console when the contentWindow is recreated
-@@ -3513,16 +3569,18 @@ HeadsUpDisplay.prototype = {
- 
-     if (!this.jsterm) {
-       this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
-     }
-     else {
+@@ -3534,6 +3590,8 @@ HeadsUpDisplay.prototype = {
        this.jsterm.context = Cu.getWeakReference(this.contentWindow);
        this.jsterm.console = this.console;
        this.jsterm.createSandbox();
@@ -212,17 +144,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
      }
    },
  
-   /**
-    * Shortcut to make XUL nodes
-    *
-    * @param string aTag
-    * @returns nsIDOMNode
-@@ -5357,45 +5415,40 @@ JSTermFirefoxMixin.prototype = {
-    * @returns void
-    */
-   generateUI: function JSTF_generateUI()
-   {
-     this.completeNode = this.xulElementFactory("textbox");
+@@ -5367,6 +5425,7 @@ JSTermFirefoxMixin.prototype = {
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -230,13 +152,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-     this.inputNode.setAttribute("multiline", "true");
-     this.inputNode.setAttribute("rows", "1");
- 
-     let inputStack = this.xulElementFactory("stack");
-     inputStack.setAttribute("class", "jsterm-stack-node");
-     inputStack.setAttribute("flex", "1");
-     inputStack.appendChild(this.completeNode);
+@@ -5380,22 +5439,16 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -269,17 +185,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
    },
  
    get inputValue()
-   {
-     return this.inputNode.value;
-   },
- 
-   attachUI: function JSTF_attachUI()
-@@ -5513,19 +5566,18 @@ ConsoleUtils = {
-    * @return nsIDOMNode
-    *         The message node: a XUL richlistitem ready to be inserted into
-    *         the Web Console output node.
-    */
-   createMessageNode:
+@@ -5523,9 +5576,8 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
                                            aBody, aSourceURL, aSourceLine,
                                            aClipboardText) {
@@ -291,17 +197,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-     // ensure that the icon stays anchored at the top of the message even for
-     // long multi-line messages.
-     let iconContainer = aDocument.createElementNS(XUL_NS, "xul:vbox");
-     iconContainer.classList.add("webconsole-msg-icon-container");
- 
-@@ -5545,18 +5597,23 @@ ConsoleUtils = {
-     bodyNode.setAttribute("flex", "1");
-     bodyNode.classList.add("webconsole-msg-body");
- 
-     // If a string was supplied for the body, turn it into a DOM node and an
-     // associated clipboard string now.
+@@ -5555,8 +5607,13 @@ ConsoleUtils = {
      aClipboardText = aClipboardText ||
                       (aBody + (aSourceURL ? " @ " + aSourceURL : "") +
                                (aSourceLine ? ":" + aSourceLine : ""));
@@ -317,17 +213,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
  
      bodyNode.appendChild(aBody);
  
-     let repeatNode = aDocument.createElementNS(XUL_NS, "xul:label");
-     repeatNode.setAttribute("value", "1");
-     repeatNode.classList.add("webconsole-msg-repeat");
- 
-     // Create the timestamp.
-@@ -6638,8 +6695,384 @@ try {
-   // *any* of this fails
-   var HUDService = new HUD_SERVICE();
- }
- catch (ex) {
-   Cu.reportError("HUDService failed initialization.\n" + ex);
+@@ -6648,3 +6705,379 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -710,12 +596,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 diff --git a/toolkit/components/console/hudservice/tests/browser/Makefile.in b/toolkit/components/console/hudservice/tests/browser/Makefile.in
 --- a/toolkit/components/console/hudservice/tests/browser/Makefile.in
 +++ b/toolkit/components/console/hudservice/tests/browser/Makefile.in
-@@ -106,16 +106,17 @@ _BROWSER_TEST_FILES = \
- 	browser_webconsole_bug_593003_iframe_wrong_hud.js \
- 	browser_webconsole_bug_601909_remember_height.js \
- 	browser_webconsole_bug_613013_console_api_iframe.js \
- 	browser_webconsole_bug_597756_reopen_closed_tab.js \
- 	browser_webconsole_bug_600183_charset.js \
+@@ -111,6 +111,7 @@ _BROWSER_TEST_FILES = \
  	browser_webconsole_bug_601177_log_levels.js \
  	browser_webconsole_bug_597460_filter_scroll.js \
  	browser_webconsole_gcli_require.js \
@@ -723,11 +604,6 @@ diff --git a/toolkit/components/console/hudservice/tests/browser/Makefile.in b/t
  	browser_webconsole_console_extras.js \
  	browser_webconsole_bug_598357_jsterm_output.js \
  	browser_webconsole_bug_603750_websocket.js \
- 	browser_webconsole_abbreviate_source_url.js \
- 	browser_webconsole_view_source.js \
- 	browser_webconsole_bug_602572_log_bodies_checkbox.js \
- 	browser_webconsole_bug_614793_jsterm_scroll.js \
- 	browser_webconsole_bug_599725_response_headers.js \
 diff --git a/toolkit/components/console/hudservice/tests/browser/browser_webconsole_gcli_integrate.js b/toolkit/components/console/hudservice/tests/browser/browser_webconsole_gcli_integrate.js
 new file mode 100644
 --- /dev/null
@@ -833,12 +709,7 @@ new file mode 100644
 diff --git a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
 --- a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
 +++ b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
-@@ -148,8 +148,22 @@ Autocomplete.label=Autocomplete popup
- # they are said to be anonymous. See stacktrace.outputMessage.
- stacktrace.anonymousFunction=<anonymous>
- 
- # LOCALIZATION NOTE (stacktrace.outputMessage):
- # This string is used in the Web Console output to identify a web developer call
+@@ -153,3 +153,17 @@ stacktrace.anonymousFunction=<anonymous>
  # to console.trace(). The stack trace of JavaScript function calls is displayed.
  # In this minimal message we only show the last call.
  stacktrace.outputMessage=Stack trace from %S, function %S, line %S.
@@ -856,15 +727,91 @@ diff --git a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties b/too
 +# JavaScript) or Command (which is more like a traditional command line). This
 +# is the label for the JavaScript input type.
 +termTypeJavascript=JavaScript
+diff --git a/toolkit/themes/gnomestripe/global/webConsole.css b/toolkit/themes/gnomestripe/global/webConsole.css
+--- a/toolkit/themes/gnomestripe/global/webConsole.css
++++ b/toolkit/themes/gnomestripe/global/webConsole.css
+@@ -136,10 +136,19 @@
+ 
+ .hud-output-node,
+ .jsterm-input-node,
+-.jsterm-complete-node {
++.jsterm-complete-node,
++.gcliterm-input-node,
++.gcliterm-complete-node {
+   font: 12px "DejaVu Sans Mono", monospace;
+ }
+ 
++.jsterm-input-node,
++.jsterm-complete-node,
++.gcliterm-input-node,
++.gcliterm-complete-node {
++  background-color: transparent;
++}
++
+ .hud-output-node {
+   -moz-appearance: none;
+   border-bottom: 1px solid ThreeDShadow;
+@@ -281,13 +290,16 @@
+ }
+ 
+ .jsterm-input-node,
+-.jsterm-complete-node {
++.jsterm-complete-node,
++.gcliterm-input-node,
++.gcliterm-complete-node {
+   border: none;
+   padding: 0 0 0 16px;
+   -moz-appearance: none;
+ }
+ 
+-.jsterm-input-node {
++.jsterm-input-node,
++.gcliterm-input-node {
+   width: 98%;
+   background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
+ }
+@@ -315,3 +327,37 @@
+   width: 100%;
+   background-color: white;
+ }
++
++.gcliterm-stack-node.gcliVALID {
++  background-color: #FFF;
++}
++
++.gcliterm-stack-node.gcliINCOMPLETE {
++  background-color: #DDD;
++}
++
++.gcliterm-stack-node.gcliERROR {
++  background-color: #DDD;
++}
++
++.gcliterm-complete-node {
++  color: #F00;
++  margin: 4px;
++}
++
++.gcliterm-complete-node span.gcliINCOMPLETE {
++  color: #DDD;
++  border-bottom: 2px dotted #999;
++}
++
++.gcliterm-complete-node span.gcliERROR {
++  color: #DDD; border-bottom: 2px dotted #F00;
++}
++
++.gcliterm-complete-node span.gcliPrompt {
++  color: #66F; font-weight: bold;
++}
++
++.gcliterm-complete-node span.gcliCompl {
++  color: #999;
++}
 diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pinstripe/global/webConsole.css
 --- a/toolkit/themes/pinstripe/global/webConsole.css
 +++ b/toolkit/themes/pinstripe/global/webConsole.css
-@@ -133,20 +133,29 @@
- 
- .hud-msg-node[selected="true"] > .webconsole-timestamp,
- .hud-msg-node[selected="true"] > .webconsole-location {
-   color: inherit;
- }
+@@ -139,10 +139,19 @@
  
  .hud-output-node,
  .jsterm-input-node,
@@ -885,17 +832,7 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
  .hud-output-node {
    -moz-appearance: none;
    border-bottom: 1px solid ThreeDShadow;
-   border-top: 1px solid ThreeDShadow;
-   margin: 0;
- }
- 
- .hud-filtered-by-type,
-@@ -348,28 +357,34 @@
-   height: 1px;
-   width: 1px;
-   position: relative;
-   top: 92%;
-   display: block;
+@@ -354,18 +363,24 @@
  }
  
  .jsterm-input-node,
@@ -923,17 +860,88 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
    overflow-x: hidden;
  }
  
- .jsterm-complete-node > .textbox-input-box > .textbox-textarea {
-   color: GrayText;
- }
- 
- .jsterm-output-line {
-@@ -393,8 +408,42 @@
+@@ -399,3 +414,37 @@
+   width: 100%;
    background-color: white;
  }
++
++.gcliterm-stack-node.gcliVALID {
++  background-color: #FFF;
++}
++
++.gcliterm-stack-node.gcliINCOMPLETE {
++  background-color: #DDD;
++}
++
++.gcliterm-stack-node.gcliERROR {
++  background-color: #DDD;
++}
++
++.gcliterm-complete-node {
++  color: #F00;
++  margin: 4px;
++}
++
++.gcliterm-complete-node span.gcliINCOMPLETE {
++  color: #DDD;
++  border-bottom: 2px dotted #999;
++}
++
++.gcliterm-complete-node span.gcliERROR {
++  color: #DDD; border-bottom: 2px dotted #F00;
++}
++
++.gcliterm-complete-node span.gcliPrompt {
++  color: #66F; font-weight: bold;
++}
++
++.gcliterm-complete-node span.gcliCompl {
++  color: #999;
++}
+diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/winstripe/global/webConsole.css
+--- a/toolkit/themes/winstripe/global/webConsole.css
++++ b/toolkit/themes/winstripe/global/webConsole.css
+@@ -135,10 +135,19 @@
  
- .web-console-panel > .hud-box {
-   height: 100%;
+ .hud-output-node,
+ .jsterm-input-node,
+-.jsterm-complete-node {
++.jsterm-complete-node,
++.gcliterm-input-node,
++.gcliterm-complete-node {
+   font: 12px Consolas, Lucida Console, monospace;
+ }
+ 
++.jsterm-input-node,
++.jsterm-complete-node,
++.gcliterm-input-node,
++.gcliterm-complete-node {
++  background-color: transparent;
++}
++
+ .hud-output-node {
+   -moz-appearance: none;
+   border-bottom: 1px solid ThreeDShadow;
+@@ -291,13 +300,16 @@
+ }
+ 
+ .jsterm-input-node,
+-.jsterm-complete-node {
++.jsterm-complete-node,
++.gcliterm-input-node,
++.gcliterm-complete-node {
+   border: none;
+   padding: 0 0 0 16px;
+   -moz-appearance: none;
+ }
+ 
+-.jsterm-input-node {
++.jsterm-input-node,
++.gcliterm-input-node {
+   background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
+ }
+ 
+@@ -332,3 +344,37 @@
    width: 100%;
    background-color: white;
  }
