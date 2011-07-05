@@ -608,7 +608,7 @@ diff --git a/toolkit/components/console/hudservice/tests/browser/browser_webcons
 new file mode 100644
 --- /dev/null
 +++ b/toolkit/components/console/hudservice/tests/browser/browser_webconsole_gcli_integrate.js
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,113 @@
 +/* Any copyright is dedicated to the Public Domain.
 + * http://creativecommons.org/publicdomain/zero/1.0/ */
 +
@@ -683,15 +683,35 @@ new file mode 100644
 +  let gcliterm = hud.gcliterm;
 +  ok(gcliterm, "We have a GCLI term");
 +
-+  let outputNode = hudBox.querySelector(".hud-output-node");
++  let event;
 +
-+  // Test auto-completion
++  // Test successful auto-completion
 +  gcliterm._setInputValue("ec");
-+  let event = browser.createEvent("KeyboardEvent");
++  event = browser.createEvent("KeyboardEvent");
 +  event.initKeyEvent("keyup", true, true, null, false,
 +                     false, false, false, 80, 0);
 +  gcliterm.inputNode.dispatchEvent(event);
 +  is(gcliterm.completeNode.value, "  ho", "Completion for \"ec\"");
++
++  // Test unsuccessful auto-completion
++  gcliterm._setInputValue("ecd");
++  event = browser.createEvent("KeyboardEvent");
++  event.initKeyEvent("keyup", true, true, null, false,
++                     false, false, false, 81, 0);
++  gcliterm.inputNode.dispatchEvent(event);
++  is(gcliterm.completeNode.value.replace(" ", ""), "", "Completion for \"ecd\"");
++
++  let outputNode = hudBox.querySelector(".hud-output-node");
++
++  // Test a normal command's life cycle
++  gcliterm._setInputValue("echo hello world");
++  event = browser.createEvent("KeyboardEvent");
++  event.initKeyEvent("keyup", true, true, null, false,
++                     false, false, false, 13, 0);
++  gcliterm.inputNode.dispatchEvent(event);
++  let node = outputNode.querySelector(".hud-msg-node");
++  ok(node, "the command had a resulting output node");
++  ok(/hello world/.test(node.textContext), "the command's output is correct.");
 +}
 +
 +function testRemoveCommands() {
