@@ -20,11 +20,10 @@
     });
 
     var deps = [
-      'gcli/index', 'gcli/ui/start/browser', 'demo/index',
-      'gcli/commands/help', 'gclitest/index'
+      'gcli/index', 'gcli/ui/start/browser', 'demo/index', 'gclitest/index'
     ];
 
-    require(deps, function(gcli, browser, demo, help, gclitest) {
+    require(deps, function(gcli, browser, demo, gclitest) {
       browser.createView();
     });
   </script>
