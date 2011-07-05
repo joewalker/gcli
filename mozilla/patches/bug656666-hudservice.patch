@@ -16,7 +16,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
   *
   * Alternatively, the contents of this file may be used under the terms of
   * either the GNU General Public License Version 2 or later (the "GPL"), or
-@@ -2680,9 +2681,25 @@ HUD_SERVICE.prototype =
+@@ -2680,9 +2681,43 @@ HUD_SERVICE.prototype =
      // create Initial JS Workspace:
      var context = Cu.getWeakReference(aContext);
  
@@ -34,17 +34,35 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +      var jsTerm = new JSTerm(context, aParentNode, firefoxMixin, aConsole);
 +    }
 +    else {
++      // This is nasty code, but rather than re-architect I'm just going to
++      // document what I think is going on here.
++      // We want a reference to the main HUD so we can add output to it, and
++      // rather than passing a reference to that console around, we look it
++      // up via an id. However we don't have that either so we walk up the
++      // tree to find the first thing that has an id, and make the assumption
++      // that this is the correct one.
++      // For reference, what we're looking for is vbox.hud-box.animated which
++      // is created high up in makeHUDNodes(). I think.
++      // See bug 592469 ?
++      let node = aParentNode;
++      while (!node.hasAttribute("id")) {
++        node = node.parentNode;
++      }
++      let hudId = node.getAttribute("id");
++
++      let doc = aParentNode.ownerDocument;
 +      var tc = new TermContainer(aParentNode);
 +
 +      var firefoxMixin = new JSTermFirefoxMixin(context, tc.jstermParent);
 +      var jsTerm = new JSTerm(context, tc.jstermParent, firefoxMixin, aConsole);
 +
-+      var gcliterm = new GcliTerm(context, tc.gcliParent, aConsole);
++      var gcliterm = new GcliTerm(context, hudId, doc, aConsole);
++      tc.deck.appendChild(gcliterm.element);
 +    }
  
      // TODO: injection of additional functionality needs re-thinking/api
      // see bug 559748
-@@ -3155,7 +3172,12 @@ function HeadsUpDisplay(aConfig)
+@@ -3155,7 +3190,12 @@ function HeadsUpDisplay(aConfig)
    // create the JSTerm input element
    try {
      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
@@ -58,7 +76,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
    }
    catch (ex) {
      Cu.reportError(ex);
-@@ -3268,8 +3290,13 @@ HeadsUpDisplay.prototype = {
+@@ -3268,8 +3308,13 @@ HeadsUpDisplay.prototype = {
          this.outputNode.ensureIndexIsVisible(lastIndex);
        }
  
@@ -74,7 +92,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
        }
      }).bind(this);
  
-@@ -3456,8 +3483,13 @@ HeadsUpDisplay.prototype = {
+@@ -3456,8 +3501,13 @@ HeadsUpDisplay.prototype = {
        this.consolePanel.hidePopup();
      }
  
@@ -90,7 +108,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
      }
    },
  
-@@ -3491,6 +3523,12 @@ HeadsUpDisplay.prototype = {
+@@ -3491,6 +3541,12 @@ HeadsUpDisplay.prototype = {
    jsterm: null,
  
    /**
@@ -103,7 +121,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
     * creates and attaches the console input node
     *
     * @param nsIDOMWindow aWindow
-@@ -3501,10 +3539,28 @@ HeadsUpDisplay.prototype = {
+@@ -3501,10 +3557,46 @@ HeadsUpDisplay.prototype = {
    {
      var context = Cu.getWeakReference(aWindow);
  
@@ -123,6 +141,23 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +        this.jsterm = new JSTerm(context, aParentNode, mixin, this.console);
 +      }
 +      else {
++        // This is nasty code, but rather than re-architect I'm just going to
++        // document what I think is going on here.
++        // We want a reference to the main HUD so we can add output to it, and
++        // rather than passing a reference to that console around, we look it
++        // up via an id. However we don't have that either so we walk up the
++        // tree to find the first thing that has an id, and make the assumption
++        // that this is the correct one.
++        // For reference, what we're looking for is vbox.hud-box.animated which
++        // is created high up in makeHUDNodes(). I think.
++        // See bug 592469 ?
++        let node = aParentNode;
++        while (!node.hasAttribute("id")) {
++          node = node.parentNode;
++        }
++        let hudId = node.getAttribute("id");
++
++        let doc = aParentNode.ownerDocument;
 +        this.tc = new TermContainer(aParentNode);
 +
 +        let mixin = new JSTermFirefoxMixin(context, this.tc.jstermParent,
@@ -130,12 +165,13 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +        this.jsterm = new JSTerm(context, this.tc.jstermParent,
 +                                 mixin, this.console);
 +
-+        this.gcliterm = new GcliTerm(context, this.tc.gcliParent, this.console);
++        this.gcliterm = new GcliTerm(context, hudId, doc, this.console);
++        this.tc.deck.appendChild(this.gcliterm.element);
 +      }
      }
      else {
        throw new Error("Unsupported Gecko Application");
-@@ -3534,6 +3590,8 @@ HeadsUpDisplay.prototype = {
+@@ -3534,6 +3626,8 @@ HeadsUpDisplay.prototype = {
        this.jsterm.context = Cu.getWeakReference(this.contentWindow);
        this.jsterm.console = this.console;
        this.jsterm.createSandbox();
@@ -144,7 +180,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
      }
    },
  
-@@ -5367,6 +5425,7 @@ JSTermFirefoxMixin.prototype = {
+@@ -5367,6 +5461,7 @@ JSTermFirefoxMixin.prototype = {
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -152,7 +188,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5380,22 +5439,16 @@ JSTermFirefoxMixin.prototype = {
+@@ -5380,22 +5475,16 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -185,7 +221,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
    },
  
    get inputValue()
-@@ -5523,9 +5576,8 @@ ConsoleUtils = {
+@@ -5523,9 +5612,8 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
                                            aBody, aSourceURL, aSourceLine,
                                            aClipboardText) {
@@ -197,7 +233,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5555,8 +5607,13 @@ ConsoleUtils = {
+@@ -5555,8 +5643,13 @@ ConsoleUtils = {
      aClipboardText = aClipboardText ||
                       (aBody + (aSourceURL ? " @ " + aSourceURL : "") +
                                (aSourceLine ? ":" + aSourceLine : ""));
@@ -213,13 +249,13 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
  
      bodyNode.appendChild(aBody);
  
-@@ -6648,3 +6705,379 @@ catch (ex) {
+@@ -6648,3 +6741,380 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
 +
 +///////////////////////////////////////////////////////////////////////////
-+// Tab
++// TermContainer
 +///////////////////////////////////////////////////////////////////////////
 +
 +/**
@@ -230,7 +266,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 + * <hbox>
 + *   <deck flex="1">
 + *     <hbox flex="1"><jsterm/></hbox>
-+ *     <hbox flex="1"><gcli/></hbox>
++ *     <gcli/>
 + *   </deck>
 + *   <radiogroup orient="horizontal">
 + *     <radio label="JavaScript" value="js" selected="true" onchange="..."/>
@@ -243,31 +279,28 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 + */
 +function TermContainer(aParentNode) {
 +  this.parentNode = aParentNode;
-+  this.doc = this.parentNode.ownerDocument;
++  this.document = this.parentNode.ownerDocument;
 +
-+  this.hbox = this.doc.createElement("hbox");
++  this.hbox = this.document.createElement("div");
 +  this.parentNode.appendChild(this.hbox);
 +
-+  this.deck = this.doc.createElement("deck");
++  this.deck = this.document.createElement("deck");
 +  this.deck.setAttribute("flex", "1");
++  this.deck.setAttribute("class", "term-parent-node");
 +  this.hbox.appendChild(this.deck);
 +
-+  this.jstermParent = this.doc.createElement("hbox");
++  this.jstermParent = this.document.createElement("hbox");
 +  this.jstermParent.setAttribute("flex", "1");
 +  this.deck.appendChild(this.jstermParent);
 +
-+  this.gcliParent = this.doc.createElement("hbox");
-+  this.gcliParent.setAttribute("flex", "1");
-+  this.deck.appendChild(this.gcliParent);
-+
-+  this.radiogroup = this.doc.createElement("radiogroup");
++  this.radiogroup = this.document.createElement("radiogroup");
 +  this.radiogroup.setAttribute("orient", "horizontal");
 +  this.hbox.appendChild(this.radiogroup);
 +
 +  this.onChange = this.onChange.bind(this);
 +
 +  let jsName = stringBundle.GetStringFromName("termTypeJavascript");
-+  this.jsRadio = this.doc.createElement("radio");
++  this.jsRadio = this.document.createElement("radio");
 +  this.jsRadio.setAttribute("label", jsName);
 +  this.jsRadio.setAttribute("value", "js");
 +  this.jsRadio.setAttribute("selected", "true");
@@ -275,7 +308,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +  this.radiogroup.appendChild(this.jsRadio);
 +
 +  let commandName = stringBundle.GetStringFromName("termTypeCommand");
-+  this.gcliRadio = this.doc.createElement("radio");
++  this.gcliRadio = this.document.createElement("radio");
 +  this.gcliRadio.setAttribute("label", commandName);
 +  this.gcliRadio.setAttribute("value", "gcli");
 +  this.gcliRadio.addEventListener("command", this.onChange);
@@ -289,8 +322,14 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +   * Event handler registered to both radio buttons.
 +   */
 +  onChange: function() {
-+    this._current = this.gcliRadio.selected ? "gcli" : "js";
-+    this.deck.selectedIndex = this.gcliRadio.selected ? 1 : 0;
++    if (this.gcliRadio.selected) {
++      this._current = "gcli";
++      this.deck.selectedIndex = 1;
++    }
++    else {
++      this._current = "js";
++      this.deck.selectedIndex = 0;
++    }
 +  },
 +
 +  /**
@@ -306,6 +345,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +///////////////////////////////////////////////////////////////////////////
 +
 +Cu.import("resource:///modules/gcli.jsm");
++let console = gcli._internal.console;
 +
 +/**
 + * GcliTerm
@@ -317,15 +357,18 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 + *        Usually a weak reference to an nsIDOMWindow, however this code
 + *        follows the convention of JSTerm where the context does not have to
 + *        be to a window.
-+ * @param {nsIDOMNode} aParentNode
-+ *        The node to which to attach the GcliTerm
++ * @param {string} aHudId
++ *        The HUD to which we should send console messages
++ * @param {nsIDOMDocument} aDocument
++ *        The DOM document from which to create nodes
 + * @param {object} aConsole
 + *        Console object to use within the GcliTerm
 + */
-+function GcliTerm(aContext, aParentNode, aConsole)
++function GcliTerm(aContext, aHudId, aDocument, aConsole)
 +{
 +  this.context = aContext;
-+  this.parentNode = aParentNode;
++  this.hudId = aHudId;
++  this.document = aDocument;
 +  this.console = aConsole;
 +
 +  this.createUI();
@@ -339,7 +382,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +
 +  gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
 +  gcli._internal.createView({
-+    document: this.doc,
++    document: this.document,
 +    inputElement: this.inputNode,
 +    completeElement: this.completeNode,
 +    inputBackgroundElement: this.inputStack,
@@ -385,24 +428,26 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +    // creating a new outputNode - this is so we can just attach the inputNode
 +    // to a normal HeadsUpDisplay console output, and re-use code.
 +
-+    this.doc = this.parentNode.ownerDocument;
-+
 +    if (this.console == undefined) {
 +      throw new Error("this.console == undefined: can't happen");
 +    }
 +
++    this.element = this.document.createElement("hbox");
++    this.element.setAttribute("class", "gcliterm-parent-node");
++    this.element.setAttribute("flex", "1");
++
 +    // Generate and attach the UI for an entire JS Workspace or
 +    // just the input node used under the console output
-+    this.completeNode = this.doc.createElement("div");
++    this.completeNode = this.document.createElement("div");
 +    this.completeNode.setAttribute("class", "gcliterm-complete-node");
 +    this.completeNode.setAttribute("aria-live", "polite");
 +
-+    this.inputNode = this.doc.createElement("textbox");
++    this.inputNode = this.document.createElement("textbox");
 +    this.inputNode.setAttribute("class", "gcliterm-input-node");
 +    this.inputNode.setAttribute("multiline", "true");
 +    this.inputNode.setAttribute("rows", "1");
 +
-+    this.inputStack = this.doc.createElement("stack");
++    this.inputStack = this.document.createElement("stack");
 +    this.inputStack.setAttribute("class", "gcliterm-stack-node");
 +    this.inputStack.setAttribute("flex", "1");
 +    this.inputStack.appendChild(this.completeNode);
@@ -410,29 +455,21 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +
 +    this.outputNode = this.console;
 +
-+    this.term = this.doc.createElement("hbox");
++    this.term = this.document.createElement("hbox");
 +    this.term.setAttribute("class", "gcliterm-input-container");
 +    this.term.setAttribute("style", "direction: ltr;");
 +    this.term.setAttribute("flex", "1");
 +    this.term.appendChild(this.inputStack);
 +
 +    if (this.showhints) {
-+      this.hintNode = this.doc.createElement("div");
++      this.hintNode = this.document.createElement("div");
 +      this.hintNode.setAttribute("class", "gcliterm-hint-node");
 +      this.hintNode.setAttribute("flex", "0");
 +
-+      this.parentNode.appendChild(this.hintNode);
++      this.element.appendChild(this.hintNode);
 +    }
 +
-+    this.parentNode.appendChild(this.term);
-+
-+    // References to the HUD to help us add output
-+    // TODO: This feels like it should be part of a HUD object
-+    let node = this.parentNode;
-+    while (!node.hasAttribute("id")) {
-+      node = node.parentNode;
-+    }
-+    this.hudId = node.getAttribute("id");
++    this.element.appendChild(this.term);
 +  },
 +
 +  /**
@@ -449,12 +486,12 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +
 +    let output = ev.outputData.output;
 +    if (ev.outputData.command.returnType == "html" && typeof output == "string") {
-+      let frag = this.doc.createRange().createContextualFragment(
++      let frag = this.document.createRange().createContextualFragment(
 +          '<div xmlns="http://www.w3.org/1999/xhtml"' +
 +          ' xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">' +
 +          output + '</div>');
 +
-+      output = this.doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
++      output = this.document.createElementNS("http://www.w3.org/1999/xhtml", "div");
 +      output.appendChild(frag);
 +    }
 +    this.writeOutput(output);
@@ -541,7 +578,7 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
 +    aOptions = aOptions || {};
 +
 +    let node = ConsoleUtils.createMessageNode(
-+                    this.parentNode.ownerDocument,
++                    this.document,
 +                    aOptions.category || CATEGORY_OUTPUT,
 +                    aOptions.severity || SEVERITY_LOG,
 +                    aOutputMessage,
@@ -770,22 +807,10 @@ diff --git a/toolkit/themes/gnomestripe/global/webConsole.css b/toolkit/themes/g
    width: 98%;
    background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
  }
-@@ -315,3 +327,37 @@
+@@ -315,3 +327,25 @@
    width: 100%;
    background-color: white;
  }
-+
-+.gcliterm-stack-node.gcliVALID {
-+  background-color: #FFF;
-+}
-+
-+.gcliterm-stack-node.gcliINCOMPLETE {
-+  background-color: #DDD;
-+}
-+
-+.gcliterm-stack-node.gcliERROR {
-+  background-color: #DDD;
-+}
 +
 +.gcliterm-complete-node {
 +  color: #F00;
@@ -860,22 +885,10 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
    overflow-x: hidden;
  }
  
-@@ -399,3 +414,37 @@
+@@ -399,3 +414,25 @@
    width: 100%;
    background-color: white;
  }
-+
-+.gcliterm-stack-node.gcliVALID {
-+  background-color: #FFF;
-+}
-+
-+.gcliterm-stack-node.gcliINCOMPLETE {
-+  background-color: #DDD;
-+}
-+
-+.gcliterm-stack-node.gcliERROR {
-+  background-color: #DDD;
-+}
 +
 +.gcliterm-complete-node {
 +  color: #F00;
@@ -901,8 +914,15 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
 diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/winstripe/global/webConsole.css
 --- a/toolkit/themes/winstripe/global/webConsole.css
 +++ b/toolkit/themes/winstripe/global/webConsole.css
-@@ -135,10 +135,19 @@
+@@ -133,12 +133,53 @@
+   color: inherit;
+ }
  
++.term-parent-node {
++  height: 26px;
++  background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
++}
++
  .hud-output-node,
  .jsterm-input-node,
 -.jsterm-complete-node {
@@ -916,51 +936,17 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +.jsterm-complete-node,
 +.gcliterm-input-node,
 +.gcliterm-complete-node {
++  border: none;
++  -moz-appearance: none;
++  height: 100%;
++  vertical-align: middle;
 +  background-color: transparent;
-+}
-+
- .hud-output-node {
-   -moz-appearance: none;
-   border-bottom: 1px solid ThreeDShadow;
-@@ -291,13 +300,16 @@
- }
- 
- .jsterm-input-node,
--.jsterm-complete-node {
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-   border: none;
-   padding: 0 0 0 16px;
-   -moz-appearance: none;
- }
- 
--.jsterm-input-node {
-+.jsterm-input-node,
-+.gcliterm-input-node {
-   background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
- }
- 
-@@ -332,3 +344,37 @@
-   width: 100%;
-   background-color: white;
- }
-+
-+.gcliterm-stack-node.gcliVALID {
-+  background-color: #FFF;
-+}
-+
-+.gcliterm-stack-node.gcliINCOMPLETE {
-+  background-color: #DDD;
-+}
-+
-+.gcliterm-stack-node.gcliERROR {
-+  background-color: #DDD;
++  font: 12px Consolas, Lucida Console, monospace;
++  padding: 2px 0 0 16px;
 +}
 +
 +.gcliterm-complete-node {
 +  color: #F00;
-+  margin: 4px;
 +}
 +
 +.gcliterm-complete-node span.gcliINCOMPLETE {
@@ -979,3 +965,25 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +.gcliterm-complete-node span.gcliCompl {
 +  color: #999;
 +}
++
+ .hud-output-node {
+   -moz-appearance: none;
+   border-bottom: 1px solid ThreeDShadow;
+@@ -290,17 +331,6 @@
+   display: block;
+ }
+ 
+-.jsterm-input-node,
+-.jsterm-complete-node {
+-  border: none;
+-  padding: 0 0 0 16px;
+-  -moz-appearance: none;
+-}
+-
+-.jsterm-input-node {
+-  background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
+-}
+-
+ :-moz-any(.jsterm-input-node,
+           .jsterm-complete-node) > .textbox-input-box > .textbox-textarea {
+   overflow-x: hidden;
