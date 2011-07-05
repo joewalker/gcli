@@ -167,7 +167,11 @@ function stringify(aThing) {
 
   if (typeof aThing == "object") {
     try {
-      return getCtorName(aThing) + " " + fmt(JSON.stringify(aThing), 50, 0);
+      var type = getCtorName(aThing);
+      if (type == "XULElement") {
+        return debugElement(aThing);
+      }
+      return type + " " + fmt(JSON.stringify(aThing), 50, 0);
     }
     catch (ex) {
       return "[stringify error]";
@@ -176,6 +180,22 @@ function stringify(aThing) {
 
   var str = aThing.toString().replace(/\s+/g, " ");
   return fmt(str, 60, 0);
+}
+
+/**
+ * Create a simple debug representation of a given element.
+ *
+ * @param {nsIDOMElement} aElement
+ *        The element to debug
+ * @return {string}
+ *        A simple single line representation of aElement
+function debugElement(aElement) {
+  return "< " + aElement.tagName +
+      (aElement.id ? " #" + aElement.id : "") +
+      (aElement.className ?
+          " ." + aElement.className.split(" ").join(" .") :
+          "") +
+      " >";
 }
 
 /**
@@ -201,6 +221,9 @@ function log(aThing) {
     if (type == "Error") {
       reply += "  " + aThing.message + "\n";
       reply += logProperty("stack", aThing.stack);
+    }
+    else if (type == "XULElement") {
+      reply += "  " + debugElement(aThing) + " (XUL)\n";
     }
     else {
       var keys = Object.getOwnPropertyNames(aThing);
