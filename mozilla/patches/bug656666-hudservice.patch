@@ -645,35 +645,24 @@ diff --git a/toolkit/components/console/hudservice/tests/browser/browser_webcons
 new file mode 100644
 --- /dev/null
 +++ b/toolkit/components/console/hudservice/tests/browser/browser_webconsole_gcli_integrate.js
-@@ -0,0 +1,97 @@
+@@ -0,0 +1,113 @@
 +/* Any copyright is dedicated to the Public Domain.
 + * http://creativecommons.org/publicdomain/zero/1.0/ */
 +
 +// Tests that source URLs in the Web Console can be clicked to display the
 +// standard View Source window.
 +
-+Components.utils.import("resource:///modules/console.jsm");
-+
-+Components.utils.import("resource:///modules/require.jsm");
-+Components.utils.import("resource://gre/modules/Services.jsm");
++Components.utils.import("resource:///modules/gcli.jsm");
++let require = gcli._internal.require;
 +
 +const TEST_URI = "http://example.com/browser/toolkit/components/console/hudservice/tests/browser/test-console.html";
 +
++registerCleanupFunction(function() {
++    Services.prefs.setBoolPref("devtools.gcli.enable", false);
++});
++
 +function test() {
-+  Services.prefs.setBoolPref("devtools.hud.usegcli", true);
-+  /*
-+  let usegcli = false;
-+  try {
-+    usegcli = Services.prefs.getBoolPref("devtools.hud.usegcli");
-+  }
-+  catch (ex) {}
-+
-+  if (!usegcli) {
-+    finishTest();
-+    return;
-+  }
-+  */
-+
++  Services.prefs.setBoolPref("devtools.gcli.enable", true);
 +  addTab(TEST_URI);
 +  browser.addEventListener("DOMContentLoaded", onLoad, false);
 +}
@@ -684,7 +673,7 @@ new file mode 100644
 +
 +  try {
 +    testCreateCommands();
-+    //testCallCommands();
++    testCallCommands();
 +    testRemoveCommands();
 +  }
 +  catch (ex) {
@@ -719,20 +708,47 @@ new file mode 100644
 +}
 +
 +function testCallCommands() {
-+  let hudId = HUDService.displaysIndex()[0];
 +  let console = browser.contentWindow.wrappedJSObject.console;
++
++  let hudId = HUDService.displaysIndex()[0];
++  let hud = HUDService.hudReferences[hudId];
++  ok(hud, "There is a console");
++
 +  let hudBox = HUDService.getHeadsUpDisplay(hudId);
++  ok(hudBox, "We have a console display");
++
++  let gcliterm = hud.gcliterm;
++  ok(gcliterm, "We have a GCLI term");
++
++  let event;
++
++  // Test successful auto-completion
++  gcliterm._setInputValue("ec");
++  event = browser.createEvent("KeyboardEvent");
++  event.initKeyEvent("keyup", true, true, null, false,
++                     false, false, false, 80, 0);
++  gcliterm.inputNode.dispatchEvent(event);
++  is(gcliterm.completeNode.value, "  ho", "Completion for \"ec\"");
++
++  // Test unsuccessful auto-completion
++  gcliterm._setInputValue("ecd");
++  event = browser.createEvent("KeyboardEvent");
++  event.initKeyEvent("keyup", true, true, null, false,
++                     false, false, false, 81, 0);
++  gcliterm.inputNode.dispatchEvent(event);
++  is(gcliterm.completeNode.value.replace(" ", ""), "", "Completion for \"ecd\"");
++
 +  let outputNode = hudBox.querySelector(".hud-output-node");
 +
-+console.error("hudBox", hudBox);
-+dump("test\n");
-+
-+  hudBox.jsterm.clearOutput();
-+  hudBox.jsterm.setInputValue("flurble 42 the answer");
-+  hudBox.jsterm.execute();
-+
++  // Test a normal command's life cycle
++  gcliterm._setInputValue("echo hello world");
++  event = browser.createEvent("KeyboardEvent");
++  event.initKeyEvent("keyup", true, true, null, false,
++                     false, false, false, 13, 0);
++  gcliterm.inputNode.dispatchEvent(event);
 +  let node = outputNode.querySelector(".hud-msg-node");
-+  ok(/flu 42-the_answer/.test(node.textContent), "Command executed");
++  ok(node, "the command had a resulting output node");
++  ok(/hello world/.test(node.textContext), "the command's output is correct.");
 +}
 +
 +function testRemoveCommands() {
