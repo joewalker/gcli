@@ -166,16 +166,20 @@ function stringify(aThing) {
   }
 
   if (typeof aThing == "object") {
+    var type = getCtorName(aThing);
+    if (type == "XULElement") {
+      return debugElement(aThing);
+    }
+    type = (type == "Object" ? "" : type + " ");
+    var json;
     try {
-      var type = getCtorName(aThing);
-      if (type == "XULElement") {
-        return debugElement(aThing);
-      }
-      return type + " " + fmt(JSON.stringify(aThing), 50, 0);
+      json = JSON.stringify(aThing);
     }
     catch (ex) {
-      return "[stringify error]";
+      // Can't use a real ellipsis here, because cmd.exe isn't unicode-enabled
+      json = "{" + Object.keys(aThing).join(":..,") + ":.., " + "}";
     }
+    return type + fmt(json, 50, 0);
   }
 
   var str = aThing.toString().replace(/\s+/g, " ");
@@ -189,14 +193,14 @@ function stringify(aThing) {
  *        The element to debug
  * @return {string}
  *        A simple single line representation of aElement
-function debugElement(aElement) {
+var debugElement = function debugElement2(aElement) {
   return "< " + aElement.tagName +
       (aElement.id ? " #" + aElement.id : "") +
       (aElement.className ?
           " ." + aElement.className.split(" ").join(" .") :
           "") +
       " >";
-}
+};
 
 /**
  * A multi line stringification of an object, designed for use by humans
@@ -223,7 +227,14 @@ function log(aThing) {
       reply += logProperty("stack", aThing.stack);
     }
     else if (type == "XULElement") {
-      reply += "  " + debugElement(aThing) + " (XUL)\n";
+      var aElement = aThing;
+      var de = "< " + aElement.tagName +
+          (aElement.id ? " #" + aElement.id : "") +
+          (aElement.className ?
+              " ." + aElement.className.split(" ").join(" .") :
+              "") +
+          " >";
+      reply += "  " + de + " (XUL)\n";
     }
     else {
       var keys = Object.getOwnPropertyNames(aThing);
