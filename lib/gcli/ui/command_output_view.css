@@ -39,7 +39,10 @@
 
 .gcliGt {
   font-family: consolas, courier, monospace;
-  color: #66F; font-weight: bold; font-size: 120%;
+  color: #00F; font-weight: bold; font-size: 120%;
   padding-left: 2px;
 }
+.gcliGt.gcliComplete { color:#060; }
+.gcliGt.gcliError { color:#F00; }
+
 .gcliDuration { font-size: 80%; }
