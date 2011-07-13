@@ -212,11 +212,11 @@ var debugElement = function debugElement2(aElement) {
  */
 function log(aThing) {
   if (aThing == null) {
-    return "null";
+    return "null\n";
   }
 
   if (aThing == undefined) {
-    return "undefined";
+    return "undefined\n";
   }
 
   if (typeof aThing == "object") {
