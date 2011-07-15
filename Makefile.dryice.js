@@ -108,7 +108,7 @@ function buildStandard() {
  * It consists of 1 output file: gcli.jsm
  */
 function buildFirefox() {
-  console.log('Building build/gcli.jsm:');
+  console.log('Building built/ff/gcli.jsm:');
 
   if (!fs.statSync(gcliHome + '/built/ff').isDirectory()) {
     fs.mkdirSync(gcliHome + '/built/ff', 0755);

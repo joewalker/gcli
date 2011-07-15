@@ -5,7 +5,7 @@
       onclick="${copyToInput}" ondblclick="${execute}">
 
     <!-- What the user actually typed -->
-    <span class="gcliGt">&gt;</span>
+    <span save="${elems.prompt}" class="gcliGt ${elems.error ? 'gcliError' : ''} ${elems.completed ? 'gcliCompleted' : ''}">&gt;</span>
     <span class="gcliOutTyped">${outputData.typed}</span>
 
     <!-- The extra details that appear on hover -->
@@ -19,11 +19,11 @@
         alt="Remove this command from the history"
         _src="${imageUrl('images/closer.png')}"/>
     -->
+    <img style="float:right;" _src="${imageUrl('images/throbber.gif')}" save="${elems.throb}"/>
   </div>
 
   <!-- The div for the command output -->
   <div class="gcliRowOut" save="${elems.rowout}" aria-live="assertive">
     <div class="gcliRowOutput" save="${elems.output}"></div>
-    <img _src="${imageUrl('images/throbber.gif')}" save="${elems.throb}"/>
   </div>
 </div>
