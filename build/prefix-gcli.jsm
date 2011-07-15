@@ -166,17 +166,41 @@ function stringify(aThing) {
   }
 
   if (typeof aThing == "object") {
+    var type = getCtorName(aThing);
+    if (type == "XULElement") {
+      return debugElement(aThing);
+    }
+    type = (type == "Object" ? "" : type + " ");
+    var json;
     try {
-      return getCtorName(aThing) + " " + fmt(JSON.stringify(aThing), 50, 0);
+      json = JSON.stringify(aThing);
     }
     catch (ex) {
-      return "[stringify error]";
+      // Can't use a real ellipsis here, because cmd.exe isn't unicode-enabled
+      json = "{" + Object.keys(aThing).join(":..,") + ":.., " + "}";
     }
+    return type + fmt(json, 50, 0);
   }
 
   var str = aThing.toString().replace(/\s+/g, " ");
   return fmt(str, 60, 0);
 }
+
+/**
+ * Create a simple debug representation of a given element.
+ *
+ * @param {nsIDOMElement} aElement
+ *        The element to debug
+ * @return {string}
+ *        A simple single line representation of aElement
+var debugElement = function debugElement2(aElement) {
+  return "< " + aElement.tagName +
+      (aElement.id ? " #" + aElement.id : "") +
+      (aElement.className ?
+          " ." + aElement.className.split(" ").join(" .") :
+          "") +
+      " >";
+};
 
 /**
  * A multi line stringification of an object, designed for use by humans
@@ -188,11 +212,11 @@ function stringify(aThing) {
  */
 function log(aThing) {
   if (aThing == null) {
-    return "null";
+    return "null\n";
   }
 
   if (aThing == undefined) {
-    return "undefined";
+    return "undefined\n";
   }
 
   if (typeof aThing == "object") {
@@ -201,6 +225,16 @@ function log(aThing) {
     if (type == "Error") {
       reply += "  " + aThing.message + "\n";
       reply += logProperty("stack", aThing.stack);
+    }
+    else if (type == "XULElement") {
+      var aElement = aThing;
+      var de = "< " + aElement.tagName +
+          (aElement.id ? " #" + aElement.id : "") +
+          (aElement.className ?
+              " ." + aElement.className.split(" ").join(" .") :
+              "") +
+          " >";
+      reply += "  " + de + " (XUL)\n";
     }
     else {
       var keys = Object.getOwnPropertyNames(aThing);

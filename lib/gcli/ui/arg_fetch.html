@@ -14,8 +14,12 @@ Evaluated each time the commandAssignment changes
         <!-- Parameter -->
         <tr class="gcliGroupRow">
           <td class="gcliParamName">
-            <label>${assignment.param.description}:</label>
-            <div class="gcliRequired" if="${!assignment.param.isDataRequired()}">(Optional)</div>
+            <label for="gcliForm${assignment.param.name}">
+              ${assignment.param.description}:
+              <div class="gcliRequired" if="${!assignment.param.isDataRequired()}">
+                (Optional)
+              </div>
+            </label>
           </td>
           <td class="gcliParamInput">${getInputFor(assignment)}</td>
         </tr>
