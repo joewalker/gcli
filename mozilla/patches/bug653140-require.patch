@@ -691,6 +691,8 @@ new file mode 100644
 +
 +  t.verifyEqual('42', requireable.getStatus());
 +  ok(requireable.status === undefined, 'requirable has no status (as expected)');
++
++  delete domain.modules['gclitest/requirable'];
 +}
 +
 +function testLeakage() {
