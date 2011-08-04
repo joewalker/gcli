@@ -5,9 +5,9 @@
 # Parent 9f44a0a83964d26610f6b39f659c45817199a0b9
 Bug 656668 - Create Export from GCLI project to JSM
 
-diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components/console/hudservice/gcli.jsm
---- a/toolkit/components/console/hudservice/gcli.jsm
-+++ b/toolkit/components/console/hudservice/gcli.jsm
+diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
+--- a/browser/devtools/webconsole/gcli.jsm
++++ b/browser/devtools/webconsole/gcli.jsm
 @@ -540,21 +540,5536 @@ var require = define.globalDomain.requir
  
  ///////////////////////////////////////////////////////////////////////////////

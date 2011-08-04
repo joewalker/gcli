@@ -5,9 +5,9 @@
 # Parent 68253b0ab50d7a7956783d145dbfd6a3f1113fc0
 Bug 653140 - Pilot/Ace/GCLI need a commonjs require system
 
-diff --git a/toolkit/components/console/hudservice/Makefile.in b/toolkit/components/console/hudservice/Makefile.in
---- a/toolkit/components/console/hudservice/Makefile.in
-+++ b/toolkit/components/console/hudservice/Makefile.in
+diff --git a/browser/devtools/webconsole/Makefile.in b/browser/devtools/webconsole/Makefile.in
+--- a/browser/devtools/webconsole/Makefile.in
++++ b/browser/devtools/webconsole/Makefile.in
 @@ -47,6 +47,7 @@ EXTRA_JS_MODULES = HUDService.jsm \
  		PropertyPanel.jsm \
  		NetworkHelper.jsm \
@@ -16,10 +16,10 @@ diff --git a/toolkit/components/console/hudservice/Makefile.in b/toolkit/compone
  		$(NULL)
  
  ifdef ENABLE_TESTS
-diff --git a/toolkit/components/console/hudservice/gcli.jsm b/toolkit/components/console/hudservice/gcli.jsm
+diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
 new file mode 100644
 --- /dev/null
-+++ b/toolkit/components/console/hudservice/gcli.jsm
++++ b/browser/devtools/webconsole/gcli.jsm
 @@ -0,0 +1,567 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -588,9 +588,9 @@ new file mode 100644
 +gcli.createView = require("gcli/ui/start/firefox");
 +gcli._internal = { require: require, define: define, console: console };
 +
-diff --git a/toolkit/components/console/hudservice/tests/browser/Makefile.in b/toolkit/components/console/hudservice/tests/browser/Makefile.in
---- a/toolkit/components/console/hudservice/tests/browser/Makefile.in
-+++ b/toolkit/components/console/hudservice/tests/browser/Makefile.in
+diff --git a/browser/devtools/webconsole/test/browser/Makefile.in b/browser/devtools/webconsole/test/browser/Makefile.in
+--- a/browser/devtools/webconsole/test/browser/Makefile.in
++++ b/browser/devtools/webconsole/test/browser/Makefile.in
 @@ -110,6 +110,7 @@ _BROWSER_TEST_FILES = \
  	browser_webconsole_bug_600183_charset.js \
  	browser_webconsole_bug_601177_log_levels.js \
@@ -599,10 +599,10 @@ diff --git a/toolkit/components/console/hudservice/tests/browser/Makefile.in b/t
  	browser_webconsole_console_extras.js \
  	browser_webconsole_bug_598357_jsterm_output.js \
  	browser_webconsole_bug_603750_websocket.js \
-diff --git a/toolkit/components/console/hudservice/tests/browser/browser_webconsole_gcli_require.js b/toolkit/components/console/hudservice/tests/browser/browser_webconsole_gcli_require.js
+diff --git a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js
 new file mode 100644
 --- /dev/null
-+++ b/toolkit/components/console/hudservice/tests/browser/browser_webconsole_gcli_require.js
++++ b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js
 @@ -0,0 +1,120 @@
 +/* Any copyright is dedicated to the Public Domain.
 + * http://creativecommons.org/publicdomain/zero/1.0/ */
@@ -691,6 +691,8 @@ new file mode 100644
 +
 +  t.verifyEqual('42', requireable.getStatus());
 +  ok(requireable.status === undefined, 'requirable has no status (as expected)');
++
++  delete domain.modules['gclitest/requirable'];
 +}
 +
 +function testLeakage() {

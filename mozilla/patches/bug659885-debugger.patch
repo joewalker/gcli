@@ -2,10 +2,10 @@
 # Parent 76d4cde086cfd4da5ae0375abcaa6bafa7da9556
 Bug 659885 - Create GCLI command to support restarting the debugger
 
-diff --git a/toolkit/components/console/hudservice/DebuggerCommands.jsm b/toolkit/components/console/hudservice/DebuggerCommands.jsm
+diff --git a/browser/devtools/webconsole/DebuggerCommands.jsm b/browser/devtools/webconsole/DebuggerCommands.jsm
 new file mode 100644
 --- /dev/null
-+++ b/toolkit/components/console/hudservice/DebuggerCommands.jsm
++++ b/browser/devtools/webconsole/DebuggerCommands.jsm
 @@ -0,0 +1,114 @@
 +/* -*- Mode: js2; js2-basic-offset: 2; indent-tabs-mode: nil; -*- */
 +/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
@@ -121,9 +121,9 @@ new file mode 100644
 +}
 +
 +let EXPORTED_SYMBOLS = [ "registerDebuggerCommands", "unregisterDebuggerCommands" ];
-diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/components/console/hudservice/HUDService.jsm
---- a/toolkit/components/console/hudservice/HUDService.jsm
-+++ b/toolkit/components/console/hudservice/HUDService.jsm
+diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webconsole/HUDService.jsm
+--- a/browser/devtools/webconsole/HUDService.jsm
++++ b/browser/devtools/webconsole/HUDService.jsm
 @@ -6253,16 +6253,17 @@ catch (ex) {
  
  ///////////////////////////////////////////////////////////////////////////
@@ -161,9 +161,9 @@ diff --git a/toolkit/components/console/hudservice/HUDService.jsm b/toolkit/comp
    }
    this.hudId = node.getAttribute("id");
  
-diff --git a/toolkit/components/console/hudservice/Makefile.in b/toolkit/components/console/hudservice/Makefile.in
---- a/toolkit/components/console/hudservice/Makefile.in
-+++ b/toolkit/components/console/hudservice/Makefile.in
+diff --git a/browser/devtools/webconsole/Makefile.in b/browser/devtools/webconsole/Makefile.in
+--- a/browser/devtools/webconsole/Makefile.in
++++ b/browser/devtools/webconsole/Makefile.in
 @@ -44,16 +44,17 @@ VPATH		= @srcdir@
  include $(DEPTH)/config/autoconf.mk
  

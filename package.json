@@ -16,7 +16,7 @@
          "url" : "http://github.com/joewalker/gcli.git"
     },
     "licenses": [{
-        "type": "LGPLv3",
-        "url": "http://www.gnu.org/licenses/lgpl-3.0.txt"
+        "type": "BSD",
+        "url": "http://opensource.org/licenses/BSD-3-Clause"
     }]
 }
