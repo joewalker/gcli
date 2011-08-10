@@ -1,0 +1,23 @@
+# HG changeset patch
+# Parent b268f3e3b307bc11e9d12f8d57b9cdef4da82e9d
+# User Joe Walker <jwalker@mozilla.com>
+Bug 676556 - GCLI requirejs tests log when they shouldn't
+
+diff --git a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js
+--- a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js
++++ b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js
+@@ -107,11 +107,11 @@ function testUncompilable() {
+   // modules, however at least it should go into a flat spin ...
+   // GCLI mini_require reports an error as it should
+   try {
+-      let unrequireable = require('gclitest/unrequirable');
+-      fail();
++    let unrequireable = require('gclitest/unrequirable');
++    fail();
+   }
+   catch (ex) {
+-      console.log(ex);
++    // an exception is expected
+   }
+ }
+ 

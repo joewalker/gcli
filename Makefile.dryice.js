@@ -23,7 +23,7 @@ buildFirefox();
  *   uncompressed versions of the output script file.
  */
 function buildStandard() {
-  console.log('Building build/gcli.js and build/gcli-uncompressed.js:');
+  console.log('Building built/gcli[-uncompressed].js:');
 
   // Build the standard compressed and uncompressed javascript files
   var project = copy.createCommonJsProject({
@@ -44,12 +44,7 @@ function buildStandard() {
 
   console.log(project.report());
 
-  // Process the CSS/HTML/PNG/GIF
-  copy({
-    source: { root: project, include: /.*\.css$|.*\.html$/ },
-    filter: copy.filter.addDefines,
-    dest: sources
-  });
+  // Process the PNG/GIF
   copy({
     source: { root: project, include: /.*\.png$|.*\.gif$/ },
     filter: copy.filter.base64,
@@ -57,18 +52,23 @@ function buildStandard() {
   });
 
   // Create the output scripts, compressed and uncompressed
-  copy({
-    source: [ 'build/mini_require.js', sources ],
-    filter: copy.filter.uglifyjs,
-    dest: 'built/gcli.js'
-  });
+  copy({ source: 'build/index.html', dest: 'built/index.html' });
+  copy({ source: 'build/nohelp.html', dest: 'built/nohelp.html' });
+  copy({ source: 'scripts/es5-shim.js', dest: 'built/es5-shim.js' });
   copy({
     source: [ 'build/mini_require.js', sources ],
     dest: 'built/gcli-uncompressed.js'
   });
-  copy({ source: 'build/index.html', dest: 'built/index.html' });
-  copy({ source: 'build/nohelp.html', dest: 'built/nohelp.html' });
-  copy({ source: 'scripts/es5-shim.js', dest: 'built/es5-shim.js' });
+  try {
+    copy({
+      source: [ 'build/mini_require.js', sources ],
+      filter: copy.filter.uglifyjs,
+      dest: 'built/gcli.js'
+    });
+  }
+  catch (ex) {
+    console.log('ERROR: Uglify compression fails on windows. Skipping creation of built/gcli.js\n');
+  }
 }
 
 
@@ -91,6 +91,8 @@ function buildFirefox() {
   copy({
     source: [
       'build/prefix-gcli.jsm',
+      'build/console.js',
+      'build/mini_require.js',
       copy.source.commonjs({
         project: project,
         // This list of dependencies should be the same as in suffix-gcli.jsm
