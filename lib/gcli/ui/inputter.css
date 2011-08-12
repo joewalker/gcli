@@ -1,9 +1,10 @@
 
 .gcliCompletion {
-  padding: 0;
   position: absolute;
   z-index: -1000;
   background-color: #DDD;
+  border: 1px transparent solid;
+  padding: 1px 1px 1px 2px;
 }
 .gcliCompletion span { color: #DDD; }
 .gcliCompletion span.gcliINCOMPLETE { color: #DDD; border-bottom: 2px dotted #999; }
