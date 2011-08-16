@@ -16,7 +16,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
   *
   * Alternatively, the contents of this file may be used under the terms of
   * either the GNU General Public License Version 2 or later (the "GPL"), or
-@@ -2588,9 +2589,43 @@ HUD_SERVICE.prototype =
+@@ -2588,9 +2589,44 @@ HUD_SERVICE.prototype =
      // create Initial JS Workspace:
      var context = Cu.getWeakReference(aContext);
  
@@ -29,6 +29,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      // Attach the UI into the target parent node using the mixin.
 -    var firefoxMixin = new JSTermFirefoxMixin(context, aParentNode);
 -    var jsTerm = new JSTerm(context, aParentNode, firefoxMixin, aConsole);
++console.log('initializeJSTerm - usegcli=' + usegcli);
 +    if (!usegcli) {
 +      var firefoxMixin = new JSTermFirefoxMixin(context, aParentNode);
 +      var jsTerm = new JSTerm(context, aParentNode, firefoxMixin, aConsole);
@@ -62,12 +63,13 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      // TODO: injection of additional functionality needs re-thinking/api
      // see bug 559748
-@@ -3050,7 +3085,12 @@ function HeadsUpDisplay(aConfig)
+@@ -3050,7 +3086,13 @@ function HeadsUpDisplay(aConfig)
    // create the JSTerm input element
    try {
      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
 -    this.jsterm.inputNode.focus();
-+    if (this.tc.current == "js") {
++console.log('new HeadsUpDisplay() usegcli=' + this.usegcli + ', tc.current=' + (this.tc ? this.tc.current : "-"));
++    if (!this.usegcli || this.tc.current == "js") {
 +      this.jsterm.inputNode.focus();
 +    }
 +    else {
@@ -76,28 +78,28 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    }
    catch (ex) {
      Cu.reportError(ex);
-@@ -3163,8 +3203,13 @@ HeadsUpDisplay.prototype = {
+@@ -3163,9 +3205,13 @@ HeadsUpDisplay.prototype = {
          this.outputNode.ensureIndexIsVisible(lastIndex);
        }
  
 -      if (this.jsterm) {
--        this.jsterm.inputNode.focus();
-+      if (this.tc) {
-+        if (this.tc.current == "js") {
-+          this.jsterm.inputNode.focus();
-+        }
-+        else {
-+          this.gcliterm.inputNode.focus();
-+        }
++console.log('createOwnWindowPanel/onPopupShown() usegcli=' + this.usegcli + ', tc.current=' + this.tc.current);
++      if (!this.usegcli || this.tc.current == "js") {
+         this.jsterm.inputNode.focus();
        }
++      else {
++        this.gcliterm.inputNode.focus();
++      }
      }).bind(this);
  
-@@ -3354,8 +3399,13 @@ HeadsUpDisplay.prototype = {
+     panel.addEventListener("popupshown", onPopupShown,false);
+@@ -3354,8 +3400,14 @@ HeadsUpDisplay.prototype = {
        this.consolePanel.hidePopup();
      }
  
 -    if (this.jsterm) {
 -      this.jsterm.inputNode.focus();
++console.log('positionConsole() this.tc=', this.tc, 'tc.current' + (this.tc ? this.tc.current : "-"));
 +    if (this.tc) {
 +      if (this.tc.current == "js") {
 +        this.jsterm.inputNode.focus();
@@ -108,7 +110,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -3389,6 +3439,12 @@ HeadsUpDisplay.prototype = {
+@@ -3389,6 +3441,12 @@ HeadsUpDisplay.prototype = {
    jsterm: null,
  
    /**
@@ -121,7 +123,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
     * creates and attaches the console input node
     *
     * @param nsIDOMWindow aWindow
-@@ -3399,10 +3455,46 @@ HeadsUpDisplay.prototype = {
+@@ -3399,10 +3457,47 @@ HeadsUpDisplay.prototype = {
    {
      var context = Cu.getWeakReference(aWindow);
  
@@ -135,6 +137,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 -      let mixin = new JSTermFirefoxMixin(context, aParentNode,
 -                                         aExistingConsole);
 -      this.jsterm = new JSTerm(context, aParentNode, mixin, this.console);
++console.log('createConsoleInput() usegcli=', this.usegcli);
 +      if (!this.usegcli) {
 +        let mixin = new JSTermFirefoxMixin(context, aParentNode,
 +                                           aExistingConsole);
@@ -171,7 +174,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
      else {
        throw new Error("Unsupported Gecko Application");
-@@ -3432,6 +3524,8 @@ HeadsUpDisplay.prototype = {
+@@ -3432,6 +3527,8 @@ HeadsUpDisplay.prototype = {
        this.jsterm.context = Cu.getWeakReference(this.contentWindow);
        this.jsterm.console = this.console;
        this.jsterm.createSandbox();
@@ -180,7 +183,12 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -5347,6 +5441,7 @@ JSTermFirefoxMixin.prototype = {
+@@ -5343,10 +5440,12 @@ JSTermFirefoxMixin.prototype = {
+    */
+   generateUI: function JSTF_generateUI()
+   {
++console.log('JSTermFirefoxMixin.generateUI()');
+     this.completeNode = this.xulElementFactory("textbox");
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -188,7 +196,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5360,22 +5455,16 @@ JSTermFirefoxMixin.prototype = {
+@@ -5360,22 +5459,16 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -216,24 +224,25 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    this.term = this.xulElementFactory("hbox");
 +    this.term.setAttribute("class", "jsterm-input-container");
 +    this.term.setAttribute("style", "direction: ltr;");
-+    this.term.setAttribute("flex", "1");
++    //this.term.setAttribute("flex", "1");
 +    this.term.appendChild(inputStack);
    },
  
    get inputValue()
-@@ -5505,9 +5594,8 @@ ConsoleUtils = {
+@@ -5505,9 +5598,9 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
                                            aBody, aSourceURL, aSourceLine,
                                            aClipboardText, aLevel) {
 -    if (aBody instanceof Ci.nsIDOMNode && aClipboardText == null) {
 -      throw new Error("HUDService.createMessageNode(): DOM node supplied " +
 -                      "without any clipboard text");
++console.log('createMessageNode');
 +    if (typeof aBody != "string" && aClipboardText == null) {
 +      aClipboardText = aBody.innerText;
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5543,6 +5631,13 @@ ConsoleUtils = {
+@@ -5543,6 +5636,13 @@ ConsoleUtils = {
      aBody = aBody instanceof Ci.nsIDOMNode && !(aLevel == "dir") ?
              aBody : aDocument.createTextNode(aBody);
  
@@ -247,7 +256,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6671,3 +6766,380 @@ catch (ex) {
+@@ -6671,3 +6771,381 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -261,9 +270,9 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 + * terminal. You can select either JS mode or GCLI mode.
 + *
 + * This is the equivalent of:
-+ * <hbox>
++ * <hbox class="usegcli">
 + *   <deck flex="1">
-+ *     <hbox flex="1"><jsterm/></hbox>
++ *     <hbox flex="1" class="term-parent-node"><jsterm/></hbox>
 + *     <gcli/>
 + *   </deck>
 + *   <radiogroup orient="horizontal">
@@ -280,6 +289,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  this.document = this.parentNode.ownerDocument;
 +
 +  this.hbox = this.document.createElement("div");
++  this.hbox.setAttribute("class", "usegcli");
 +  this.parentNode.appendChild(this.hbox);
 +
 +  this.deck = this.document.createElement("deck");
@@ -928,14 +938,16 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
 diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/winstripe/global/webConsole.css
 --- a/toolkit/themes/winstripe/global/webConsole.css
 +++ b/toolkit/themes/winstripe/global/webConsole.css
-@@ -132,12 +132,53 @@
+@@ -132,12 +132,55 @@
    color: inherit;
  }
  
++/*
 +.term-parent-node {
 +  height: 26px;
 +  background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
 +}
++*/
 +
  .hud-output-node,
  .jsterm-input-node,
@@ -946,8 +958,8 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
    font: 12px Consolas, Lucida Console, monospace;
  }
  
-+.jsterm-input-node,
-+.jsterm-complete-node,
++.usegcli .jsterm-input-node,
++.usegcli .jsterm-complete-node,
 +.gcliterm-input-node,
 +.gcliterm-complete-node {
 +  border: none;
@@ -983,21 +995,13 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
  .hud-output-node {
    -moz-appearance: none;
    border-bottom: 1px solid ThreeDShadow;
-@@ -289,17 +330,6 @@
-   display: block;
+@@ -296,7 +339,8 @@
+   -moz-appearance: none;
  }
  
--.jsterm-input-node,
--.jsterm-complete-node {
--  border: none;
--  padding: 0 0 0 16px;
--  -moz-appearance: none;
--}
--
 -.jsterm-input-node {
--  background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
--}
--
- :-moz-any(.jsterm-input-node,
-           .jsterm-complete-node) > .textbox-input-box > .textbox-textarea {
-   overflow-x: hidden;
++.jsterm-input-node,
++.jsterm-complete-node {
+   background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
+ }
+ 
