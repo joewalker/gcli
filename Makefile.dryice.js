@@ -44,6 +44,18 @@ function buildStandard() {
 
   console.log(project.report());
 
+  // Create a GraphML dependency report. Directions:
+  // - Install yEd (http://www.yworks.com/en/products_yed_about.htm)
+  // - Load gcli/built/gcli.graphml
+  // - Resize the nodes (Tools->Fit Node to Label)
+  // - Apply a layout (Layout->Hierarchical)
+  if (project.getDependencyGraphML) {
+    copy({
+      source: { value:project.getDependencyGraphML() },
+      dest: 'built/gcli.graphml',
+    });
+  }
+
   // Process the PNG/GIF
   copy({
     source: { root: project, include: /.*\.png$|.*\.gif$/ },
