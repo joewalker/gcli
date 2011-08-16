@@ -18,9 +18,9 @@ buildStandard();
 buildFirefox();
 
 /**
- * There are 2 important ways to build GCLI with 2 outputs each.
- * - One build is for use within a normal web page. It has compressed and
- *   uncompressed versions of the output script file.
+ * There are 2 important ways to build GCLI.
+ * The first is for use within a normal web page.
+ * It has compressed and uncompressed versions of the output script file.
  */
 function buildStandard() {
   console.log('Building built/gcli[-uncompressed].js:');
