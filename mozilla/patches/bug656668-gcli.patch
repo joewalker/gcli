@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306496118 -3600
 # Node ID c9f0d4142413be8bd4cf553732568c1249999196
-# Parent 9c3ea24a7bffc54d8169042c8a15090e602b4126
+# Parent a2cc2d7fa5473f42c92ec2b8d99ccb90b92c5647
 Bug 656668 - Create Export from GCLI project to JSM
 
 diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
@@ -53,104 +53,813 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
  
  /*
   *
-@@ -166,12 +135,20 @@ function stringify(aThing) {
-   }
+@@ -68,7 +37,7 @@
+ /*
+  * This build of GCLI for Firefox is really 4 bits of code:
+  * - Browser support code - Currently just an implementation of the console
+- *   object that uses dump. We may need to add other browser shims to this.
++ *   object that uses dump. We may need to add other browser shims.
+  * - A very basic commonjs AMD (Asynchronous Modules Definition) 'require'
+  *   implementation (which is just good enough to load GCLI). For more, see
+  *   http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
+@@ -83,10 +52,6 @@
+  */
  
-   if (typeof aThing == "object") {
-+    var type = getCtorName(aThing);
-+    if (type == "XULElement") {
-+      return debugElement(aThing);
-+    }
-+    type = (type == "Object" ? "" : type + " ");
-+    var json;
-     try {
--      return getCtorName(aThing) + " " + fmt(JSON.stringify(aThing), 50, 0);
-+      json = JSON.stringify(aThing);
-     }
-     catch (ex) {
--      return "[stringify error]";
-+      // Can't use a real ellipsis here, because cmd.exe isn't unicode-enabled
-+      json = "{" + Object.keys(aThing).join(":..,") + ":.., " + "}";
-     }
-+    return type + fmt(json, 50, 0);
-   }
+ var EXPORTED_SYMBOLS = [ "gcli" ];
+-
+-
+-///////////////////////////////////////////////////////////////////////////////
+-
+ /*
+  * This creates a console object that somewhat replicates Firebug's console
+  * object. It currently writes to dump(), but should write to the web
+@@ -95,307 +60,337 @@ var EXPORTED_SYMBOLS = [ "gcli" ];
  
-   var str = aThing.toString().replace(/\s+/g, " ");
-@@ -179,6 +156,22 @@ function stringify(aThing) {
- }
  
  /**
-+ * Create a simple debug representation of a given element.
-+ *
-+ * @param {nsIDOMElement} aElement
-+ *        The element to debug
-+ * @return {string}
-+ *        A simple single line representation of aElement
-+var debugElement = function debugElement2(aElement) {
-+  return "< " + aElement.tagName +
-+      (aElement.id ? " #" + aElement.id : "") +
-+      (aElement.className ?
-+          " ." + aElement.className.split(" ").join(" .") :
-+          "") +
-+      " >";
-+};
-+
-+/**
-  * A multi line stringification of an object, designed for use by humans
-  *
-  * @param {any} aThing
-@@ -188,11 +181,11 @@ function stringify(aThing) {
-  */
- function log(aThing) {
-   if (aThing == null) {
--    return "null";
-+    return "null\n";
-   }
- 
-   if (aThing == undefined) {
--    return "undefined";
-+    return "undefined\n";
-   }
- 
-   if (typeof aThing == "object") {
-@@ -202,6 +195,16 @@ function log(aThing) {
-       reply += "  " + aThing.message + "\n";
-       reply += logProperty("stack", aThing.stack);
-     }
-+    else if (type == "XULElement") {
-+      var aElement = aThing;
-+      var de = "< " + aElement.tagName +
-+          (aElement.id ? " #" + aElement.id : "") +
-+          (aElement.className ?
-+              " ." + aElement.className.split(" ").join(" .") :
-+              "") +
-+          " >";
-+      reply += "  " + de + " (XUL)\n";
-+    }
-     else {
-       var keys = Object.getOwnPropertyNames(aThing);
-       if (keys.length > 0) {
-@@ -541,20 +544,4777 @@ var require = define.globalDomain.requir
- ///////////////////////////////////////////////////////////////////////////////
- 
- /*
-- * The API of interest to people wanting to create GCLI commands is as
-- * follows. The implementation of this API is left to bug 659061 and other
-- * bugs.
+- * String utility to ensure that strings are a specified length. Strings
+- * that are too long are truncated to the max length and the last char is
+- * set to "_". Strings that are too short are left padded with spaces.
+- *
+- * @param {string} aStr
+- *        The string to format to the correct length
+- * @param {number} aMaxLen
+- *        The maximum allowed length of the returned string
+- * @param {number} aMinLen (optional)
+- *        The minimum allowed length of the returned string. If undefined,
+- *        then aMaxLen will be used
+- * @param {object} aOptions (optional)
+- *        An object allowing format customization. The only customization
+- *        allowed currently is 'truncate' which can take the value "start" to
+- *        truncate strings from the start as opposed to the end.
+- * @return {string}
+- *        The original string formatted to fit the specified lengths
 - */
+-function fmt(aStr, aMaxLen, aMinLen, aOptions) {
+-  if (aMinLen == undefined) {
+-    aMinLen = aMaxLen;
+-  }
+-  if (aStr == null) {
+-    aStr = "";
+-  }
+-  if (aStr.length > aMaxLen) {
+-    if (aOptions && aOptions.truncate == "start") {
+-      return "_" + aStr.substring(aStr.length - aMaxLen + 1);
++ * The console object to expose
++ */
++var console = {};
++
++(function() {
++  /**
++   * String utility to ensure that strings are a specified length. Strings
++   * that are too long are truncated to the max length and the last char is
++   * set to "_". Strings that are too short are left padded with spaces.
++   *
++   * @param {string} aStr
++   *        The string to format to the correct length
++   * @param {number} aMaxLen
++   *        The maximum allowed length of the returned string
++   * @param {number} aMinLen (optional)
++   *        The minimum allowed length of the returned string. If undefined,
++   *        then aMaxLen will be used
++   * @param {object} aOptions (optional)
++   *        An object allowing format customization. The only customization
++   *        allowed currently is 'truncate' which can take the value "start" to
++   *        truncate strings from the start as opposed to the end.
++   * @return {string}
++   *        The original string formatted to fit the specified lengths
++   */
++  function fmt(aStr, aMaxLen, aMinLen, aOptions) {
++    if (aMinLen == undefined) {
++      aMinLen = aMaxLen;
++    }
++    if (aStr == null) {
++      aStr = "";
++    }
++    if (aStr.length > aMaxLen) {
++      if (aOptions && aOptions.truncate == "start") {
++        return "_" + aStr.substring(aStr.length - aMaxLen + 1);
++      }
++      else {
++        return aStr.substring(0, aMaxLen - 1) + "_";
++      }
++    }
++    if (aStr.length < aMinLen) {
++      return Array(aMinLen - aStr.length + 1).join(" ") + aStr;
++    }
++    return aStr;
++  }
++
++  /**
++   * Utility to extract the constructor name of an object.
++   * Object.toString gives: "[object ?????]"; we want the "?????".
++   *
++   * @param {object} aObj
++   *        The object from which to extract the constructor name
++   * @return {string}
++   *        The constructor name
++   */
++  function getCtorName(aObj) {
++    return Object.prototype.toString.call(aObj).slice(8, -1);
++  }
++
++  /**
++   * A single line stringification of an object designed for use by humans
++   *
++   * @param {any} aThing
++   *        The object to be stringified
++   * @return {string}
++   *        A single line representation of aThing, which will generally be at
++   *        most 60 chars long
++   */
++  function stringify(aThing) {
++    if (aThing === undefined) {
++      return "undefined";
++    }
++
++    if (aThing === null) {
++      return "null";
++    }
++
++    if (typeof aThing == "object") {
++      var type = getCtorName(aThing);
++      if (type == "XULElement") {
++        return debugElement(aThing);
++      }
++      type = (type == "Object" ? "" : type + " ");
++      var json;
++      try {
++        json = JSON.stringify(aThing);
++      }
++      catch (ex) {
++        // Can't use a real ellipsis here, because cmd.exe isn't unicode-enabled
++        json = "{" + Object.keys(aThing).join(":..,") + ":.., " + "}";
++      }
++      return type + fmt(json, 50, 0);
++    }
++
++    var str = aThing.toString().replace(/\s+/g, " ");
++    return fmt(str, 60, 0);
++  }
++
++  /**
++   * Create a simple debug representation of a given element.
++   *
++   * @param {nsIDOMElement} aElement
++   *        The element to debug
++   * @return {string}
++   *        A simple single line representation of aElement
++   */
++  function debugElement(aElement) {
++    return "<" + aElement.tagName +
++        (aElement.id ? "#" + aElement.id : "") +
++        (aElement.className ?
++            "." + aElement.className.split(" ").join(" .") :
++            "") +
++        ">";
++  }
++
++  /**
++   * A multi line stringification of an object, designed for use by humans
++   *
++   * @param {any} aThing
++   *        The object to be stringified
++   * @return {string}
++   *        A multi line representation of aThing
++   */
++  function log(aThing) {
++    if (aThing == null) {
++      return "null\n";
++    }
++
++    if (aThing == undefined) {
++      return "undefined\n";
++    }
++
++    if (typeof aThing == "object") {
++      var reply = "";
++      var type = getCtorName(aThing);
++      if (type == "Error") {
++        reply += "  " + aThing.message + "\n";
++        reply += logProperty("stack", aThing.stack);
++      }
++      else if (type == "XULElement") {
++        reply += "  " + debugElement(aThing) + " (XUL)\n";
++      }
++      else {
++        var keys = Object.getOwnPropertyNames(aThing);
++        if (keys.length > 0) {
++          reply += type + "\n";
++          keys.forEach(function(aProp) {
++            reply += logProperty(aProp, aThing[aProp]);
++          }, this);
++        }
++        else {
++          reply += type + " (enumerated with for-in)\n";
++          var prop;
++          for (prop in aThing) {
++            reply += logProperty(prop, aThing[prop]);
++          }
++        }
++      }
++
++      return reply;
++    }
++
++    return "  " + aThing.toString() + "\n";
++  }
++
++  /**
++   * Helper for log() which converts a property/value pair into an output
++   * string
++   *
++   * @param {string} aProp
++   *        The name of the property to include in the output string
++   * @param {object} aValue
++   *        Value assigned to aProp to be converted to a single line string
++   * @return {string}
++   *        Multi line output string describing the property/value pair
++   */
++  function logProperty(aProp, aValue) {
++    var reply = "";
++    if (aProp == "stack" && typeof value == "string") {
++      var trace = parseStack(aValue);
++      reply += formatTrace(trace);
+     }
+     else {
+-      return aStr.substring(0, aMaxLen - 1) + "_";
++      reply += "    - " + aProp + " = " + stringify(aValue) + "\n";
+     }
+-  }
+-  if (aStr.length < aMinLen) {
+-    return Array(aMinLen - aStr.length + 1).join(" ") + aStr;
+-  }
+-  return aStr;
+-}
 -
--define('gcli/index', [ ], function(require, exports, module) {
+-/**
+- * Utility to extract the constructor name of an object.
+- * Object.toString gives: "[object ?????]"; we want the "?????".
+- *
+- * @param {object} aObj
+- *        The object from which to extract the constructor name
+- * @return {string}
+- *        The constructor name
+- */
+-function getCtorName(aObj) {
+-  return Object.prototype.toString.call(aObj).slice(8, -1);
+-}
 -
--  exports.addCommand = function() { /* implementation goes here */ };
--  exports.removeCommand = function() { /* implementation goes here */ };
--  exports.startup = function() { /* implementation goes here */ };
--  exports.shutdown = function() { /* implementation goes here */ };
+-/**
+- * A single line stringification of an object designed for use by humans
+- *
+- * @param {any} aThing
+- *        The object to be stringified
+- * @return {string}
+- *        A single line representation of aThing, which will generally be at
+- *        most 60 chars long
+- */
+-function stringify(aThing) {
+-  if (aThing === undefined) {
+-    return "undefined";
+-  }
+-
+-  if (aThing === null) {
+-    return "null";
+-  }
+-
+-  if (typeof aThing == "object") {
+-    try {
+-      return getCtorName(aThing) + " " + fmt(JSON.stringify(aThing), 50, 0);
++    return reply;
++  }
++
++  /**
++   * Parse a stack trace, returning an array of stack frame objects, where
++   * each has file/line/call members
++   *
++   * @param {string} aStack
++   *        The serialized stack trace
++   * @return {object[]}
++   *        Array of { file: "...", line: NNN, call: "..." } objects
++   */
++  function parseStack(aStack) {
++    var trace = [];
++    aStack.split("\n").forEach(function(line) {
++      if (!line) {
++        return;
++      }
++      var at = line.lastIndexOf("@");
++      var posn = line.substring(at + 1);
++      trace.push({
++        file: posn.split(":")[0],
++        line: posn.split(":")[1],
++        call: line.substring(0, at)
++      });
++    }, this);
++    return trace;
++  }
++
++  /**
++   * parseStack() takes output from an exception from which it creates the an
++   * array of stack frame objects, this has the same output but using data from
++   * Components.stack
++   *
++   * @param {string} aFrame
++   *        The stack frame from which to begin the walk
++   * @return {object[]}
++   *        Array of { file: "...", line: NNN, call: "..." } objects
++   */
++  function getStack(aFrame) {
++    if (!aFrame) {
++      aFrame = Components.stack.caller;
+     }
+-    catch (ex) {
+-      return "[stringify error]";
++    var trace = [];
++    while (aFrame) {
++      trace.push({
++        file: aFrame.filename,
++        line: aFrame.lineNumber,
++        call: aFrame.name
++      });
++      aFrame = aFrame.caller;
+     }
+-  }
+-
+-  var str = aThing.toString().replace(/\s+/g, " ");
+-  return fmt(str, 60, 0);
+-}
+-
+-/**
+- * A multi line stringification of an object, designed for use by humans
+- *
+- * @param {any} aThing
+- *        The object to be stringified
+- * @return {string}
+- *        A multi line representation of aThing
+- */
+-function log(aThing) {
+-  if (aThing == null) {
+-    return "null";
+-  }
+-
+-  if (aThing == undefined) {
+-    return "undefined";
+-  }
+-
+-  if (typeof aThing == "object") {
++    return trace;
++  }
++
++  /**
++   * Take the output from parseStack() and convert it to nice readable
++   * output
++   *
++   * @param {object[]} aTrace
++   *        Array of trace objects as created by parseStack()
++   * @return {string} Multi line report of the stack trace
++   */
++  function formatTrace(aTrace) {
+     var reply = "";
+-    var type = getCtorName(aThing);
+-    if (type == "Error") {
+-      reply += "  " + aThing.message + "\n";
+-      reply += logProperty("stack", aThing.stack);
+-    }
+-    else {
+-      var keys = Object.getOwnPropertyNames(aThing);
+-      if (keys.length > 0) {
+-        reply += type + "\n";
+-        keys.forEach(function(aProp) {
+-          reply += logProperty(aProp, aThing[aProp]);
+-        }, this);
+-      }
+-      else {
+-        reply += type + " (enumerated with for-in)\n";
+-        var prop;
+-        for (prop in aThing) {
+-          reply += logProperty(prop, aThing[prop]);
+-        }
+-      }
+-    }
+-
++    aTrace.forEach(function(frame) {
++      reply += fmt(frame.file, 20, 20, { truncate: "start" }) + " " +
++               fmt(frame.line, 5, 5) + " " +
++               fmt(frame.call, 75, 75) + "\n";
++    });
+     return reply;
+   }
+ 
+-  return "  " + aThing.toString() + "\n";
+-}
+-
+-/**
+- * Helper for log() which converts a property/value pair into an output
+- * string
+- *
+- * @param {string} aProp
+- *        The name of the property to include in the output string
+- * @param {object} aValue
+- *        Value assigned to aProp to be converted to a single line string
+- * @return {string}
+- *        Multi line output string describing the property/value pair
+- */
+-function logProperty(aProp, aValue) {
+-  var reply = "";
+-  if (aProp == "stack" && typeof value == "string") {
+-    var trace = parseStack(aValue);
+-    reply += formatTrace(trace);
+-  }
+-  else {
+-    reply += "    - " + aProp + " = " + stringify(aValue) + "\n";
+-  }
+-  return reply;
+-}
+-
+-/**
+- * Parse a stack trace, returning an array of stack frame objects, where
+- * each has file/line/call members
+- *
+- * @param {string} aStack
+- *        The serialized stack trace
+- * @return {object[]}
+- *        Array of { file: "...", line: NNN, call: "..." } objects
+- */
+-function parseStack(aStack) {
+-  var trace = [];
+-  aStack.split("\n").forEach(function(line) {
+-    if (!line) {
+-      return;
+-    }
+-    var at = line.lastIndexOf("@");
+-    var posn = line.substring(at + 1);
+-    trace.push({
+-      file: posn.split(":")[0],
+-      line: posn.split(":")[1],
+-      call: line.substring(0, at)
+-    });
+-  }, this);
+-  return trace;
+-}
+-
+-/**
+- * parseStack() takes output from an exception from which it creates the an
+- * array of stack frame objects, this has the same output but using data from
+- * Components.stack
+- *
+- * @param {string} aFrame
+- *        The stack frame from which to begin the walk
+- * @return {object[]}
+- *        Array of { file: "...", line: NNN, call: "..." } objects
+- */
+-function getStack(aFrame) {
+-  if (!aFrame) {
+-    aFrame = Components.stack.caller;
+-  }
+-  var trace = [];
+-  while (aFrame) {
+-    trace.push({
+-      file: aFrame.filename,
+-      line: aFrame.lineNumber,
+-      call: aFrame.name
+-    });
+-    aFrame = aFrame.caller;
+-  }
+-  return trace;
+-};
+-
+-/**
+- * Take the output from parseStack() and convert it to nice readable
+- * output
+- *
+- * @param {object[]} aTrace
+- *        Array of trace objects as created by parseStack()
+- * @return {string} Multi line report of the stack trace
+- */
+-function formatTrace(aTrace) {
+-  var reply = "";
+-  aTrace.forEach(function(frame) {
+-    reply += fmt(frame.file, 20, 20, { truncate: "start" }) + " " +
+-             fmt(frame.line, 5, 5) + " " +
+-             fmt(frame.call, 75, 75) + "\n";
+-  });
+-  return reply;
+-}
+-
+-/**
+- * Create a function which will output a concise level of output when used
+- * as a logging function
+- *
+- * @param {string} aLevel
+- *        A prefix to all output generated from this function detailing the
+- *        level at which output occurred
+- * @return {function}
+- *        A logging function
+- * @see createMultiLineDumper()
+- */
+-function createDumper(aLevel) {
+-  return function() {
+-    var args = Array.prototype.slice.call(arguments, 0);
+-    var data = args.map(function(arg) {
+-      return stringify(arg);
+-    });
+-    dump(aLevel + ": " + data.join(", ") + "\n");
+-  };
+-}
+-
+-/**
+- * Create a function which will output more detailed level of output when
+- * used as a logging function
+- *
+- * @param {string} aLevel
+- *        A prefix to all output generated from this function detailing the
+- *        level at which output occurred
+- * @return {function}
+- *        A logging function
+- * @see createDumper()
+- */
+-function createMultiLineDumper(aLevel) {
+-  return function() {
+-    dump(aLevel + "\n");
+-    var args = Array.prototype.slice.call(arguments, 0);
+-    args.forEach(function(arg) {
+-      dump(log(arg));
+-    });
+-  };
+-}
+-
+-/**
+- * The console object to expose
+- */
+-var console = {
+-  debug: createMultiLineDumper("debug"),
+-  log: createDumper("log"),
+-  info: createDumper("info"),
+-  warn: createDumper("warn"),
+-  error: createMultiLineDumper("error"),
+-  trace: function Console_trace() {
++  /**
++   * Create a function which will output a concise level of output when used
++   * as a logging function
++   *
++   * @param {string} aLevel
++   *        A prefix to all output generated from this function detailing the
++   *        level at which output occurred
++   * @return {function}
++   *        A logging function
++   * @see createMultiLineDumper()
++   */
++  function createDumper(aLevel) {
++    return function() {
++      var args = Array.prototype.slice.call(arguments, 0);
++      var data = args.map(function(arg) {
++        return stringify(arg);
++      });
++      dump(aLevel + ": " + data.join(", ") + "\n");
++    };
++  }
++
++  /**
++   * Create a function which will output more detailed level of output when
++   * used as a logging function
++   *
++   * @param {string} aLevel
++   *        A prefix to all output generated from this function detailing the
++   *        level at which output occurred
++   * @return {function}
++   *        A logging function
++   * @see createDumper()
++   */
++  function createMultiLineDumper(aLevel) {
++    return function() {
++      dump(aLevel + "\n");
++      var args = Array.prototype.slice.call(arguments, 0);
++      args.forEach(function(arg) {
++        dump(log(arg));
++      });
++    };
++  }
++
++  /**
++   * Build out the console object
++   */
++  console.debug = createMultiLineDumper("debug");
++  console.log = createDumper("log");
++  console.info = createDumper("info");
++  console.warn = createDumper("warn");
++  console.error = createMultiLineDumper("error");
++  console.trace = function Console_trace() {
+     var trace = getStack(Components.stack.caller);
+     dump(formatTrace(trace) + "\n");
+   },
+-  clear: function Console_clear() {},
+-
+-  dir: createMultiLineDumper("dir"),
+-  dirxml: createMultiLineDumper("dirxml"),
+-  group: createDumper("group"),
+-  groupEnd: createDumper("groupEnd")
+-};
+-
+-
+-///////////////////////////////////////////////////////////////////////////////
+-
+-// There are 2 virtually identical copies of this code:
+-// - $GCLI_HOME/build/prefix-gcli.jsm
+-// - $GCLI_HOME/build/mini_require.js
+-// They should both be kept in sync
+-
+-var debugDependencies = false;
++  console.clear = function Console_clear() {};
++
++  console.dir = createMultiLineDumper("dir");
++  console.dirxml = createMultiLineDumper("dirxml");
++  console.group = createDumper("group");
++  console.groupEnd = createDumper("groupEnd");
++
++})();
++/*
 + * Copyright 2009-2011 Mozilla Foundation and contributors
 + * Licensed under the New BSD license. See LICENSE.txt or:
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types', 'gcli/cli'], function(require, exports, module) {
+ 
+ /**
+  * Define a module along with a payload.
+- * @param {string} moduleName Name for the payload
+- * @param {ignored} deps Ignored. For compatibility with CommonJS AMD Spec
+- * @param {function} payload Function with (require, exports, module) params
++ * @param moduleName Name for the payload
++ * @param deps Ignored. For compatibility with CommonJS AMD Spec
++ * @param payload Function with (require, exports, module) params
+  */
+ function define(moduleName, deps, payload) {
+   if (typeof moduleName != "string") {
+@@ -408,7 +403,7 @@ function define(moduleName, deps, payloa
+     payload = deps;
+   }
+ 
+-  if (debugDependencies) {
++  if (define.debugDependencies) {
+     console.log("define: " + moduleName + " -> " + payload.toString()
+         .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
+   }
+@@ -417,151 +412,5473 @@ function define(moduleName, deps, payloa
+     console.error(this.depth + " Error: Redefining module: " + moduleName);
+   }
+   define.modules[moduleName] = payload;
+-};
++}
+ 
+ /**
+  * The global store of un-instantiated modules
+  */
+ define.modules = {};
+ 
+-
+-/**
+- * We invoke require() in the context of a Domain so we can have multiple
+- * sets of modules running separate from each other.
+- * This contrasts with JSMs which are singletons, Domains allows us to
+- * optionally load a CommonJS module twice with separate data each time.
+- * Perhaps you want 2 command lines with a different set of commands in each,
+- * for example.
+- */
+-function Domain() {
+-  this.modules = {};
+-
+-  if (debugDependencies) {
+-    this.depth = "";
+-  }
++/**
++ * Should we console.log on module definition/instantiation/requirement?
++ */
++define.debugDependencies = false;
++
++
++/**
++ * Self executing function in which Domain is defined, and attached to define
++ */
++(function() {
++  /**
++   * We invoke require() in the context of a Domain so we can have multiple
++   * sets of modules running separate from each other.
++   * This contrasts with JSMs which are singletons, Domains allows us to
++   * optionally load a CommonJS module twice with separate data each time.
++   * Perhaps you want 2 command lines with a different set of commands in each,
++   * for example.
++   */
++  function Domain() {
++    this.modules = {};
++
++    if (define.debugDependencies) {
++      this.depth = "";
++    }
++  }
++
++  /**
++   * Lookup module names and resolve them by calling the definition function if
++   * needed.
++   * There are 2 ways to call this, either with an array of dependencies and a
++   * callback to call when the dependencies are found (which can happen
++   * asynchronously in an in-page context) or with a single string an no
++   * callback where the dependency is resolved synchronously and returned.
++   * The API is designed to be compatible with the CommonJS AMD spec and
++   * RequireJS.
++   * @param deps A name, or array of names for the payload
++   * @param callback Function to call when the dependencies are resolved
++   * @return The module required or undefined for array/callback method
++   */
++  Domain.prototype.require = function(deps, callback) {
++    if (Array.isArray(deps)) {
++      var params = deps.map(function(dep) {
++        return this.lookup(dep);
++      }, this);
++      if (callback) {
++        callback.apply(null, params);
++      }
++      return undefined;
++    }
++    else {
++      return this.lookup(deps);
++    }
++  };
++
++  /**
++   * Lookup module names and resolve them by calling the definition function if
++   * needed.
++   * @param moduleName A name for the payload to lookup
++   * @return The module specified by aModuleName or null if not found
++   */
++  Domain.prototype.lookup = function(moduleName) {
++    if (moduleName in this.modules) {
++      var module = this.modules[moduleName];
++      if (define.debugDependencies) {
++        console.log(this.depth + " Using module: " + moduleName);
++      }
++      return module;
++    }
++
++    if (!(moduleName in define.modules)) {
++      console.error(this.depth + " Missing module: " + moduleName);
++      return null;
++    }
++
++    var module = define.modules[moduleName];
++
++    if (define.debugDependencies) {
++      console.log(this.depth + " Compiling module: " + moduleName);
++    }
++
++    if (typeof module == "function") {
++      if (define.debugDependencies) {
++        this.depth += ".";
++      }
++
++      var exports = {};
++      try {
++        module(this.require.bind(this), exports, { id: moduleName, uri: "" });
++      }
++      catch (ex) {
++        console.error("Error using module: " + moduleName, ex);
++        throw ex;
++      }
++      module = exports;
++
++      if (define.debugDependencies) {
++        this.depth = this.depth.slice(0, -1);
++      }
++    }
++
++    // cache the resulting module object for next time
++    this.modules[moduleName] = module;
++
++    return module;
++  };
++
++  /**
++   * Expose the Domain constructor and a global domain (on the define function
++   * to avoid exporting more than we need. This is a common pattern with
++   * require systems)
++   */
++  define.Domain = Domain;
++  define.globalDomain = new Domain();
++})();
++
++/**
++ * Expose a default require function which is the require of the global
++ * sandbox to make it easy to use.
++ */
++var require = define.globalDomain.require.bind(define.globalDomain);
++/*
++ * Copyright 2009-2011 Mozilla Foundation and contributors
++ * Licensed under the New BSD license. See LICENSE.txt or:
++ * http://opensource.org/licenses/BSD-3-Clause
++ */
++
++define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types', 'gcli/jstype', 'gcli/cli'], function(require, exports, module) {
 +
 +  // The API for use by command authors
 +  exports.addCommand = require('gcli/canon').addCommand;
@@ -158,10 +867,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  // Internal startup process. Not exported
 +  require('gcli/types').startup();
++  require('gcli/jstype').startup();
 +  require('gcli/cli').startup();
- 
- });
--
++
++});
 +/*
 + * Copyright 2009-2011 Mozilla Foundation and contributors
 + * Licensed under the New BSD license. See LICENSE.txt or:
@@ -247,15 +956,38 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      usingGroups = true;
 +    }
 +  }, this);
-+}
-+
-+/**
+ }
+ 
+ /**
+- * Lookup module names and resolve them by calling the definition function if
+- * needed.
+- * There are 2 ways to call this, either with an array of dependencies and a
+- * callback to call when the dependencies are found (which can happen
+- * asynchronously in an in-page context) or with a single string an no callback
+- * where the dependency is resolved synchronously and returned.
+- * The API is designed to be compatible with the CommonJS AMD spec and
+- * RequireJS.
+- * @param {string[]|string} deps A name, or names for the payload
+- * @param {function|undefined} callback Function to call when the dependencies
+- * are resolved
+- * @return {undefined|object} The module required or undefined for
+- * array/callback method
+- */
+-Domain.prototype.require = function(deps, callback) {
+-  if (Array.isArray(deps)) {
+-    var params = deps.map(function(dep) {
+-      return this.lookup(dep);
+-    }, this);
+-    if (callback) {
+-      callback.apply(null, params);
 + * A safe version of '.description' returning '(No description)' when there
 + * is no description available.
 + */
 +Command.prototype.getDescription = function() {
 +  return this.description ? this.description : '(No description)';
 +};
++
++canon.Command = Command;
 +
 +
 +/**
@@ -291,7 +1023,46 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      console.error('In ' + this.command.name + '/' + this.name +
 +          ': boolean parameters can not have a defaultValue.' +
 +          ' Ignoring');
-+    }
+     }
+-    return undefined;
+-  }
+-  else {
+-    return this.lookup(deps);
+-  }
+-};
+-
+-/**
+- * Lookup module names and resolve them by calling the definition function if
+- * needed.
+- * @param {string} moduleName A name for the payload to lookup
+- * @return {object} The module specified by aModuleName or null if not found.
+- */
+-Domain.prototype.lookup = function(moduleName) {
+-  if (moduleName in this.modules) {
+-    var module = this.modules[moduleName];
+-    if (debugDependencies) {
+-      console.log(this.depth + " Using module: " + moduleName);
+-    }
+-    return module;
+-  }
+-
+-  if (!(moduleName in define.modules)) {
+-    console.error(this.depth + " Missing module: " + moduleName);
+-    return null;
+-  }
+-
+-  var module = define.modules[moduleName];
+-
+-  if (debugDependencies) {
+-    console.log(this.depth + " Compiling module: " + moduleName);
+-  }
+-
+-  if (typeof module == "function") {
+-    if (debugDependencies) {
+-      this.depth += ".";
+-    }
+-
+-    var exports = {};
 +    this.defaultValue = false;
 +  }
 +
@@ -300,7 +1071,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  // there is no defaultValue, and null is used when the parameter is
 +  // optional, neither are required to parse and stringify.
 +  if (this.defaultValue != null) {
-+    try {
+     try {
+-      module(this.require.bind(this), exports, { id: moduleName, uri: "" });
 +      var defaultText = this.type.stringify(this.defaultValue);
 +      var defaultConversion = this.type.parseString(defaultText);
 +      if (defaultConversion.getStatus() !== Status.VALID) {
@@ -308,11 +1080,17 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +            ': Error round tripping defaultValue. status = ' +
 +            defaultConversion.getStatus());
 +      }
-+    }
-+    catch (ex) {
+     }
+     catch (ex) {
+-      console.error("Error using module: " + moduleName, ex);
+-      throw ex;
 +      console.error('In ' + this.command.name + '/' + this.name +
 +        ': ' + ex);
-+    }
+     }
+-    module = exports;
+-
+-    if (debugDependencies) {
+-      this.depth = this.depth.slice(0, -1);
 +  }
 +}
 +
@@ -342,6 +1120,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +canon.Parameter = Parameter;
++
 +
 +/**
 + * Add a command to the canon of known commands.
@@ -502,7 +1281,32 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    for (var i = 0; i < handlers.length; i++) {
 +      var handler = handlers[i];
 +      handler.func.call(handler.scope, ev);
-+    }
+     }
+-  }
+-
+-  // cache the resulting module object for next time
+-  this.modules[moduleName] = module;
+-
+-  return module;
+-};
+-
+-/**
+- * Expose the Domain constructor and a global domain (on the define function
+- * to avoid exporting more than we need. This is a common pattern with require
+- * systems)
+- */
+-define.Domain = Domain;
+-define.globalDomain = new Domain();
+-
+-/**
+- * Expose a default require function which is the require of the global
+- * sandbox to make it easy to use.
+- */
+-var require = define.globalDomain.require.bind(define.globalDomain);
+-
+-
+-///////////////////////////////////////////////////////////////////////////////
+-
 +  };
 +
 +  /**
@@ -1483,7 +2287,18 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +
 +});
-+/*
+ /*
+- * The API of interest to people wanting to create GCLI commands is as
+- * follows. The implementation of this API is left to bug 659061 and other
+- * bugs.
+- */
+-
+-define('gcli/index', [ ], function(require, exports, module) {
+-
+-  exports.addCommand = function() { /* implementation goes here */ };
+-  exports.removeCommand = function() { /* implementation goes here */ };
+-  exports.startup = function() { /* implementation goes here */ };
+-  exports.shutdown = function() { /* implementation goes here */ };
 + * Copyright 2009-2011 Mozilla Foundation and contributors
 + * Licensed under the New BSD license. See LICENSE.txt or:
 + * http://opensource.org/licenses/BSD-3-Clause
@@ -1567,11 +2382,29 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * @param value The result of the conversion
 + * @param arg The data from which the conversion was made
 + * @param status See the Status values [VALID|INCOMPLETE|ERROR] defined above.
-+ * The value will be null unless status=VALID.
++ * The default status is Status.VALID.
 + * @param message If status=ERROR, there should be a message to describe the
-+ * error. A message is not needed unless for other statuses.
++ * error. A message is not needed unless for other statuses, but could be
++ * present for any status including VALID (in the case where we want to note a
++ * warning, for example).
++ * See BUG 664676: GCLI conversion error messages should be localized
 + * @param predictions If status=INCOMPLETE, there could be predictions as to
 + * the options available to complete the input.
++ * We generally expect there to be about 7 predictions (to match human list
++ * comprehension ability) however it is valid to provide up to about 20,
++ * or less. It is the job of the predictor to decide a smart cut-off.
++ * For example if there are 4 very good matches and 4 very poor ones,
++ * probably only the 4 very good matches should be presented.
++ * The predictions are presented either as an array of prediction objects or as
++ * a function which returns this array when called with no parameters.
++ * Each prediction object has the following shape:
++ *     {
++ *       name: '...',     // textual completion. i.e. what the cli uses
++ *       value: { ... },  // value behind the textual completion
++ *       incomplete: true // this completion is only partial (optional)
++ *     }
++ * The 'incomplete' property could be used to denote a valid completion which
++ * could have sub-values (e.g. for tree navigation).
 + */
 +function Conversion(value, arg, status, message, predictions) {
 +  // The result of the conversion process. Will be null if status != VALID
@@ -1583,23 +2416,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    throw new Error('missing arg');
 +  }
 +
-+  // The status of the conversion.
 +  this._status = status || Status.VALID;
-+
-+  // A message to go with the conversion. This could be present for any
-+  // status including VALID in the case where we want to note a warning for
-+  // example.
-+  // See BUG 664676: GCLI conversion error messages should be localized
 +  this.message = message;
-+
-+  // A array of strings which are the systems best guess at better inputs
-+  // than the one presented, or a function that will return these predictions
-+  // when called with 0 arguments.
-+  // We generally expect there to be about 7 predictions (to match human list
-+  // comprehension ability) however it is valid to provide up to about 20,
-+  // or less. It is the job of the predictor to decide a smart cut-off.
-+  // For example if there are 4 very good matches and 4 very poor ones,
-+  // probably only the 4 very good matches should be presented.
 +  this.predictions = predictions;
 +}
 +
@@ -1765,7 +2583,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * types do.
 + */
 +function Type() {
-+};
++}
 +
 +/**
 + * Convert the given <tt>value</tt> to a string representation.
@@ -1924,7 +2742,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +}
 +
-+StringType.prototype = new Type();
++StringType.prototype = Object.create(Type.prototype);
 +
 +StringType.prototype.stringify = function(value) {
 +  if (value == null) {
@@ -1959,7 +2777,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +}
 +
-+NumberType.prototype = new Type();
++NumberType.prototype = Object.create(Type.prototype);
 +
 +NumberType.prototype.stringify = function(value) {
 +  if (value == null) {
@@ -2049,11 +2867,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +}
 +
-+SelectionType.prototype = new Type();
++SelectionType.prototype = Object.create(Type.prototype);
 +
 +SelectionType.prototype.stringify = function(value) {
 +  var name = null;
-+  var lookup = this._getLookup();
++  var lookup = this.getLookup();
 +  var keys = Object.keys(lookup);
 +  keys.some(function(test) {
 +    if (value === lookup[test]) {
@@ -2070,7 +2888,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * There are several ways to get selection data. This unifies them into one
 + * single function.
 + */
-+SelectionType.prototype._getLookup = function() {
++SelectionType.prototype.getLookup = function() {
 +  if (this.lookup) {
 +    if (typeof this.lookup === 'function') {
 +      return this.lookup();
@@ -2091,13 +2909,13 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +/**
-+ * Like _getLookup() except that rather than returning a map of name->value,
++ * Like getLookup() except that rather than returning a map of name->value,
 + * @return An new array of { name:..., value:... } pairs. It is safe to mutate
 + * this array.
 + */
 +SelectionType.prototype._getLookupArray = function() {
 +  var array = [];
-+  var lookup = this._getLookup();
++  var lookup = this.getLookup();
 +  Object.keys(lookup).forEach(function(name) {
 +    array.push({ name: name, value: lookup[name] });
 +  });
@@ -2128,7 +2946,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +SelectionType.prototype._findPredictions = function(arg) {
 +  var predictions = [];
 +
-+  var lookup = this._getLookup();
++  var lookup = this.getLookup();
 +  var matchedValue = lookup[arg.text];
 +  if (matchedValue !== undefined) {
 +    predictions.push({ name: arg.text, value: matchedValue });
@@ -2249,7 +3067,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +}
 +
-+BooleanType.prototype = new SelectionType();
++BooleanType.prototype = Object.create(SelectionType.prototype);
 +
 +BooleanType.prototype.lookup = { 'true': true, 'false': false };
 +
@@ -2288,7 +3106,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }, this);
 +}
 +
-+DeferredType.prototype = new Type();
++DeferredType.prototype = Object.create(Type.prototype);
 +
 +DeferredType.prototype.stringify = function(value) {
 +  return this.defer().stringify(value);
@@ -2328,7 +3146,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +}
 +
-+BlankType.prototype = new Type();
++BlankType.prototype = Object.create(Type.prototype);
 +
 +BlankType.prototype.stringify = function(value) {
 +  return '';
@@ -2359,7 +3177,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.subtype = types.getType(this.subtype);
 +}
 +
-+ArrayType.prototype = new Type();
++ArrayType.prototype = Object.create(Type.prototype);
 +
 +ArrayType.prototype.stringify = function(values) {
 +  // BUG 664204: Check for strings with spaces and add quotes
@@ -2416,8 +3234,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  types.unregisterType(ArrayType);
 +};
 +
-+
-+});
+ 
+ });
+-
+-///////////////////////////////////////////////////////////////////////////////
 +/*
 + * Copyright 2009-2011 Mozilla Foundation and contributors
 + * Licensed under the New BSD license. See LICENSE.txt or:
@@ -2560,6 +3380,32 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +argument.Argument = Argument;
++
++
++/**
++ * ScriptArgument is a marker that the argument is designed to be Javascript.
++ * It also implements the special rules that spaces after the { or before the
++ * } are part of the pre/suffix rather than the content.
++ */
++function ScriptArgument(text, prefix, suffix) {
++  this.text = text;
++  this.prefix = prefix !== undefined ? prefix : '';
++  this.suffix = suffix !== undefined ? suffix : '';
++
++  while (this.text[0] === ' ') {
++    this.prefix = this.prefix + ' ';
++    this.text = this.text.substring(1);
++  }
++
++  while (this.text[this.text.length - 1] === ' ') {
++    this.suffix = ' ' + this.suffix;
++    this.text = this.text.slice(0, -1);
++  }
++}
++
++ScriptArgument.prototype = Object.create(Argument.prototype);
++
++argument.ScriptArgument = ScriptArgument;
 +
 +
 +/**
@@ -2829,7 +3675,326 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
++define('gcli/jstype', ['require', 'exports', 'module' , 'gcli/types'], function(require, exports, module) {
++
++
++var types = require('gcli/types');
++var Conversion = types.Conversion;
++var Type = types.Type;
++var Status = types.Status;
++
++/**
++ * 'javascript' handles scripted input
++ */
++function JavascriptType(typeSpec) {
++  if (typeSpec != null) {
++    throw new Error('JavascriptType can not be customized');
++  }
++}
++
++JavascriptType.prototype = Object.create(Type.prototype);
++
++JavascriptType.prototype.stringify = function(value) {
++  if (value == null) {
++    return '';
++  }
++  return value.name;
++};
++
++JavascriptType.prototype.parse = function(arg) {
++  var typed = arg.text;
++  if (typed == null || typed === '') {
++    return new Conversion(null, arg, Status.INCOMPLETE, '');
++  }
++
++  var scope = window;
++
++  // In FX-land we need to unwrap. TODO: Enable in the browser.
++  // scope = unwrap(scope);
++
++  // Analyze the input text and find the beginning of the last part that
++  // should be completed.
++  var beginning = this._findCompletionBeginning(typed);
++
++  // There was an error analyzing the string.
++  if (beginning.err) {
++    return new Conversion(typed, arg, Status.ERROR, beginning.err);
++  }
++
++  // If the current state is not ParseState.NORMAL, then we are inside of a
++  // string which means that no completion is possible.
++  if (beginning.state !== ParseState.NORMAL) {
++    return new Conversion(typed, arg, Status.INCOMPLETE, '');
++  }
++
++  var completionPart = typed.substring(beginning.startPos);
++
++  // Don't complete on just an empty string.
++  if (completionPart.trim() === "") {
++    return new Conversion(typed, arg, Status.INCOMPLETE, '');
++  }
++
++  var properties = completionPart.split('.');
++  var matchProp;
++  var prop;
++
++  if (properties.length > 1) {
++    matchProp = properties.pop().trimLeft();
++    for (var i = 0; i < properties.length; i++) {
++      prop = properties[i].trim();
++
++      // We can't complete on null.foo, so bail out
++      if (scope == null) {
++        return new Conversion(typed, arg, Status.ERROR, 'Scope lost');
++      }
++
++      // TODO: Re-enable this test
++      // Check if prop is a getter function on obj. Functions can change other
++      // stuff so we can't execute them to get the next object. Stop here.
++      // if (isNonNativeGetter(scope, prop)) {
++      //   return new Conversion(typed, arg);
++      // }
++
++      try {
++        scope = scope[prop];
++      }
++      catch (ex) {
++        return new Conversion(typed, arg, Status.ERROR, '' + ex);
++      }
++    }
++  }
++  else {
++    matchProp = properties[0].trimLeft();
++  }
++
++  // If the reason we just stopped adjusting the scope was a non-simple string,
++  // then we're not sure if the input is valid or invalid, so accept it
++  if (prop && !prop.match(/^[0-9A-Za-z]*$/)) {
++    return new Conversion(typed, arg);
++  }
++
++  // However if the prop was a simple string, it is an error
++  if (scope == null) {
++    return new Conversion(typed, arg, Status.ERROR,
++            'Can\'t find property \'' + prop + '\'');
++  }
++
++  // If the thing we're looking for isn't a simple string, then we're not going
++  // to find it, but we're not sure if it's valid or invalid, so accept it
++  if (!matchProp.match(/^[0-9A-Za-z]*$/)) {
++    return new Conversion(typed, arg);
++  }
++
++  // Skip Iterators and Generators.
++  if (this._isIteratorOrGenerator(scope)) {
++    return null;
++  }
++
++  var matchLen = matchProp.length;
++  var prefix = matchLen === 0 ? typed : typed.slice(0, -matchLen);
++  var status = Status.INCOMPLETE;
++  var message = 'Can\'t find property \'' + matchProp + '\'';
++  var matches = [];
++
++  for (var prop in scope) {
++    if (prop.indexOf(matchProp) === 0) {
++      var description = '(' + typeof scope[prop] + ')';
++      var incomplete = true;
++      if (description === '(number)') {
++        description = scope[prop] + ' (number)';
++        incomplete = false;
++      }
++      else if (description === '(string)') {
++        description = scope[prop] + ' (string)';
++        incomplete = false;
++      }
++      matches.push({
++        name: prefix + prop,
++        value: {
++          name: prefix + prop,
++          description: description
++        },
++        incomplete: incomplete
++      });
++    }
++    if (prop === matchProp) {
++      status = Status.VALID;
++      message = '';
++    }
++  }
++
++  // Can we think of a better sort order than alpha? There are certainly some
++  // properties that are far more commonly used ...
++  matches.sort(function(p1, p2) {
++    return p1.name.localeCompare(p2.name);
++  });
++
++  return new Conversion(typed, arg, status, message, matches);
++};
++
++var ParseState = {
++  NORMAL: 0,
++  QUOTE: 2,
++  DQUOTE: 3
++};
++
++var OPEN_BODY = '{[('.split('');
++var CLOSE_BODY = '}])'.split('');
++var OPEN_CLOSE_BODY = {
++  '{': '}',
++  '[': ']',
++  '(': ')'
++};
++
++/**
++ * Analyzes a given string to find the last statement that is interesting for
++ * later completion.
++ * @param text A string to analyze
++ * @return If there was an error in the string detected, then a object like
++ *   { err: "ErrorMesssage" }
++ * is returned, otherwise a object like
++ *   {
++ *     state: ParseState.NORMAL|ParseState.QUOTE|ParseState.DQUOTE,
++ *     startPos: index of where the last statement begins
++ *   }
++ */
++JavascriptType.prototype._findCompletionBeginning = function(text) {
++  var bodyStack = [];
++
++  var state = ParseState.NORMAL;
++  var start = 0;
++  var c;
++  for (var i = 0; i < text.length; i++) {
++    c = text[i];
++
++    switch (state) {
++      // Normal JS state.
++      case ParseState.NORMAL:
++        if (c === '"') {
++          state = ParseState.DQUOTE;
++        }
++        else if (c === '\'') {
++          state = ParseState.QUOTE;
++        }
++        else if (c === ';') {
++          start = i + 1;
++        }
++        else if (c === ' ') {
++          start = i + 1;
++        }
++        else if (OPEN_BODY.indexOf(c) != -1) {
++          bodyStack.push({
++            token: c,
++            start: start
++          });
++          start = i + 1;
++        }
++        else if (CLOSE_BODY.indexOf(c) != -1) {
++          var last = bodyStack.pop();
++          if (!last || OPEN_CLOSE_BODY[last.token] != c) {
++            return { err: "Syntax error" };
++          }
++          if (c === '}') {
++            start = i + 1;
++          }
++          else {
++            start = last.start;
++          }
++        }
++        break;
++
++      // Double quote state > " <
++      case ParseState.DQUOTE:
++        if (c === '\\') {
++          i ++;
++        }
++        else if (c === '\n') {
++          return { err: "Unterminated string literal" };
++        }
++        else if (c === '"') {
++          state = ParseState.NORMAL;
++        }
++        break;
++
++      // Single quote state > ' <
++      case ParseState.QUOTE:
++        if (c === '\\') {
++          i ++;
++        }
++        else if (c === '\n') {
++          return { err: "Unterminated string literal" };
++          return;
++        }
++        else if (c === '\'') {
++          state = ParseState.NORMAL;
++        }
++        break;
++    }
++  }
++
++  return {
++    state: state,
++    startPos: start
++  };
++};
++
++/**
++ * Return true if the passed object is either an iterator or a generator, and
++ * false otherwise.
++ * @param obj The object to check
++ */
++JavascriptType.prototype._isIteratorOrGenerator = function(obj) {
++  if (obj === null) {
++    return false;
++  }
++
++  if (typeof aObject === "object") {
++    if (typeof obj.__iterator__ === "function" ||
++        obj.constructor && obj.constructor.name === "Iterator") {
++      return true;
++    }
++
++    try {
++      var str = obj.toString();
++      if (typeof obj.next === "function" &&
++          str.indexOf("[object Generator") === 0) {
++        return true;
++      }
++    }
++    catch (ex) {
++      // window.history.next throws in the typeof check above.
++      return false;
++    }
++  }
++
++  return false;
++};
++
++JavascriptType.prototype.name = 'javascript';
++
++exports.JavascriptType = JavascriptType;
++
++
++/**
++ * Registration and de-registration.
++ */
++exports.startup = function() {
++  types.registerType(JavascriptType);
++};
++
++exports.shutdown = function() {
++  types.unregisterType(JavascriptType);
++};
++
++
++});
++/*
++ * Copyright 2009-2011 Mozilla Foundation and contributors
++ * Licensed under the New BSD license. See LICENSE.txt or:
++ * http://opensource.org/licenses/BSD-3-Clause
++ */
++
++define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/argument', 'gcli/commands'], function(require, exports, module) {
 +
 +
 +var console = require('gcli/util').console;
@@ -2852,6 +4017,24 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +var NamedArgument = require('gcli/argument').NamedArgument;
 +var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
 +var MergedArgument = require('gcli/argument').MergedArgument;
++var ScriptArgument = require('gcli/argument').ScriptArgument;
++
++var commands = require('gcli/commands');
++var evalCommand;
++
++
++/**
++ * Registration and de-registration.
++ */
++exports.startup = function() {
++  types.registerType(CommandType);
++  evalCommand = commands.getEvalCommand();
++};
++
++exports.shutdown = function() {
++  types.unregisterType(CommandType);
++  evalCommand = undefined;
++};
 +
 +
 +/**
@@ -3025,7 +4208,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    var value = predictions[0].value;
 +    var text = this.param.type.stringify(value);
 +    var arg = this.conversion.arg.beget(text);
-+    arg.suffix = ' ';
++    if (!predictions[0].incomplete) {
++      arg.suffix = ' ';
++    }
 +    var conversion = this.param.type.parse(arg);
 +//    var conversion = new Conversion(value, arg);
 +    this.setConversion(conversion);
@@ -3176,17 +4361,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  return new Conversion(value, arg, status, msg, predictFunc);
 +};
 +
-+
-+/**
-+ * Registration and de-registration.
-+ */
-+exports.startup = function() {
-+  types.registerType(CommandType);
-+};
-+
-+exports.shutdown = function() {
-+  types.unregisterType(CommandType);
-+};
 +
 +/**
 + * This is a special assignment to reflect the command itself.
@@ -3805,26 +4979,59 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.update({ typed: '', cursor: { start: 0, end: 0 } });
 +};
 +
-+var OUTSIDE = 1;   // The last character was whitespace
-+var IN_SIMPLE = 2;   // The last character was part of a parameter
-+var IN_SINGLE_Q = 3; // We're inside a single quote: '
-+var IN_DOUBLE_Q = 4; // We're inside double quotes: "
-+
 +/**
-+ * If the input has no spaces, quotes or escapes, we can take the fast track
++ * Requisition._tokenize() is a state machine. These are the states.
 + */
-+function isSimple(typed) {
-+   for (var i = 0; i < typed.length; i++) {
-+     var c = typed.charAt(i);
-+     if (c === ' ' || c === '"' || c === '\'' || c === '\\') {
-+       return false;
-+     }
-+   }
-+   return true;
-+}
++var In = {
++  /**
++   * The last character was ' '.
++   * Typing a ' ' character will not change the mode
++   * Typing one of '"{ will change mode to SINGLE_Q, DOUBLE_Q or SCRIPT.
++   * Anything else goes into SIMPLE mode.
++   */
++  WHITESPACE: 1,
++
++  /**
++   * The last character was part of a parameter.
++   * Typing ' ' returns to WHITESPACE mode. Any other character
++   * (including '"{} which are otherwise special) does not change the mode.
++   */
++  SIMPLE: 2,
++
++  /**
++   * We're inside single quotes: '
++   * Typing ' returns to WHITESPACE mode. Other characters do not change mode.
++   */
++  SINGLE_Q: 3,
++
++  /**
++   * We're inside double quotes: "
++   * Typing " returns to WHITESPACE mode. Other characters do not change mode.
++   */
++  DOUBLE_Q: 4,
++
++  /**
++   * We're inside { and }
++   * Typing } returns to WHITESPACE mode. Other characters do not change mode.
++   * SCRIPT mode is slightly different from other modes in that spaces between
++   * the {/} delimiters and the actual input are not considered significant.
++   * e.g: " x " is a 3 character string, delimited by double quotes, however
++   * { x } is a 1 character JavaScript surrounded by whitespace and {}
++   * delimiters.
++   * In the short term we assume that the JS routines can make sense of the
++   * extra whitespace, however at some stage we may need to move the space into
++   * the Argument prefix/suffix.
++   * Also we don't attempt to handle nested {}. See bug 678961
++   */
++  SCRIPT: 5
++};
 +
 +/**
-+ * Split up the input taking into account ' and "
++ * Split up the input taking into account ', " and {.
++ * We don't consider \t or other classical whitespace characters to split
++ * arguments apart. For one thing these characters are hard to type, but also
++ * if the user has gone to the trouble of pasting a TAB character into the
++ * input field (or whatever it takes), they probably mean it.
 + */
 +Requisition.prototype._tokenize = function(typed) {
 +  // For blank input, place a dummy empty argument into the list
@@ -3836,14 +5043,14 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    return [ new Argument(typed, '', '') ];
 +  }
 +
-+  var mode = OUTSIDE;
++  var mode = In.WHITESPACE;
 +
 +  // First we un-escape. This list was taken from:
 +  // https://developer.mozilla.org/en/Core_JavaScript_1.5_Guide/Core_Language_Features#Unicode
-+  // We are generally converting to their real values except for \', \"
-+  // and '\ ' which we are converting to unicode private characters so we
-+  // can distinguish them from ', " and ' ', which have special meaning.
-+  // They need swapping back post-split - see unescape2()
++  // We are generally converting to their real values except for the strings
++  // '\'', '\"', '\ ', '{' and '}' which we are converting to unicode private
++  // characters so we can distinguish them from '"', ' ', '{', '}' and ''',
++  // which are special. They need swapping back post-split - see unescape2()
 +  typed = typed
 +      .replace(/\\\\/g, '\\')
 +      .replace(/\\b/g, '\b')
@@ -3856,13 +5063,17 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      .replace(/\\r/g, '\r')
 +      .replace(/\\ /g, '\uF000')
 +      .replace(/\\'/g, '\uF001')
-+      .replace(/\\"/g, '\uF002');
++      .replace(/\\"/g, '\uF002')
++      .replace(/\\{/g, '\uF003')
++      .replace(/\\}/g, '\uF004');
 +
 +  function unescape2(escaped) {
 +    return escaped
-+      .replace(/\uF000/g, ' ')
-+      .replace(/\uF001/g, '\'')
-+      .replace(/\uF002/g, '"');
++        .replace(/\uF000/g, ' ')
++        .replace(/\uF001/g, '\'')
++        .replace(/\uF002/g, '"')
++        .replace(/\uF003/g, '{')
++        .replace(/\uF004/g, '}');
 +  }
 +
 +  var i = 0; // The index of the current character
@@ -3870,18 +5081,90 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  var prefix = ''; // Stuff that comes before the current argument
 +  var args = [];
 +
++  // This is just a state machine. We're going through the string char by char
++  // The 'mode' is one of the 'In' states. As we go, we're adding Arguments
++  // to the 'args' array.
++
 +  while (true) {
++    var c = typed[i];
++    switch (mode) {
++      case In.WHITESPACE:
++        if (c === '\'') {
++          prefix = typed.substring(start, i + 1);
++          mode = In.SINGLE_Q;
++          start = i + 1;
++        }
++        else if (c === '"') {
++          prefix = typed.substring(start, i + 1);
++          mode = In.DOUBLE_Q;
++          start = i + 1;
++        }
++        else if (c === '{') {
++          prefix = typed.substring(start, i + 1);
++          mode = In.SCRIPT;
++          start = i + 1;
++        }
++        else if (/ /.test(c)) {
++          // Still whitespace, do nothing
++        }
++        else {
++          prefix = typed.substring(start, i);
++          mode = In.SIMPLE;
++          start = i;
++        }
++        break;
++
++      case In.SIMPLE:
++        // There is an edge case of xx'xx which we are assuming to
++        // be a single parameter (and same with ")
++        if (c === ' ') {
++          var str = unescape2(typed.substring(start, i));
++          args.push(new Argument(str, prefix, ''));
++          mode = In.WHITESPACE;
++          start = i;
++          prefix = '';
++        }
++        break;
++
++      case In.SINGLE_Q:
++        if (c === '\'') {
++          var str = unescape2(typed.substring(start, i));
++          args.push(new Argument(str, prefix, c));
++          mode = In.WHITESPACE;
++          start = i + 1;
++          prefix = '';
++        }
++        break;
++
++      case In.DOUBLE_Q:
++        if (c === '"') {
++          var str = unescape2(typed.substring(start, i));
++          args.push(new Argument(str, prefix, c));
++          mode = In.WHITESPACE;
++          start = i + 1;
++          prefix = '';
++        }
++        break;
++
++      case In.SCRIPT:
++        if (c === '}') {
++          var str = unescape2(typed.substring(start, i));
++          args.push(new ScriptArgument(str, prefix, c));
++          mode = In.WHITESPACE;
++          start = i + 1;
++          prefix = '';
++        }
++        break;
++    }
++
++    i++;
++
 +    if (i >= typed.length) {
 +      // There is nothing else to read - tidy up
-+      if (mode !== OUTSIDE) {
-+        var str = unescape2(typed.substring(start, i));
-+        args.push(new Argument(str, prefix, ''));
-+      }
-+      else {
++      if (mode === In.WHITESPACE) {
 +        if (i !== start) {
-+          // There's a bunch of whitespace at the end of the
-+          // command add it to the last argument's suffix,
-+          // creating an empty argument if needed.
++          // There's whitespace at the end of the typed string. Add it to the
++          // last argument's suffix, creating an empty argument if needed.
 +          var extra = typed.substring(start, i);
 +          var lastArg = args[args.length - 1];
 +          if (!lastArg) {
@@ -3892,76 +5175,51 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +          }
 +        }
 +      }
++      else if (mode === In.SCRIPT) {
++        var str = unescape2(typed.substring(start, i + 1));
++        args.push(new ScriptArgument(str, prefix, ''));
++      }
++      else {
++        var str = unescape2(typed.substring(start, i + 1));
++        args.push(new Argument(str, prefix, ''));
++      }
 +      break;
 +    }
-+
-+    var c = typed[i];
-+    switch (mode) {
-+      case OUTSIDE:
-+        if (c === '\'') {
-+          prefix = typed.substring(start, i + 1);
-+          mode = IN_SINGLE_Q;
-+          start = i + 1;
-+        }
-+        else if (c === '"') {
-+          prefix = typed.substring(start, i + 1);
-+          mode = IN_DOUBLE_Q;
-+          start = i + 1;
-+        }
-+        else if (/ /.test(c)) {
-+          // Still whitespace, do nothing
-+        }
-+        else {
-+          prefix = typed.substring(start, i);
-+          mode = IN_SIMPLE;
-+          start = i;
-+        }
-+        break;
-+
-+      case IN_SIMPLE:
-+        // There is an edge case of xx'xx which we are assuming to
-+        // be a single parameter (and same with ")
-+        if (c === ' ') {
-+          var str = unescape2(typed.substring(start, i));
-+          args.push(new Argument(str, prefix, ''));
-+          mode = OUTSIDE;
-+          start = i;
-+          prefix = '';
-+        }
-+        break;
-+
-+      case IN_SINGLE_Q:
-+        if (c === '\'') {
-+          var str = unescape2(typed.substring(start, i));
-+          args.push(new Argument(str, prefix, c));
-+          mode = OUTSIDE;
-+          start = i + 1;
-+          prefix = '';
-+        }
-+        break;
-+
-+      case IN_DOUBLE_Q:
-+        if (c === '"') {
-+          var str = unescape2(typed.substring(start, i));
-+          args.push(new Argument(str, prefix, c));
-+          mode = OUTSIDE;
-+          start = i + 1;
-+          prefix = '';
-+        }
-+        break;
-+    }
-+
-+    i++;
 +  }
 +
 +  return args;
 +};
 +
 +/**
++ * If the input has no spaces, quotes, braces or escapes,
++ * we can take the fast track.
++ */
++function isSimple(typed) {
++   for (var i = 0; i < typed.length; i++) {
++     var c = typed.charAt(i);
++     if (c === ' ' || c === '"' || c === '\'' ||
++         c === '{' || c === '}' || c === '\\') {
++       return false;
++     }
++   }
++   return true;
++}
++
++/**
 + * Looks in the canon for a command extension that matches what has been
 + * typed at the command line.
 + */
 +Requisition.prototype._split = function(args) {
++  // Handle the special case of the user typing { javascript(); }
++  // We use the hidden 'eval' command directly rather than shift()ing one of
++  // the parameters, and parse()ing it.
++  if (args[0] instanceof ScriptArgument) {
++    // Special case: if the user enters { console.log('foo'); } then we need to
++    // use the hidden 'eval' command
++    this.commandAssignment.setConversion(new Conversion(evalCommand, args[0]));
++    return;
++  }
++
 +  var argsUsed = 1;
 +  var conversion;
 +
@@ -4370,6 +5628,80 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
++define('gcli/commands', ['require', 'exports', 'module' , 'gcli/canon'], function(require, exports, module) {
++
++
++var Command = require('gcli/canon').Command;
++
++/**
++ * hidden 'eval' command
++ */
++var evalCommandSpec = {
++  name: 'eval',
++  params: [
++    {
++      name: 'javascript',
++      type: 'javascript'
++    }
++  ],
++  returnType: 'html',
++  description: 'JavaScript',
++  exec: function(args, context) {
++    var resultPrefix = 'Result for <em>\'' + args.javascript + '\'</em>: ';
++    try {
++      var result = eval(args.javascript);
++
++      if (result === null) {
++        return resultPrefix + 'null.';
++      }
++
++      if (result === undefined) {
++        return resultPrefix + 'undefined.';
++      }
++
++      if (typeof result === 'function') {
++        return resultPrefix +
++          (result + '').replace(/\n/g, '<br>').replace(/ /g, '&#160');
++      }
++
++      return resultPrefix + result;
++    } catch (e) {
++      return '<b>Error</b>: ' + e.message;
++    }
++  }
++};
++
++
++/**
++ * We don't want to register the eval commands using canon.addCommand(...)
++ * because we don't want it to pop up in help etc, however it depends on
++ * types that are dynamically registered/destroyed, so we can't it them be
++ * static.
++ */
++var evalCommand = null;
++
++/**
++ * Registration and de-registration.
++ */
++exports.getEvalCommand = function() {
++  if (!evalCommand) {
++    evalCommand = new Command(evalCommandSpec);
++  }
++  return evalCommand;
++};
++
++exports.destroyInternalCommands = function() {
++  evalCommand = null;
++};
++
++
++});
++/*
++ * Copyright 2009-2011 Mozilla Foundation and contributors
++ * Licensed under the New BSD license. See LICENSE.txt or:
++ * http://opensource.org/licenses/BSD-3-Clause
++ */
++
 +define('gcli/ui/start/firefox', ['require', 'exports', 'module' , 'gcli/cli', 'gcli/ui/inputter', 'gcli/canon'], function(require, exports, module) {
 +
 +var Requisition = require('gcli/cli').Requisition;
@@ -4490,7 +5822,14 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Handler for the Requisition.inputChange event
 + */
 +Inputter.prototype.onInputChange = function() {
++  var start = dom.getSelectionStart(this.element);
++  var end = dom.getSelectionEnd(this.element);
++
 +  this.element.value = this.requ.toString();
++
++  dom.setSelectionStart(this.element, start);
++  dom.setSelectionEnd(this.element, end);
++
 +  this.completer.update();
 +};
 +
@@ -4508,17 +5847,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + */
 +Inputter.prototype.focus = function() {
 +  this.element.focus();
-+};
-+
-+/**
-+ * A version of getBoundingClientRect that also tells us the width and height
-+ * of the input element.
-+ */
-+Inputter.prototype.getDimensionRect = function() {
-+  var rect = this.element.getBoundingClientRect();
-+  rect.width = rect.right - rect.left;
-+  rect.height = rect.bottom - rect.top;
-+  return rect;
 +};
 +
 +/**
@@ -4589,7 +5917,23 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    // 1 second) to the time of the keyup then we assume that we got them
 +    // both, and do the completion.
 +    if (this.lastTabDownAt + 1000 > ev.timeStamp) {
++      var cursorPos = dom.getSelectionStart(this.element);
++
 +      this.getCurrentAssignment().complete();
++
++      // We need to move the cursor to the end of the complete parameter
++      // There could be a fancy way to do this involving assignment/arg math
++      // but it doesn't seem easy, so we cheat a move the cursor to just before
++      // the next space, or the end of the input
++      var typed = this.element.value;
++      do {
++        cursorPos++;
++      }
++      while (typed[cursorPos - 1] !== ' ' && cursorPos < typed.length)
++
++      dom.setSelectionStart(this.element, cursorPos);
++      dom.setSelectionEnd(this.element, cursorPos);
++      this.completer.update();
 +    }
 +    this.lastTabDownAt = 0;
 +    this._scrollingThroughHistory = false;
@@ -4663,6 +6007,28 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    }
 +  };
 +
++  // Workaround for potential XUL bug 676520 where textbox gives incorrect
++  // values for its content
++  if (input.typed == null || (input.typed.length < input.cursor.start)) {
++    if (this.doc.getAnonymousElementByAttribute) {
++      if (!this.anonInput) {
++        this.anonInput = this.doc.getAnonymousElementByAttribute(
++                this.element, "anonid", "input");
++        var compare = this.doc.getAnonymousElementByAttribute(
++                this.element, "anonid", "input");
++        console.log('test: ', this.anonInput === compare);
++      }
++      if (this.anonInput) {
++        input.typed = this.anonInput.value;
++        console.log('anonid fudge: this.requ.update=', input);
++      }
++      else {
++        throw new Error('textbox reports that the cursor lies outside the' +
++                ' text that it contains, and our workaround has failed.');
++      }
++    }
++  }
++
 +  this.requ.update(input);
 +};
 +
@@ -4701,7 +6067,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  this.completionPrompt = typeof options.completionPrompt === 'string'
 +    ? options.completionPrompt
-+    : '&gt;';
++    : '&#x00BB;';
 +
 +  if (options.inputBackgroundElement) {
 +    this.backgroundElement = options.inputBackgroundElement;
@@ -4747,7 +6113,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    this.input.style.backgroundColor = 'transparent';
 +
 +    // Make room for the prompt
-+    this.input.style.paddingLeft = '17px';
++    this.input.style.paddingLeft = '20px';
 +
 +    var resizer = this.resizer.bind(this);
 +    event.addListener(this.doc.defaultView, 'resize', resizer);
@@ -4759,17 +6125,15 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Ensure that the completion element is the same size and the inputter element
 + */
 +Completer.prototype.resizer = function() {
-+  var rect = this.inputter.getDimensionRect();
-+  if (!rect) {
-+    console.log('Skipping resize, missing getClientRects');
-+    return;
-+  }
++  var rect = this.input.getBoundingClientRect();
++  // -4 to line up with 1px of padding and border, top and bottom
++  var height = rect.bottom - rect.top - 4;
 +
 +  this.element.style.top = rect.top + 'px';
-+  this.element.style.height = rect.height + 'px';
-+  this.element.style.lineHeight = rect.height + 'px';
++  this.element.style.height = height + 'px';
++  this.element.style.lineHeight = height + 'px';
 +  this.element.style.left = rect.left + 'px';
-+  this.element.style.width = rect.width + 'px';
++  this.element.style.width = (rect.right - rect.left) + 'px';
 +};
 +
 +/**
@@ -4790,28 +6154,25 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Bring the completion element up to date with what the requisition says
 + */
 +Completer.prototype.update = function() {
++  var typed = this.input.value;
 +  var start = dom.getSelectionStart(this.input);
 +  var current = this.requ.getAssignmentAt(start);
 +  var predictions = current.getPredictions();
 +
-+  // Update the completer element with prompt/error marker/TAB info
-+  dom.removeCssClass(this.backgroundElement, 'gcli' + Status.VALID.toString());
-+  dom.removeCssClass(this.backgroundElement, 'gcli' + Status.INCOMPLETE.toString());
-+  dom.removeCssClass(this.backgroundElement, 'gcli' + Status.ERROR.toString());
-+
 +  var completion = '<span class="gcliPrompt">' + this.completionPrompt + '</span> ';
-+  if (this.input.value.length > 0) {
++  if (typed.length > 0) {
 +    var scores = this.requ.getInputStatusMarkup();
 +    completion += this.markupStatusScore(scores);
 +  }
 +
-+  if (this.input.value.length > 0 && predictions.length > 0) {
++  if (typed.length > 0 && predictions.length > 0) {
 +    var tab = predictions[0].name;
-+    tab = tab.name ? tab.name : tab;
-+    if (isStrictCompletion(this.input.value, tab)) {
++    tab = (typeof tab === 'string') ? tab : tab.name;
++    var existing = current.getArg().text;
++    if (isStrictCompletion(existing, tab) && start === typed.length) {
 +      // Display the suffix of the prediction as the completion.
-+      var numLeadingSpaces = this.input.value.match(/^(\s*)/)[0].length;
-+      var suffix = tab.slice(this.input.value.length - numLeadingSpaces);
++      var numLeadingSpaces = existing.match(/^(\s*)/)[0].length;
++      var suffix = tab.slice(existing.length - numLeadingSpaces);
 +      completion += '<span class="gcliCompl">' + suffix + '</span>';
 +    } else {
 +      // Display the '-> prediction' at the end of the completer element
@@ -4819,6 +6180,14 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +          tab + '</span>';
 +    }
 +  }
++
++  var command = this.requ.commandAssignment.getValue();
++  if (command && command.name === 'eval') {
++    if (this.requ.getAssignment(0).getArg().suffix.indexOf('}') === -1) {
++      completion += '<span class="gcliCloseBrace">}</span>';
++    }
++  }
++
 +  dom.setInnerHtml(this.element, '<span>' + completion + '</span>');
 +};
 +
@@ -4917,10 +6286,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +exports.History = History;
 +
 +});define("text!gcli/ui/inputter.css", [], void 0);
- ///////////////////////////////////////////////////////////////////////////////
  
  /*
-@@ -562,6 +5322,12 @@ define('gcli/index', [ ], function(requi
+  * require GCLI so it can be exported as declared in EXPORTED_SYMBOLS
   * The dependencies specified here should be the same as in Makefile.dryice.js
   */
  var gcli = require("gcli/index");

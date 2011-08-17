@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent 85c4edd9ce1156da1249f53b422f6510c58e4634
+# Parent 9dd02b2262c320820d0c581c9f7bbabe7e7372c4
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webconsole/HUDService.jsm
@@ -16,7 +16,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
   *
   * Alternatively, the contents of this file may be used under the terms of
   * either the GNU General Public License Version 2 or later (the "GPL"), or
-@@ -2588,9 +2589,44 @@ HUD_SERVICE.prototype =
+@@ -2588,9 +2589,26 @@ HUD_SERVICE.prototype =
      // create Initial JS Workspace:
      var context = Cu.getWeakReference(aContext);
  
@@ -26,50 +26,63 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    }
 +    catch (ex) {}
 +
++console.log('initializeJSTerm - usegcli=' + usegcli);
++
      // Attach the UI into the target parent node using the mixin.
 -    var firefoxMixin = new JSTermFirefoxMixin(context, aParentNode);
 -    var jsTerm = new JSTerm(context, aParentNode, firefoxMixin, aConsole);
-+console.log('initializeJSTerm - usegcli=' + usegcli);
 +    if (!usegcli) {
 +      var firefoxMixin = new JSTermFirefoxMixin(context, aParentNode);
 +      var jsTerm = new JSTerm(context, aParentNode, firefoxMixin, aConsole);
 +    }
 +    else {
-+      // This is nasty code, but rather than re-architect I'm just going to
-+      // document what I think is going on here.
-+      // We want a reference to the main HUD so we can add output to it, and
-+      // rather than passing a reference to that console around, we look it
-+      // up via an id. However we don't have that either so we walk up the
-+      // tree to find the first thing that has an id, and make the assumption
-+      // that this is the correct one.
-+      // For reference, what we're looking for is vbox.hud-box.animated which
-+      // is created high up in makeHUDNodes(). I think.
-+      // See bug 592469 ?
-+      let node = aParentNode;
-+      while (!node.hasAttribute("id")) {
-+        node = node.parentNode;
-+      }
-+      let hudId = node.getAttribute("id");
-+
++      let hudId = getHudIdFromNode(aParentNode);
 +      let doc = aParentNode.ownerDocument;
-+      var tc = new TermContainer(aParentNode);
-+
-+      var firefoxMixin = new JSTermFirefoxMixin(context, tc.jstermParent);
-+      var jsTerm = new JSTerm(context, tc.jstermParent, firefoxMixin, aConsole);
 +
 +      var gcliterm = new GcliTerm(context, hudId, doc, aConsole);
-+      tc.deck.appendChild(gcliterm.element);
++      aParentNode.appendChild(gcliterm.element);
 +    }
  
      // TODO: injection of additional functionality needs re-thinking/api
      // see bug 559748
-@@ -3050,7 +3086,13 @@ function HeadsUpDisplay(aConfig)
+@@ -2944,6 +2962,30 @@ HUD_SERVICE.prototype =
+   }
+ };
+ 
++/**
++ * Get the HudId from an element contained inside the HUD.
++ * This is nasty nasty code, but rather than re-architect I'm just going to
++ * document what I think is going on here. The refactoring should be done in a
++ * separate bug.
++ * We want a reference to the main HUD so we can add output to it, and rather
++ * than passing a reference to that console around, we look it up via an id.
++ * However we don't have that either so we walk up the tree to find the first
++ * thing that has an id, and make the assumption that this is the correct one.
++ * For reference, what we're looking for is vbox.hud-box.animated which is
++ * created high up in makeHUDNodes(). I think.
++ * @see JSTerm constructor where this code comes from
++ * @see Bug 592469
++ * @param nsIDOMNode aNode The node to search from
++ * @return string The HUD ID
++ */
++function getHudIdFromNode(aNode) {
++  let node = aNode;
++  while (!node.hasAttribute("id")) {
++    node = node.parentNode;
++  }
++  return node.getAttribute("id");
++}
++
+ //////////////////////////////////////////////////////////////////////////
+ // HeadsUpDisplay
+ //////////////////////////////////////////////////////////////////////////
+@@ -3050,7 +3092,13 @@ function HeadsUpDisplay(aConfig)
    // create the JSTerm input element
    try {
      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
 -    this.jsterm.inputNode.focus();
-+console.log('new HeadsUpDisplay() usegcli=' + this.usegcli + ', tc.current=' + (this.tc ? this.tc.current : "-"));
-+    if (!this.usegcli || this.tc.current == "js") {
++console.log('new HeadsUpDisplay() usegcli=' + this.usegcli);
++    if (!this.usegcli) {
 +      this.jsterm.inputNode.focus();
 +    }
 +    else {
@@ -78,13 +91,13 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    }
    catch (ex) {
      Cu.reportError(ex);
-@@ -3163,9 +3205,13 @@ HeadsUpDisplay.prototype = {
+@@ -3163,9 +3211,13 @@ HeadsUpDisplay.prototype = {
          this.outputNode.ensureIndexIsVisible(lastIndex);
        }
  
 -      if (this.jsterm) {
-+console.log('createOwnWindowPanel/onPopupShown() usegcli=' + this.usegcli + ', tc.current=' + this.tc.current);
-+      if (!this.usegcli || this.tc.current == "js") {
++console.log('createOwnWindowPanel/onPopupShown() usegcli=' + this.usegcli);
++      if (!this.usegcli) {
          this.jsterm.inputNode.focus();
        }
 +      else {
@@ -93,24 +106,26 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }).bind(this);
  
      panel.addEventListener("popupshown", onPopupShown,false);
-@@ -3354,8 +3400,14 @@ HeadsUpDisplay.prototype = {
+@@ -3354,8 +3406,16 @@ HeadsUpDisplay.prototype = {
        this.consolePanel.hidePopup();
      }
  
 -    if (this.jsterm) {
 -      this.jsterm.inputNode.focus();
-+console.log('positionConsole() this.tc=', this.tc, 'tc.current' + (this.tc ? this.tc.current : "-"));
-+    if (this.tc) {
-+      if (this.tc.current == "js") {
++console.log('positionConsole() usegcli=' + this.usegcli);
++    if (!this.usegcli) {
++      if (this.jsterm) {
 +        this.jsterm.inputNode.focus();
 +      }
-+      else {
++    }
++    else {
++      if (this.gcliterm) {
 +        this.gcliterm.inputNode.focus();
 +      }
      }
    },
  
-@@ -3389,6 +3441,12 @@ HeadsUpDisplay.prototype = {
+@@ -3389,6 +3449,12 @@ HeadsUpDisplay.prototype = {
    jsterm: null,
  
    /**
@@ -123,7 +138,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
     * creates and attaches the console input node
     *
     * @param nsIDOMWindow aWindow
-@@ -3399,10 +3457,47 @@ HeadsUpDisplay.prototype = {
+@@ -3399,10 +3465,28 @@ HeadsUpDisplay.prototype = {
    {
      var context = Cu.getWeakReference(aWindow);
  
@@ -133,48 +148,29 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    }
 +    catch (ex) {}
 +
++console.log('createConsoleInput() usegcli=', this.usegcli);
++
      if (appName() == "FIREFOX") {
 -      let mixin = new JSTermFirefoxMixin(context, aParentNode,
 -                                         aExistingConsole);
 -      this.jsterm = new JSTerm(context, aParentNode, mixin, this.console);
-+console.log('createConsoleInput() usegcli=', this.usegcli);
 +      if (!this.usegcli) {
 +        let mixin = new JSTermFirefoxMixin(context, aParentNode,
 +                                           aExistingConsole);
 +        this.jsterm = new JSTerm(context, aParentNode, mixin, this.console);
 +      }
 +      else {
-+        // This is nasty code, but rather than re-architect I'm just going to
-+        // document what I think is going on here.
-+        // We want a reference to the main HUD so we can add output to it, and
-+        // rather than passing a reference to that console around, we look it
-+        // up via an id. However we don't have that either so we walk up the
-+        // tree to find the first thing that has an id, and make the assumption
-+        // that this is the correct one.
-+        // For reference, what we're looking for is vbox.hud-box.animated which
-+        // is created high up in makeHUDNodes(). I think.
-+        // See bug 592469 ?
-+        let node = aParentNode;
-+        while (!node.hasAttribute("id")) {
-+          node = node.parentNode;
-+        }
-+        let hudId = node.getAttribute("id");
-+
++        let hudId = getHudIdFromNode(aParentNode);
 +        let doc = aParentNode.ownerDocument;
-+        this.tc = new TermContainer(aParentNode);
-+
-+        let mixin = new JSTermFirefoxMixin(context, this.tc.jstermParent,
-+                                           aExistingConsole);
-+        this.jsterm = new JSTerm(context, this.tc.jstermParent,
-+                                 mixin, this.console);
 +
 +        this.gcliterm = new GcliTerm(context, hudId, doc, this.console);
-+        this.tc.deck.appendChild(this.gcliterm.element);
++        aParentNode.appendChild(this.gcliterm.element);
++console.log('createConsoleInput:appendChild', aParentNode, this.gcliterm.element);
 +      }
      }
      else {
        throw new Error("Unsupported Gecko Application");
-@@ -3432,6 +3527,8 @@ HeadsUpDisplay.prototype = {
+@@ -3432,6 +3516,8 @@ HeadsUpDisplay.prototype = {
        this.jsterm.context = Cu.getWeakReference(this.contentWindow);
        this.jsterm.console = this.console;
        this.jsterm.createSandbox();
@@ -183,7 +179,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -5343,10 +5440,12 @@ JSTermFirefoxMixin.prototype = {
+@@ -5343,10 +5429,12 @@ JSTermFirefoxMixin.prototype = {
     */
    generateUI: function JSTF_generateUI()
    {
@@ -196,7 +192,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5360,22 +5459,16 @@ JSTermFirefoxMixin.prototype = {
+@@ -5360,22 +5448,16 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -229,7 +225,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    get inputValue()
-@@ -5505,9 +5598,9 @@ ConsoleUtils = {
+@@ -5505,9 +5587,9 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
                                            aBody, aSourceURL, aSourceLine,
                                            aClipboardText, aLevel) {
@@ -242,7 +238,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5543,6 +5636,13 @@ ConsoleUtils = {
+@@ -5543,6 +5625,13 @@ ConsoleUtils = {
      aBody = aBody instanceof Ci.nsIDOMNode && !(aLevel == "dir") ?
              aBody : aDocument.createTextNode(aBody);
  
@@ -256,97 +252,10 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6671,3 +6771,381 @@ catch (ex) {
+@@ -6671,3 +6760,288 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
-+
-+///////////////////////////////////////////////////////////////////////////
-+// TermContainer
-+///////////////////////////////////////////////////////////////////////////
-+
-+/**
-+ * TermContainer is a way to switch between the 2 input methods for the
-+ * terminal. You can select either JS mode or GCLI mode.
-+ *
-+ * This is the equivalent of:
-+ * <hbox class="usegcli">
-+ *   <deck flex="1">
-+ *     <hbox flex="1" class="term-parent-node"><jsterm/></hbox>
-+ *     <gcli/>
-+ *   </deck>
-+ *   <radiogroup orient="horizontal">
-+ *     <radio label="JavaScript" value="js" selected="true" onchange="..."/>
-+ *     <radio label="Command" value="gcli" onchange="..."/>
-+ *   </radiogroup>
-+ * </hbox>
-+ *
-+ * @param {nsIDOMNode} aParentNode
-+ *        The parent node to which we should attach our tab container
-+ */
-+function TermContainer(aParentNode) {
-+  this.parentNode = aParentNode;
-+  this.document = this.parentNode.ownerDocument;
-+
-+  this.hbox = this.document.createElement("div");
-+  this.hbox.setAttribute("class", "usegcli");
-+  this.parentNode.appendChild(this.hbox);
-+
-+  this.deck = this.document.createElement("deck");
-+  this.deck.setAttribute("flex", "1");
-+  this.deck.setAttribute("class", "term-parent-node");
-+  this.hbox.appendChild(this.deck);
-+
-+  this.jstermParent = this.document.createElement("hbox");
-+  this.jstermParent.setAttribute("flex", "1");
-+  this.deck.appendChild(this.jstermParent);
-+
-+  this.radiogroup = this.document.createElement("radiogroup");
-+  this.radiogroup.setAttribute("orient", "horizontal");
-+  this.hbox.appendChild(this.radiogroup);
-+
-+  this.onChange = this.onChange.bind(this);
-+
-+  let jsName = stringBundle.GetStringFromName("termTypeJavascript");
-+  this.jsRadio = this.document.createElement("radio");
-+  this.jsRadio.setAttribute("label", jsName);
-+  this.jsRadio.setAttribute("value", "js");
-+  this.jsRadio.setAttribute("selected", "true");
-+  this.jsRadio.addEventListener("command", this.onChange);
-+  this.radiogroup.appendChild(this.jsRadio);
-+
-+  let commandName = stringBundle.GetStringFromName("termTypeCommand");
-+  this.gcliRadio = this.document.createElement("radio");
-+  this.gcliRadio.setAttribute("label", commandName);
-+  this.gcliRadio.setAttribute("value", "gcli");
-+  this.gcliRadio.addEventListener("command", this.onChange);
-+  this.radiogroup.appendChild(this.gcliRadio);
-+
-+  this._current = "gcli";
-+}
-+
-+TermContainer.prototype = {
-+  /**
-+   * Event handler registered to both radio buttons.
-+   */
-+  onChange: function() {
-+    if (this.gcliRadio.selected) {
-+      this._current = "gcli";
-+      this.deck.selectedIndex = 1;
-+    }
-+    else {
-+      this._current = "js";
-+      this.deck.selectedIndex = 0;
-+    }
-+  },
-+
-+  /**
-+   * Property getter for the current mode
-+   */
-+  get current() {
-+    return this._current;
-+  },
-+};
 +
 +///////////////////////////////////////////////////////////////////////////
 +// GcliTerm
@@ -440,10 +349,6 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +      throw new Error("this.console == undefined: can't happen");
 +    }
 +
-+    this.element = this.document.createElement("hbox");
-+    this.element.setAttribute("class", "gcliterm-parent-node");
-+    this.element.setAttribute("flex", "1");
-+
 +    // Generate and attach the UI for an entire JS Workspace or
 +    // just the input node used under the console output
 +    this.completeNode = this.document.createElement("div");
@@ -452,22 +357,22 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +
 +    this.inputNode = this.document.createElement("textbox");
 +    this.inputNode.setAttribute("class", "gcliterm-input-node");
-+    this.inputNode.setAttribute("multiline", "true");
++    // this.inputNode.setAttribute("multiline", "true");
 +    this.inputNode.setAttribute("rows", "1");
 +
 +    this.inputStack = this.document.createElement("stack");
 +    this.inputStack.setAttribute("class", "gcliterm-stack-node");
-+    this.inputStack.setAttribute("flex", "1");
++    // this.inputStack.setAttribute("flex", "1");
 +    this.inputStack.appendChild(this.completeNode);
 +    this.inputStack.appendChild(this.inputNode);
 +
 +    this.outputNode = this.console;
 +
-+    this.term = this.document.createElement("hbox");
-+    this.term.setAttribute("class", "gcliterm-input-container");
-+    this.term.setAttribute("style", "direction: ltr;");
-+    this.term.setAttribute("flex", "1");
-+    this.term.appendChild(this.inputStack);
++    this.element = this.document.createElement("hbox");
++    this.element.setAttribute("class", "gcliterm-input-container");
++    this.element.setAttribute("style", "direction: ltr;");
++    // this.element.setAttribute("flex", "1");
++    this.element.appendChild(this.inputStack);
 +
 +    if (this.showhints) {
 +      this.hintNode = this.document.createElement("div");
@@ -476,8 +381,6 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +
 +      this.element.appendChild(this.hintNode);
 +    }
-+
-+    this.element.appendChild(this.term);
 +  },
 +
 +  /**
@@ -510,7 +413,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +   */
 +  createSandbox: function Gcli_setupSandbox()
 +  {
-+    var win = this.context.get().QueryInterface(Ci.nsIDOMWindowInternal);
++    var win = this.context.get().QueryInterface(Ci.nsIDOMWindow);
 +
 +    // create a JS Sandbox out of this.context
 +    this.sandbox = new Cu.Sandbox(win, {
@@ -938,17 +841,8 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
 diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/winstripe/global/webConsole.css
 --- a/toolkit/themes/winstripe/global/webConsole.css
 +++ b/toolkit/themes/winstripe/global/webConsole.css
-@@ -132,12 +132,55 @@
-   color: inherit;
- }
+@@ -134,10 +134,46 @@
  
-+/*
-+.term-parent-node {
-+  height: 26px;
-+  background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
-+}
-+*/
-+
  .hud-output-node,
  .jsterm-input-node,
 -.jsterm-complete-node {
@@ -995,11 +889,21 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
  .hud-output-node {
    -moz-appearance: none;
    border-bottom: 1px solid ThreeDShadow;
-@@ -296,7 +339,8 @@
+@@ -296,7 +332,18 @@
    -moz-appearance: none;
  }
  
 -.jsterm-input-node {
++.gcliterm-stack-node {
++  background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
++  width: 100%;
++}
++
++.gcliterm-input-node,
++.gcliterm-complete-node {
++  background: transparent;
++}
++
 +.jsterm-input-node,
 +.jsterm-complete-node {
    background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
