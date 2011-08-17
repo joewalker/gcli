@@ -33,6 +33,15 @@
   <script type="text/javascript" src="../scripts/es5-shim.js"></script>
   <script type="text/javascript" src="gcli-uncompressed.js"></script>
   <script type="text/javascript">
+    // This is just some debug to help people who try to run from the build dir
+    if (!('require' in this)) {
+      console.error('Running from \'build\' directory is not supported. ' +
+              'Please use either index.html in the GCLI root (for devt), ' +
+              'or the \'built\' directory (with \'node Makefile.dryice.js\')');
+      alert('Missing gcli script file. See console for possible reasons.');
+      throw new Error('Can\'t start without require');
+    }
+
     // This list should be the same as the browser part of Makefile.dryice.js
     var deps = [ 'gcli/index', 'gcli/ui/start/browser', 'demo/index' ];
     require(deps, function(gcli, browser, demo) {
