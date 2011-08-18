@@ -65,7 +65,6 @@ function buildStandard() {
 
   // Create the output scripts, compressed and uncompressed
   copy({ source: 'build/index.html', dest: 'built/index.html' });
-  copy({ source: 'build/nohelp.html', dest: 'built/nohelp.html' });
   copy({ source: 'scripts/es5-shim.js', dest: 'built/es5-shim.js' });
   copy({
     source: [ 'build/mini_require.js', sources ],
