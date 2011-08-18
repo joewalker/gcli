@@ -36,7 +36,7 @@ function buildStandard() {
     source: copy.source.commonjs({
       project: project,
       // This list of dependencies should be the same as in build/*.html
-      require: [ 'gcli/index', 'gcli/ui/start/browser', 'demo/index' ]
+      require: [ 'gcli/index', 'demo/index' ]
     }),
     filter: copy.filter.moduleDefines,
     dest: sources
@@ -49,6 +49,7 @@ function buildStandard() {
   // - Load gcli/built/gcli.graphml
   // - Resize the nodes (Tools->Fit Node to Label)
   // - Apply a layout (Layout->Hierarchical)
+  console.log('Outputting dependency graph to built/gcli.graphml\n');
   if (project.getDependencyGraphML) {
     copy({
       source: { value:project.getDependencyGraphML() },
@@ -107,7 +108,7 @@ function buildFirefox() {
       copy.source.commonjs({
         project: project,
         // This list of dependencies should be the same as in suffix-gcli.jsm
-        require: [ 'gcli/index', 'gcli/ui/start/firefox' ]
+        require: [ 'gcli/firefox/index' ]
       }),
       'build/suffix-gcli.jsm'
     ],

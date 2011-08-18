@@ -43,9 +43,8 @@
     }
 
     // This list should be the same as the browser part of Makefile.dryice.js
-    var deps = [ 'gcli/index', 'gcli/ui/start/browser', 'demo/index' ];
-    require(deps, function(gcli, browser, demo) {
-      browser.createView();
+    require([ 'gcli/index', 'demo/index' ], function(gcli, demo) {
+      gcli.createView();
     });
   </script>
 
