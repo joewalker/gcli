@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent 9dd02b2262c320820d0c581c9f7bbabe7e7372c4
+# Parent d24db9ac0f5d2fb6a583d5fcd773bc9e32fdbcf0
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/devtools/webconsole/Commands.jsm b/browser/devtools/webconsole/Commands.jsm
@@ -286,7 +286,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +        let hudId = getHudIdFromNode(aParentNode);
 +        let doc = aParentNode.ownerDocument;
 +
-+        this.gcliterm = new GcliTerm(context, hudId, doc, this.console);
++        this.gcliterm = new GcliTerm(context, hudId, doc, this.console, this.hintNode);
 +        aParentNode.appendChild(this.gcliterm.element);
 +      }
      }
@@ -301,7 +301,47 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -3884,7 +3966,9 @@ HeadsUpDisplay.prototype = {
+@@ -3476,6 +3558,24 @@ HeadsUpDisplay.prototype = {
+     consoleWrap.setAttribute("class", "hud-console-wrapper");
+     consoleWrap.setAttribute("flex", "1");
+ 
++    let hbox = this.makeXULNode("hbox");
++    hbox.setAttribute("class", "hud-output-node");
++
++    let hintParentNode = this.makeXULNode("vbox");
++    let hintSpacerNode = this.makeXULNode("box");
++    hintSpacerNode.setAttribute("flex", 1);
++    hintParentNode.appendChild(hintSpacerNode);
++
++    // Next steps:
++    // The height of the hbox that contains the hintParentNode and the
++    // hud-output-node is governed by the height of the tallest child rather
++    // than by the avaiable space. Next steps, dig into the css and work out
++    // what we should be doing to make it size properly
++
++    this.hintNode = this.makeXULNode("div");
++    this.hintNode.setAttribute("class", "gcliterm-hint-node");
++    hintParentNode.appendChild(this.hintNode);
++
+     this.outputNode = this.makeXULNode("richlistbox");
+     this.outputNode.setAttribute("class", "hud-output-node");
+     this.outputNode.setAttribute("flex", "1");
+@@ -3502,9 +3602,12 @@ HeadsUpDisplay.prototype = {
+     let consoleFilterToolbar = this.makeFilterToolbar();
+     consoleFilterToolbar.setAttribute("id", "viewGroup");
+     this.consoleFilterToolbar = consoleFilterToolbar;
++
++    hbox.appendChild(hintParentNode);
++    hbox.appendChild(this.outputNode);
++
+     consoleWrap.appendChild(consoleFilterToolbar);
+-
+-    consoleWrap.appendChild(this.outputNode);
++    consoleWrap.appendChild(hbox);
+ 
+     outerWrap.appendChild(consoleWrap);
+ 
+@@ -3884,7 +3987,9 @@ HeadsUpDisplay.prototype = {
     */
    destroy: function HUD_destroy()
    {
@@ -312,7 +352,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.positionMenuitems.above.removeEventListener("command",
        this._positionConsoleAbove, false);
-@@ -5347,6 +5431,7 @@ JSTermFirefoxMixin.prototype = {
+@@ -5347,6 +5452,7 @@ JSTermFirefoxMixin.prototype = {
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -320,7 +360,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5360,22 +5445,16 @@ JSTermFirefoxMixin.prototype = {
+@@ -5360,22 +5466,16 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -353,7 +393,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    get inputValue()
-@@ -5505,9 +5584,8 @@ ConsoleUtils = {
+@@ -5505,9 +5605,8 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
                                            aBody, aSourceURL, aSourceLine,
                                            aClipboardText, aLevel) {
@@ -365,7 +405,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5543,6 +5621,13 @@ ConsoleUtils = {
+@@ -5543,6 +5642,13 @@ ConsoleUtils = {
      aBody = aBody instanceof Ci.nsIDOMNode && !(aLevel == "dir") ?
              aBody : aDocument.createTextNode(aBody);
  
@@ -379,7 +419,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6671,3 +6756,258 @@ catch (ex) {
+@@ -6671,3 +6777,263 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -409,9 +449,12 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 + *        The DOM document from which to create nodes
 + * @param {object} aConsole
 + *        Console object to use within the GcliTerm
++ * @param {nsIDOMElement} aHintNode
++ *        The node to which we add GCLI's hints
 + */
-+function GcliTerm(aContext, aHudId, aDocument, aConsole)
++function GcliTerm(aContext, aHudId, aDocument, aConsole, aHintNode)
 +{
++  this.hintNode = aHintNode;
 +  this.context = aContext;
 +  this.hudId = aHudId;
 +  this.document = aDocument;
@@ -462,10 +505,12 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    this.element = this.document.createElement("vbox");
 +    this.element.setAttribute("class", "gcliterm-input-container");
 +
++    /*
 +    this.hintNode = this.document.createElement("div");
 +    this.hintNode.setAttribute("class", "gcliterm-hint-node");
 +    this.hintNode.setAttribute("aria-live", "polite");
 +    this.element.appendChild(this.hintNode);
++    */
 +
 +    this.inputStack = this.document.createElement("stack");
 +    this.inputStack.setAttribute("class", "gcliterm-stack-node");
