@@ -5,6 +5,114 @@
 # Parent 9dd02b2262c320820d0c581c9f7bbabe7e7372c4
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
+diff --git a/browser/devtools/webconsole/Commands.jsm b/browser/devtools/webconsole/Commands.jsm
+new file mode 100644
+--- /dev/null
++++ b/browser/devtools/webconsole/Commands.jsm
+@@ -0,0 +1,103 @@
++/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is GCLI Commands.
++ *
++ * The Initial Developer of the Original Code is
++ * The Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2011
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Joe Walker <jwalker@mozilla.com> (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++
++let EXPORTED_SYMBOLS = [];
++
++Components.utils.import("resource:///modules/gcli.jsm");
++
++/**
++ * 'echo' command.
++ */
++gcli.addCommand({
++  name: 'echo',
++  description: 'Show a message',
++  params: [
++    { name: 'message', type: 'string', description: 'Message to output' }
++  ],
++  returnType: 'string',
++  exec: function(args, env) {
++    return args.message;
++  }
++});
++
++
++/**
++ * 'help' command
++ */
++let canon = gcli._internal.require('gcli/canon');
++gcli.addCommand({
++  name: 'help',
++  returnType: 'html',
++  description: 'Get help on the available commands',
++  exec: function(args, context) {
++    let output = [];
++
++    output.push('<strong>Available Commands:</strong><br/>');
++
++    let commandNames = canon.getCommandNames();
++    commandNames.sort();
++
++    output.push('<table>');
++    for (let i = 0; i < commandNames.length; i++) {
++      let command = canon.getCommand(commandNames[i]);
++      if (!command.hidden && command.description) {
++        output.push('<tr>');
++        output.push('<th class="gcliCmdHelpRight">' + command.name + '</th>');
++        output.push('<td>&#x2192; ' + command.description + '</td>');
++        output.push('</tr>');
++      }
++    }
++    output.push('</table>');
++
++    return output.join('');
++  }
++});
++
++
++/**
++ * 'version' command.
++ */
++gcli.addCommand({
++  name: 'version',
++  description: 'Show current FF version number',
++  returnType: 'string',
++  exec: function(args, env) {
++    return 'You are running Firefox version 9.0a1 (2011-08-18)';
++  }
++});
 diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webconsole/HUDService.jsm
 --- a/browser/devtools/webconsole/HUDService.jsm
 +++ b/browser/devtools/webconsole/HUDService.jsm
@@ -16,7 +124,29 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
   *
   * Alternatively, the contents of this file may be used under the terms of
   * either the GNU General Public License Version 2 or later (the "GPL"), or
-@@ -2588,9 +2589,26 @@ HUD_SERVICE.prototype =
+@@ -1737,7 +1738,9 @@ HUD_SERVICE.prototype =
+     // Remove children from the output. If the output is not cleared, there can
+     // be leaks as some nodes has node.onclick = function; set and GC can't
+     // remove the nodes then.
+-    hud.jsterm.clearOutput();
++    if (hud.jsterm) {
++      hud.jsterm.clearOutput();
++    }
+ 
+     hud.destroy();
+ 
+@@ -1756,7 +1759,9 @@ HUD_SERVICE.prototype =
+       hud.splitter.parentNode.removeChild(hud.splitter);
+     }
+ 
+-    hud.jsterm.autocompletePopup.destroy();
++    if (hud.jsterm) {
++      hud.jsterm.autocompletePopup.destroy();
++    }
+ 
+     delete this.hudReferences[aHUDId];
+ 
+@@ -2588,9 +2593,24 @@ HUD_SERVICE.prototype =
      // create Initial JS Workspace:
      var context = Cu.getWeakReference(aContext);
  
@@ -25,8 +155,6 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +      usegcli = Services.prefs.getBoolPref("devtools.gcli.enable");
 +    }
 +    catch (ex) {}
-+
-+console.log('initializeJSTerm - usegcli=' + usegcli);
 +
      // Attach the UI into the target parent node using the mixin.
 -    var firefoxMixin = new JSTermFirefoxMixin(context, aParentNode);
@@ -45,7 +173,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      // TODO: injection of additional functionality needs re-thinking/api
      // see bug 559748
-@@ -2944,6 +2962,30 @@ HUD_SERVICE.prototype =
+@@ -2944,6 +2964,30 @@ HUD_SERVICE.prototype =
    }
  };
  
@@ -76,12 +204,11 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  //////////////////////////////////////////////////////////////////////////
  // HeadsUpDisplay
  //////////////////////////////////////////////////////////////////////////
-@@ -3050,7 +3092,13 @@ function HeadsUpDisplay(aConfig)
+@@ -3050,7 +3094,12 @@ function HeadsUpDisplay(aConfig)
    // create the JSTerm input element
    try {
      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
 -    this.jsterm.inputNode.focus();
-+console.log('new HeadsUpDisplay() usegcli=' + this.usegcli);
 +    if (!this.usegcli) {
 +      this.jsterm.inputNode.focus();
 +    }
@@ -91,12 +218,11 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    }
    catch (ex) {
      Cu.reportError(ex);
-@@ -3163,9 +3211,13 @@ HeadsUpDisplay.prototype = {
+@@ -3163,9 +3212,12 @@ HeadsUpDisplay.prototype = {
          this.outputNode.ensureIndexIsVisible(lastIndex);
        }
  
 -      if (this.jsterm) {
-+console.log('createOwnWindowPanel/onPopupShown() usegcli=' + this.usegcli);
 +      if (!this.usegcli) {
          this.jsterm.inputNode.focus();
        }
@@ -106,13 +232,12 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }).bind(this);
  
      panel.addEventListener("popupshown", onPopupShown,false);
-@@ -3354,8 +3406,16 @@ HeadsUpDisplay.prototype = {
+@@ -3354,8 +3406,15 @@ HeadsUpDisplay.prototype = {
        this.consolePanel.hidePopup();
      }
  
 -    if (this.jsterm) {
 -      this.jsterm.inputNode.focus();
-+console.log('positionConsole() usegcli=' + this.usegcli);
 +    if (!this.usegcli) {
 +      if (this.jsterm) {
 +        this.jsterm.inputNode.focus();
@@ -125,7 +250,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -3389,6 +3449,12 @@ HeadsUpDisplay.prototype = {
+@@ -3389,6 +3448,12 @@ HeadsUpDisplay.prototype = {
    jsterm: null,
  
    /**
@@ -138,7 +263,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
     * creates and attaches the console input node
     *
     * @param nsIDOMWindow aWindow
-@@ -3399,10 +3465,28 @@ HeadsUpDisplay.prototype = {
+@@ -3399,10 +3464,25 @@ HeadsUpDisplay.prototype = {
    {
      var context = Cu.getWeakReference(aWindow);
  
@@ -147,8 +272,6 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +      this.usegcli = Services.prefs.getBoolPref("devtools.gcli.enable");
 +    }
 +    catch (ex) {}
-+
-+console.log('createConsoleInput() usegcli=', this.usegcli);
 +
      if (appName() == "FIREFOX") {
 -      let mixin = new JSTermFirefoxMixin(context, aParentNode,
@@ -165,12 +288,11 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +
 +        this.gcliterm = new GcliTerm(context, hudId, doc, this.console);
 +        aParentNode.appendChild(this.gcliterm.element);
-+console.log('createConsoleInput:appendChild', aParentNode, this.gcliterm.element);
 +      }
      }
      else {
        throw new Error("Unsupported Gecko Application");
-@@ -3432,6 +3516,8 @@ HeadsUpDisplay.prototype = {
+@@ -3432,6 +3512,8 @@ HeadsUpDisplay.prototype = {
        this.jsterm.context = Cu.getWeakReference(this.contentWindow);
        this.jsterm.console = this.console;
        this.jsterm.createSandbox();
@@ -179,12 +301,18 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -5343,10 +5429,12 @@ JSTermFirefoxMixin.prototype = {
+@@ -3884,7 +3966,9 @@ HeadsUpDisplay.prototype = {
     */
-   generateUI: function JSTF_generateUI()
+   destroy: function HUD_destroy()
    {
-+console.log('JSTermFirefoxMixin.generateUI()');
-     this.completeNode = this.xulElementFactory("textbox");
+-    this.jsterm.destroy();
++    if (this.jsterm) {
++      this.jsterm.destroy();
++    }
+ 
+     this.positionMenuitems.above.removeEventListener("command",
+       this._positionConsoleAbove, false);
+@@ -5347,6 +5431,7 @@ JSTermFirefoxMixin.prototype = {
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -192,7 +320,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5360,22 +5448,16 @@ JSTermFirefoxMixin.prototype = {
+@@ -5360,22 +5445,16 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -225,20 +353,19 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    get inputValue()
-@@ -5505,9 +5587,9 @@ ConsoleUtils = {
+@@ -5505,9 +5584,8 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
                                            aBody, aSourceURL, aSourceLine,
                                            aClipboardText, aLevel) {
 -    if (aBody instanceof Ci.nsIDOMNode && aClipboardText == null) {
 -      throw new Error("HUDService.createMessageNode(): DOM node supplied " +
 -                      "without any clipboard text");
-+console.log('createMessageNode');
 +    if (typeof aBody != "string" && aClipboardText == null) {
 +      aClipboardText = aBody.innerText;
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5543,6 +5625,13 @@ ConsoleUtils = {
+@@ -5543,6 +5621,13 @@ ConsoleUtils = {
      aBody = aBody instanceof Ci.nsIDOMNode && !(aLevel == "dir") ?
              aBody : aDocument.createTextNode(aBody);
  
@@ -252,7 +379,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6671,3 +6760,288 @@ catch (ex) {
+@@ -6671,3 +6756,258 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -263,6 +390,8 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +
 +Cu.import("resource:///modules/gcli.jsm");
 +let console = gcli._internal.console;
++
++Cu.import("resource:///modules/Commands.jsm");
 +
 +/**
 + * GcliTerm
@@ -291,29 +420,14 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  this.createUI();
 +  this.createSandbox();
 +
-+  this.showhints = false;
-+  try {
-+    this.showhints = Services.prefs.getBoolPref("devtools.gcli.showhints");
-+  }
-+  catch (ex) {}
-+
 +  gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
 +  gcli._internal.createView({
 +    document: this.document,
 +    inputElement: this.inputNode,
 +    completeElement: this.completeNode,
 +    inputBackgroundElement: this.inputStack,
++    hintElement: this.hintNode,
 +    completionPrompt: ''
-+  });
-+
-+  gcli.addCommand({
-+    name: 'echo',
-+    description: 'Show a message',
-+    params: [ { name: 'message', type: 'string', description: 'Message to output' } ],
-+    returnType: 'string',
-+    exec: function(args, env) {
-+      return args.message;
-+    }
 +  });
 +}
 +
@@ -341,46 +455,31 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +   */
 +  createUI: function Gcli_createUI()
 +  {
-+    // aExisting Console is the existing outputNode to use in favor of
-+    // creating a new outputNode - this is so we can just attach the inputNode
-+    // to a normal HeadsUpDisplay console output, and re-use code.
-+
 +    if (this.console == undefined) {
 +      throw new Error("this.console == undefined: can't happen");
 +    }
 +
-+    // Generate and attach the UI for an entire JS Workspace or
-+    // just the input node used under the console output
-+    this.completeNode = this.document.createElement("div");
-+    this.completeNode.setAttribute("class", "gcliterm-complete-node");
-+    this.completeNode.setAttribute("aria-live", "polite");
++    this.element = this.document.createElement("vbox");
++    this.element.setAttribute("class", "gcliterm-input-container");
 +
-+    this.inputNode = this.document.createElement("textbox");
-+    this.inputNode.setAttribute("class", "gcliterm-input-node");
-+    // this.inputNode.setAttribute("multiline", "true");
-+    this.inputNode.setAttribute("rows", "1");
++    this.hintNode = this.document.createElement("div");
++    this.hintNode.setAttribute("class", "gcliterm-hint-node");
++    this.hintNode.setAttribute("aria-live", "polite");
++    this.element.appendChild(this.hintNode);
 +
 +    this.inputStack = this.document.createElement("stack");
 +    this.inputStack.setAttribute("class", "gcliterm-stack-node");
-+    // this.inputStack.setAttribute("flex", "1");
-+    this.inputStack.appendChild(this.completeNode);
-+    this.inputStack.appendChild(this.inputNode);
-+
-+    this.outputNode = this.console;
-+
-+    this.element = this.document.createElement("hbox");
-+    this.element.setAttribute("class", "gcliterm-input-container");
-+    this.element.setAttribute("style", "direction: ltr;");
-+    // this.element.setAttribute("flex", "1");
 +    this.element.appendChild(this.inputStack);
 +
-+    if (this.showhints) {
-+      this.hintNode = this.document.createElement("div");
-+      this.hintNode.setAttribute("class", "gcliterm-hint-node");
-+      this.hintNode.setAttribute("flex", "0");
++    this.completeNode = this.document.createElement("div");
++    this.completeNode.setAttribute("class", "gcliterm-complete-node");
++    this.completeNode.setAttribute("aria-live", "polite");
++    this.inputStack.appendChild(this.completeNode);
 +
-+      this.element.appendChild(this.hintNode);
-+    }
++    this.inputNode = this.document.createElement("textbox");
++    this.inputNode.setAttribute("class", "gcliterm-input-node");
++    this.inputNode.setAttribute("rows", "1");
++    this.inputStack.appendChild(this.inputNode);
 +  },
 +
 +  /**
@@ -389,14 +488,14 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  onCommandOutput: function Gcli_onCommandOutput(ev) {
 +    // When we can update the history of the console, then we should stop
 +    // filtering incomplete reports.
-+    if (!ev.outputData.completed) {
++    if (!ev.output.completed) {
 +      return;
 +    }
 +
-+    this.writeOutput(ev.outputData.typed, { category: CATEGORY_INPUT });
++    this.writeOutput(ev.output.typed, { category: CATEGORY_INPUT });
 +
-+    let output = ev.outputData.output;
-+    if (ev.outputData.command.returnType == "html" && typeof output == "string") {
++    let output = ev.output.output;
++    if (ev.output.command.returnType == "html" && typeof output == "string") {
 +      let frag = this.document.createRange().createContextualFragment(
 +          '<div xmlns="http://www.w3.org/1999/xhtml"' +
 +          ' xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">' +
@@ -505,18 +604,16 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +   */
 +  clearOutput: function Gcli_clearOutput()
 +  {
-+    let outputNode = this.outputNode;
-+    let hudRef = HUDService.getHudReferenceForOutputNode(outputNode);
-+
++    let hudRef = HUDService.getHudReferenceForOutputNode(this.console);
 +    if (hudRef) {
 +      hudRef.cssNodes = {};
 +    }
 +
-+    while (outputNode.firstChild) {
-+      outputNode.removeChild(outputNode.firstChild);
++    while (this.console.firstChild) {
++      this.console.removeChild(this.console.firstChild);
 +    }
 +
-+    let hudBox = outputNode;
++    let hudBox = this.console;
 +    while (!hudBox.classList.contains("hud-box")) {
 +      hudBox = hudBox.parentNode;
 +    }
@@ -541,6 +638,17 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    this.completeNode.value = "";
 +  },
 +};
+diff --git a/browser/devtools/webconsole/Makefile.in b/browser/devtools/webconsole/Makefile.in
+--- a/browser/devtools/webconsole/Makefile.in
++++ b/browser/devtools/webconsole/Makefile.in
+@@ -50,6 +50,7 @@ EXTRA_JS_MODULES = \
+ 		NetworkHelper.jsm \
+ 		AutocompletePopup.jsm \
+ 		gcli.jsm \
++		Commands.jsm \
+ 		$(NULL)
+ 
+ ifdef ENABLE_TESTS
 diff --git a/browser/devtools/webconsole/test/browser/Makefile.in b/browser/devtools/webconsole/test/browser/Makefile.in
 --- a/browser/devtools/webconsole/test/browser/Makefile.in
 +++ b/browser/devtools/webconsole/test/browser/Makefile.in
@@ -841,7 +949,7 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
 diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/winstripe/global/webConsole.css
 --- a/toolkit/themes/winstripe/global/webConsole.css
 +++ b/toolkit/themes/winstripe/global/webConsole.css
-@@ -134,10 +134,46 @@
+@@ -134,10 +134,53 @@
  
  .hud-output-node,
  .jsterm-input-node,
@@ -866,20 +974,27 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +}
 +
 +.gcliterm-complete-node {
-+  color: #F00;
++  padding: 4px 4px 2px 21px;
++}
++
++.gcliterm-complete-node span.gcliVALID {
++  color: #FFF;
++  border-bottom: none;
 +}
 +
 +.gcliterm-complete-node span.gcliINCOMPLETE {
 +  color: #DDD;
-+  border-bottom: 2px dotted #999;
++  border-bottom: 1px dotted #999;
 +}
 +
 +.gcliterm-complete-node span.gcliERROR {
-+  color: #DDD; border-bottom: 2px dotted #F00;
++  color: #DDD;
++  border-bottom: 1px dotted #F00;
 +}
 +
 +.gcliterm-complete-node span.gcliPrompt {
-+  color: #66F; font-weight: bold;
++  color: #66F;
++  font-weight: bold;
 +}
 +
 +.gcliterm-complete-node span.gcliCompl {
@@ -889,7 +1004,7 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
  .hud-output-node {
    -moz-appearance: none;
    border-bottom: 1px solid ThreeDShadow;
-@@ -296,7 +332,18 @@
+@@ -296,7 +339,18 @@
    -moz-appearance: none;
  }
  
@@ -909,3 +1024,11 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
    background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
  }
  
+@@ -331,3 +385,7 @@
+   width: 100%;
+   background-color: white;
+ }
++
++.gcliCmdHelpRight {
++  text-align: right;
++}
