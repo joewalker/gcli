@@ -12,3 +12,5 @@
 
 span.gcliPrompt { color: #66F; font-weight: bold; }
 span.gcliCompl { color: #999; }
+
+span.gcliCloseBrace { color:#999; }

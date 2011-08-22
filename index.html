@@ -19,12 +19,9 @@
       }
     });
 
-    var deps = [
-      'gcli/index', 'gcli/ui/start/browser', 'demo/index', 'gclitest/index'
-    ];
-
-    require(deps, function(gcli, browser, demo, gclitest) {
-      browser.createView();
+    var deps = [ 'gcli/index', 'demo/index', 'gclitest/index' ];
+    require(deps, function(gcli, demo, gclitest) {
+      gcli.createView();
     });
   </script>
   <title>GCLI: Graphical Command Line</title>

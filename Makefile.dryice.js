@@ -18,9 +18,9 @@ buildStandard();
 buildFirefox();
 
 /**
- * There are 2 important ways to build GCLI with 2 outputs each.
- * - One build is for use within a normal web page. It has compressed and
- *   uncompressed versions of the output script file.
+ * There are 2 important ways to build GCLI.
+ * The first is for use within a normal web page.
+ * It has compressed and uncompressed versions of the output script file.
  */
 function buildStandard() {
   console.log('Building built/gcli[-uncompressed].js:');
@@ -36,13 +36,26 @@ function buildStandard() {
     source: copy.source.commonjs({
       project: project,
       // This list of dependencies should be the same as in build/*.html
-      require: [ 'gcli/index', 'gcli/ui/start/browser', 'demo/index' ]
+      require: [ 'gcli/index', 'demo/index' ]
     }),
     filter: copy.filter.moduleDefines,
     dest: sources
   });
 
   console.log(project.report());
+
+  // Create a GraphML dependency report. Directions:
+  // - Install yEd (http://www.yworks.com/en/products_yed_about.htm)
+  // - Load gcli/built/gcli.graphml
+  // - Resize the nodes (Tools->Fit Node to Label)
+  // - Apply a layout (Layout->Hierarchical)
+  console.log('Outputting dependency graph to built/gcli.graphml\n');
+  if (project.getDependencyGraphML) {
+    copy({
+      source: { value:project.getDependencyGraphML() },
+      dest: 'built/gcli.graphml',
+    });
+  }
 
   // Process the PNG/GIF
   copy({
@@ -53,7 +66,6 @@ function buildStandard() {
 
   // Create the output scripts, compressed and uncompressed
   copy({ source: 'build/index.html', dest: 'built/index.html' });
-  copy({ source: 'build/nohelp.html', dest: 'built/nohelp.html' });
   copy({ source: 'scripts/es5-shim.js', dest: 'built/es5-shim.js' });
   copy({
     source: [ 'build/mini_require.js', sources ],
@@ -96,7 +108,7 @@ function buildFirefox() {
       copy.source.commonjs({
         project: project,
         // This list of dependencies should be the same as in suffix-gcli.jsm
-        require: [ 'gcli/index', 'gcli/ui/start/firefox' ]
+        require: [ 'gcli/firefox/index' ]
       }),
       'build/suffix-gcli.jsm'
     ],

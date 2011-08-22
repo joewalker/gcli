@@ -15,13 +15,13 @@ Evaluated each time the commandAssignment changes
         <tr class="gcliGroupRow">
           <td class="gcliParamName">
             <label for="gcliForm${assignment.param.name}">
-              ${assignment.param.description}:
-              <div class="gcliRequired" if="${!assignment.param.isDataRequired()}">
-                (Optional)
-              </div>
+              ${assignment.param.description ? assignment.param.description + ':' : ''}
             </label>
           </td>
           <td class="gcliParamInput">${getInputFor(assignment)}</td>
+          <td>
+            <span class="gcliRequired" if="${assignment.param.isDataRequired()}">*</span>
+          </td>
         </tr>
         <tr class="gcliGroupRow">
           <td class="gcliParamError" colspan="2">
