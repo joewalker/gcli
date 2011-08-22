@@ -66,7 +66,7 @@ environments may follow.
 
 In order to support these environments GCLI will need to:
 
-- Be usable in modern browsers plus IE8
+- Be usable in the latest versions of modern browsers
 - Make the UI fairly simple to re-implement (since some environments might have
   a styling/templating system which doesn't fit with the supplied model)
 
