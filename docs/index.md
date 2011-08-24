@@ -66,7 +66,7 @@ environments may follow.
 
 In order to support these environments GCLI will need to:
 
-- Be usable in modern browsers plus IE8
+- Be usable in the latest versions of modern browsers
 - Make the UI fairly simple to re-implement (since some environments might have
   a styling/templating system which doesn't fit with the supplied model)
 
@@ -328,7 +328,7 @@ This is how to create a basic ``greet`` command:
 
     gcli.addCommand({
       name: 'greet',
-      description: 'Show a message to someone',
+      description: 'Show a greeting',
       params: [
         {
           name: 'name',
@@ -349,6 +349,45 @@ This command is used as follows:
 
 First, a brief point of terminology - a function has ``parameters``, and when
 you call a function, you pass ``arguments`` to it.
+
+
+### Internationalization (i18n)
+
+There are several ways that GCLI commands can be localized. The first is to
+supply the translated strings in the description:
+
+    gcli.addCommand({
+      name: 'greet',
+      description: {
+        'root': 'Show a greeting',
+        'fr-fr': 'Afficher un message d'accueil',
+        'de-de': 'Zeige einen Gruß',
+        'gk-gk': 'Εμφάνιση ένα χαιρετισμό',
+        ...
+      }
+      ...
+    });
+
+This method is useful when creating a command for use with GCLI embedded in a
+web page. It has the benefit of being compact and simple, however it has the
+significant drawback of being wasteful of memory and bandwidth to transmit and
+store a significant number of strings, the majority of which will never be
+used. Each description should contain at least a 'root' entry which is the
+default if no better match is found.
+
+More efficient is to supply a lookup key and ask GCLI to lookup the key from an
+appropriate localized strings file:
+
+    gcli.addCommand({
+      name: 'greet',
+      description: { 'key': 'demo_greeting_desc' }
+      ...
+    });
+
+For web usage, the localized strings are currently stored in
+`lib/gcli/nls/strings.js`. There isn't currently a well defined method for
+adding other strings files. This is being tracked in [bug 681359]
+(https://bugzilla.mozilla.org/show_bug.cgi?id=681359).
 
 
 ### Default argument values

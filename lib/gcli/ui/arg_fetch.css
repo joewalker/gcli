@@ -11,3 +11,5 @@
 
 .gcliGroupSymbol { font-size: 90%; color: #666; }
 .gcliRequired { font-size: 80%; color: #666; }
+
+.gcliParams { width: 100%; }
