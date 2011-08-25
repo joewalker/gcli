@@ -20,6 +20,7 @@ mozilla/patches/guards
 
 # Editor junk
 /.project
+/.pydevproject
 /.settings/
 /.settings.xml
 /.settings.xml.old
