@@ -4,3 +4,19 @@
 .gcliOption:hover { background-color: rgb(230, 230, 230) }
 .gcliOptName { padding-right: 5px; }
 .gcliOptDesc { font-size: 80%; color: #999; }
+
+.gcliMenuField {
+  background-color: white;
+  color: black;
+  border: 1px solid #aaa;
+  padding: 2px;
+  max-height: 300px;
+  overflow-y: auto;
+  max-width: 220px;
+  overflow-x: hidden;
+  margin: 0 10px;
+  border-top: 0px !important;
+  border-bottom-right-radius: 5px;
+  border-bottom-left-radius: 5px;
+  font: -webkit-small-control;
+}
