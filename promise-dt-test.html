@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="author" content="Joe Walker">
+  <title>DOM-Template + Promise Test</title>
+
+  <script type="text/javascript" src="scripts/es5-shim.js"></script>
+  <script type="text/javascript" src="scripts/require.js"></script>
+  <script type="text/javascript">
+    require({
+      paths: { "text": "scripts/text", "i18n": "scripts/i18n" },
+      packagePaths: { "lib": [{ name: "gcli", main: "index", lib: "." }]}
+    });
+
+    var deps = [ 'gcli/promise', 'gcli/ui/domtemplate' ];
+    require(deps, function(promise, domtemplate) {
+      var node = document.getElementById('node');
+      data = {
+        array: delayReply([
+          delayReply(1),
+          delayReply(2),
+          delayReply(3),
+          delayReply(4)
+        ]),
+        delayed: delayReply('slow string')
+      };
+      new domtemplate.Templater().processNode(node, data);
+
+      function delayReply(data) {
+        var p = new promise.Promise();
+        setTimeout(function() {
+          p.resolve(data);
+          console.log('resolving: ', data);
+        }, Math.random() * 3000);
+        return p;
+      }
+    });
+
+  </script>
+</head>
+<body>
+
+  <div id="node">
+    <div forEach="element in ${array}">
+      <div>${element}</div>
+    </div>
+    <div>${delayed}</div>
+  </div>
+
+</body>
+</html>
