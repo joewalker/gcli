@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306496118 -3600
 # Node ID c9f0d4142413be8bd4cf553732568c1249999196
-# Parent a2cc2d7fa5473f42c92ec2b8d99ccb90b92c5647
+# Parent b20403c808316e669b92fd004673d5d9cdc41dff
 Bug 656668 - Create Export from GCLI project to JSM
 
 diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
@@ -707,7 +707,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
      console.log("define: " + moduleName + " -> " + payload.toString()
          .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
    }
-@@ -417,151 +412,6826 @@ function define(moduleName, deps, payloa
+@@ -417,151 +412,7152 @@ function define(moduleName, deps, payloa
      console.error(this.depth + " Error: Redefining module: " + moduleName);
    }
    define.modules[moduleName] = payload;
@@ -1029,15 +1029,15 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/canon', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types'], function(require, exports, module) {
++define('gcli/canon', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/types'], function(require, exports, module) {
 +var canon = exports;
 +
 +
-+var console = require('gcli/util').console;
 +var createEvent = require('gcli/util').createEvent;
++var l10n = require('gcli/l10n');
 +
-+var Status = require('gcli/types').Status;
 +var types = require('gcli/types');
++var Status = require('gcli/types').Status;
 +var BooleanType = require('gcli/types').BooleanType;
 +
 +
@@ -1052,9 +1052,52 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +var commandNames = [];
 +
 +/**
++ * Implement the localization algorithm for any documentation objects (i.e.
++ * description and manual) in a command.
++ * @param data The data assigned to a description or manual property
++ * @param onUndefined If data == null, should we return the data untouched or
++ * lookup a 'we don't know' key in it's place.
++ */
++function lookup(data, onUndefined) {
++  if (data == null) {
++    if (onUndefined) {
++      return l10n.lookup(onUndefined);
++    }
++
++    return data;
++  }
++
++  if (typeof data === 'string') {
++    return data;
++  }
++
++  if (typeof data === 'object') {
++    if (data.key) {
++      return l10n.lookup(data.key);
++    }
++
++    var locales = l10n.getPreferredLocales();
++    var translated;
++    locales.some(function(locale) {
++      translated = data[locale];
++      return translated != null;
++    });
++    if (translated != null) {
++      return translated;
++    }
++
++    console.error('Can\'t find locale in descriptions: ' +
++            'locales=' + JSON.stringify(locales) + ', ' +
++            'description=' + JSON.stringify(data));
++    return '(No description)';
++  }
++
++  return l10n.lookup(onUndefined);
++}
++
++/**
 + * The command object is mostly just setup around a commandSpec (as passed to
-+ * #addCommand()). It provides some helpers like #getDescription() which is a
-+ * safe .description.
++ * #addCommand()).
 + */
 +function Command(commandSpec) {
 +  Object.keys(commandSpec).forEach(function(key) {
@@ -1071,6 +1114,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  if (!Array.isArray(this.params)) {
 +    throw new Error('command.params must be an array in ' + this.name);
 +  }
++
++  this.description = lookup(this.description, 'canon_desc_none');
++  this.manual = lookup(this.manual);
 +
 +  // At this point this.params has nested param groups. We want to flatten it
 +  // out and replace the param object literals with Parameter objects
@@ -1110,14 +1156,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }, this);
 +}
 +
-+/**
-+ * A safe version of '.description' returning '(No description)' when there
-+ * is no description available.
-+ */
-+Command.prototype.getDescription = function() {
-+  return this.description ? this.description : '(No description)';
-+};
-+
 +canon.Command = Command;
 +
 +
@@ -1131,7 +1169,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  Object.keys(paramSpec).forEach(function(key) {
 +    this[key] = paramSpec[key];
 +  }, this);
-+  this.description = this.description || '';
++
++  this.description = lookup(this.description, 'canon_desc_none');
++  this.manual = lookup(this.manual);
 +  this.groupName = groupName;
 +
 +  if (!this.name) {
@@ -1139,12 +1179,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      ': all params must have a name');
 +  }
 +
-+  var lookup = this.type;
-+  this.type = types.getType(lookup);
++  var typeSpec = this.type;
++  this.type = types.getType(typeSpec);
 +  if (this.type == null) {
 +    console.error('Known types: ' + types.getTypeNames().join(', '));
 +    throw new Error('In ' + this.command.name + '/' + this.name +
-+      ': can\'t find type for: ' + JSON.stringify(lookup));
++      ': can\'t find type for: ' + JSON.stringify(typeSpec));
 +  }
 +
 +  // boolean parameters have an implicit defaultValue:false, which should
@@ -1330,10 +1370,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +//------------------------------------------------------------------------------
 +
-+exports.console = console;
-+
-+//------------------------------------------------------------------------------
-+
 +/**
 + * Create an event.
 + * For use as follows:
@@ -1406,7 +1442,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +var dom = {};
 +
-+var NS_XHTML = "http://www.w3.org/1999/xhtml";
++var NS_XHTML = 'http://www.w3.org/1999/xhtml';
 +
 +/**
 + * Pass-through to createElement or createElementNS
@@ -1449,7 +1485,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +   */
 +  dom.addCssClass = function(el, name) {
 +    if (!dom.hasCssClass(el, name)) {
-+      el.className += " " + name;
++      el.className += ' ' + name;
 +    }
 +  };
 +
@@ -1465,7 +1501,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      }
 +      classes.splice(index, 1);
 +    }
-+    el.className = classes.join(" ");
++    el.className = classes.join(' ');
 +  };
 +
 +  /**
@@ -1486,7 +1522,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      classes.push(name);
 +    }
 +
-+    el.className = classes.join(" ");
++    el.className = classes.join(' ');
 +    return add;
 +  };
 +} else {
@@ -1538,12 +1574,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +  else {
 +    var style = doc.createElementNS ?
-+        doc.createElementNS(NS_XHTML, "style") :
-+        doc.createElement("style");
++        doc.createElementNS(NS_XHTML, 'style') :
++        doc.createElement('style');
 +
 +    style.appendChild(doc.createTextNode(cssText));
 +
-+    var head = doc.getElementsByTagName("head")[0] || doc.documentElement;
++    var head = doc.getElementsByTagName('head')[0] || doc.documentElement;
 +    head.appendChild(style);
 +  }
 +};
@@ -1554,8 +1590,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +dom.computedStyle = function(element, style) {
 +  var win = element.ownerDocument.defaultView;
 +  if (win.getComputedStyle) {
-+    var styles = win.getComputedStyle(element, "") || {};
-+    return styles[style] || "";
++    var styles = win.getComputedStyle(element, '') || {};
++    return styles[style] || '';
 +  }
 +  else {
 +    return element.currentStyle[style];
@@ -1571,7 +1607,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    try {
 +      dom.clearElement(el);
 +      var range = el.ownerDocument.createRange();
-+      html = "<div xmlns='" + NS_XHTML + "'>" + html + "</div>";
++      html = '<div xmlns="' + NS_XHTML + '">' + html + '</div>';
 +      el.appendChild(range.createContextualFragment(html));
 +    }
 +    catch (ex) {
@@ -1626,421 +1662,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +//------------------------------------------------------------------------------
 +
 +/**
-+ * A plural form is a way to pluralize as noun. There are 2 plural forms in
-+ * English, with (s) and without - tree and trees. (We ignore verbs which
-+ * confuse things greatly by being the other way around)
-+ * A plural rule works out from a number, which plural form to use. In English
-+ * the rule is to use one form for 0 and 1, and the other for everything else
-+ * See https://developer.mozilla.org/en/Localization_and_Plurals
-+ * See https://secure.wikimedia.org/wikipedia/en/wiki/List_of_ISO_639-1_codes
-+ *
-+ * Contains code inspired by Mozilla L10n code originally developed by
-+ *     Edward Lee <edward.lee@engineering.uiuc.edu>
-+ */
-+var pluralRules = [
-+  /**
-+   * Index 0 - Only one form for all
-+   * Asian family: Japanese, Vietnamese, Korean
-+   */
-+  {
-+    locales: [
-+      'fa', 'fa-ir',
-+      'id',
-+      'ja', 'ja-jp-mac',
-+      'ka',
-+      'ko', 'ko-kr',
-+      'th', 'th-th',
-+      'tr', 'tr-tr',
-+      'zh', 'zh-tw', 'zh-cn'
-+    ],
-+    numForms: 1,
-+    get: function(n) {
-+      return 0;
-+    }
-+  },
-+
-+  /**
-+   * Index 1 - Two forms, singular used for one only
-+   * Germanic family: English, German, Dutch, Swedish, Danish, Norwegian,
-+   *          Faroese
-+   * Romanic family: Spanish, Portuguese, Italian, Bulgarian
-+   * Latin/Greek family: Greek
-+   * Finno-Ugric family: Finnish, Estonian
-+   * Semitic family: Hebrew
-+   * Artificial: Esperanto
-+   * Finno-Ugric family: Hungarian
-+   * Turkic/Altaic family: Turkish
-+   */
-+  {
-+    locales: [
-+      'af', 'af-za',
-+      'as', 'ast',
-+      'bg',
-+      'br',
-+      'bs', 'bs-ba',
-+      'ca',
-+      'cy', 'cy-gb',
-+      'da',
-+      'de', 'de-de', 'de-ch',
-+      'en', 'en-gb', 'en-us', 'en-za',
-+      'el', 'el-gr',
-+      'eo',
-+      'es', 'es-es', 'es-ar', 'es-cl', 'es-mx',
-+      'et', 'et-ee',
-+      'eu',
-+      'fi', 'fi-fi',
-+      'fy', 'fy-nl',
-+      'gl', 'gl-gl',
-+      'he',
-+     //     'hi-in', Without an unqualified language, looks dodgy
-+      'hu', 'hu-hu',
-+      'hy', 'hy-am',
-+      'it', 'it-it',
-+      'kk',
-+      'ku',
-+      'lg',
-+      'mai',
-+     // 'mk', 'mk-mk', Should be 14?
-+      'ml', 'ml-in',
-+      'mn',
-+      'nb', 'nb-no',
-+      'no', 'no-no',
-+      'nl',
-+      'nn', 'nn-no',
-+      'no', 'no-no',
-+      'nb', 'nb-no',
-+      'nso', 'nso-za',
-+      'pa', 'pa-in',
-+      'pt', 'pt-pt',
-+      'rm', 'rm-ch',
-+     // 'ro', 'ro-ro', Should be 5?
-+      'si', 'si-lk',
-+     // 'sl',      Should be 10?
-+      'son', 'son-ml',
-+      'sq', 'sq-al',
-+      'sv', 'sv-se',
-+      'vi', 'vi-vn',
-+      'zu', 'zu-za'
-+    ],
-+    numForms: 2,
-+    get: function(n) {
-+      return n != 1 ?
-+        1 :
-+        0;
-+    }
-+  },
-+
-+  /**
-+   * Index 2 - Two forms, singular used for zero and one
-+   * Romanic family: Brazilian Portuguese, French
-+   */
-+  {
-+    locales: [
-+      'ak', 'ak-gh',
-+      'bn', 'bn-in', 'bn-bd',
-+      'fr', 'fr-fr',
-+      'gu', 'gu-in',
-+      'kn', 'kn-in',
-+      'mr', 'mr-in',
-+      'oc', 'oc-oc',
-+      'or', 'or-in',
-+          'pt-br',
-+      'ta', 'ta-in', 'ta-lk',
-+      'te', 'te-in'
-+    ],
-+    numForms: 2,
-+    get: function(n) {
-+      return n > 1 ?
-+        1 :
-+        0;
-+    }
-+  },
-+
-+  /**
-+   * Index 3 - Three forms, special case for zero
-+   * Latvian
-+   */
-+  {
-+    locales: [ 'lv' ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n % 10 == 1 && n % 100 != 11 ?
-+        1 :
-+        n != 0 ?
-+          2 :
-+          0;
-+    }
-+  },
-+
-+  /**
-+   * Index 4 -
-+   * Scottish Gaelic
-+   */
-+  {
-+    locales: [ 'gd', 'gd-gb' ],
-+    numForms: 4,
-+    get: function(n) {
-+      return n == 1 || n == 11 ?
-+        0 :
-+        n == 2 || n == 12 ?
-+          1 :
-+          n > 0 && n < 20 ?
-+            2 :
-+            3;
-+    }
-+  },
-+
-+  /**
-+   * Index 5 - Three forms, special case for numbers ending in 00 or
-+   *       [2-9][0-9]
-+   * Romanian
-+   */
-+  {
-+    locales: [ 'ro', 'ro-ro' ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n == 1 ?
-+        0 :
-+        n == 0 || n % 100 > 0 && n % 100 < 20 ?
-+          1 :
-+          2;
-+    }
-+  },
-+
-+  /**
-+   * Index 6 - Three forms, special case for numbers ending in 1[2-9]
-+   * Lithuanian
-+   */
-+  {
-+    locales: [ 'lt' ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n % 10 == 1 && n % 100 != 11 ?
-+        0 :
-+        n % 10 >= 2 && (n % 100 < 10 || n % 100 >= 20) ?
-+          2 :
-+          1;
-+    }
-+  },
-+
-+  /**
-+   * Index 7 - Three forms, special cases for numbers ending in 1 and
-+   *       2, 3, 4, except those ending in 1[1-4]
-+   * Slavic family: Russian, Ukrainian, Serbian, Croatian
-+   */
-+  {
-+    locales: [
-+      'be', 'be-by',
-+      'hr', 'hr-hr',
-+      'ru', 'ru-ru',
-+      'sr', 'sr-rs', 'sr-cs',
-+      'uk'
-+    ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n % 10 == 1 && n % 100 != 11 ?
-+        0 :
-+        n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ?
-+          1 :
-+          2;
-+    }
-+  },
-+
-+  /**
-+   * Index 8 - Three forms, special cases for 1 and 2, 3, 4
-+   * Slavic family: Czech, Slovak
-+   */
-+  {
-+    locales: [ 'cs', 'sk' ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n == 1 ?
-+        0 :
-+        n >= 2 && n <= 4 ?
-+          1 :
-+          2;
-+    }
-+  },
-+
-+  /**
-+   * Index 9 - Three forms, special case for one and some numbers ending in
-+   *       2, 3, or 4
-+   * Polish
-+   */
-+  {
-+    locales: [ 'pl' ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n == 1 ?
-+        0 :
-+        n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ?
-+          1 :
-+          2;
-+    }
-+  },
-+
-+  /**
-+   * Index 10 - Four forms, special case for one and all numbers ending in
-+   *      02, 03, or 04
-+   * Slovenian
-+   */
-+  {
-+    locales: [ 'sl' ],
-+    numForms: 4,
-+    get: function(n) {
-+      return n % 100 == 1 ?
-+        0 :
-+        n % 100 == 2 ?
-+          1 :
-+          n % 100 == 3 || n % 100 == 4 ?
-+            2 :
-+            3;
-+    }
-+  },
-+
-+  /**
-+   * Index 11 -
-+   * Irish Gaeilge
-+   */
-+  {
-+    locales: [ 'ga-IE', 'ga-ie', 'ga', 'en-ie' ],
-+    numForms: 5,
-+    get: function(n) {
-+      return n == 1 ?
-+        0 :
-+        n == 2 ?
-+          1 :
-+          n >= 3 && n <= 6 ?
-+            2 :
-+            n >= 7 && n <= 10 ?
-+              3 :
-+              4;
-+    }
-+  },
-+
-+  /**
-+   * Index 12 -
-+   * Arabic
-+   */
-+  {
-+    locales: [ 'ar' ],
-+    numForms: 6,
-+    get: function(n) {
-+      return n == 0 ?
-+        5 :
-+        n == 1 ?
-+          0 :
-+          n == 2 ?
-+            1 :
-+            n % 100 >= 3 && n % 100 <= 10 ?
-+              2 :
-+              n % 100 >= 11 && n % 100 <= 99 ?
-+                3 :
-+                4;
-+    }
-+  },
-+
-+  /**
-+   * Index 13 -
-+   * Maltese
-+   */
-+  {
-+    locales: [ 'mt' ],
-+    numForms: 4,
-+    get: function(n) {
-+      return n == 1 ?
-+        0 :
-+        n == 0 || n % 100 > 0 && n % 100 <= 10 ?
-+          1 :
-+          n % 100 > 10 && n % 100 < 20 ?
-+            2 :
-+            3;
-+    }
-+  },
-+
-+  /**
-+   * Index 14 -
-+   * Macedonian
-+   */
-+  {
-+    locales: [ 'mk', 'mk-mk' ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n % 10 == 1 ?
-+        0 :
-+        n % 10 == 2 ?
-+          1 :
-+          2;
-+    }
-+  },
-+
-+  /**
-+   * Index 15 -
-+   * Icelandic
-+   */
-+  {
-+    locales: [ 'is' ],
-+    numForms: 2,
-+    get: function(n) {
-+      return n % 10 == 1 && n % 100 != 11 ?
-+        0 :
-+        1;
-+    }
-+  }
-+
-+  /*
-+  // Known locales without a known plural rule
-+  'km', 'ms', 'ne-np', 'ne-np', 'ne', 'nr', 'nr-za', 'rw', 'ss', 'ss-za',
-+  'st', 'st-za', 'tn', 'tn-za', 'ts', 'ts-za', 've', 've-za', 'xh', 'xh-za'
-+  */
-+];
-+
-+/**
-+ * Use rule 0 by default, which is no plural forms at all
-+ */
-+var pluralRule = pluralRules[0];
-+
-+/**
-+ * What language should we use?
-+ * This is complicated, we should possibly be using the HTTP 'Accept-Language'
-+ * header, however this is somewhat hard to get at.
-+ * http://stackoverflow.com/questions/1043339/javascript-for-detecting-browser-language-preference
-+ * For now we'll go with the more simple window.navigator.language in the
-+ * browser
-+ */
-+function getPluralRule() {
-+  if (!pluralRule) {
-+    var index;
-+    try {
-+      var svc = Components.classes["@mozilla.org/intl/stringbundle;1"]
-+          .getService(Components.interfaces.nsIStringBundleService);
-+      var bundle = svc.createBundle("chrome://global/locale/intl.properties");
-+      var pluralRule = bundle.GetStringFromName("pluralRule");
-+      index = parseInt(pluralRule);
-+      pluralRule = pluralRules(index);
-+    }
-+    catch (ex) {
-+      // Will happen in non firefox instances
-+
-+      var lang = window.navigator.language;
-+      // Next: convert lang to a rule index
-+      pluralRules.some(function(rule) {
-+        if (rule.locales.indexOf(lang) !== -1) {
-+          pluralRule = rule;
-+          return true;
-+        }
-+        return false;
-+      });
-+    }
-+  }
-+
-+  return pluralRule;
-+}
-+
-+
-+//------------------------------------------------------------------------------
-+
-+/**
 + * Various event utilities
 + */
 +var event = {};
@@ -2057,7 +1678,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      callback(window.event);
 +    };
 +    callback._wrapper = wrapper;
-+    elem.attachEvent("on" + type, wrapper);
++    elem.attachEvent('on' + type, wrapper);
 +  }
 +};
 +
@@ -2069,7 +1690,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    return elem.removeEventListener(type, callback, false);
 +  }
 +  if (elem.detachEvent) {
-+    elem.detachEvent("on" + type, callback._wrapper || callback);
++    elem.detachEvent('on' + type, callback._wrapper || callback);
 +  }
 +};
 +
@@ -2241,16 +1862,568 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/types', ['require', 'exports', 'module' , 'gcli/util', 'gcli/argument'], function(require, exports, module) {
++define('gcli/l10n', ['require', 'exports', 'module' , 'i18n!gcli/nls/strings'], function(require, exports, module) {
++
++var strings = require('i18n!gcli/nls/strings');
++
++
++/**
++ * Finds the preferred locales of the user as an array of RFC 4646 strings
++ * (e.g. 'pt-br').
++ * . There is considerable confusion as to the correct value
++ * since there are a number of places the information can be stored:
++ * - In the OS (IE:navigator.userLanguage, IE:navigator.systemLanguage)
++ * - In the browser (navigator.language, IE:navigator.browserLanguage)
++ * - By GEO-IP
++ * - By website specific settings
++ * This implementation uses navigator.language || navigator.userLanguage as
++ * this is compatible with requirejs.
++ * See http://tools.ietf.org/html/rfc4646
++ * See http://stackoverflow.com/questions/1043339/javascript-for-detecting-browser-language-preference
++ * See http://msdn.microsoft.com/en-us/library/ms534713.aspx
++ * @return The current locale as an RFC 4646 string
++ */
++exports.getPreferredLocales = function() {
++  var language = (navigator.language || navigator.userLanguage).toLowerCase();
++  var parts = language.split('-');
++  var reply = parts.map(function(part, index) {
++    return parts.slice(0, parts.length - index).join('-');
++  });
++  reply.push('root');
++  return reply;
++};
++
++/**
++ * Lookup a key in the current locale, throwing an error if that string does
++ * not exist.
++ * @param key The string to lookup
++ * @return The string resolved from the correct locale
++ */
++function lookupKey(key) {
++  var str = strings[key];
++  if (!str) {
++    throw new Error('No i18n key: ' + key);
++  }
++  return str;
++}
++
++/**
++ * Helper function to process swaps.
++ * For example:
++ *   replace('the {subject} {verb} {preposition} the {object}', {
++ *     subject: 'cat', verb: 'sat', preposition: 'on', object: 'mat'
++ *   });
++ * Returns 'the cat sat on the mat'.
++ * @param str The string containing parts delimited by { and } to be replaced
++ * @param swaps Lookup map containing the replacement strings
++ */
++function replace(str, swaps) {
++  return str.replace(/\{[^}]*\}/g, function(name) {
++    name = name.slice(1, -1);
++    var replacement = swaps[name];
++    if (replacement == null) {
++      console.log('Missing lookup \'' + name +
++              '\' given ' + JSON.stringify(swaps));
++    }
++    return replacement;
++  });
++}
++
++/**
++ * Lookup a key in our strings file using localized versions if possible,
++ * and perform string interpolation to inject runtime values into the string.
++ * l10n lookup is required for user visible strings, but not required for
++ * console messages and throw strings.
++ * @param key The string to lookup in gcli/nls/strings.js
++ * This should generally be in the general form 'filename_export_issue' where
++ * filename is the name of the module (all lowercase without underscores) and
++ * export is the name of a top level thing in which the message is used and
++ * issue is a short string indicating the issue.
++ * The point of a 'standard' like this is to keep strings fairly short whilst
++ * still allowing users to have an idea where they come from, and preventing
++ * name clashes.
++ * The value looked up may contain {variables} to be exchanged using swaps
++ * @param swaps A map of variable values to be swapped.
++ * @return A looked-up and interpolated message for display to the user.
++ */
++exports.lookup = function(key, swaps) {
++  var str = lookupKey(key);
++  return replace(str, swaps);
++};
++
++/**
++ * Lookup the correct pluralization of a word/string.
++ * The first ``key`` and ``swaps`` parameters of lookupPlural() are the same
++ * as for lookup(), however there is an extra ``ord`` parameter which indicates
++ * the plural ordinal to use.
++ * For example, in looking up the string '39 steps', the ordinal would be 39.
++ *
++ * More detailed example:
++ * French has 2 plural forms: the first for 0 and 1, the second for everything
++ * else. English also has 2, but the first only covers 1. Zero is lumped into
++ * the 'everything else' category. Vietnamese has only 1 plural form - so it
++ * uses the same noun form however many of them there are.
++ * The following localization strings describe how to pluralize the phrase
++ * '1 minute':
++ *   'en-us': { demo_plural_time: [ '{ord} minute', '{ord} minutes' ] },
++ *   'fr-fr': { demo_plural_time: [ '{ord} minute', '{ord} minutes' ] },
++ *   'vi-vn': { demo_plural_time: [ '{ord} phut' ] },
++ *
++ *   l10n.lookupPlural('demo_plural_time', 0); // '0 minutes' in 'en-us'
++ *   l10n.lookupPlural('demo_plural_time', 1); // '1 minute' in 'en-us'
++ *   l10n.lookupPlural('demo_plural_time', 9); // '9 minutes' in 'en-us'
++ *
++ *   l10n.lookupPlural('demo_plural_time', 0); // '0 minute' in 'fr-fr'
++ *   l10n.lookupPlural('demo_plural_time', 1); // '1 minute' in 'fr-fr'
++ *   l10n.lookupPlural('demo_plural_time', 9); // '9 minutes' in 'fr-fr'
++ *
++ *   l10n.lookupPlural('demo_plural_time', 0); // '0 phut' in 'vi-vn'
++ *   l10n.lookupPlural('demo_plural_time', 1); // '1 phut' in 'vi-vn'
++ *   l10n.lookupPlural('demo_plural_time', 9); // '9 phut' in 'vi-vn'
++ *
++ * The
++ * Note that the localization strings are (correctly) the same (since both
++ * the English and the French words have the same etimology)
++ */
++exports.lookupPlural = function(key, ord, swaps) {
++  var index = getPluralRule().get(ord);
++  var words = lookupKey(key);
++  var str = words[index];
++
++  swaps = swaps || {};
++  swaps.ord = ord;
++
++  return replace(str, swaps);
++};
++
++/**
++ * Find the correct plural rule for the current locale
++ * @return a plural rule with a ``get()`` function
++ */
++function getPluralRule() {
++  if (!pluralRule) {
++    var index;
++    try {
++      var svc = Components.classes["@mozilla.org/intl/stringbundle;1"]
++          .getService(Components.interfaces.nsIStringBundleService);
++      var bundle = svc.createBundle("chrome://global/locale/intl.properties");
++      var pluralRule = bundle.GetStringFromName("pluralRule");
++      index = parseInt(pluralRule);
++      pluralRule = pluralRules(index);
++    }
++    catch (ex) {
++      // Will happen in non firefox instances
++      var lang = navigator.language || navigator.userLanguage;
++      // Next: convert lang to a rule index
++      pluralRules.some(function(rule) {
++        if (rule.locales.indexOf(lang) !== -1) {
++          pluralRule = rule;
++          return true;
++        }
++        return false;
++      });
++    }
++  }
++
++  return pluralRule;
++}
++
++/**
++ * A plural form is a way to pluralize a noun. There are 2 simple plural forms
++ * in English, with (s) and without - e.g. tree and trees. There are many other
++ * ways to pluralize (e.g. witches, ladies, teeth, oxen, axes, data, alumini)
++ * However they all follow the rule that 1 is 'singular' while everything
++ * else is 'plural' (words without a plural form like sheep can be seen as
++ * following this rule where the singular and plural forms are the same)
++ * <p>Non-English languages have different pluralization rules, for example
++ * French uses singular for 0 as well as 1. Japanese has no plurals while
++ * Arabic and Russian are very complex.
++ *
++ * See https://developer.mozilla.org/en/Localization_and_Plurals
++ * See https://secure.wikimedia.org/wikipedia/en/wiki/List_of_ISO_639-1_codes
++ *
++ * Contains code inspired by Mozilla L10n code originally developed by
++ *     Edward Lee <edward.lee@engineering.uiuc.edu>
++ */
++var pluralRules = [
++  /**
++   * Index 0 - Only one form for all
++   * Asian family: Japanese, Vietnamese, Korean
++   */
++  {
++    locales: [
++      'fa', 'fa-ir',
++      'id',
++      'ja', 'ja-jp-mac',
++      'ka',
++      'ko', 'ko-kr',
++      'th', 'th-th',
++      'tr', 'tr-tr',
++      'zh', 'zh-tw', 'zh-cn'
++    ],
++    numForms: 1,
++    get: function(n) {
++      return 0;
++    }
++  },
++
++  /**
++   * Index 1 - Two forms, singular used for one only
++   * Germanic family: English, German, Dutch, Swedish, Danish, Norwegian,
++   *          Faroese
++   * Romanic family: Spanish, Portuguese, Italian, Bulgarian
++   * Latin/Greek family: Greek
++   * Finno-Ugric family: Finnish, Estonian
++   * Semitic family: Hebrew
++   * Artificial: Esperanto
++   * Finno-Ugric family: Hungarian
++   * Turkic/Altaic family: Turkish
++   */
++  {
++    locales: [
++      'af', 'af-za',
++      'as', 'ast',
++      'bg',
++      'br',
++      'bs', 'bs-ba',
++      'ca',
++      'cy', 'cy-gb',
++      'da',
++      'de', 'de-de', 'de-ch',
++      'en', 'en-gb', 'en-us', 'en-za',
++      'el', 'el-gr',
++      'eo',
++      'es', 'es-es', 'es-ar', 'es-cl', 'es-mx',
++      'et', 'et-ee',
++      'eu',
++      'fi', 'fi-fi',
++      'fy', 'fy-nl',
++      'gl', 'gl-gl',
++      'he',
++     //     'hi-in', Without an unqualified language, looks dodgy
++      'hu', 'hu-hu',
++      'hy', 'hy-am',
++      'it', 'it-it',
++      'kk',
++      'ku',
++      'lg',
++      'mai',
++     // 'mk', 'mk-mk', Should be 14?
++      'ml', 'ml-in',
++      'mn',
++      'nb', 'nb-no',
++      'no', 'no-no',
++      'nl',
++      'nn', 'nn-no',
++      'no', 'no-no',
++      'nb', 'nb-no',
++      'nso', 'nso-za',
++      'pa', 'pa-in',
++      'pt', 'pt-pt',
++      'rm', 'rm-ch',
++     // 'ro', 'ro-ro', Should be 5?
++      'si', 'si-lk',
++     // 'sl',      Should be 10?
++      'son', 'son-ml',
++      'sq', 'sq-al',
++      'sv', 'sv-se',
++      'vi', 'vi-vn',
++      'zu', 'zu-za'
++    ],
++    numForms: 2,
++    get: function(n) {
++      return n != 1 ?
++        1 :
++        0;
++    }
++  },
++
++  /**
++   * Index 2 - Two forms, singular used for zero and one
++   * Romanic family: Brazilian Portuguese, French
++   */
++  {
++    locales: [
++      'ak', 'ak-gh',
++      'bn', 'bn-in', 'bn-bd',
++      'fr', 'fr-fr',
++      'gu', 'gu-in',
++      'kn', 'kn-in',
++      'mr', 'mr-in',
++      'oc', 'oc-oc',
++      'or', 'or-in',
++            'pt-br',
++      'ta', 'ta-in', 'ta-lk',
++      'te', 'te-in'
++    ],
++    numForms: 2,
++    get: function(n) {
++      return n > 1 ?
++        1 :
++        0;
++    }
++  },
++
++  /**
++   * Index 3 - Three forms, special case for zero
++   * Latvian
++   */
++  {
++    locales: [ 'lv' ],
++    numForms: 3,
++    get: function(n) {
++      return n % 10 == 1 && n % 100 != 11 ?
++        1 :
++        n != 0 ?
++          2 :
++          0;
++    }
++  },
++
++  /**
++   * Index 4 -
++   * Scottish Gaelic
++   */
++  {
++    locales: [ 'gd', 'gd-gb' ],
++    numForms: 4,
++    get: function(n) {
++      return n == 1 || n == 11 ?
++        0 :
++        n == 2 || n == 12 ?
++          1 :
++          n > 0 && n < 20 ?
++            2 :
++            3;
++    }
++  },
++
++  /**
++   * Index 5 - Three forms, special case for numbers ending in 00 or [2-9][0-9]
++   * Romanian
++   */
++  {
++    locales: [ 'ro', 'ro-ro' ],
++    numForms: 3,
++    get: function(n) {
++      return n == 1 ?
++        0 :
++        n == 0 || n % 100 > 0 && n % 100 < 20 ?
++          1 :
++          2;
++    }
++  },
++
++  /**
++   * Index 6 - Three forms, special case for numbers ending in 1[2-9]
++   * Lithuanian
++   */
++  {
++    locales: [ 'lt' ],
++    numForms: 3,
++    get: function(n) {
++      return n % 10 == 1 && n % 100 != 11 ?
++        0 :
++        n % 10 >= 2 && (n % 100 < 10 || n % 100 >= 20) ?
++          2 :
++          1;
++    }
++  },
++
++  /**
++   * Index 7 - Three forms, special cases for numbers ending in 1 and
++   *       2, 3, 4, except those ending in 1[1-4]
++   * Slavic family: Russian, Ukrainian, Serbian, Croatian
++   */
++  {
++    locales: [
++      'be', 'be-by',
++      'hr', 'hr-hr',
++      'ru', 'ru-ru',
++      'sr', 'sr-rs', 'sr-cs',
++      'uk'
++    ],
++    numForms: 3,
++    get: function(n) {
++      return n % 10 == 1 && n % 100 != 11 ?
++        0 :
++        n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ?
++          1 :
++          2;
++    }
++  },
++
++  /**
++   * Index 8 - Three forms, special cases for 1 and 2, 3, 4
++   * Slavic family: Czech, Slovak
++   */
++  {
++    locales: [ 'cs', 'sk' ],
++    numForms: 3,
++    get: function(n) {
++      return n == 1 ?
++        0 :
++        n >= 2 && n <= 4 ?
++          1 :
++          2;
++    }
++  },
++
++  /**
++   * Index 9 - Three forms, special case for one and some numbers ending in
++   *       2, 3, or 4
++   * Polish
++   */
++  {
++    locales: [ 'pl' ],
++    numForms: 3,
++    get: function(n) {
++      return n == 1 ?
++        0 :
++        n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ?
++          1 :
++          2;
++    }
++  },
++
++  /**
++   * Index 10 - Four forms, special case for one and all numbers ending in
++   *      02, 03, or 04
++   * Slovenian
++   */
++  {
++    locales: [ 'sl' ],
++    numForms: 4,
++    get: function(n) {
++      return n % 100 == 1 ?
++        0 :
++        n % 100 == 2 ?
++          1 :
++          n % 100 == 3 || n % 100 == 4 ?
++            2 :
++            3;
++    }
++  },
++
++  /**
++   * Index 11 -
++   * Irish Gaeilge
++   */
++  {
++    locales: [ 'ga-ie', 'ga-ie', 'ga', 'en-ie' ],
++    numForms: 5,
++    get: function(n) {
++      return n == 1 ?
++        0 :
++        n == 2 ?
++          1 :
++          n >= 3 && n <= 6 ?
++            2 :
++            n >= 7 && n <= 10 ?
++              3 :
++              4;
++    }
++  },
++
++  /**
++   * Index 12 -
++   * Arabic
++   */
++  {
++    locales: [ 'ar' ],
++    numForms: 6,
++    get: function(n) {
++      return n == 0 ?
++        5 :
++        n == 1 ?
++          0 :
++          n == 2 ?
++            1 :
++            n % 100 >= 3 && n % 100 <= 10 ?
++              2 :
++              n % 100 >= 11 && n % 100 <= 99 ?
++                3 :
++                4;
++    }
++  },
++
++  /**
++   * Index 13 -
++   * Maltese
++   */
++  {
++    locales: [ 'mt' ],
++    numForms: 4,
++    get: function(n) {
++      return n == 1 ?
++        0 :
++        n == 0 || n % 100 > 0 && n % 100 <= 10 ?
++          1 :
++          n % 100 > 10 && n % 100 < 20 ?
++            2 :
++            3;
++    }
++  },
++
++  /**
++   * Index 14 -
++   * Macedonian
++   */
++  {
++    locales: [ 'mk', 'mk-mk' ],
++    numForms: 3,
++    get: function(n) {
++      return n % 10 == 1 ?
++        0 :
++        n % 10 == 2 ?
++          1 :
++          2;
++    }
++  },
++
++  /**
++   * Index 15 -
++   * Icelandic
++   */
++  {
++    locales: [ 'is' ],
++    numForms: 2,
++    get: function(n) {
++      return n % 10 == 1 && n % 100 != 11 ?
++        0 :
++        1;
++    }
++  }
++
++  /*
++  // Known locales without a known plural rule
++  'km', 'ms', 'ne-np', 'ne-np', 'ne', 'nr', 'nr-za', 'rw', 'ss', 'ss-za',
++  'st', 'st-za', 'tn', 'tn-za', 'ts', 'ts-za', 've', 've-za', 'xh', 'xh-za'
++  */
++];
++
++/**
++ * Use rule 0 by default, which is no plural forms at all
++ */
++var pluralRule = pluralRules[0];
++
++});
++/*
++ * Copyright 2009-2011 Mozilla Foundation and contributors
++ * Licensed under the New BSD license. See LICENSE.txt or:
++ * http://opensource.org/licenses/BSD-3-Clause
++ */
++
++define('gcli/types', ['require', 'exports', 'module' , 'gcli/argument', 'gcli/l10n'], function(require, exports, module) {
 +var types = exports;
 +
-+
-+var console = require('gcli/util').console;
 +
 +var Argument = require('gcli/argument').Argument;
 +var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
 +var FalseNamedArgument = require('gcli/argument').FalseNamedArgument;
 +var ArrayArgument = require('gcli/argument').ArrayArgument;
++
++var l10n = require('gcli/l10n');
 +
 +
 +/**
@@ -2350,7 +2523,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  // Allow us to trace where this Conversion came from
 +  this.arg = arg;
 +  if (arg == null) {
-+    throw new Error('missing arg');
++    throw new Error('Missing arg');
 +  }
 +
 +  this._status = status || Status.VALID;
@@ -2528,7 +2701,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * string representations.
 + */
 +Type.prototype.stringify = function(value) {
-+  throw new Error("not implemented");
++  throw new Error('Not implemented');
 +};
 +
 +/**
@@ -2539,7 +2712,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * @return Conversion
 + */
 +Type.prototype.parse = function(arg) {
-+  throw new Error("not implemented");
++  throw new Error('Not implemented');
 +};
 +
 +/**
@@ -2731,17 +2904,17 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  var value = parseInt(arg.text, 10);
 +  if (isNaN(value)) {
 +    return new Conversion(this.min, arg, Status.ERROR,
-+      'Can\'t convert "' + arg.text + '" to a number.');
++        l10n.lookup('types_number_nan', { text: arg.text }));
 +  }
 +
 +  if (this.max != null && value > this.max) {
 +    return new Conversion(value, arg, Status.ERROR,
-+      '' + value + ' is greater that maximum allowed: ' + this.max + '.');
++        l10n.lookup('types_number_max', { value: value, max: this.max }));
 +  }
 +
 +  if (this.min != null && value < this.min) {
 +    return new Conversion(value, arg, Status.ERROR,
-+      '' + value + ' is smaller that minimum allowed: ' + this.min + '.');
++        l10n.lookup('types_number_min', { value: value, max: this.max }));
 +  }
 +
 +  return new Conversion(value, arg);
@@ -2824,6 +2997,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +/**
 + * There are several ways to get selection data. This unifies them into one
 + * single function.
++ * @return A map of names to values. It is NOT safe to mutate this object
 + */
 +SelectionType.prototype.getLookup = function() {
 +  if (this.lookup) {
@@ -2927,8 +3101,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    return new Conversion(null, arg, Status.INCOMPLETE, '', predictFunc);
 +  }
 +
-+  var msg = 'Can\'t use \'' + arg.text + '\'.';
-+  return new Conversion(null, arg, Status.ERROR, msg);
++  return new Conversion(null, arg, Status.ERROR,
++      l10n.lookup('types_selection_nomatch', { text: arg.text }));
 +};
 +
 +/**
@@ -3104,7 +3278,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +function ArrayType(typeSpec) {
 +  if (!typeSpec.subtype) {
 +    console.error('Array.typeSpec is missing subtype. Assuming string.' +
-+      JSON.stringify(typeSpec));
++        JSON.stringify(typeSpec));
 +    typeSpec.subtype = 'string';
 +  }
 +
@@ -3339,6 +3513,26 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +}
 +
 +ScriptArgument.prototype = Object.create(Argument.prototype);
++
++/**
++ * Returns a new Argument like this one but with the text set to
++ * <tt>replText</tt> and the end adjusted to fit.
++ * @param replText Text to replace the old text value
++ */
++ScriptArgument.prototype.beget = function(replText, options) {
++  var prefix = this.prefix;
++  var suffix = this.suffix;
++
++  var quote = (replText.indexOf(' ') >= 0 || replText.length == 0) ?
++      '\'' : '';
++
++  if (options && options.normalize) {
++    prefix = '{ ';
++    suffix = ' }';
++  }
++
++  return new ScriptArgument(replText, prefix, suffix);
++};
 +
 +argument.ScriptArgument = ScriptArgument;
 +
@@ -3610,13 +3804,16 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/jstype', ['require', 'exports', 'module' , 'gcli/types'], function(require, exports, module) {
++define('gcli/jstype', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types'], function(require, exports, module) {
 +
 +
++var l10n = require('gcli/l10n');
 +var types = require('gcli/types');
++
 +var Conversion = types.Conversion;
 +var Type = types.Type;
 +var Status = types.Status;
++
 +
 +/**
 + * 'javascript' handles scripted input
@@ -3638,10 +3835,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +JavascriptType.prototype.parse = function(arg) {
 +  var typed = arg.text;
-+  if (typed == null || typed === '') {
-+    return new Conversion(null, arg, Status.INCOMPLETE, '');
-+  }
-+
 +  var scope = window;
 +
 +  // In FX-land we need to unwrap. TODO: Enable in the browser.
@@ -3663,12 +3856,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +
 +  var completionPart = typed.substring(beginning.startPos);
-+
-+  // Don't complete on just an empty string.
-+  if (completionPart.trim() === "") {
-+    return new Conversion(typed, arg, Status.INCOMPLETE, '');
-+  }
-+
 +  var properties = completionPart.split('.');
 +  var matchProp;
 +  var prop;
@@ -3680,7 +3867,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +      // We can't complete on null.foo, so bail out
 +      if (scope == null) {
-+        return new Conversion(typed, arg, Status.ERROR, 'Scope lost');
++        return new Conversion(typed, arg, Status.ERROR,
++                l10n.lookup('jstype_parse_scope'));
 +      }
 +
 +      // TODO: Re-enable this test
@@ -3711,7 +3899,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  // However if the prop was a simple string, it is an error
 +  if (scope == null) {
 +    return new Conversion(typed, arg, Status.ERROR,
-+            'Can\'t find property \'' + prop + '\'');
++            l10n.lookup('jstype_parse_missing', { prop: prop }));
 +  }
 +
 +  // If the thing we're looking for isn't a simple string, then we're not going
@@ -3728,20 +3916,30 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  var matchLen = matchProp.length;
 +  var prefix = matchLen === 0 ? typed : typed.slice(0, -matchLen);
 +  var status = Status.INCOMPLETE;
-+  var message = 'Can\'t find property \'' + matchProp + '\'';
++  var message;
 +  var matches = [];
 +
 +  for (var prop in scope) {
 +    if (prop.indexOf(matchProp) === 0) {
-+      var description = '(' + typeof scope[prop] + ')';
++      var value = scope[prop];
++      var description;
 +      var incomplete = true;
-+      if (description === '(number)') {
-+        description = scope[prop] + ' (number)';
++      if (typeof value === 'function') {
++        description = '(function)';
++      }
++      if (typeof value === 'boolean' || typeof value === 'number') {
++        description = '= ' + value;
 +        incomplete = false;
 +      }
-+      else if (description === '(string)') {
-+        description = scope[prop] + ' (string)';
++      else if (typeof value === 'string') {
++        if (value.length > 40) {
++          value = value.substring(0, 37) + '...';
++        }
++        description = '= \'' + value + '\'';
 +        incomplete = false;
++      }
++      else {
++        description = '(' + typeof value + ')';
 +      }
 +      matches.push({
 +        name: prefix + prop,
@@ -3758,11 +3956,22 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    }
 +  }
 +
-+  // Can we think of a better sort order than alpha? There are certainly some
-+  // properties that are far more commonly used ...
-+  matches.sort(function(p1, p2) {
-+    return p1.name.localeCompare(p2.name);
-+  });
++  // Error message if this isn't valid
++  if (status !== Status.VALID) {
++    message = l10n.lookup('jstype_parse_missing', { prop: matchProp });
++  }
++
++  // If the match is the only one possible, and its VALID, predict nothing
++  if (matches.length === 1 && status === Status.VALID) {
++    matches = undefined;
++  }
++  else {
++    // Can we think of a better sort order than alpha? There are certainly some
++    // properties that are far more commonly used ...
++    matches.sort(function(p1, p2) {
++      return p1.name.localeCompare(p2.name);
++    });
++  }
 +
 +  return new Conversion(typed, arg, status, message, matches);
 +};
@@ -3786,7 +3995,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * later completion.
 + * @param text A string to analyze
 + * @return If there was an error in the string detected, then a object like
-+ *   { err: "ErrorMesssage" }
++ *   { err: 'ErrorMesssage' }
 + * is returned, otherwise a object like
 + *   {
 + *     state: ParseState.NORMAL|ParseState.QUOTE|ParseState.DQUOTE,
@@ -3827,7 +4036,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +        else if (CLOSE_BODY.indexOf(c) != -1) {
 +          var last = bodyStack.pop();
 +          if (!last || OPEN_CLOSE_BODY[last.token] != c) {
-+            return { err: "Syntax error" };
++            return { err: l10n.lookup('jstype_begin_syntax') };
 +          }
 +          if (c === '}') {
 +            start = i + 1;
@@ -3844,7 +4053,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +          i ++;
 +        }
 +        else if (c === '\n') {
-+          return { err: "Unterminated string literal" };
++          return { err: l10n.lookup('jstype_begin_unterm') };
 +        }
 +        else if (c === '"') {
 +          state = ParseState.NORMAL;
@@ -3857,8 +4066,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +          i ++;
 +        }
 +        else if (c === '\n') {
-+          return { err: "Unterminated string literal" };
-+          return;
++          return { err: l10n.lookup('jstype_begin_unterm') };
 +        }
 +        else if (c === '\'') {
 +          state = ParseState.NORMAL;
@@ -3883,16 +4091,16 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    return false;
 +  }
 +
-+  if (typeof aObject === "object") {
-+    if (typeof obj.__iterator__ === "function" ||
-+        obj.constructor && obj.constructor.name === "Iterator") {
++  if (typeof aObject === 'object') {
++    if (typeof obj.__iterator__ === 'function' ||
++        obj.constructor && obj.constructor.name === 'Iterator') {
 +      return true;
 +    }
 +
 +    try {
 +      var str = obj.toString();
-+      if (typeof obj.next === "function" &&
-+          str.indexOf("[object Generator") === 0) {
++      if (typeof obj.next === 'function' &&
++          str.indexOf('[object Generator') === 0) {
 +        return true;
 +      }
 +    }
@@ -3932,7 +4140,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/argument', 'gcli/commands'], function(require, exports, module) {
 +
 +
-+var console = require('gcli/util').console;
 +var createEvent = require('gcli/util').createEvent;
 +
 +var canon = require('gcli/canon');
@@ -4283,6 +4490,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      value = predictions[0].value;
 +      if (typeof value.exec === 'function') {
 +        status = Status.VALID;
++        predictFunc = null;
 +      }
 +    }
 +  }
@@ -5152,7 +5360,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  if (args[0] instanceof ScriptArgument) {
 +    // Special case: if the user enters { console.log('foo'); } then we need to
 +    // use the hidden 'eval' command
-+    this.commandAssignment.setConversion(new Conversion(evalCommand, args[0]));
++    var conversion = new Conversion(evalCommand, new Argument());
++    this.commandAssignment.setConversion(conversion);
 +    return;
 +  }
 +
@@ -5347,9 +5556,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/promise', ['require', 'exports', 'module' , 'gcli/util'], function(require, exports, module) {
-+
-+var console = require('gcli/util').console;
++define('gcli/promise', ['require', 'exports', 'module' ], function(require, exports, module) {
 +
 +
 +/**
@@ -5417,7 +5624,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +/**
-+ * Take the specified action of fulfilment of a promise, and (optionally)
++ * Take the specified action of fulfillment of a promise, and (optionally)
 + * a different action on promise rejection.
 + */
 +Promise.prototype.then = function(onSuccess, onError) {
@@ -5577,13 +5784,15 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  params: [
 +    {
 +      name: 'javascript',
-+      type: 'javascript'
++      type: 'javascript',
++      description: ''
 +    }
 +  ],
 +  returnType: 'html',
-+  description: 'JavaScript',
++  description: { key: 'commands_eval_javascript' },
 +  exec: function(args, context) {
-+    var resultPrefix = 'Result for <em>\'' + args.javascript + '\'</em>: ';
++    // &#x2192; is right arrow
++    var resultPrefix = '<em>{ ' + args.javascript + ' }</em> &#x2192; ';
 +    try {
 +      var result = eval(args.javascript);
 +
@@ -5597,12 +5806,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +      if (typeof result === 'function') {
 +        return resultPrefix +
-+          (result + '').replace(/\n/g, '<br>').replace(/ /g, '&#160');
++          (result + '').replace(/\n/g, '<br>').replace(/ /g, '&#160;');
 +      }
 +
 +      return resultPrefix + result;
 +    } catch (e) {
-+      return '<b>Error</b>: ' + e.message;
++      return resultPrefix + 'Exception: ' + e.message;
 +    }
 +  }
 +};
@@ -5642,7 +5851,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +var cliView = exports;
 +
 +
-+var console = require('gcli/util').console;
 +var event = require('gcli/util').event;
 +var dom = require('gcli/util').dom;
 +var KeyEvent = event.KeyEvent;
@@ -5691,8 +5899,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  // Used to distinguish focus from TAB in CLI. See onKeyUp()
 +  this.lastTabDownAt = 0;
 +
++  // Used to effect caret changes. See _processCaretChange()
++  this._caretChange = null;
++
 +  // Ensure that TAB/UP/DOWN isn't handled by the browser
-+  event.addListener(this.element, "keydown", this.onKeyDown.bind(this));
++  event.addListener(this.element, 'keydown', this.onKeyDown.bind(this));
 +  event.addListener(this.element, 'keyup', this.onKeyUp.bind(this));
 +
 +  // Use our document if no other is supplied
@@ -5739,7 +5950,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Handler for the Requisition.inputChange event
 + */
 +Inputter.prototype.onInputChange = function() {
-+  this._caretChange = Caret.TO_END;
++  if (this._caretChange == null) {
++    // We weren't expecting a change so this was requested by the hint system
++    // we should move the cursor to the end of the 'changed section', and the
++    // best we can do for that right now is the end of the current argument.
++    this._caretChange = Caret.TO_ARG_END;
++  }
 +  this._setInputInternal(this.requ.toString());
 +};
 +
@@ -5758,10 +5974,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + */
 +Inputter.prototype._setInputInternal = function(str) {
 +  if (this.element.value === str) {
-+    var input = this.getInputState();
-+    input = this._processCaretChange(input, false);
-+    dom.setSelectionStart(this.element, input.cursor.start);
-+    dom.setSelectionEnd(this.element, input.cursor.end);
++    this._processCaretChange(this.getInputState(), false);
 +    return;
 +  }
 +
@@ -5772,23 +5985,36 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    // position in terms of offset into an assignment, and then replacing into
 +    // a similar place
 +    var input = this.getInputState();
-+
 +    input.typed = str;
-+    input = this._processCaretChange(input, true);
-+
-+    this.element.value = input.typed;
-+    dom.setSelectionStart(this.element, input.cursor.start);
-+    dom.setSelectionEnd(this.element, input.cursor.end);
++    this._processCaretChange(input, true);
++    this.element.value = str;
 +  }.bind(this), 0);
 +};
 +
 +/**
-+ * Various ways in which we need to manipulate the caret/selection position
++ * Various ways in which we need to manipulate the caret/selection position.
++ * A value of null means we're not expecting a change
 + */
 +var Caret = {
++  /**
++   * We are expecting changes, but we don't need to move the cursor
++   */
 +  NO_CHANGE: 0,
++
++  /**
++   * We want the entire input area to be selected
++   */
 +  SELECT_ALL: 1,
++
++  /**
++   * The whole input has changed - push the cursor to the end
++   */
 +  TO_END: 2,
++
++  /**
++   * A part of the input has changed - push the cursor to the end of the
++   * changed section
++   */
 +  TO_ARG_END: 3
 +};
 +
@@ -5825,7 +6051,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      end = start;
 +      break;
 +
-+    default:
++    case null:
++    case Caret.NO_CHANGE:
 +      start = input.cursor.start;
 +      end = input.cursor.end;
 +      break;
@@ -5839,7 +6066,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    this.completer.update(newInput);
 +  }
 +
-+  this._caretChange = Caret.NO_CHANGE;
++  dom.setSelectionStart(this.element, newInput.cursor.start);
++  dom.setSelectionEnd(this.element, newInput.cursor.end);
++
++  this._caretChange = null;
 +  return newInput;
 +};
 +
@@ -5917,8 +6147,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    // 1 second) to the time of the keyup then we assume that we got them
 +    // both, and do the completion.
 +    if (this.lastTabDownAt + 1000 > ev.timeStamp) {
-+      this._caretChange = Caret.TO_ARG_END;
 +      this.getCurrentAssignment().complete();
++      // It's possible for TAB to not change the input, in which case the
++      // onInputChange event will not fire, and the caret move will not be
++      // processed. So we check that this is done
++      this._caretChange = Caret.TO_ARG_END;
++      this._processCaretChange(this.getInputState(), true);
 +    }
 +    this.lastTabDownAt = 0;
 +    this._scrollingThroughHistory = false;
@@ -5950,6 +6184,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +
 +  this._scrollingThroughHistory = false;
++  this._caretChange = Caret.NO_CHANGE;
 +  this.update();
 +};
 +
@@ -6206,7 +6441,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * A History object remembers commands that have been entered in the past and
 + * provides an API for accessing them again.
 + *
-+ * TODO: Search through history (like C-r in bash)?
++ * See Bug 681340: Search through history (like C-r in bash)?
 + */
 +function History(options) {
 +  this._options = options;
@@ -6216,7 +6451,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  // `this._buffer[0]` should always be equal the empty string. This is so
 +  // that when you try to go in to the "future", you will just get an empty
 +  // command.
-+  this._buffer = [""];
++  this._buffer = [''];
 +
 +  // This is an index in to the history buffer which points to where we
 +  // currently are in the history.
@@ -6275,7 +6510,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +
 +/**
-+ *
++ * A widget to display an inline dialog which allows the user to fill out
++ * the arguments to a command.
++ * @param doc The document to use in creating widgets
++ * @param requ The Requisition to fill out
 + */
 +function ArgFetcher(doc, requ) {
 +  this.doc = doc;
@@ -6376,8 +6614,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.fields.push(newField);
 +  newField.setConversion(this.assignment.conversion);
 +
-+  // HACK: we add the field as a property of the assignment so that
-+  // #linkMessageElement() can tell the field how to report errors.
++  // Bug 681894: we add the field as a property of the assignment so that
++  // #linkMessageElement() can call 'field.setMessageElement(element)'
 +  assignment.field = newField;
 +
 +  return newField.element;
@@ -6387,8 +6625,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Called by the template to setup an mutable message field
 + */
 +ArgFetcher.prototype.linkMessageElement = function(assignment, element) {
-+  // HACK: See #getInputFor()
++  // Bug 681894: See comment in getInputFor()
 +  var field = assignment.field;
++  delete assignment.field;
 +  if (field == null) {
 +    console.error('Missing field for ' + assignment.param.name);
 +    return 'Missing field';
@@ -6421,18 +6660,19 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/ui/field', ['require', 'exports', 'module' , 'gcli/util', 'gcli/argument', 'gcli/types', 'gcli/jstype'], function(require, exports, module) {
++define('gcli/ui/field', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/argument', 'gcli/types', 'gcli/jstype', 'gcli/ui/menu'], function(require, exports, module) {
 +
 +
 +var dom = require('gcli/util').dom;
-+var console = require('gcli/util').console;
 +var createEvent = require('gcli/util').createEvent;
++var l10n = require('gcli/l10n');
 +
 +var Argument = require('gcli/argument').Argument;
 +var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
 +var FalseNamedArgument = require('gcli/argument').FalseNamedArgument;
 +var ArrayArgument = require('gcli/argument').ArrayArgument;
 +
++var Status = require('gcli/types').Status;
 +var Conversion = require('gcli/types').Conversion;
 +var ArrayConversion = require('gcli/types').ArrayConversion;
 +
@@ -6444,6 +6684,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +var DeferredType = require('gcli/types').DeferredType;
 +var ArrayType = require('gcli/types').ArrayType;
 +var JavascriptType = require('gcli/jstype').JavascriptType;
++
++var Menu = require('gcli/ui/menu').Menu;
 +
 +
 +/**
@@ -6493,8 +6735,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +/**
-+ * Validation errors should be reported somewhere. This is where.
-+ * See setMessage()
++ * Set the element where messages and validation errors will be displayed
++ * @see setMessage()
 + */
 +Field.prototype.setMessageElement = function(element) {
 +  this.messageElement = element;
@@ -6576,7 +6818,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  });
 +
 +  if (!ctor) {
-+    console.error('Can\'t find field for ', type, ' in ', fieldCtors);
++    console.error('Unknown field type ', type, ' in ', fieldCtors);
++    throw new Error('Can\'t find field for ' + type);
 +  }
 +
 +  return new ctor(doc, type, named, name, requ);
@@ -6598,6 +6841,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  this.element = dom.createElement('input', null, this.doc);
 +  this.element.type = 'text';
++  /*
++  Bug 680852: finish this off
++  if (isDataRequired) {
++    this.element.required = true;
++  }
++  */
 +
 +  this.onInputChange = this.onInputChange.bind(this);
 +  this.element.addEventListener('keyup', this.onInputChange, false);
@@ -6629,49 +6878,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +exports.StringField = StringField;
 +addField(StringField);
-+
-+
-+/**
-+ * A field that allows editing of javascript
-+ */
-+function JavascriptField(doc, type, named, name, requ) {
-+  this.doc = doc;
-+  this.type = type;
-+  this.arg = new Argument();
-+
-+  this.element = dom.createElement('input', null, this.doc);
-+  this.element.type = 'text';
-+
-+  this.onInputChange = this.onInputChange.bind(this);
-+  this.element.addEventListener('keyup', this.onInputChange, false);
-+
-+  this.fieldChanged = createEvent('JavascriptField.fieldChanged');
-+}
-+
-+JavascriptField.prototype = Object.create(Field.prototype);
-+
-+JavascriptField.prototype.destroy = function() {
-+  this.element.removeEventListener('keyup', this.onKeyup, false);
-+};
-+
-+JavascriptField.prototype.setConversion = function(conversion) {
-+  this.arg = conversion.arg;
-+  this.element.value = conversion.arg.text;
-+  this.setMessage(conversion.message);
-+};
-+
-+JavascriptField.prototype.getConversion = function() {
-+  // This tweaks the prefix/suffix of the argument to fit
-+  this.arg = this.arg.beget(this.element.value, { prefixSpace: true });
-+  return this.type.parse(this.arg);
-+};
-+
-+JavascriptField.claim = function(type) {
-+  return type instanceof JavascriptType ? Field.MATCH : Field.IF_NOTHING_BETTER;
-+};
-+
-+exports.JavascriptField = JavascriptField;
-+addField(JavascriptField);
 +
 +
 +/**
@@ -6786,13 +6992,13 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.doc = doc;
 +  this.type = type;
 +  this.opts = {};
-+  this.defaultText = 'Select a ' + this.type.name + ' ...';
++  this.defaultText = l10n.lookup('field_selection_select', { name: name });
 +
 +  this.element = dom.createElement('select', null, this.doc);
 +  this._addOption(null, this.defaultText, SelectionField.DEFAULT_VALUE);
 +  var lookup = this.type.getLookup();
-+  Object.keys(lookup).forEach(function(name) {
-+    this._addOption(lookup[name], name);
++  Object.keys(lookup).forEach(function(key) {
++    this._addOption(lookup[key], key);
 +  }, this);
 +
 +  this.onInputChange = this.onInputChange.bind(this);
@@ -6850,6 +7056,107 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +exports.SelectionField = SelectionField;
 +addField(SelectionField);
++
++
++/**
++ * A field that allows editing of javascript
++ */
++function JavascriptField(doc, type, named, name, requ) {
++  this.doc = doc;
++  this.type = type;
++  this.requ = requ;
++
++  this.onInputChange = this.onInputChange.bind(this);
++  this.arg = new Argument('', '{ ', ' }');
++
++  this.element = doc.createElement('div', null, this.doc);
++
++  this.input = dom.createElement('input', null, this.doc);
++  this.input.type = 'text';
++  this.input.addEventListener('keyup', this.onInputChange, false);
++  this.input.style.marginBottom = '0px';
++  this.input.style.width = '240px';
++  this.element.appendChild(this.input);
++
++  this.menu = new Menu(this.doc, { field: true });
++  this.element.appendChild(this.menu.element);
++
++  this.setConversion(this.type.parse(new Argument('')));
++
++  this.fieldChanged = createEvent('JavascriptField.fieldChanged');
++
++  this.menu.onItemClick = this.onItemClick.bind(this);
++}
++
++JavascriptField.prototype = Object.create(Field.prototype);
++
++JavascriptField.claim = function(type) {
++  return type instanceof JavascriptType ? Field.MATCH : Field.NO_MATCH;
++};
++
++JavascriptField.prototype.destroy = function() {
++  this.input.removeEventListener('keyup', this.onKeyup, false);
++};
++
++JavascriptField.prototype.setConversion = function(conversion) {
++  this.arg = conversion.arg;
++  this.input.value = conversion.arg.text;
++
++  var predictions = conversion.getPredictions();
++
++  var prefixLen = 0;
++  if (this.type instanceof JavascriptType) {
++    var typed = conversion.arg.text;
++    var lastDot = typed.lastIndexOf('.');
++    if (lastDot !== -1) {
++      prefixLen = lastDot;
++    }
++  }
++
++  var items = [];
++  predictions.forEach(function(pair) {
++    var value = pair.value;
++    // Commands can be hidden
++    if (!value.hidden) {
++      items.push({
++        name: pair.name.substring(prefixLen),
++        complete: pair.name,
++        description: value.description || ''
++      });
++    }
++  }, this);
++
++  this.menu.show(items);
++  if (conversion.getStatus() === Status.ERROR) {
++    this.setMessage(conversion.message);
++  }
++};
++
++JavascriptField.prototype.onItemClick = function(ev) {
++  this.item = ev.currentTarget.item;
++  this.arg = this.arg.beget(this.item.complete, { normalize: true });
++  var conversion = this.type.parse(this.arg);
++  this.fieldChanged({ conversion: conversion });
++  this.setMessage(conversion.message);
++};
++
++JavascriptField.prototype.onInputChange = function(ev) {
++  this.item = ev.currentTarget.item;
++  var conversion = this.getConversion();
++  this.fieldChanged({ conversion: conversion });
++  this.setMessage(conversion.message);
++};
++
++JavascriptField.prototype.getConversion = function() {
++  // This tweaks the prefix/suffix of the argument to fit
++  this.arg = this.arg.beget(this.input.value, { normalize: true });
++  return this.type.parse(this.arg);
++};
++
++JavascriptField.DEFAULT_VALUE = '__JavascriptField.DEFAULT_VALUE';
++
++exports.JavascriptField = JavascriptField;
++addField(JavascriptField);
 +
 +
 +/**
@@ -6960,7 +7267,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.addButton = dom.createElement('button', null, this.doc);
 +  this.addButton.className = 'gcliArrayMbrAdd';
 +  this.addButton.addEventListener('click', this._onAdd, false);
-+  this.addButton.innerHTML = 'Add';
++  this.addButton.innerHTML = l10n.lookup('field_array_add');
 +  this.element.appendChild(this.addButton);
 +
 +  // <div class=gcliArrayMbrs save="${mbrElement}">
@@ -7029,7 +7336,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  var delButton = dom.createElement('button', null, this.doc);
 +  delButton.className = 'gcliArrayMbrDel';
 +  delButton.addEventListener('click', this._onDel, false);
-+  delButton.innerHTML = 'Del';
++  delButton.innerHTML = l10n.lookup('field_array_del');
 +  element.appendChild(delButton);
 +
 +  var member = {
@@ -7060,11 +7367,146 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/ui/domtemplate', ['require', 'exports', 'module' , 'gcli/util'], function(require, exports, module) {
++define('gcli/ui/menu', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types', 'gcli/argument', 'gcli/canon', 'gcli/ui/domtemplate', 'text!gcli/ui/menu.css', 'text!gcli/ui/menu.html'], function(require, exports, module) {
++
++
++var dom = require('gcli/util').dom;
++
++var Conversion = require('gcli/types').Conversion;
++var Argument = require('gcli/argument').Argument;
++var canon = require('gcli/canon');
++
++var Templater = require('gcli/ui/domtemplate').Templater;
++
++var menuCss = require('text!gcli/ui/menu.css');
++var menuHtml = require('text!gcli/ui/menu.html');
++
++
++/**
++ * Menu is a display of the commands that are possible given the state of a
++ * requisition.
++ */
++function Menu(doc, options) {
++  this.doc = doc;
++
++  this.element =  dom.createElement('div', null, this.doc);
++  this.element.className = 'gcliMenu';
++  if (options && options.field) {
++    this.element.className += ' gcliMenuField';
++  }
++
++  // Pull the HTML into the DOM, but don't add it to the document
++  if (!Menu.optTempl) {
++    dom.importCssString(menuCss, this.doc);
++
++    var templates = dom.createElement('div', null, this.doc);
++    dom.setInnerHtml(templates, menuHtml);
++    Menu.optTempl = templates.querySelector('#gcliOptTempl');
++  }
++}
++
++/**
++ * The default is to do nothing when someone clicks on the menu.
++ * Plug an implementation in here before calling show() to do something useful.
++ * This is called from template.html
++ * @param ev The click event from the browser
++ */
++Menu.prototype.onItemClick = function(ev) {
++};
++
++/**
++ * Display a number of items in the menu (or hide the menu if there is nothing
++ * to display)
++ * @param items The items to show in the menu
++ */
++Menu.prototype.show = function(items) {
++  this.items = items;
++  if (!items || items.length == 0) {
++    this.element.style.display = 'none';
++    return;
++  }
++
++  var options = Menu.optTempl.cloneNode(true);
++  new Templater().processNode(options, this);
++
++  dom.clearElement(this.element);
++  this.element.appendChild(options);
++
++  this.element.style.display = 'block';
++};
++
++exports.Menu = Menu;
++
++
++/**
++ * CommandMenu is a special menu that integrates with a Requisition to display
++ * available commands.
++ */
++function CommandMenu(doc, requ) {
++  Menu.call(this, doc);
++  this.requ = requ;
++
++  this.requ.commandChange.add(this.onCommandChange, this);
++  canon.canonChange.add(this.onCommandChange, this);
++}
++
++CommandMenu.prototype = Object.create(Menu.prototype);
++
++/**
++ * We want to fill-in the clicked command in the cli input when the user clicks
++ */
++CommandMenu.prototype.onItemClick = function(ev) {
++  var item = ev.currentTarget.item;
++  var type = this.requ.commandAssignment.param.type;
++  var text = type.stringify(item);
++  var arg = new Argument(text);
++  arg.suffix = ' ';
++  var conversion = new Conversion(item, arg);
++  this.requ.commandAssignment.setConversion(conversion);
++};
++
++/**
++ * Update the various hint components to reflect the changed command
++ */
++CommandMenu.prototype.onCommandChange = function(ev) {
++  var command = this.requ.commandAssignment.getValue();
++  if (!command || !command.exec) {
++    var predictions = this.requ.commandAssignment.getPredictions();
++    predictions.sort(function(command1, command2) {
++      return command1.value.name.localeCompare(command2.value.name);
++    });
++    var items = [];
++    predictions.forEach(function(pair) {
++      var command = pair.value;
++      if (command.description && !command.hidden) {
++        items.push(command);
++      }
++    }, this);
++
++    this.show(items);
++  }
++  else {
++    if (ev && ev.oldValue === ev.newValue) {
++      return; // Just the text has changed
++    }
++
++    this.show(null);
++  }
++};
++
++exports.CommandMenu = CommandMenu;
++
++
++});
++/*
++ * Copyright 2009-2011 Mozilla Foundation and contributors
++ * Licensed under the New BSD license. See LICENSE.txt or:
++ * http://opensource.org/licenses/BSD-3-Clause
++ */
++
++define('gcli/ui/domtemplate', ['require', 'exports', 'module' ], function(require, exports, module) {
 +var domtemplate = exports;
 +
-+
-+var console = require('gcli/util').console;
 +
 +// WARNING: do not 'use_strict' without reading the notes in envEval;
 +
@@ -7432,6 +7874,48 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +
 +});
++define("text!gcli/ui/menu.css", [], "" +
++  "/* The items in a menu. Used primarily for the command menu */" +
++  ".gcliOption { overflow: hidden; white-space: nowrap; cursor: pointer; }" +
++  ".gcliOption:hover { background-color: rgb(230, 230, 230) }" +
++  ".gcliOptName { padding-right: 5px; }" +
++  ".gcliOptDesc { font-size: 80%; color: #999; }" +
++  "" +
++  ".gcliMenuField {" +
++  "  background-color: white;" +
++  "  color: black;" +
++  "  border: 1px solid #aaa;" +
++  "  padding: 2px;" +
++  "  max-height: 300px;" +
++  "  overflow-y: auto;" +
++  "  max-width: 220px;" +
++  "  overflow-x: hidden;" +
++  "  margin: 0 10px;" +
++  "  border-top: 0px !important;" +
++  "  border-bottom-right-radius: 5px;" +
++  "  border-bottom-left-radius: 5px;" +
++  "  font: -webkit-small-control;" +
++  "}" +
++  "");
++
++define("text!gcli/ui/menu.html", [], "" +
++  "<!--" +
++  "Template for the beginnings of a command menu." +
++  "This will work with things other than a command - many things are a set of" +
++  "things with a name and description." +
++  "In the command context it is evaluated once for every keypress in the cli" +
++  "when a command has not been entered." +
++  "-->" +
++  "<div id=\"gcliOptTempl\">" +
++  "  <div class=\"gcliOption\" foreach=\"item in ${items}\" onclick=\"${onItemClick}\"" +
++  "      title=\"${item.manual || ''}\">" +
++  "    ${__element.item = item; ''}" +
++  "    <span class=\"gcliOptName\">${item.name}</span>" +
++  "    <span class=\"gcliOptDesc\">${item.description}</span>" +
++  "  </div>" +
++  "</div>" +
++  " ");
++
 +define("text!gcli/ui/arg_fetch.css", [], "" +
 +  ".gcliCmdDesc {" +
 +  "  font-weight: bold; text-align: center;" +
@@ -7445,6 +7929,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  "" +
 +  ".gcliGroupSymbol { font-size: 90%; color: #666; }" +
 +  ".gcliRequired { font-size: 80%; color: #666; }" +
++  "" +
++  ".gcliParams { width: 100%; }" +
 +  "");
 +
 +define("text!gcli/ui/arg_fetch.html", [], "" +
@@ -7455,7 +7941,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  "<div id=\"gcliReqTempl\">" +
 +  "  <div>" +
 +  "    <div class=\"gcliCmdDesc\">" +
-+  "      ${requ.commandAssignment.getValue().getDescription()}" +
++  "      ${requ.commandAssignment.getValue().description}" +
 +  "    </div>" +
 +  "    <table class=\"gcliParams\">" +
 +  "      <tbody class=\"gcliAssignment\"" +
@@ -7490,166 +7976,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  "  </div>" +
 +  "</div>" +
 +  "");
-+
-+/*
-+ * Copyright 2009-2011 Mozilla Foundation and contributors
-+ * Licensed under the New BSD license. See LICENSE.txt or:
-+ * http://opensource.org/licenses/BSD-3-Clause
-+ */
-+
-+define('gcli/ui/menu', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types', 'gcli/argument', 'gcli/canon', 'gcli/ui/domtemplate', 'text!gcli/ui/menu.css', 'text!gcli/ui/menu.html'], function(require, exports, module) {
-+
-+
-+var dom = require('gcli/util').dom;
-+var console = require('gcli/util').console;
-+
-+var Conversion = require('gcli/types').Conversion;
-+var Argument = require('gcli/argument').Argument;
-+var canon = require('gcli/canon');
-+
-+var Templater = require('gcli/ui/domtemplate').Templater;
-+
-+var menuCss = require('text!gcli/ui/menu.css');
-+var menuHtml = require('text!gcli/ui/menu.html');
-+
-+
-+/**
-+ * Menu is a display of the commands that are possible given the state of a
-+ * requisition.
-+ */
-+function Menu(doc) {
-+  this.doc = doc;
-+
-+  this.element =  dom.createElement('div', null, this.doc);
-+  this.element.className = 'gcliMenu';
-+
-+  // Pull the HTML into the DOM, but don't add it to the document
-+  if (!Menu.optTempl) {
-+    dom.importCssString(menuCss, this.doc);
-+
-+    var templates = dom.createElement('div', null, this.doc);
-+    dom.setInnerHtml(templates, menuHtml);
-+    Menu.optTempl = templates.querySelector('#gcliOptTempl');
-+  }
-+}
-+
-+/**
-+ * The default is to do nothing when someone clicks on the menu.
-+ * Plug an implementation in here before calling show() to do something useful.
-+ * @param ev The click event from the browser
-+ */
-+Menu.prototype.onItemClick = function(ev) {
-+};
-+
-+/**
-+ * Display a number of items in the menu (or hide the menu if there is nothing
-+ * to display)
-+ * @param items The items to show in the menu
-+ */
-+Menu.prototype.show = function(items) {
-+  this.items = items;
-+  if (!items || items.length == 0) {
-+    this.element.style.display = 'none';
-+    return;
-+  }
-+
-+  var options = Menu.optTempl.cloneNode(true);
-+  new Templater().processNode(options, this);
-+
-+  dom.clearElement(this.element);
-+  this.element.appendChild(options);
-+
-+  this.element.style.display = 'block';
-+};
-+
-+exports.Menu = Menu;
-+
-+
-+/**
-+ * CommandMenu is a special menu that integrates with a Requisition to display
-+ * available commands.
-+ */
-+function CommandMenu(doc, requ) {
-+  Menu.call(this, doc);
-+  this.requ = requ;
-+
-+  this.requ.commandChange.add(this.onCommandChange, this);
-+  canon.canonChange.add(this.onCommandChange, this);
-+}
-+
-+CommandMenu.prototype = Object.create(Menu.prototype);
-+
-+/**
-+ * We want to fill-in the clicked command in the cli input when the user clicks
-+ */
-+CommandMenu.prototype.onItemClick = function(ev) {
-+  var item = ev.currentTarget.item;
-+  var type = this.requ.commandAssignment.param.type;
-+  var text = type.stringify(item);
-+  var arg = new Argument(text);
-+  arg.suffix = ' ';
-+  var conversion = new Conversion(item, arg);
-+  this.requ.commandAssignment.setConversion(conversion);
-+};
-+
-+/**
-+ * Update the various hint components to reflect the changed command
-+ */
-+CommandMenu.prototype.onCommandChange = function(ev) {
-+  var command = this.requ.commandAssignment.getValue();
-+  if (!command || !command.exec) {
-+    var predictions = this.requ.commandAssignment.getPredictions();
-+    predictions.sort(function(command1, command2) {
-+      return command1.value.name.localeCompare(command2.value.name);
-+    });
-+    var items = [];
-+    predictions.forEach(function(pair) {
-+      var command = pair.value;
-+      if (command.description && !command.hidden) {
-+        items.push(command);
-+      }
-+    }, this);
-+
-+    this.show(items);
-+  }
-+  else {
-+    if (ev && ev.oldValue === ev.newValue) {
-+      return; // Just the text has changed
-+    }
-+
-+    this.show(null);
-+  }
-+};
-+
-+exports.CommandMenu = CommandMenu;
-+
-+
-+});
-+define("text!gcli/ui/menu.css", [], "" +
-+  "/* The items in a menu. Used primarily for the command menu */" +
-+  ".gcliOption { overflow: hidden; white-space: nowrap; cursor: pointer; }" +
-+  ".gcliOption:hover { background-color: rgb(230, 230, 230) }" +
-+  ".gcliOptName { padding-right: 5px; }" +
-+  ".gcliOptDesc { font-size: 80%; color: #999; }" +
-+  "");
-+
-+define("text!gcli/ui/menu.html", [], "" +
-+  "<!--" +
-+  "Template for the beginnings of a command menu." +
-+  "This will work with things other than a command - many things are a set of" +
-+  "things with a name and description." +
-+  "In the command context it is evaluated once for every keypress in the cli" +
-+  "when a command has not been entered." +
-+  "-->" +
-+  "<div id=\"gcliOptTempl\">" +
-+  "  <div class=\"gcliOption\" foreach=\"item in ${items}\" onclick=\"${onItemClick}\"" +
-+  "      title=\"${item.manual || ''}\">" +
-+  "    ${__element.item = item; ''}" +
-+  "    <span class=\"gcliOptName\">${item.name}</span>" +
-+  "    <span class=\"gcliOptDesc\">${item.description}</span>" +
-+  "  </div>" +
-+  "</div>" +
-+  " ");
 +
  
  /*
