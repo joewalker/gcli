@@ -5,6 +5,7 @@
  */
 
 var copy = require('dryice').copy;
+var path = require('path');
 var fs = require('fs');
 
 // SETUP
@@ -91,7 +92,7 @@ function buildStandard() {
 function buildFirefox() {
   console.log('Building built/ff/gcli.jsm:');
 
-  if (!fs.statSync(gcliHome + '/built/ff').isDirectory()) {
+  if (!path.existsSync(gcliHome + '/built/ff')) {
     fs.mkdirSync(gcliHome + '/built/ff', 0755);
   }
 
