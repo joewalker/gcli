@@ -16,6 +16,7 @@ if (!fs.statSync(gcliHome + '/built').isDirectory()) {
 }
 
 buildStandard();
+buildDevtools();
 buildFirefox();
 
 /**
@@ -77,6 +78,52 @@ function buildStandard() {
   catch (ex) {
     console.log('ERROR: Uglify compression fails on windows. Skipping creation of built/gcli.js\n');
   }
+}
+
+
+/**
+ * A custom build of GCLI for devtools
+ */
+function buildDevtools() {
+  console.log('Building built/devtools/devtools.js:');
+
+  if (!path.existsSync(gcliHome + '/built/devtools')) {
+    fs.mkdirSync(gcliHome + '/built/devtools', 0755);
+  }
+
+  var project = copy.createCommonJsProject({
+    roots: [ gcliHome + '/lib' ]
+  });
+  var sources = copy.createDataObject();
+
+  copy({
+    source: copy.source.commonjs({
+      project: project,
+      // Should be dependencies as build/devtools/index.html
+      require: [ 'gcli/index', 'devtools/index' ]
+    }),
+    filter: copy.filter.moduleDefines,
+    dest: sources
+  });
+  copy({
+    source: { root: project, include: /.*\.png$|.*\.gif$/ },
+    filter: copy.filter.base64,
+    dest: sources
+  });
+  console.log(project.report());
+
+  copy({
+    source: 'build/devtools/index.html',
+    dest: 'built/devtools/index.html'
+  });
+  copy({
+    source: 'scripts/es5-shim.js',
+    dest: 'built/devtools/es5-shim.js'
+  });
+  copy({
+    source: [ 'build/mini_require.js', sources ],
+    dest: 'built/devtools/devtools.js'
+  });
 }
 
 
