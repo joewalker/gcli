@@ -26,23 +26,25 @@ buildFirefox();
 function buildStandard() {
   console.log('Building built/gcli[-uncompressed].js:');
 
-  // Build the standard compressed and uncompressed javascript files
   var project = copy.createCommonJsProject({
     roots: [ gcliHome + '/lib' ]
   });
-
-  // Grab and process all the Javascript
   var sources = copy.createDataObject();
+
   copy({
     source: copy.source.commonjs({
       project: project,
-      // This list of dependencies should be the same as in build/*.html
+      // This list of dependencies should be the same as in build/index.html
       require: [ 'gcli/index', 'demo/index' ]
     }),
     filter: copy.filter.moduleDefines,
     dest: sources
   });
-
+  copy({
+    source: { root: project, include: /.*\.png$|.*\.gif$/ },
+    filter: copy.filter.base64,
+    dest: sources
+  });
   console.log(project.report());
 
   // Create a GraphML dependency report. Directions:
@@ -57,13 +59,6 @@ function buildStandard() {
       dest: 'built/gcli.graphml',
     });
   }
-
-  // Process the PNG/GIF
-  copy({
-    source: { root: project, include: /.*\.png$|.*\.gif$/ },
-    filter: copy.filter.base64,
-    dest: sources
-  });
 
   // Create the output scripts, compressed and uncompressed
   copy({ source: 'build/index.html', dest: 'built/index.html' });
