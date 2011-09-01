@@ -65,12 +65,12 @@ function buildStandard() {
   copy({ source: 'build/index.html', dest: 'built/index.html' });
   copy({ source: 'scripts/es5-shim.js', dest: 'built/es5-shim.js' });
   copy({
-    source: [ 'build/mini_require.js', sources ],
+    source: [ copy.getMiniRequire(), sources ],
     dest: 'built/gcli-uncompressed.js'
   });
   try {
     copy({
-      source: [ 'build/mini_require.js', sources ],
+      source: [ copy.getMiniRequire(), sources ],
       filter: copy.filter.uglifyjs,
       dest: 'built/gcli.js'
     });
@@ -121,7 +121,7 @@ function buildDevtools() {
     dest: 'built/devtools/es5-shim.js'
   });
   copy({
-    source: [ 'build/mini_require.js', sources ],
+    source: [ copy.getMiniRequire(), sources ],
     dest: 'built/devtools/devtools.js'
   });
 }
@@ -147,7 +147,7 @@ function buildFirefox() {
     source: [
       'build/prefix-gcli.jsm',
       'build/console.js',
-      'build/mini_require.js',
+      copy.getMiniRequire(),
       copy.source.commonjs({
         project: project,
         // This list of dependencies should be the same as in suffix-gcli.jsm
