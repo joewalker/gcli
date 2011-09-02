@@ -4,26 +4,6 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   <meta name="author" content="Joe Walker">
-  <script type="text/javascript" src="scripts/es5-shim.js"></script>
-  <script type="text/javascript" src="scripts/require.js"></script>
-  <script type="text/javascript">
-    require({
-      paths: { "text": "scripts/text", "i18n": "scripts/i18n" },
-      packagePaths: {
-        "lib": [
-          { name: "gcli", main: "index", lib: "." },
-          { name: "test", main: "index", lib: "." },
-          { name: "gclitest", main: "index", lib: "." },
-          { name: "demo", main: "index", lib: "." }
-        ]
-      }
-    });
-
-    var deps = [ 'gcli/index', 'demo/index', 'gclitest/index' ];
-    require(deps, function(gcli, demo, gclitest) {
-      gcli.createView();
-    });
-  </script>
   <title>GCLI: Graphical Command Line</title>
   <style type="text/css" media="screen">
     body {
@@ -49,6 +29,28 @@
   </div>
 
   <input id="gcliInput" type="text" autofocus/>
+
+  <script type="text/javascript" src="scripts/es5-shim.js"></script>
+  <script type="text/javascript" src="scripts/require.js"></script>
+  <script type="text/javascript">
+    require({
+      paths: { "text": "scripts/text", "i18n": "scripts/i18n" },
+      packagePaths: {
+        "lib": [
+          { name: "gcli", main: "index", lib: "." },
+          { name: "test", main: "index", lib: "." },
+          { name: "gclitest", main: "index", lib: "." },
+          { name: "demo", main: "index", lib: "." }
+        ]
+      }
+    });
+
+    // This list should be the same as the browser part of Makefile.dryice.js
+    var deps = [ 'gcli/index', 'demo/index', 'gclitest/index' ];
+    require(deps, function(gcli) {
+      gcli.createView();
+    });
+  </script>
 
 </body>
 </html>

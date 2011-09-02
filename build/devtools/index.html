@@ -42,8 +42,9 @@
       throw new Error('Can\'t start without require');
     }
 
-    // This list should be the same as the browser part of Makefile.dryice.js
-    require([ 'gcli/index', 'devtools/index' ], function(gcli, devtools) {
+    // This list should be the same as the devtools part of Makefile.dryice.js
+    var deps = [ 'gcli/index', 'devtools/index' ];
+    require(deps, function(gcli) {
       gcli.createView();
     });
   </script>
