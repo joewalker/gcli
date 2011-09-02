@@ -140,7 +140,7 @@ function buildFirefox() {
   }
 
   var project = copy.createCommonJsProject({
-    roots: [ gcliHome + '/lib' ],
+    roots: [ gcliHome + '/mozilla', gcliHome + '/lib' ],
     ignores: [ 'text!gcli/ui/inputter.css' ]
   });
 
