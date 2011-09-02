@@ -11,7 +11,7 @@ var fs = require('fs');
 // SETUP
 var gcliHome = __dirname;
 
-if (!fs.statSync(gcliHome + '/built').isDirectory()) {
+if (!path.existsSync(gcliHome + '/built')) {
   fs.mkdirSync(gcliHome + '/built', 0755);
 }
 
