@@ -145,15 +145,15 @@ function buildFirefox() {
 
   copy({
     source: [
-      'build/prefix-gcli.jsm',
-      'build/console.js',
+      'mozilla/build/prefix-gcli.jsm',
+      'mozilla/build/console.js',
       copy.getMiniRequire(),
       copy.source.commonjs({
         project: project,
         // This list of dependencies should be the same as in suffix-gcli.jsm
         require: [ 'gcli/firefox/index' ]
       }),
-      'build/suffix-gcli.jsm'
+      'mozilla/build/suffix-gcli.jsm'
     ],
     filter: copy.filter.moduleDefines,
     dest: 'built/ff/gcli.jsm'
