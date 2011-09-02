@@ -152,7 +152,7 @@ function buildFirefox() {
       copy.source.commonjs({
         project: project,
         // This list of dependencies should be the same as in suffix-gcli.jsm
-        require: [ 'gcli/firefox/index' ]
+        require: [ 'gcli/index' ]
       }),
       'mozilla/build/suffix-gcli.jsm'
     ],
