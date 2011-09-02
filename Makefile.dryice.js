@@ -36,7 +36,7 @@ function buildStandard() {
     source: copy.source.commonjs({
       project: project,
       // This list of dependencies should be the same as in build/index.html
-      require: [ 'gcli/index', 'demo/index' ]
+      require: [ 'gcli/index', 'demo/index', 'gclitest/index' ]
     }),
     filter: copy.filter.moduleDefines,
     dest: sources
