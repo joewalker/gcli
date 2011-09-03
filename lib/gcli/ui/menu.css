@@ -1,9 +1,29 @@
 
 /* The items in a menu. Used primarily for the command menu */
-.gcliOption { overflow: hidden; white-space: nowrap; cursor: pointer; }
-.gcliOption:hover { background-color: rgb(230, 230, 230) }
-.gcliOptName { padding-right: 5px; }
-.gcliOptDesc { font-size: 80%; color: #999; }
+.gcliOption {
+  overflow: hidden;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 2px;
+}
+.gcliOption:hover {
+  background-color: rgb(230, 230, 230);
+}
+.gcliOptionName {
+  padding-right: 5px;
+}
+.gcliOptionDesc {
+  font-size: 80%;
+  color: #999;
+}
+
+.gcliMenuError {
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 8px 2px 2px 2px;
+  font-size: 80%;
+  color: red;
+}
 
 .gcliMenuField {
   background-color: white;

@@ -10,8 +10,8 @@ when a command has not been entered.
   <div class="gcliOption" foreach="item in ${items}" onclick="${onItemClick}"
       title="${item.manual || ''}">
     ${__element.item = item; ''}
-    <span class="gcliOptName">${item.name}</span>
-    <span class="gcliOptDesc">${item.description}</span>
+    <span class="gcliOptionName">${item.name}</span>
+    <span class="gcliOptionDesc">${item.description}</span>
   </div>
+  <div class="gcliMenuError" if="${error}">${error}</div>
 </div>
- 

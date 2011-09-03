@@ -30,23 +30,20 @@
 
   <input id="gcliInput" type="text" autofocus/>
 
-  <script type="text/javascript" src="scripts/es5-shim.js"></script>
-  <script type="text/javascript" src="scripts/require.js"></script>
+  <script type="text/javascript" src="es5-shim.js"></script>
+  <script type="text/javascript" src="devtools.js"></script>
   <script type="text/javascript">
-    require({
-      paths: { "text": "scripts/text", "i18n": "scripts/i18n" },
-      packagePaths: {
-        "lib": [
-          { name: "gcli", main: "index", lib: "." },
-          { name: "test", main: "index", lib: "." },
-          { name: "gclitest", main: "index", lib: "." },
-          { name: "demo", main: "index", lib: "." }
-        ]
-      }
-    });
+    // This is just some debug to help people who try to run from the build dir
+    if (!('require' in this)) {
+      console.error('Running from \'build\' directory is not supported. ' +
+              'Please use either index.html in the GCLI root (for devt), ' +
+              'or the \'built\' directory (with \'node Makefile.dryice.js\')');
+      alert('Missing gcli script file. See console for possible reasons.');
+      throw new Error('Can\'t start without require');
+    }
 
-    // This list should be the same as the browser part of Makefile.dryice.js
-    var deps = [ 'gcli/index', 'demo/index', 'gclitest/index' ];
+    // This list should be the same as the devtools part of Makefile.dryice.js
+    var deps = [ 'gcli/index', 'devtools/index' ];
     require(deps, function(gcli) {
       gcli.createView();
     });
