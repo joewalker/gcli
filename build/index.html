@@ -30,7 +30,7 @@
 
   <input id="gcliInput" type="text" autofocus/>
 
-  <script type="text/javascript" src="../scripts/es5-shim.js"></script>
+  <script type="text/javascript" src="es5-shim.js"></script>
   <script type="text/javascript" src="gcli-uncompressed.js"></script>
   <script type="text/javascript">
     // This is just some debug to help people who try to run from the build dir
@@ -43,7 +43,8 @@
     }
 
     // This list should be the same as the browser part of Makefile.dryice.js
-    require([ 'gcli/index', 'demo/index' ], function(gcli, demo) {
+    var deps = [ 'gcli/index', 'demo/index', 'gclitest/index' ];
+    require(deps, function(gcli) {
       gcli.createView();
     });
   </script>

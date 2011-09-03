@@ -5,16 +5,18 @@
  */
 
 var copy = require('dryice').copy;
+var path = require('path');
 var fs = require('fs');
 
 // SETUP
 var gcliHome = __dirname;
 
-if (!fs.statSync(gcliHome + '/built').isDirectory()) {
+if (!path.existsSync(gcliHome + '/built')) {
   fs.mkdirSync(gcliHome + '/built', 0755);
 }
 
 buildStandard();
+buildDevtools();
 buildFirefox();
 
 /**
@@ -25,23 +27,25 @@ buildFirefox();
 function buildStandard() {
   console.log('Building built/gcli[-uncompressed].js:');
 
-  // Build the standard compressed and uncompressed javascript files
   var project = copy.createCommonJsProject({
     roots: [ gcliHome + '/lib' ]
   });
-
-  // Grab and process all the Javascript
   var sources = copy.createDataObject();
+
   copy({
     source: copy.source.commonjs({
       project: project,
-      // This list of dependencies should be the same as in build/*.html
-      require: [ 'gcli/index', 'demo/index' ]
+      // This list of dependencies should be the same as in build/index.html
+      require: [ 'gcli/index', 'demo/index', 'gclitest/index' ]
     }),
     filter: copy.filter.moduleDefines,
     dest: sources
   });
-
+  copy({
+    source: { root: project, include: /.*\.png$|.*\.gif$/ },
+    filter: copy.filter.base64,
+    dest: sources
+  });
   console.log(project.report());
 
   // Create a GraphML dependency report. Directions:
@@ -57,30 +61,70 @@ function buildStandard() {
     });
   }
 
-  // Process the PNG/GIF
-  copy({
-    source: { root: project, include: /.*\.png$|.*\.gif$/ },
-    filter: copy.filter.base64,
-    dest: sources
-  });
-
   // Create the output scripts, compressed and uncompressed
   copy({ source: 'build/index.html', dest: 'built/index.html' });
   copy({ source: 'scripts/es5-shim.js', dest: 'built/es5-shim.js' });
   copy({
-    source: [ 'build/mini_require.js', sources ],
+    source: [ copy.getMiniRequire(), sources ],
     dest: 'built/gcli-uncompressed.js'
   });
   try {
     copy({
-      source: [ 'build/mini_require.js', sources ],
+      source: [ copy.getMiniRequire(), sources ],
       filter: copy.filter.uglifyjs,
       dest: 'built/gcli.js'
     });
   }
   catch (ex) {
-    console.log('ERROR: Uglify compression fails on windows. Skipping creation of built/gcli.js\n');
+    console.log('ERROR: Uglify compression fails on windows. ' +
+        'Skipping creation of built/gcli.js\n');
   }
+}
+
+
+/**
+ * A custom build of GCLI for devtools
+ */
+function buildDevtools() {
+  console.log('Building built/devtools/devtools.js:');
+
+  if (!path.existsSync(gcliHome + '/built/devtools')) {
+    fs.mkdirSync(gcliHome + '/built/devtools', 0755);
+  }
+
+  var project = copy.createCommonJsProject({
+    roots: [ gcliHome + '/lib' ]
+  });
+  var sources = copy.createDataObject();
+
+  copy({
+    source: copy.source.commonjs({
+      project: project,
+      // Should be dependencies as build/devtools/index.html
+      require: [ 'gcli/index', 'devtools/index' ]
+    }),
+    filter: copy.filter.moduleDefines,
+    dest: sources
+  });
+  copy({
+    source: { root: project, include: /.*\.png$|.*\.gif$/ },
+    filter: copy.filter.base64,
+    dest: sources
+  });
+  console.log(project.report());
+
+  copy({
+    source: 'build/devtools/index.html',
+    dest: 'built/devtools/index.html'
+  });
+  copy({
+    source: 'scripts/es5-shim.js',
+    dest: 'built/devtools/es5-shim.js'
+  });
+  copy({
+    source: [ copy.getMiniRequire(), sources ],
+    dest: 'built/devtools/devtools.js'
+  });
 }
 
 
@@ -91,26 +135,26 @@ function buildStandard() {
 function buildFirefox() {
   console.log('Building built/ff/gcli.jsm:');
 
-  if (!fs.statSync(gcliHome + '/built/ff').isDirectory()) {
+  if (!path.existsSync(gcliHome + '/built/ff')) {
     fs.mkdirSync(gcliHome + '/built/ff', 0755);
   }
 
   var project = copy.createCommonJsProject({
-    roots: [ gcliHome + '/lib' ],
+    roots: [ gcliHome + '/mozilla', gcliHome + '/lib' ],
     ignores: [ 'text!gcli/ui/inputter.css' ]
   });
 
   copy({
     source: [
-      'build/prefix-gcli.jsm',
-      'build/console.js',
-      'build/mini_require.js',
+      'mozilla/build/prefix-gcli.jsm',
+      'mozilla/build/console.js',
+      copy.getMiniRequire(),
       copy.source.commonjs({
         project: project,
         // This list of dependencies should be the same as in suffix-gcli.jsm
-        require: [ 'gcli/firefox/index' ]
+        require: [ 'gcli/index' ]
       }),
-      'build/suffix-gcli.jsm'
+      'mozilla/build/suffix-gcli.jsm'
     ],
     filter: copy.filter.moduleDefines,
     dest: 'built/ff/gcli.jsm'

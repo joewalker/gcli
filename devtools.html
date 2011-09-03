@@ -38,15 +38,13 @@
       packagePaths: {
         "lib": [
           { name: "gcli", main: "index", lib: "." },
-          { name: "test", main: "index", lib: "." },
-          { name: "gclitest", main: "index", lib: "." },
-          { name: "demo", main: "index", lib: "." }
+          { name: "devtools", main: "index", lib: "." }
         ]
       }
     });
 
-    // This list should be the same as the browser part of Makefile.dryice.js
-    var deps = [ 'gcli/index', 'demo/index', 'gclitest/index' ];
+    // This list should be the same as the devtools part of Makefile.dryice.js
+    var deps = [ 'gcli/index', 'devtools/index' ];
     require(deps, function(gcli) {
       gcli.createView();
     });
