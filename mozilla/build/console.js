@@ -4,6 +4,12 @@
  * console's chrome error section (when it has one)
  */
 
+/**
+ * This is extra to the console object. It allows us to use the Node constants
+ * without resorting to hardcoded numbers
+ */
+var Node = Components.interfaces.nsIDOMNode;
+
 
 /**
  * The console object to expose
