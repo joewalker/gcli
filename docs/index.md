@@ -384,10 +384,9 @@ appropriate localized strings file:
       ...
     });
 
-For web usage, the localized strings are currently stored in
-`lib/gcli/nls/strings.js`. There isn't currently a well defined method for
-adding other strings files. This is being tracked in [bug 681359]
-(https://bugzilla.mozilla.org/show_bug.cgi?id=681359).
+For web usage, the central store of localized strings is
+``lib/gcli/nls/strings.js``. Other string files can be added using the
+``l10n.registerStringsSource(...)`` function.
 
 
 ### Default argument values
