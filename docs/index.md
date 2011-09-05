@@ -380,7 +380,7 @@ appropriate localized strings file:
 
     gcli.addCommand({
       name: 'greet',
-      description: { 'key': 'demo_greeting_desc' }
+      description: { 'key': 'demoGreetingDesc' }
       ...
     });
 
