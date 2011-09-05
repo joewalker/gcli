@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent 9dd02b2262c320820d0c581c9f7bbabe7e7372c4
+# Parent 8b7bdf761ded9c12a3c49417af12aabd15d21162
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/devtools/webconsole/Commands.jsm b/browser/devtools/webconsole/Commands.jsm
@@ -116,15 +116,24 @@ new file mode 100644
 diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webconsole/HUDService.jsm
 --- a/browser/devtools/webconsole/HUDService.jsm
 +++ b/browser/devtools/webconsole/HUDService.jsm
-@@ -27,6 +27,7 @@
-  *   Patrick Walton <pcwalton@mozilla.com>
+@@ -28,6 +28,7 @@
   *   Julian Viereck <jviereck@mozilla.com>
   *   Mihai Șucan <mihai.sucan@gmail.com>
+  *   Michael Ratcliffe <mratcliffe@mozilla.com>
 + *   Joe Walker <jwalker@mozilla.com>
   *
   * Alternatively, the contents of this file may be used under the terms of
   * either the GNU General Public License Version 2 or later (the "GPL"), or
-@@ -1737,7 +1738,9 @@ HUD_SERVICE.prototype =
+@@ -53,6 +54,8 @@ Cu.import("resource://gre/modules/XPCOMU
+ Cu.import("resource://gre/modules/Services.jsm");
+ Cu.import("resource:///modules/NetworkHelper.jsm");
+ Cu.import("resource:///modules/PropertyPanel.jsm");
++Cu.import("resource:///modules/gcli.jsm");
++Cu.import("resource:///modules/Commands.jsm");
+ 
+ var EXPORTED_SYMBOLS = ["HUDService", "ConsoleUtils"];
+ 
+@@ -1744,7 +1747,9 @@ HUD_SERVICE.prototype =
      // Remove children from the output. If the output is not cleared, there can
      // be leaks as some nodes has node.onclick = function; set and GC can't
      // remove the nodes then.
@@ -135,7 +144,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      hud.destroy();
  
-@@ -1756,7 +1759,9 @@ HUD_SERVICE.prototype =
+@@ -1763,7 +1768,9 @@ HUD_SERVICE.prototype =
        hud.splitter.parentNode.removeChild(hud.splitter);
      }
  
@@ -146,7 +155,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      delete this.hudReferences[aHUDId];
  
-@@ -2588,9 +2593,24 @@ HUD_SERVICE.prototype =
+@@ -2600,9 +2607,24 @@ HUD_SERVICE.prototype =
      // create Initial JS Workspace:
      var context = Cu.getWeakReference(aContext);
  
@@ -173,7 +182,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      // TODO: injection of additional functionality needs re-thinking/api
      // see bug 559748
-@@ -2944,6 +2964,30 @@ HUD_SERVICE.prototype =
+@@ -2962,6 +2984,30 @@ HUD_SERVICE.prototype =
    }
  };
  
@@ -204,7 +213,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  //////////////////////////////////////////////////////////////////////////
  // HeadsUpDisplay
  //////////////////////////////////////////////////////////////////////////
-@@ -3050,7 +3094,12 @@ function HeadsUpDisplay(aConfig)
+@@ -3068,7 +3114,12 @@ function HeadsUpDisplay(aConfig)
    // create the JSTerm input element
    try {
      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
@@ -218,7 +227,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    }
    catch (ex) {
      Cu.reportError(ex);
-@@ -3163,9 +3212,12 @@ HeadsUpDisplay.prototype = {
+@@ -3181,9 +3232,12 @@ HeadsUpDisplay.prototype = {
          this.outputNode.ensureIndexIsVisible(lastIndex);
        }
  
@@ -232,7 +241,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }).bind(this);
  
      panel.addEventListener("popupshown", onPopupShown,false);
-@@ -3354,8 +3406,15 @@ HeadsUpDisplay.prototype = {
+@@ -3372,8 +3426,15 @@ HeadsUpDisplay.prototype = {
        this.consolePanel.hidePopup();
      }
  
@@ -250,7 +259,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -3389,6 +3448,12 @@ HeadsUpDisplay.prototype = {
+@@ -3407,6 +3468,12 @@ HeadsUpDisplay.prototype = {
    jsterm: null,
  
    /**
@@ -263,7 +272,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
     * creates and attaches the console input node
     *
     * @param nsIDOMWindow aWindow
-@@ -3399,10 +3464,25 @@ HeadsUpDisplay.prototype = {
+@@ -3417,10 +3484,23 @@ HeadsUpDisplay.prototype = {
    {
      var context = Cu.getWeakReference(aWindow);
  
@@ -283,16 +292,14 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +        this.jsterm = new JSTerm(context, aParentNode, mixin, this.console);
 +      }
 +      else {
-+        let hudId = getHudIdFromNode(aParentNode);
-+        let doc = aParentNode.ownerDocument;
-+
-+        this.gcliterm = new GcliTerm(context, hudId, doc, this.console);
++        this.gcliterm = new GcliTerm(context, this.hudId, this.chromeDocument,
++                                     this.console);
 +        aParentNode.appendChild(this.gcliterm.element);
 +      }
      }
      else {
        throw new Error("Unsupported Gecko Application");
-@@ -3432,6 +3512,8 @@ HeadsUpDisplay.prototype = {
+@@ -3450,6 +3530,8 @@ HeadsUpDisplay.prototype = {
        this.jsterm.context = Cu.getWeakReference(this.contentWindow);
        this.jsterm.console = this.console;
        this.jsterm.createSandbox();
@@ -301,7 +308,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -3884,7 +3966,9 @@ HeadsUpDisplay.prototype = {
+@@ -3902,7 +3984,9 @@ HeadsUpDisplay.prototype = {
     */
    destroy: function HUD_destroy()
    {
@@ -312,7 +319,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.positionMenuitems.above.removeEventListener("command",
        this._positionConsoleAbove, false);
-@@ -5347,6 +5431,7 @@ JSTermFirefoxMixin.prototype = {
+@@ -5396,6 +5480,7 @@ JSTermFirefoxMixin.prototype = {
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -320,7 +327,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5360,22 +5445,16 @@ JSTermFirefoxMixin.prototype = {
+@@ -5409,22 +5494,15 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -348,12 +355,11 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    this.term = this.xulElementFactory("hbox");
 +    this.term.setAttribute("class", "jsterm-input-container");
 +    this.term.setAttribute("style", "direction: ltr;");
-+    //this.term.setAttribute("flex", "1");
 +    this.term.appendChild(inputStack);
    },
  
    get inputValue()
-@@ -5505,9 +5584,8 @@ ConsoleUtils = {
+@@ -5554,9 +5632,8 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
                                            aBody, aSourceURL, aSourceLine,
                                            aClipboardText, aLevel) {
@@ -365,7 +371,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5543,6 +5621,13 @@ ConsoleUtils = {
+@@ -5592,6 +5669,13 @@ ConsoleUtils = {
      aBody = aBody instanceof Ci.nsIDOMNode && !(aLevel == "dir") ?
              aBody : aDocument.createTextNode(aBody);
  
@@ -379,7 +385,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6671,3 +6756,258 @@ catch (ex) {
+@@ -6720,3 +6804,342 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -388,27 +394,23 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +// GcliTerm
 +///////////////////////////////////////////////////////////////////////////
 +
-+Cu.import("resource:///modules/gcli.jsm");
-+let console = gcli._internal.console;
-+
-+Cu.import("resource:///modules/Commands.jsm");
-+
 +/**
 + * GcliTerm
 + *
 + * Create a GcliTerminal or attach a GcliTerm input node to an existing output
 + * node, given by the parent node.
 + *
-+ * @param {object} aContext
++ * @param object aContext
 + *        Usually a weak reference to an nsIDOMWindow, however this code
 + *        follows the convention of JSTerm where the context does not have to
 + *        be to a window.
-+ * @param {string} aHudId
++ * @param string aHudId
 + *        The HUD to which we should send console messages
-+ * @param {nsIDOMDocument} aDocument
++ * @param nsIDOMDocument aDocument
 + *        The DOM document from which to create nodes
-+ * @param {object} aConsole
++ * @param object aConsole
 + *        Console object to use within the GcliTerm
++ * @constructor
 + */
 +function GcliTerm(aContext, aHudId, aDocument, aConsole)
 +{
@@ -427,7 +429,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    completeElement: this.completeNode,
 +    inputBackgroundElement: this.inputStack,
 +    hintElement: this.hintNode,
-+    completionPrompt: ''
++    completionPrompt: ""
 +  });
 +}
 +
@@ -435,15 +437,16 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  /**
 +   * Re-attaches a console when the contentWindow is recreated
 +   *
-+   * @param {nsIDOMWindow} aContentWindow
++   * @param nsIDOMWindow aContentWindow
 +   *        Usually a nsIDOMWindow, however see the comments against the
 +   *        aContext parameter in the GcliTerm constructor. Also note the
 +   *        asymmetry between how this function creates the WeakReference where
 +   *        the constructor expects the caller to create it. Yuck.
-+   * @param {object} aConsole
++   * @param object aConsole
 +   *        Console object to use within the GcliTerm
 +   */
-+  reattachConsole: function(aContentWindow, aConsole) {
++  reattachConsole: function Gcli_reattachConsole(aContentWindow, aConsole)
++  {
 +    this.context = Cu.getWeakReference(aContentWindow);
 +    this.console = aConsole;
 +    this.createSandbox();
@@ -455,10 +458,6 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +   */
 +  createUI: function Gcli_createUI()
 +  {
-+    if (this.console == undefined) {
-+      throw new Error("this.console == undefined: can't happen");
-+    }
-+
 +    this.element = this.document.createElement("vbox");
 +    this.element.setAttribute("class", "gcliterm-input-container");
 +
@@ -485,23 +484,23 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  /**
 +   * Called by GCLI/canon when command line output changes
 +   */
-+  onCommandOutput: function Gcli_onCommandOutput(ev) {
++  onCommandOutput: function Gcli_onCommandOutput(aEvent)
++  {
 +    // When we can update the history of the console, then we should stop
 +    // filtering incomplete reports.
-+    if (!ev.output.completed) {
++    if (!aEvent.output.completed) {
 +      return;
 +    }
 +
-+    this.writeOutput(ev.output.typed, { category: CATEGORY_INPUT });
++    this.writeOutput(aEvent.output.typed, { category: CATEGORY_INPUT });
 +
-+    let output = ev.output.output;
-+    if (ev.output.command.returnType == "html" && typeof output == "string") {
++    let output = aEvent.output.output;
++    if (aEvent.output.command.returnType == "html" && typeof output == "string") {
 +      let frag = this.document.createRange().createContextualFragment(
-+          '<div xmlns="http://www.w3.org/1999/xhtml"' +
-+          ' xmlns:xul="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">' +
++          '<div xmlns="' + HTML_NS + '" xmlns:xul="' + XUL_NS + '">' +
 +          output + '</div>');
 +
-+      output = this.document.createElementNS("http://www.w3.org/1999/xhtml", "div");
++      output = this.document.createElementNS(HTML_NS, "div");
 +      output.appendChild(frag);
 +    }
 +    this.writeOutput(output);
@@ -510,9 +509,9 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  /**
 +   * Setup the eval sandbox, should be called whenever we are attached
 +   */
-+  createSandbox: function Gcli_setupSandbox()
++  createSandbox: function Gcli_createSandbox()
 +  {
-+    var win = this.context.get().QueryInterface(Ci.nsIDOMWindow);
++    let win = this.context.get().QueryInterface(Ci.nsIDOMWindow);
 +
 +    // create a JS Sandbox out of this.context
 +    this.sandbox = new Cu.Sandbox(win, {
@@ -526,7 +525,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +   * Evaluates a string in the sandbox. The string is currently wrapped by a
 +   * with(window) { aString } construct, see bug 574033.
 +   *
-+   * @param {string} aString
++   * @param string aString
 +   *        String to evaluate in the sandbox
 +   * @return The result of the evaluation
 +   */
@@ -539,7 +538,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +   * Builds on evalInSandbox, adding output of aExecuteString and the
 +   * results of evaling that to the console output.
 +   *
-+   * @param {string} aExecuteString
++   * @param string aExecuteString
 +   *        The String to evalutate
 +   */
 +  execute: function Gcli_execute(aExecuteString)
@@ -576,11 +575,11 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +   * Writes a message to the HUD that originates from the interactive
 +   * JavaScript console.
 +   *
-+   * @param {string} aOutputMessage
++   * @param string aOutputMessage
 +   *        The message to display
-+   * @param {number} aCategory
++   * @param number aCategory
 +   *        One of the CATEGORY_ constants
-+   * @param {number} aSeverity
++   * @param number aSeverity
 +   *        One of the SEVERITY_ constants
 +   */
 +  writeOutput: function Gcli_writeOutput(aOutputMessage, aOptions)
@@ -604,7 +603,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +   */
 +  clearOutput: function Gcli_clearOutput()
 +  {
-+    let hudRef = HUDService.getHudReferenceForOutputNode(this.console);
++    let hudRef = HUDService.getHudReferenceById(this.console);
 +    if (hudRef) {
 +      hudRef.cssNodes = {};
 +    }
@@ -629,13 +628,511 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +   * fit its contents. This method is preferred over setting "inputNode.value"
 +   * directly, because it correctly resizes the field.
 +   *
-+   * @param {string} aNewValue
++   * @param string aNewValue
 +   *        The new value to set
 +   */
 +  _setInputValue: function Gcli_setInputValue(aNewValue)
 +  {
 +    this.inputNode.value = aNewValue;
 +    this.completeNode.value = "";
++  },
++};
++
++/*
++
++Unaddressed review comments:
++
++> @@ +3512,5 @@
++> >        this.jsterm.context = Cu.getWeakReference(this.contentWindow);
++> >        this.jsterm.console = this.console;
++> >        this.jsterm.createSandbox();
++> > +
++> > +      this.gcliterm.reattachConsole(this.contentWindow, this.console);
++> 
++> This code assumes that jsterm is available, but the new line you added
++> assume that gcliterm is *also* available. I doubt this code works properly.
++> This needs to be fixed.
++
++This is bizarre. I'll work out what's going on.
++
++
++GcliTerm.execute and GcliTerm.clearOutput are unused. The should be used or deleted
++
++> @@ +61,5 @@
++> > +
++> > +function testCallCommands() {
++> > +  let console = browser.contentWindow.wrappedJSObject.console;
++> > +
++> > +  let hudId = HUDService.displaysIndex()[0];
++> 
++> displaysIndex() has been removed, and other methods used by this test.
++> Please update. :)
++> 
++> @@ +78,5 @@
++> > +  gcliterm._setInputValue("ec");
++> > +  event = browser.createEvent("KeyboardEvent");
++> > +  event.initKeyEvent("keyup", true, true, null, false,
++> > +                     false, false, false, 80, 0);
++> > +  gcliterm.inputNode.dispatchEvent(event);
++> 
++> Please use EventUtils.synthesizeKey() instead of synthetic keyboard events.
++
++
++
++> ::: toolkit/themes/gnomestripe/global/webConsole.css
++> @@ +337,5 @@
++> > +  border-bottom: 2px dotted #999;
++> > +}
++> > +
++> > +.gcliterm-complete-node span.gcliERROR {
++> > +  color: #DDD; border-bottom: 2px dotted #F00;
++> 
++> Please put each property on a new line.
++> 
++> @@ +341,5 @@
++> > +  color: #DDD; border-bottom: 2px dotted #F00;
++> > +}
++> > +
++> > +.gcliterm-complete-node span.gcliPrompt {
++> > +  color: #66F; font-weight: bold;
++> 
++> Same as above.
++> 
++> (same comments apply to the other two stylesheets)
++
++
++
++> > > @@ +6787,5 @@
++> > > > +{
++> > > > +  this.context = aContext;
++> > > > +  this.hudId = aHudId;
++> > > > +  this.document = aDocument;
++> > > > +  this.console = aConsole;
++> > > 
++> > > this.console refers to the window.console API object in HeadsUpDisplay
++> > > objects. In clearOutput() you use this.console as if it refers to the
++> > > outputNode of a HUD object. This is confusing. Please fix.
++> > 
++> > It's exactly as confusing as JSTerm ...
++> > 
++> > Perhaps the confusion is the reattachConsole() method?
++> 
++> Code's not great, indeed, but I believe there's no such confusion in JSTerm.
++> In JSTerm this.console is well known to refer to the window.console API, and
++> this.outputNode is always outputNode. GCLITerm in turn confuses the two.
++> 
++> The confusion is in clearOutput(), not in reattachConsole(). (both in
++> GCLITerm) Please recheck. Thank you!
++
++
++You do not need to change initializeJSTerm
++
++*/
+diff --git a/browser/devtools/webconsole/HintPopup.jsm b/browser/devtools/webconsole/HintPopup.jsm
+new file mode 100644
+--- /dev/null
++++ b/browser/devtools/webconsole/HintPopup.jsm
+@@ -0,0 +1,402 @@
++/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Hint Popup.
++ *
++ * The Initial Developer of the Original Code is
++ * The Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2011
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Mihai Sucan <mihai.sucan@gmail.com> (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++
++const XUL_NS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
++
++const HUD_STRINGS_URI = "chrome://global/locale/headsUpDisplay.properties";
++
++
++Components.utils.import("resource://gre/modules/Services.jsm");
++Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
++
++XPCOMUtils.defineLazyGetter(this, "stringBundle", function () {
++  return Services.strings.createBundle(HUD_STRINGS_URI);
++});
++
++
++var EXPORTED_SYMBOLS = [ "HintPopup" ];
++
++/**
++ * Autocomplete popup UI implementation.
++ *
++ * @constructor
++ * @param nsIDOMDocument aDocument
++ *        The document you want the popup attached to.
++ * @param {nsIDOMElement} aParent
++ *        The node to display inside the popup
++ */
++function AutocompletePopup(aDocument, aParent)
++{
++  this._document = aDocument;
++
++  // Reuse the existing popup elements.
++  this._panel = this._document.getElementById("webConsole_autocompletePopup");
++  if (!this._panel) {
++    this._panel = this._document.createElementNS(XUL_NS, "panel");
++    this._panel.setAttribute("id", "webConsole_autocompletePopup");
++    this._panel.setAttribute("label",
++      stringBundle.GetStringFromName("Autocomplete.label"));
++    this._panel.setAttribute("noautofocus", "true");
++    this._panel.setAttribute("ignorekeys", "true");
++    this._panel.setAttribute("level", "top");
++
++    let mainPopupSet = this._document.getElementById("mainPopupSet");
++    if (mainPopupSet) {
++      mainPopupSet.appendChild(this._panel);
++    }
++    else {
++      this._document.documentElement.appendChild(this._panel);
++    }
++
++    this._panel.appendChild(aParent);
++
++    // Open and hide the panel, so we initialize the API of the richlistbox.
++    this._panel.width = 1;
++    this._panel.height = 1;
++    this._panel.openPopup(null, "overlap", 0, 0, false, false);
++    this._panel.hidePopup();
++    this._panel.width = "";
++    this._panel.height = "";
++  }
++  else {
++    this._list = aParent;
++  }
++}
++
++// TODO: continue going through this removing _list
++
++AutocompletePopup.prototype = {
++  _document: null,
++  _panel: null,
++  _list: null,
++
++  /**
++   * Open the autocomplete popup panel.
++   *
++   * @param nsIDOMNode aAnchor
++   *        Optional node to anchor the panel to.
++   */
++  openPopup: function AP_openPopup(aAnchor)
++  {
++    this._panel.openPopup(aAnchor, "after_start", 0, 0, false, false);
++
++    if (this.onSelect) {
++      this._list.addEventListener("select", this.onSelect, false);
++    }
++
++    if (this.onClick) {
++      this._list.addEventListener("click", this.onClick, false);
++    }
++
++    this._updateSize();
++  },
++
++  /**
++   * Hide the autocomplete popup panel.
++   */
++  hidePopup: function AP_hidePopup()
++  {
++    this._panel.hidePopup();
++
++    if (this.onSelect) {
++      this._list.removeEventListener("select", this.onSelect, false);
++    }
++
++    if (this.onClick) {
++      this._list.removeEventListener("click", this.onClick, false);
++    }
++  },
++
++  /**
++   * Check if the autocomplete popup is open.
++   */
++  get isOpen() {
++    return this._panel.state == "open";
++  },
++
++  /**
++   * Destroy the object instance. Please note that the panel DOM elements remain
++   * in the DOM, because they might still be in use by other instances of the
++   * same code. It is the responsability of the client code to perform DOM
++   * cleanup.
++   */
++  destroy: function AP_destroy()
++  {
++    if (this.isOpen) {
++      this.hidePopup();
++    }
++    this.clearItems();
++
++    this._document = null;
++    this._list = null;
++    this._panel = null;
++  },
++
++  /**
++   * Get the autocomplete items array.
++   *
++   * @return array
++   *         The array of autocomplete items.
++   */
++  getItems: function AP_getItems()
++  {
++    let items = [];
++
++    Array.forEach(this._list.childNodes, function(aItem) {
++      items.push(aItem._autocompleteItem);
++    });
++
++    return items;
++  },
++
++  /**
++   * Set the autocomplete items list, in one go.
++   *
++   * @param array aItems
++   *        The list of items you want displayed in the popup list.
++   */
++  setItems: function AP_setItems(aItems)
++  {
++    this.clearItems();
++    aItems.forEach(this.appendItem, this);
++
++    // Make sure that the new content is properly fitted by the XUL richlistbox.
++    if (this.isOpen) {
++      // We need the timeout to allow the content to reflow. Attempting to
++      // update the richlistbox size too early does not work.
++      this._document.defaultView.setTimeout(this._updateSize.bind(this), 1);
++    }
++  },
++
++  /**
++   * Update the panel size to fit the content.
++   *
++   * @private
++   */
++  _updateSize: function AP__updateSize()
++  {
++    this._list.width = this._panel.clientWidth +
++                       this._scrollbarWidth;
++  },
++
++  /**
++   * Clear all the items from the autocomplete list.
++   */
++  clearItems: function AP_clearItems()
++  {
++    while (this._list.hasChildNodes()) {
++      this._list.removeChild(this._list.firstChild);
++    }
++
++    // Reset the panel and list dimensions. New dimensions are calculated when a
++    // new set of items is added to the autocomplete popup.
++    this._list.width = "";
++    this._list.height = "";
++    this._panel.width = "";
++    this._panel.height = "";
++    this._panel.top = "";
++    this._panel.left = "";
++  },
++
++  /**
++   * Getter for the index of the selected item.
++   *
++   * @type number
++   */
++  get selectedIndex() {
++    return this._list.selectedIndex;
++  },
++
++  /**
++   * Setter for the selected index.
++   *
++   * @param number aIndex
++   *        The number (index) of the item you want to select in the list.
++   */
++  set selectedIndex(aIndex) {
++    this._list.selectedIndex = aIndex;
++    this._list.ensureIndexIsVisible(this._list.selectedIndex);
++  },
++
++  /**
++   * Getter for the selected item.
++   * @type object
++   */
++  get selectedItem() {
++    return this._list.selectedItem ?
++           this._list.selectedItem._autocompleteItem : null;
++  },
++
++  /**
++   * Setter for the selected item.
++   *
++   * @param object aItem
++   *        The object you want selected in the list.
++   */
++  set selectedItem(aItem) {
++    this._list.selectedItem = this._findListItem(aItem);
++    this._list.ensureIndexIsVisible(this._list.selectedIndex);
++  },
++
++  /**
++   * Append an item into the autocomplete list.
++   *
++   * @param object aItem
++   *        The item you want appended to the list. The object must have a
++   *        "label" property which is used as the displayed value.
++   */
++  appendItem: function AP_appendItem(aItem)
++  {
++    let description = this._document.createElementNS(XUL_NS, "description");
++    description.textContent = aItem.label;
++
++    let listItem = this._document.createElementNS(XUL_NS, "richlistitem");
++    listItem.appendChild(description);
++    listItem._autocompleteItem = aItem;
++
++    this._list.appendChild(listItem);
++  },
++
++  /**
++   * Find the richlistitem element that belongs to an item.
++   *
++   * @private
++   *
++   * @param object aItem
++   *        The object you want found in the list.
++   *
++   * @return nsIDOMNode|null
++   *         The nsIDOMNode that belongs to the given item object. This node is
++   *         the richlistitem element.
++   */
++  _findListItem: function AP__findListItem(aItem)
++  {
++    for (let i = 0; i < this._list.childNodes.length; i++) {
++      let child = this._list.childNodes[i];
++      if (child._autocompleteItem == aItem) {
++        return child;
++      }
++    }
++    return null;
++  },
++
++  /**
++   * Remove an item from the popup list.
++   *
++   * @param object aItem
++   *        The item you want removed.
++   */
++  removeItem: function AP_removeItem(aItem)
++  {
++    let item = this._findListItem(aItem);
++    if (!item) {
++      throw new Error("Item not found!");
++    }
++    this._list.removeChild(item);
++  },
++
++  /**
++   * Getter for the number of items in the popup.
++   * @type number
++   */
++  get itemCount() {
++    return this._list.childNodes.length;
++  },
++
++  /**
++   * Select the next item in the list.
++   *
++   * @return object
++   *         The newly selected item object.
++   */
++  selectNextItem: function AP_selectNextItem()
++  {
++    if (this.selectedIndex < (this.itemCount - 1)) {
++      this.selectedIndex++;
++    }
++    else {
++      this.selectedIndex = -1;
++    }
++
++    return this.selectedItem;
++  },
++
++  /**
++   * Select the previous item in the list.
++   *
++   * @return object
++   *         The newly selected item object.
++   */
++  selectPreviousItem: function AP_selectPreviousItem()
++  {
++    if (this.selectedIndex > -1) {
++      this.selectedIndex--;
++    }
++    else {
++      this.selectedIndex = this.itemCount - 1;
++    }
++
++    return this.selectedItem;
++  },
++
++  /**
++   * Determine the scrollbar width in the current document.
++   *
++   * @private
++   */
++  get _scrollbarWidth()
++  {
++    if (this.__scrollbarWidth) {
++      return this.__scrollbarWidth;
++    }
++
++    let hbox = this._document.createElementNS(XUL_NS, "hbox");
++    hbox.setAttribute("style", "height: 0%; overflow: hidden");
++
++    let scrollbar = this._document.createElementNS(XUL_NS, "scrollbar");
++    scrollbar.setAttribute("orient", "vertical");
++    hbox.appendChild(scrollbar);
++
++    this._document.documentElement.appendChild(hbox);
++    this.__scrollbarWidth = scrollbar.clientWidth;
++    this._document.documentElement.removeChild(hbox);
++
++    return this.__scrollbarWidth;
 +  },
 +};
 diff --git a/browser/devtools/webconsole/Makefile.in b/browser/devtools/webconsole/Makefile.in
@@ -723,7 +1220,7 @@ new file mode 100644
 +  let canon = require("gcli/canon");
 +  let tselcmd = canon.getCommand("tselarr");
 +  ok(tselcmd != null, "tselarr exists in the canon");
-+  ok(typeof tselcmd.getDescription === "function", "canon storing commands");
++  is(typeof tselcmd.getDescription, "function", "canon storing commands");
 +}
 +
 +function testCallCommands() {
@@ -781,7 +1278,7 @@ new file mode 100644
 diff --git a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
 --- a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
 +++ b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
-@@ -155,3 +155,17 @@ stacktrace.anonymousFunction=<anonymous>
+@@ -172,3 +172,17 @@ stacktrace.anonymousFunction=<anonymous>
  # to console.trace(). The stack trace of JavaScript function calls is displayed.
  # In this minimal message we only show the last call.
  stacktrace.outputMessage=Stack trace from %S, function %S, line %S.
