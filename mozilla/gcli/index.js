@@ -20,6 +20,8 @@ define(function(require, exports, module) {
   var ArgFetcher = require('gcli/ui/arg_fetch').ArgFetcher;
   var CommandMenu = require('gcli/ui/menu').CommandMenu;
 
+  var jstype = require('gcli/jstype');
+
   /**
    * API for use by HUDService only.
    * This code is internal and subject to change without notice.
@@ -33,6 +35,7 @@ define(function(require, exports, module) {
      * createView() for Firefox requires an options object with the following
      * members:
      * - document: GCLITerm.document
+     * - jsEnvironment.globalObject: 'window'
      * - inputElement: GCLITerm.inputNode
      * - completeElement: GCLITerm.completeNode
      * - hintElement: GCLITerm.hintNode
@@ -44,6 +47,7 @@ define(function(require, exports, module) {
       options.requisition = new Requisition();
       options.completionPrompt = '';
 
+      jstype.setGlobalObject(options.jsEnvironment.globalObject);
       var inputter = new Inputter(options);
       inputter.update();
 
