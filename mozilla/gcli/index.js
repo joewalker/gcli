@@ -16,6 +16,7 @@ define(function(require, exports, module) {
   require('gcli/cli').startup();
 
   var Requisition = require('gcli/cli').Requisition;
+  var cli = require('gcli/cli');
   var Inputter = require('gcli/ui/inputter').Inputter;
   var ArgFetcher = require('gcli/ui/arg_fetch').ArgFetcher;
   var CommandMenu = require('gcli/ui/menu').CommandMenu;
@@ -36,6 +37,7 @@ define(function(require, exports, module) {
      * members:
      * - document: GCLITerm.document
      * - jsEnvironment.globalObject: 'window'
+     * - jsEnvironment.evalFunction: 'eval' in a sandbox
      * - inputElement: GCLITerm.inputNode
      * - completeElement: GCLITerm.completeNode
      * - hintElement: GCLITerm.hintNode
@@ -48,6 +50,8 @@ define(function(require, exports, module) {
       options.completionPrompt = '';
 
       jstype.setGlobalObject(options.jsEnvironment.globalObject);
+      cli.setEvalFunction(options.jsEnvironment.evalFunction);
+
       var inputter = new Inputter(options);
       inputter.update();
 
