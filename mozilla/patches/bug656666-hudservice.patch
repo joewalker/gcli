@@ -9,8 +9,7 @@ diff --git a/browser/devtools/webconsole/Commands.jsm b/browser/devtools/webcons
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/webconsole/Commands.jsm
-@@ -0,0 +1,103 @@
-+/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
+@@ -0,0 +1,888 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -52,17 +51,252 @@ new file mode 100644
 +let EXPORTED_SYMBOLS = [];
 +
 +Components.utils.import("resource:///modules/gcli.jsm");
++Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
++Components.utils.import("resource://gre/modules/Services.jsm");
++
++XPCOMUtils.defineLazyGetter(this, "stringBundle", function () {
++  return Services.strings.createBundle("chrome://browser/locale/gcli.properties");
++});
 +
 +/**
-+ * 'echo' command.
++ * Lookup a string in the GCLI string bundle
++ * @param aName The name to lookup
++ * @return The looked up name
++ */
++function lookup(aName)
++{
++  try {
++    return stringBundle.GetStringFromName(aName);
++  } catch (ex) {
++    Services.console.logStringMessage("Failure in lookup('" + aName + "')");
++    throw new Error("Failure in lookup('" + aName + "')");
++  }
++};
++
++/**
++ * Lookup a string in the GCLI string bundle
++ * @param aName The name to lookup
++ * @param aSwaps An array of swaps. See stringBundle.formatStringFromName
++ * @return The looked up name
++ */
++function lookupFormat(aName, aSwaps)
++{
++  try {
++    return stringBundle.formatStringFromName(aName, aSwaps, aSwaps.length);
++  } catch (ex) {
++    Services.console.logStringMessage("Failure in lookupFormat('" + aName + "')");
++    throw new Error("Failure in lookupFormat('" + aName + "')");
++  }
++}
++
++let util = gcli._internal.require("gcli/util");
++let dom = gcli._internal.require("gcli/util").dom;
++
++let gcli = gcli._internal.require("gcli/index");
++
++let Argument = gcli._internal.require("gcli/argument").Argument;
++
++let types = gcli._internal.require("gcli/types");
++let Conversion = gcli._internal.require("gcli/types").Conversion;
++let Type = gcli._internal.require("gcli/types").Type;
++let SelectionType = gcli._internal.require("gcli/types").SelectionType;
++let Status = gcli._internal.require("gcli/types").Status;
++
++let field = gcli._internal.require("gcli/ui/field");
++let Field = gcli._internal.require("gcli/ui/field").Field;
++
++let canon = gcli._internal.require("gcli/canon");
++
++
++/**
++ * Utility to create a link to a bug number
++ */
++function getBugLink(bugid)
++{
++  return '<br/>To comment on this command, use <a target="_blank" ' +
++      'href="https://bugzilla.mozilla.org/show_bug.cgi?id=' + bugid + '">' +
++      "bug " + bugid + "</a>.";
++}
++
++
++/**
++ * A type for the resources in the current page
++ */
++function ResourceType(typeSpec)
++{
++  if (typeSpec != null) {
++    throw new Error("ResourceType can not be customized");
++  }
++}
++
++ResourceType.prototype = Object.create(types.SelectionType.prototype);
++
++ResourceType.prototype.lookup = function()
++{
++  let reply = [];
++  let sheets = Array.prototype.slice.call(document.styleSheets);
++  for (let i = 0; i < sheets.length; i++) {
++    let sheet = sheets[i];
++    // When we're in chrome, replace style#i with style#Ln where n is the line
++    // number of the style element in the HTML document.
++    reply.push({
++      name: sheet.href || "style#" + i,
++      value: sheet
++    });
++  }
++  reply.push({
++    name: "page",
++    value: window.document
++  });
++  // There are other page resources that we need to include here too
++  return reply;
++};
++
++ResourceType.prototype.name = "resource";
++
++types.registerType(ResourceType);
++
++
++/**
++ * A CSS expression that refers to a single node
++ */
++function NodeType(typeSpec)
++{
++  if (typeSpec != null) {
++    throw new Error("NodeType can not be customized");
++  }
++}
++
++NodeType.prototype = Object.create(Type.prototype);
++
++NodeType.prototype.stringify = function(value)
++{
++  return value.__gcliQuery || "Error";
++};
++
++NodeType.prototype.parse = function(arg)
++{
++  if (arg.text === "") {
++    return new Conversion(null, arg, Status.INCOMPLETE, "No matches");
++  }
++
++  let nodes;
++  try {
++    nodes = document.querySelectorAll(arg.text);
++  }
++  catch (ex) {
++    return new Conversion(null, arg, Status.ERROR, lookup("nodeParseSyntax"));
++  }
++
++  if (nodes.length === 0) {
++    return new Conversion(null, arg, Status.INCOMPLETE, "No matches");
++  }
++
++  if (nodes.length === 1) {
++    let node = nodes.item(0);
++    node.__gcliQuery = arg.text;
++    return new Conversion(node, arg, Status.VALID, "");
++  }
++
++  return new Conversion(null, arg, Status.ERROR,
++      "Too many matches (" + nodes.length + ")");
++};
++
++NodeType.prototype.name = "node";
++
++types.registerType(NodeType);
++
++
++/**
++ * 'file' allows upload of a file
++ */
++function FileType(typeSpec)
++{
++  if (typeSpec != null) {
++    throw new Error("FileType can not be customized");
++  }
++}
++
++FileType.prototype = Object.create(Type.prototype);
++
++FileType.prototype.stringify = function(value)
++{
++  if (value == null) {
++    return "";
++  }
++  return value.toString();
++};
++
++FileType.prototype.parse = function(arg)
++{
++  if (arg.text == null || arg.text === "") {
++    return new Conversion(null, arg, Status.INCOMPLETE, "");
++  }
++  return new Conversion(arg.text, arg);
++};
++
++FileType.prototype.name = "file";
++
++types.registerType(FileType);
++
++
++/**
++ * A field that allows editing of strings
++ */
++function FileField(type, options)
++{
++  this.doc = options.document;
++  this.type = type;
++  this.arg = new Argument();
++
++  this.element = dom.createElement("input", null, this.doc);
++  this.element.type = "file";
++
++  this.onInputChange = this.onInputChange.bind(this);
++  this.element.addEventListener("keyup", this.onInputChange, false);
++
++  this.fieldChanged = util.createEvent("FileField.fieldChanged");
++}
++
++FileField.prototype = Object.create(Field.prototype);
++
++FileField.prototype.destroy = function()
++{
++  this.element.removeEventListener("keyup", this.onKeyup, false);
++};
++
++FileField.prototype.setConversion = function(conversion)
++{
++  this.arg = conversion.arg;
++  this.element.value = conversion.arg.text;
++  this.setMessage(conversion.message);
++};
++
++FileField.prototype.getConversion = function()
++{
++  // This tweaks the prefix/suffix of the argument to fit
++  this.arg = this.arg.beget(this.element.value, { prefixSpace: true });
++  return this.type.parse(this.arg);
++};
++
++FileField.claim = function(type)
++{
++  return type instanceof FileType ? Field.MATCH : Field.IF_NOTHING_BETTER;
++};
++
++field.addField(FileField);
++
++
++/**
++ * 'echo' command
 + */
 +gcli.addCommand({
-+  name: 'echo',
-+  description: 'Show a message',
++  name: "echo",
++  description: "Show a message",
 +  params: [
-+    { name: 'message', type: 'string', description: 'Message to output' }
++    { name: "message", type: "string", description: "Message to output" }
 +  ],
-+  returnType: 'string',
++  returnType: "string",
 +  exec: function(args, env) {
 +    return args.message;
 +  }
@@ -72,32 +306,31 @@ new file mode 100644
 +/**
 + * 'help' command
 + */
-+let canon = gcli._internal.require('gcli/canon');
 +gcli.addCommand({
-+  name: 'help',
-+  returnType: 'html',
-+  description: 'Get help on the available commands',
++  name: "help",
++  returnType: "html",
++  description: "Get help on the available commands",
 +  exec: function(args, context) {
 +    let output = [];
 +
-+    output.push('<strong>Available Commands:</strong><br/>');
++    output.push("<strong>Available Commands:</strong><br/>");
 +
 +    let commandNames = canon.getCommandNames();
 +    commandNames.sort();
 +
-+    output.push('<table>');
++    output.push("<table>");
 +    for (let i = 0; i < commandNames.length; i++) {
 +      let command = canon.getCommand(commandNames[i]);
 +      if (!command.hidden && command.description) {
-+        output.push('<tr>');
-+        output.push('<th class="gcliCmdHelpRight">' + command.name + '</th>');
-+        output.push('<td>&#x2192; ' + command.description + '</td>');
-+        output.push('</tr>');
++        output.push("<tr>");
++        output.push('<th class="gcliCmdHelpRight">' + command.name + "</th>");
++        output.push("<td>&#x2192; " + command.description + "</td>");
++        output.push("</tr>");
 +      }
 +    }
-+    output.push('</table>');
++    output.push("</table>");
 +
-+    return output.join('');
++    return output.join("");
 +  }
 +});
 +
@@ -106,13 +339,565 @@ new file mode 100644
 + * 'version' command.
 + */
 +gcli.addCommand({
-+  name: 'version',
-+  description: 'Show current FF version number',
-+  returnType: 'string',
++  name: "version",
++  description: "Show current FF version number",
++  returnType: "string",
 +  exec: function(args, env) {
-+    return 'You are running Firefox version 9.0a1 (2011-08-18)';
++    return "You are running Firefox version 9.0a1 (2011-08-18)";
 +  }
 +});
++
++
++/**
++ * 'edit' command
++ */
++gcli.addCommand({
++  name: "edit",
++  description: lookup("editDesc"),
++  manual: lookup("editManual"),
++  params: [
++     {
++       name: "resource",
++       type: "resource",
++       description: lookup("editResourceDesc")
++     }
++   ],
++   returnType: "html",
++   exec: function(args, context) {
++     let element = args.resource.documentElement || args.resource.ownerNode;
++     return '<textarea rows=5 cols=80 style="font-family:monospace">' +
++         lookup("editPretend") + ":\n" +
++         element.innerHTML.substring(0, 500) + "...</textarea>" +
++         getBugLink(683499);
++   }
++});
++
++
++/**
++ * 'stylizer' command
++ */
++gcli.addCommand({
++  name: "stylizer",
++  description: lookup("stylizerDesc"),
++  manual: lookup("stylizerManual"),
++  params: [
++     {
++       name: "node",
++       type: "node",
++       description: lookup("stylizerNodeDesc"),
++     }
++   ],
++   returnType: "html",
++   exec: function(args, context) {
++     return lookupFormat("stylizerReply", [ "" + args.node ]) +
++         getBugLink(683502);
++   }
++});
++
++
++let breakpoints = [];
++
++/**
++ * 'break' command
++ */
++gcli.addCommand({
++  name: "break",
++  description: lookup("breakDesc"),
++  manual: lookup("breakManual")
++});
++
++
++/**
++ * 'break list' command
++ */
++gcli.addCommand({
++  name: "break list",
++  description: lookup("breaklistDesc"),
++  returnType: "html",
++  exec: function(args, context) {
++    if (breakpoints.length === 0) {
++      return lookup("breaklistNone") + getBugLink(683503);
++    }
++
++    let reply = lookup("breaklistIntro");
++    reply += "<ol>";
++    breakpoints.forEach(function(breakpoint) {
++      reply += "<li>" + JSON.stringify(breakpoint) + "</li>";
++    });
++    reply += "</ol>";
++    return reply + getBugLink(683503);
++  }
++});
++
++
++/**
++ * 'break add' command
++ */
++gcli.addCommand({
++  name: "break add",
++  description: lookup("breakaddDesc"),
++  manual: lookup("breakaddManual")
++});
++
++
++/**
++ * 'break add line' command
++ */
++gcli.addCommand({
++  name: "break add line",
++  description: lookup("breakaddlineDesc"),
++  params: [
++    {
++      name: "file",
++      type: "string",
++      description: lookup("breakaddlineFileDesc")
++    },
++    {
++      name: "line",
++      type: { name: "number", min: 0, step: 10 },
++      description: lookup("breakaddlineLineDesc")
++    },
++    {
++      group: "Options",
++      params: [
++        {
++         name: "if",
++         type: "string",
++         description: lookup("breakaddIfDesc"),
++         defaultValue: null
++        },
++      ]
++    }
++  ],
++  returnType: "html",
++  exec: function(args, context) {
++    args.type = "line";
++    breakpoints.push(args);
++    return lookup("breakaddAdded") + getBugLink(683503);
++  }
++});
++
++
++/**
++ * 'break add function' command
++ */
++gcli.addCommand({
++  name: "break add function",
++  description: lookup("breakaddfuncDesc"),
++  params: [
++    {
++      name: "function",
++      type: "javascript",
++      description: lookup("breakaddfuncFunctionDesc")
++    }
++  ],
++  returnType: "html",
++  exec: function(args, context) {
++    args.type = "function";
++    breakpoints.push(args);
++    return lookup("breakaddAdded") + getBugLink(683503);
++  }
++});
++
++
++/**
++ * 'break add xhr' command
++ */
++gcli.addCommand({
++  name: "break add xhr",
++  description: lookup("breakaddxhrDesc"),
++  returnType: "html",
++  exec: function(args, context) {
++    args.type = "xhr";
++    breakpoints.push(args);
++    return lookup("breakaddAdded") + getBugLink(683503);
++  }
++});
++
++
++/**
++ * 'break add event' command
++ */
++gcli.addCommand({
++  name: "break add event",
++  description: lookup("breakaddeventDesc"),
++  params: [
++    {
++      name: "event",
++      type: {
++        name: "selection",
++        data: [
++          "click", "dblclick", "mousedown", "mouseup", "mouseover", "mousemove",
++          "mouseout", "keydown", "keypress", "keyup", "load", "unload", "abort",
++          "error", "resize", "scroll", "select", "change", "submit", "reset",
++          "focus", "blur", "DOMFocusIn", "DOMFocusOut", "DOMActivate",
++          "DOMSubtreeModified", "DOMNodeInserted", "DOMNodeRemoved",
++          "DOMNodeRemovedFromDocument", "DOMNodeInsertedIntoDocument",
++          "DOMAttrModified", "DOMCharacterDataModified",
++          "touchstart", "touchend", "touchenter", "touchleave", "touchmove",
++          "touchcancel"
++        ]
++      },
++      description: lookup("breakaddeventEventDesc")
++    },
++    {
++      name: "node",
++      type: "node",
++      description: lookup("breakaddeventNodeDesc")
++    },
++  ],
++  returnType: "html",
++  exec: function(args, context) {
++    args.type = "event";
++    args.node = args.node.__gcliQuery;
++    breakpoints.push(args);
++    return lookup("breakaddAdded") + getBugLink(683503);
++  }
++});
++
++
++/**
++ * 'break next' command
++ */
++gcli.addCommand({
++  name: "break next",
++  description: lookup("breaknextDesc"),
++  returnType: "html",
++  exec: function(args, context) {
++    return lookup("breaknextReply") + getBugLink(683503);
++  }
++});
++
++
++/**
++ * 'break del' command
++ */
++gcli.addCommand({
++  name: "break del",
++  description: lookup("breakdelDesc"),
++  params: [
++    {
++      name: "breakid",
++      type: {
++        name: "number",
++        min: 0,
++        max: function() { return breakpoints.length - 1; }
++      },
++      description: lookup("breakdelBreakidDesc")
++    }
++  ],
++  returnType: "html",
++  exec: function(args, context) {
++    breakpoints.splice(args.breakid, 1);
++    return lookup("breakdelRemoved") + getBugLink(683503);
++  }
++});
++
++
++/**
++ * 'step' command
++ */
++gcli.addCommand({
++  name: "step",
++  description: lookup("stepDesc"),
++  manual: lookup("stepManual")
++});
++
++
++/**
++ * 'step up' command
++ */
++gcli.addCommand({
++  name: "step up",
++  description: lookup("stepupDesc"),
++  manual: lookup("stepupManual"),
++  returnType: "html",
++  exec: function(args, context) {
++    return lookup("stepInsult") + getBugLink(683505);
++  }
++});
++
++
++/**
++ * 'step in' command
++ */
++gcli.addCommand({
++  name: "step in",
++  description: lookup("stepinDesc"),
++  manual: lookup("stepinManual"),
++  returnType: "html",
++  exec: function(args, context) {
++    return lookup("stepInsult") + getBugLink(683505);
++  }
++});
++
++
++/**
++ * 'step next' command
++ */
++gcli.addCommand({
++  name: "step next",
++  description: lookup("stepnextDesc"),
++  manual: lookup("stepnextManual"),
++  returnType: "html",
++  exec: function(args, context) {
++    return lookup("stepInsult") + getBugLink(683505);
++  }
++});
++
++
++/**
++ * 'step on' command
++ */
++gcli.addCommand({
++  name: "step on",
++  description: lookup("steponDesc"),
++  manual: lookup("steponManual"),
++  returnType: "html",
++  exec: function(args, context) {
++    return lookup("stepInsult") + getBugLink(683505);
++  }
++});
++
++
++/**
++ * 'step to' command
++ */
++gcli.addCommand({
++  name: "step to",
++  description: lookup("steptoDesc"),
++  manual: lookup("steptoManual"),
++  params: [
++    {
++      name: "line",
++      type: { name: "number", min: 0, step: 10 },
++      description: lookup("steptoLineDesc")
++    }
++  ],
++  returnType: "html",
++  exec: function(args, context) {
++    return lookup("stepInsult") + getBugLink(683505);
++  }
++});
++
++
++/**
++ * 'highlight' command
++ */
++gcli.addCommand({
++  name: "highlight",
++  description: lookup("highlightDesc"),
++  manual: lookup("highlightManual"),
++  params: [
++     {
++       name: "node",
++       type: "node",
++       description: lookup("highlightNodeDesc")
++     }
++   ],
++   returnType: "html",
++   exec: function(args, context) {
++     return lookupFormat("highlightReply", [ "" + args.node ]) +
++         getBugLink(683506);
++   }
++});
++
++
++/**
++ * 'inspect' command
++ */
++gcli.addCommand({
++  name: "inspect",
++  description: lookup("inspectDesc"),
++  manual: lookup("inspectManual"),
++  params: [
++     {
++       name: "node",
++       type: "node",
++       description: lookup("inspectNodeDesc")
++     }
++   ],
++   returnType: "html",
++   exec: function(args, context) {
++     return lookupFormat("inspectReply", [ "" + args.node ]) +
++         getBugLink(683508);
++   }
++});
++
++
++/**
++ * 'doctor' command
++ */
++gcli.addCommand({
++  name: "doctor",
++  description: lookup("doctorDesc"),
++  manual: lookup("doctorManual"),
++  params: [
++     {
++       name: "node",
++       type: "node",
++       description: lookup("doctorNodeDesc")
++     }
++   ],
++   returnType: "html",
++   exec: function(args, context) {
++     return lookupFormat("doctorReply", [ "" + args.node ]) +
++         getBugLink(683509);
++   }
++});
++
++
++/**
++ * 'echo' command
++ */
++gcli.addCommand({
++  name: "echo",
++  description: lookup("echoDesc"),
++  params: [
++    {
++      name: "message",
++      type: "string",
++      description: lookup("echoMessageDesc")
++    }
++  ],
++  returnType: "string",
++  exec: function echo(args, context) {
++    return args.message;
++  }
++});
++
++
++/**
++ * 'console' command
++ */
++gcli.addCommand({
++  name: "console",
++  description: lookup("consoleDesc"),
++  manual: lookup("consoleManual")
++});
++
++
++/**
++ * 'console clear' command
++ */
++gcli.addCommand({
++  name: "console clear",
++  description: lookup("consoleclearDesc"),
++  returnType: "html",
++  exec: function(args, context) {
++    return lookup("consoleclearReply") + getBugLink(683510);
++  }
++});
++
++
++/**
++ * 'console close' command
++ */
++gcli.addCommand({
++  name: "console close",
++  description: lookup("consolecloseDesc"),
++  returnType: "html",
++  exec: function(args, context) {
++    return lookup("consolecloseReply") + getBugLink(683510);
++  }
++});
++
++
++/**
++ * 'console filter' command
++ */
++gcli.addCommand({
++  name: "console filter",
++  description: lookup("consolefilterDesc"),
++  params: [
++    {
++      name: "category",
++      type: {
++        name: "selection",
++        data: [ "net", "css", "js", "page" ]
++      },
++      description: lookup("consolefilterCategoryDesc")
++    },
++    {
++      name: "level",
++      type: {
++        name: "selection",
++        data: [ "error", "warning", "log", "debug" ]
++      },
++      description: lookup("consolefilterLevelDesc")
++    },
++    {
++      name: "display",
++      type: {
++        name: "selection",
++        data: [ "show", "hide" ]
++      },
++      description: lookup("consolefilterDisplayDesc")
++    },
++  ],
++  returnType: "html",
++  exec: function(args, context) {
++    return lookup("consolefilterReply") + getBugLink(683510);
++  }
++});
++
++
++/**
++ * 'scratchpad' command
++ */
++gcli.addCommand({
++  name: "scratchpad",
++  description: lookup("scratchpadDesc"),
++  params: [
++    {
++      name: "script",
++      type: "string",
++      description: lookup("scratchpadScriptDesc"),
++      defaultValue: null
++    },
++    {
++      group: "Options",
++      params: [
++        /*
++        {
++          name: "file",
++          type: "file",
++          description: lookup("scratchpadFileDesc"),
++          defaultValue: null
++        },
++        */
++        {
++          name: "chrome",
++          type: "boolean",
++          description: lookup("scratchpadChromeDesc")
++        }
++      ]
++    }
++  ],
++  returnType: "html",
++  exec: function(args, context) {
++    // See Bug 659268 - we shouldn't need to do this
++    if (args.file && args.script) {
++      throw new Error(lookup("scratchpadOnesource"));
++    }
++    if (args.file) {
++      return '<textarea rows=5 cols=80 style="font-family:monospace">' +
++          lookupFormat("scratchpadFilepretend", [ args.file ]) +
++          "</textarea>" +
++          getBugLink(683513);
++    }
++    if (args.script) {
++      return '<textarea rows=5 cols=80 style="font-family:monospace">' +
++          lookup("scratchpadScriptpretend") +
++          ":\n" + args.script + "</textarea>" +
++          getBugLink(683513);
++    }
++    return '<textarea rows=5 cols=80 style="font-family:monospace">' +
++        lookup("scratchpadEmptypretend") + "</textarea>" +
++        getBugLink(683513);
++  }
++});
++
 diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webconsole/HUDService.jsm
 --- a/browser/devtools/webconsole/HUDService.jsm
 +++ b/browser/devtools/webconsole/HUDService.jsm
@@ -385,7 +1170,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6720,3 +6804,342 @@ catch (ex) {
+@@ -6720,3 +6804,346 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -425,6 +1210,10 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
 +  gcli._internal.createView({
 +    document: this.document,
++    jsEnvironment: {
++      globalObject: this.context.get().QueryInterface(Ci.nsIDOMWindow),
++      evalFunction: this.evalInSandbox.bind(this)
++    },
 +    inputElement: this.inputNode,
 +    completeElement: this.completeNode,
 +    inputBackgroundElement: this.inputStack,
@@ -1146,6 +1935,693 @@ diff --git a/browser/devtools/webconsole/Makefile.in b/browser/devtools/webconso
  		$(NULL)
  
  ifdef ENABLE_TESTS
+diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
+--- a/browser/devtools/webconsole/gcli.jsm
++++ b/browser/devtools/webconsole/gcli.jsm
+@@ -58,6 +58,12 @@ var EXPORTED_SYMBOLS = [ "gcli" ];
+  * console's chrome error section (when it has one)
+  */
+ 
++/**
++ * This is extra to the console object. It allows us to use the Node constants
++ * without resorting to hardcoded numbers
++ */
++var Node = Components.interfaces.nsIDOMNode;
++
+ 
+ /**
+  * The console object to expose
+@@ -557,10 +563,13 @@ define('gcli/index', ['require', 'export
+   require('gcli/cli').startup();
+ 
+   var Requisition = require('gcli/cli').Requisition;
++  var cli = require('gcli/cli');
+   var Inputter = require('gcli/ui/inputter').Inputter;
+   var ArgFetcher = require('gcli/ui/arg_fetch').ArgFetcher;
+   var CommandMenu = require('gcli/ui/menu').CommandMenu;
+ 
++  var jstype = require('gcli/jstype');
++
+   /**
+    * API for use by HUDService only.
+    * This code is internal and subject to change without notice.
+@@ -574,17 +583,22 @@ define('gcli/index', ['require', 'export
+      * createView() for Firefox requires an options object with the following
+      * members:
+      * - document: GCLITerm.document
++     * - globalObject: window
+      * - inputElement: GCLITerm.inputNode
+      * - completeElement: GCLITerm.completeNode
+      * - hintElement: GCLITerm.hintNode
+      * - inputBackgroundElement: GCLITerm.inputStack
+      */
+     createView: function(options) {
++console.debug(options);
+       options.preStyled = true;
+       options.autoHide = true;
+       options.requisition = new Requisition();
+       options.completionPrompt = '';
+ 
++      jstype.setGlobalObject(options.jsEnvironment.globalObject);
++      cli.setEvalFunction(options.jsEnvironment.evalFunction);
++
+       var inputter = new Inputter(options);
+       inputter.update();
+ 
+@@ -693,8 +707,8 @@ function Command(commandSpec) {
+     throw new Error('command.params must be an array in ' + this.name);
+   }
+ 
+-  this.description = lookup(this.description, 'canon_desc_none');
+-  this.manual = lookup(this.manual);
++  this.description = lookup(this.description || undefined, 'canonDescNone');
++  this.manual = lookup(this.manual || undefined);
+ 
+   // At this point this.params has nested param groups. We want to flatten it
+   // out and replace the param object literals with Parameter objects
+@@ -748,8 +762,8 @@ function Parameter(paramSpec, command, g
+     this[key] = paramSpec[key];
+   }, this);
+ 
+-  this.description = lookup(this.description, 'canon_desc_none');
+-  this.manual = lookup(this.manual);
++  this.description = lookup(this.description || undefined, 'canonDescNone');
++  this.manual = lookup(this.manual || undefined);
+   this.groupName = groupName;
+ 
+   if (!this.name) {
+@@ -1445,9 +1459,11 @@ exports.event = event;
+ 
+ define('gcli/l10n', ['require', 'exports', 'module' ], function(require, exports, module) {
+ 
+-
+-XPCOMUtils.defineLazyGetter(this, "stringBundle", function () {
+-  return Services.strings.createBundle('chrome://global/locale/gcli.properties');
++Components.utils.import('resource://gre/modules/XPCOMUtils.jsm');
++Components.utils.import('resource://gre/modules/Services.jsm');
++
++XPCOMUtils.defineLazyGetter(this, 'stringBundle', function () {
++  return Services.strings.createBundle('chrome://browser/locale/gcli.properties');
+ });
+ 
+ /*
+@@ -1476,12 +1492,24 @@ exports.getPreferredLocales = function()
+ 
+ /** @see lookup() in lib/gcli/l10n.js */
+ exports.lookup = function(key) {
+-  return stringBundle.GetStringFromName(key);
++  try {
++    return stringBundle.GetStringFromName(key);
++  }
++  catch (ex) {
++    console.error('Failed to lookup ', key, ex);
++    return key;
++  }
+ };
+ 
+ /** @see lookupFormat in lib/gcli/l10n.js */
+ exports.lookupFormat = function(key, swaps) {
+-  return stringBundle.formatStringFromName(key, swaps, swaps.length);
++  try {
++    return stringBundle.formatStringFromName(key, swaps, swaps.length);
++  }
++  catch (ex) {
++    console.error('Failed to format ', key, ex);
++    return key;
++  }
+ };
+ 
+ 
+@@ -2016,17 +2044,17 @@ NumberType.prototype.parse = function(ar
+   var value = parseInt(arg.text, 10);
+   if (isNaN(value)) {
+     return new Conversion(null, arg, Status.ERROR,
+-        l10n.lookupFormat('types_number_nan', [ arg.text ]));
++        l10n.lookupFormat('typesNumberNan', [ arg.text ]));
+   }
+ 
+   if (this.getMax() != null && value > this.getMax()) {
+     return new Conversion(null, arg, Status.ERROR,
+-        l10n.lookupFormat('types_number_max', [ value, this.getMax() ]));
++        l10n.lookupFormat('typesNumberMax', [ value, this.getMax() ]));
+   }
+ 
+   if (value < this.getMin()) {
+     return new Conversion(null, arg, Status.ERROR,
+-        l10n.lookupFormat('types_number_min', [ value, this.getMin() ]));
++        l10n.lookupFormat('typesNumberMin', [ value, this.getMin() ]));
+   }
+ 
+   return new Conversion(value, arg);
+@@ -2186,7 +2214,7 @@ SelectionType.prototype.parse = function
+   }
+ 
+   return new Conversion(null, arg, Status.ERROR,
+-      l10n.lookupFormat('types_selection_nomatch', [ arg.text ]));
++      l10n.lookupFormat('typesSelectionNomatch', [ arg.text ]));
+ };
+ 
+ /**
+@@ -2901,6 +2929,21 @@ var Conversion = types.Conversion;
+ var Type = types.Type;
+ var Status = types.Status;
+ 
++/**
++ * The object against which we complete, which is usually 'window' if it exists
++ * but could be something else in non-web-content environments.
++ */
++var globalObject;
++if ('window' in this) {
++  globalObject = window;
++}
++
++/**
++ * Setter for the object against which Javascript completions happen
++ */
++exports.setGlobalObject = function(obj) {
++  globalObject = obj;
++};
+ 
+ /**
+  * 'javascript' handles scripted input
+@@ -2922,7 +2965,7 @@ JavascriptType.prototype.stringify = fun
+ 
+ JavascriptType.prototype.parse = function(arg) {
+   var typed = arg.text;
+-  var scope = window;
++  var scope = globalObject;
+ 
+   // In FX-land we need to unwrap. TODO: Enable in the browser.
+   // scope = unwrap(scope);
+@@ -2955,7 +2998,7 @@ JavascriptType.prototype.parse = functio
+       // We can't complete on null.foo, so bail out
+       if (scope == null) {
+         return new Conversion(typed, arg, Status.ERROR,
+-                l10n.lookup('jstype_parse_scope'));
++                l10n.lookup('jstypeParseScope'));
+       }
+ 
+       // TODO: Re-enable this test
+@@ -2986,7 +3029,7 @@ JavascriptType.prototype.parse = functio
+   // However if the prop was a simple string, it is an error
+   if (scope == null) {
+     return new Conversion(typed, arg, Status.ERROR,
+-        l10n.lookupFormat('jstype_parse_missing', [ prop ]));
++        l10n.lookupFormat('jstypeParseMissing', [ prop ]));
+   }
+ 
+   // If the thing we're looking for isn't a simple string, then we're not going
+@@ -3045,7 +3088,7 @@ JavascriptType.prototype.parse = functio
+ 
+   // Error message if this isn't valid
+   if (status !== Status.VALID) {
+-    message = l10n.lookupFormat('jstype_parse_missing', [ matchProp ]);
++    message = l10n.lookupFormat('jstypeParseMissing', [ matchProp ]);
+   }
+ 
+   // If the match is the only one possible, and its VALID, predict nothing
+@@ -3131,7 +3174,7 @@ JavascriptType.prototype._findCompletion
+         else if (CLOSE_BODY.indexOf(c) != -1) {
+           var last = bodyStack.pop();
+           if (!last || OPEN_CLOSE_BODY[last.token] != c) {
+-            return { err: l10n.lookup('jstype_begin_syntax') };
++            return { err: l10n.lookup('jstypeBeginSyntax') };
+           }
+           if (c === '}') {
+             start = i + 1;
+@@ -3148,7 +3191,7 @@ JavascriptType.prototype._findCompletion
+           i ++;
+         }
+         else if (c === '\n') {
+-          return { err: l10n.lookup('jstype_begin_unterm') };
++          return { err: l10n.lookup('jstypeBeginUnterm') };
+         }
+         else if (c === '"') {
+           state = ParseState.NORMAL;
+@@ -3161,7 +3204,7 @@ JavascriptType.prototype._findCompletion
+           i ++;
+         }
+         else if (c === '\n') {
+-          return { err: l10n.lookup('jstype_begin_unterm') };
++          return { err: l10n.lookup('jstypeBeginUnterm') };
+         }
+         else if (c === '\'') {
+           state = ParseState.NORMAL;
+@@ -3563,6 +3606,15 @@ CommandType.prototype.parse = function(a
+ 
+ 
+ /**
++ * How to dynamically execute JavaScript code
++ */
++var customEval = eval;
++
++exports.setEvalFunction = function(newCustomEval) {
++  customEval = newCustomEval;
++};
++
++/**
+  * 'eval' command
+  */
+ var evalCommandSpec = {
+@@ -3575,12 +3627,12 @@ var evalCommandSpec = {
+     }
+   ],
+   returnType: 'html',
+-  description: { key: 'cli_eval_javascript' },
++  description: { key: 'cliEvalJavascript' },
+   exec: function(args, context) {
+     // &#x2192; is right arrow. We use explicit entities to ensure XML validity
+     var resultPrefix = '<em>{ ' + args.javascript + ' }</em> &#x2192; ';
+     try {
+-      var result = eval(args.javascript);
++      var result = customEval(args.javascript);
+ 
+       if (result === null) {
+         return resultPrefix + 'null.';
+@@ -3598,8 +3650,8 @@ var evalCommandSpec = {
+ 
+       return resultPrefix + result;
+     }
+-    catch (e) {
+-      return resultPrefix + 'Exception: ' + e.message;
++    catch (ex) {
++      return resultPrefix + 'Exception: ' + ex.message;
+     }
+   }
+ };
+@@ -5012,7 +5064,7 @@ Inputter.prototype.onInputChange = funct
+  * set. This is required for completion events.
+  */
+ Inputter.prototype._setInputInternal = function(str) {
+-  if (this.element.value === str) {
++  if (this.element.value && this.element.value === str) {
+     this._processCaretChange(this.getInputState(), false);
+     return;
+   }
+@@ -6027,7 +6079,7 @@ function SelectionField(type, options) {
+   this.element = dom.createElement('select', null, this.doc);
+   this.element.style.width = '180px';
+   this._addOption({
+-    name: l10n.lookupFormat('field_selection_select', [ options.name ])
++    name: l10n.lookupFormat('fieldSelectionSelect', [ options.name ])
+   });
+   var lookup = this.type.getLookup();
+   lookup.forEach(this._addOption, this);
+@@ -6287,7 +6339,7 @@ function ArrayField(type, options) {
+   this.addButton = dom.createElement('button', null, this.doc);
+   this.addButton.className = 'gcliArrayMbrAdd';
+   this.addButton.addEventListener('click', this._onAdd, false);
+-  this.addButton.innerHTML = l10n.lookup('field_array_add');
++  this.addButton.innerHTML = l10n.lookup('fieldArrayAdd');
+   this.element.appendChild(this.addButton);
+ 
+   // <div class=gcliArrayMbrs save="${mbrElement}">
+@@ -6354,7 +6406,7 @@ ArrayField.prototype._onAdd = function(e
+   var delButton = dom.createElement('button', null, this.doc);
+   delButton.className = 'gcliArrayMbrDel';
+   delButton.addEventListener('click', this._onDel, false);
+-  delButton.innerHTML = l10n.lookup('field_array_del');
++  delButton.innerHTML = l10n.lookup('fieldArrayDel');
+   element.appendChild(delButton);
+ 
+   var member = {
+@@ -6545,373 +6597,9 @@ exports.CommandMenu = CommandMenu;
+  */
+ 
+ define('gcli/ui/domtemplate', ['require', 'exports', 'module' ], function(require, exports, module) {
+-var domtemplate = exports;
+-
+-
+-// WARNING: do not 'use_strict' without reading the notes in envEval;
+-
+-/**
+- * A templater that allows one to quickly template DOM nodes.
+- */
+-function Templater() {
+-  this.scope = [];
+-}
+-
+-/**
+- * Recursive function to walk the tree processing the attributes as it goes.
+- * @param node the node to process. If you pass a string in instead of a DOM
+- * element, it is assumed to be an id for use with document.getElementById()
+- * @param data the data to use for node processing.
+- */
+-Templater.prototype.processNode = function(node, data) {
+-  if (typeof node === 'string') {
+-    node = document.getElementById(node);
+-  }
+-  if (data === null || data === undefined) {
+-    data = {};
+-  }
+-  this.scope.push(node.nodeName + (node.id ? '#' + node.id : ''));
+-  try {
+-    // Process attributes
+-    if (node.attributes && node.attributes.length) {
+-      // We need to handle 'foreach' and 'if' first because they might stop
+-      // some types of processing from happening, and foreach must come first
+-      // because it defines new data on which 'if' might depend.
+-      if (node.hasAttribute('foreach')) {
+-        this.processForEach(node, data);
+-        return;
+-      }
+-      if (node.hasAttribute('if')) {
+-        if (!this.processIf(node, data)) {
+-          return;
+-        }
+-      }
+-      // Only make the node available once we know it's not going away
+-      data.__element = node;
+-      // It's good to clean up the attributes when we've processed them,
+-      // but if we do it straight away, we mess up the array index
+-      var attrs = Array.prototype.slice.call(node.attributes);
+-      for (var i = 0; i < attrs.length; i++) {
+-        var value = attrs[i].value;
+-        var name = attrs[i].name;
+-        this.scope.push(name);
+-        try {
+-          if (name === 'save') {
+-            // Save attributes are a setter using the node
+-            value = this.stripBraces(value);
+-            this.property(value, data, node);
+-            node.removeAttribute('save');
+-          } else if (name.substring(0, 2) === 'on') {
+-            // Event registration relies on property doing a bind
+-            value = this.stripBraces(value);
+-            var func = this.property(value, data);
+-            if (typeof func !== 'function') {
+-              this.handleError('Expected ' + value +
+-                ' to resolve to a function, but got ' + typeof func);
+-            }
+-            node.removeAttribute(name);
+-            var capture = node.hasAttribute('capture' + name.substring(2));
+-            node.addEventListener(name.substring(2), func, capture);
+-            if (capture) {
+-              node.removeAttribute('capture' + name.substring(2));
+-            }
+-          } else {
+-            // Replace references in all other attributes
+-            var self = this;
+-            var newValue = value.replace(/\$\{[^}]*\}/g, function(path) {
+-              return self.envEval(path.slice(2, -1), data, value);
+-            });
+-            // Remove '_' prefix of attribute names so the DOM won't try
+-            // to use them before we've processed the template
+-            if (name.charAt(0) === '_') {
+-              node.removeAttribute(name);
+-              node.setAttribute(name.substring(1), newValue);
+-            } else if (value !== newValue) {
+-              attrs[i].value = newValue;
+-            }
+-          }
+-        } finally {
+-          this.scope.pop();
+-        }
+-      }
+-    }
+-
+-    // Loop through our children calling processNode. First clone them, so the
+-    // set of nodes that we visit will be unaffected by additions or removals.
+-    var childNodes = Array.prototype.slice.call(node.childNodes);
+-    for (var j = 0; j < childNodes.length; j++) {
+-      this.processNode(childNodes[j], data);
+-    }
+-
+-    if (node.nodeType === 3 /*Node.TEXT_NODE*/) {
+-      this.processTextNode(node, data);
+-    }
+-  } finally {
+-    this.scope.pop();
+-  }
+-};
+-
+-/**
+- * Handle <x if="${...}">
+- * @param node An element with an 'if' attribute
+- * @param data The data to use with envEval
+- * @returns true if processing should continue, false otherwise
+- */
+-Templater.prototype.processIf = function(node, data) {
+-  this.scope.push('if');
+-  try {
+-    var originalValue = node.getAttribute('if');
+-    var value = this.stripBraces(originalValue);
+-    var recurse = true;
+-    try {
+-      var reply = this.envEval(value, data, originalValue);
+-      recurse = !!reply;
+-    } catch (ex) {
+-      this.handleError('Error with \'' + value + '\'', ex);
+-      recurse = false;
+-    }
+-    if (!recurse) {
+-      node.parentNode.removeChild(node);
+-    }
+-    node.removeAttribute('if');
+-    return recurse;
+-  } finally {
+-    this.scope.pop();
+-  }
+-};
+-
+-/**
+- * Handle <x foreach="param in ${array}"> and the special case of
+- * <loop foreach="param in ${array}">
+- * @param node An element with a 'foreach' attribute
+- * @param data The data to use with envEval
+- */
+-Templater.prototype.processForEach = function(node, data) {
+-  this.scope.push('foreach');
+-  try {
+-    var originalValue = node.getAttribute('foreach');
+-    var value = originalValue;
+-
+-    var paramName = 'param';
+-    if (value.charAt(0) === '$') {
+-      // No custom loop variable name. Use the default: 'param'
+-      value = this.stripBraces(value);
+-    } else {
+-      // Extract the loop variable name from 'NAME in ${ARRAY}'
+-      var nameArr = value.split(' in ');
+-      paramName = nameArr[0].trim();
+-      value = this.stripBraces(nameArr[1].trim());
+-    }
+-    node.removeAttribute('foreach');
+-    try {
+-      var self = this;
+-      // Process a single iteration of a loop
+-      var processSingle = function(member, clone, ref) {
+-        ref.parentNode.insertBefore(clone, ref);
+-        data[paramName] = member;
+-        self.processNode(clone, data);
+-        delete data[paramName];
+-      };
+-
+-      // processSingle is no good for <loop> nodes where we want to work on
+-      // the childNodes rather than the node itself
+-      var processAll = function(scope, member) {
+-        self.scope.push(scope);
+-        try {
+-          if (node.nodeName === 'LOOP') {
+-            for (var i = 0; i < node.childNodes.length; i++) {
+-              var clone = node.childNodes[i].cloneNode(true);
+-              processSingle(member, clone, node);
+-            }
+-          } else {
+-            var clone = node.cloneNode(true);
+-            clone.removeAttribute('foreach');
+-            processSingle(member, clone, node);
+-          }
+-        } finally {
+-          self.scope.pop();
+-        }
+-      };
+-
+-      var reply = this.envEval(value, data, originalValue);
+-      if (Array.isArray(reply)) {
+-        reply.forEach(function(data, i) {
+-          processAll('' + i, data);
+-        }, this);
+-      } else {
+-        for (var param in reply) {
+-          if (reply.hasOwnProperty(param)) {
+-            processAll(param, param);
+-          }
+-        }
+-      }
+-      node.parentNode.removeChild(node);
+-    } catch (ex) {
+-      this.handleError('Error with \'' + value + '\'', ex);
+-    }
+-  } finally {
+-    this.scope.pop();
+-  }
+-};
+-
+-/**
+- * Take a text node and replace it with another text node with the ${...}
+- * sections parsed out. We replace the node by altering node.parentNode but
+- * we could probably use a DOM Text API to achieve the same thing.
+- * @param node The Text node to work on
+- * @param data The data to use in calls to envEval
+- */
+-Templater.prototype.processTextNode = function(node, data) {
+-  // Replace references in other attributes
+-  var value = node.data;
+-  // We can't use the string.replace() with function trick (see generic
+-  // attribute processing in processNode()) because we need to support
+-  // functions that return DOM nodes, so we can't have the conversion to a
+-  // string.
+-  // Instead we process the string as an array of parts. In order to split
+-  // the string up, we first replace '${' with '\uF001$' and '}' with '\uF002'
+-  // We can then split using \uF001 or \uF002 to get an array of strings
+-  // where scripts are prefixed with $.
+-  // \uF001 and \uF002 are just unicode chars reserved for private use.
+-  value = value.replace(/\$\{([^}]*)\}/g, '\uF001$$$1\uF002');
+-  var parts = value.split(/\uF001|\uF002/);
+-  if (parts.length > 1) {
+-    parts.forEach(function(part) {
+-      if (part === null || part === undefined || part === '') {
+-        return;
+-      }
+-      if (part.charAt(0) === '$') {
+-        part = this.envEval(part.slice(1), data, node.data);
+-      }
+-      // It looks like this was done a few lines above but see envEval
+-      if (part === null) {
+-        part = "null";
+-      }
+-      if (part === undefined) {
+-        part = "undefined";
+-      }
+-      // if (isDOMElement(part)) { ... }
+-      if (typeof part.cloneNode !== 'function') {
+-        part = node.ownerDocument.createTextNode(part.toString());
+-      }
+-      node.parentNode.insertBefore(part, node);
+-    }, this);
+-    node.parentNode.removeChild(node);
+-  }
+-};
+-
+-/**
+- * Warn of string does not begin '${' and end '}'
+- * @param str the string to check.
+- * @return The string stripped of ${ and }, or untouched if it does not match
+- */
+-Templater.prototype.stripBraces = function(str) {
+-  if (!str.match(/\$\{.*\}/g)) {
+-    this.handleError('Expected ' + str + ' to match ${...}');
+-    return str;
+-  }
+-  return str.slice(2, -1);
+-};
+-
+-/**
+- * Combined getter and setter that works with a path through some data set.
+- * For example:
+- * <ul>
+- * <li>property('a.b', { a: { b: 99 }}); // returns 99
+- * <li>property('a', { a: { b: 99 }}); // returns { b: 99 }
+- * <li>property('a', { a: { b: 99 }}, 42); // returns 99 and alters the
+- * input data to be { a: { b: 42 }}
+- * </ul>
+- * @param path An array of strings indicating the path through the data, or
+- * a string to be cut into an array using <tt>split('.')</tt>
+- * @param data An object to look in for the <tt>path</tt> argument
+- * @param newValue (optional) If defined, this value will replace the
+- * original value for the data at the path specified.
+- * @return The value pointed to by <tt>path</tt> before any
+- * <tt>newValue</tt> is applied.
+- */
+-Templater.prototype.property = function(path, data, newValue) {
+-  this.scope.push(path);
+-  try {
+-    if (typeof path === 'string') {
+-      path = path.split('.');
+-    }
+-    var value = data[path[0]];
+-    if (path.length === 1) {
+-      if (newValue !== undefined) {
+-        data[path[0]] = newValue;
+-      }
+-      if (typeof value === 'function') {
+-        return function() {
+-          return value.apply(data, arguments);
+-        };
+-      }
+-      return value;
+-    }
+-    if (!value) {
+-      this.handleError('Can\'t find path=' + path);
+-      return null;
+-    }
+-    return this.property(path.slice(1), value, newValue);
+-  } finally {
+-    this.scope.pop();
+-  }
+-};
+-
+-/**
+- * Like eval, but that creates a context of the variables in <tt>env</tt> in
+- * which the script is evaluated.
+- * WARNING: This script uses 'with' which is generally regarded to be evil.
+- * The alternative is to create a Function at runtime that takes X parameters
+- * according to the X keys in the env object, and then call that function using
+- * the values in the env object. This is likely to be slow, but workable.
+- * @param script The string to be evaluated.
+- * @param env The environment in which to eval the script.
+- * @param context Optional debugging string in case of failure
+- * @return The return value of the script, or the error message if the script
+- * execution failed.
+- */
+-Templater.prototype.envEval = function(script, env, context) {
+-  with (env) {
+-    try {
+-      this.scope.push(context);
+-      return eval(script);
+-    } catch (ex) {
+-      this.handleError('Template error evaluating \'' + script + '\'' +
+-          ' environment=' + Object.keys(env).join(', '), ex);
+-      return script;
+-    } finally {
+-      this.scope.pop();
+-    }
+-  }
+-};
+-
+-/**
+- * A generic way of reporting errors, for easy overloading in different
+- * environments.
+- * @param message the error message to report.
+- * @param ex optional associated exception.
+- */
+-Templater.prototype.handleError = function(message, ex) {
+-  this.logError(message);
+-  this.logError('In: ' + this.scope.join(' > '));
+-  if (ex) {
+-    this.logError(ex);
+-  }
+-};
+-
+-
+-/**
+- * A generic way of reporting errors, for easy overloading in different
+- * environments.
+- * @param message the error message to report.
+- */
+-Templater.prototype.logError = function(message) {
+-  console.log(message);
+-};
+-
+-domtemplate.Templater = Templater;
+-
++
++  Components.utils.import("resource:///modules/devtools/Templater.jsm");
++  exports.Templater = Templater;
+ 
+ });
+ define("text!gcli/ui/menu.css", [], "" +
 diff --git a/browser/devtools/webconsole/test/browser/Makefile.in b/browser/devtools/webconsole/test/browser/Makefile.in
 --- a/browser/devtools/webconsole/test/browser/Makefile.in
 +++ b/browser/devtools/webconsole/test/browser/Makefile.in
@@ -1275,6 +2751,140 @@ new file mode 100644
 +  let tselcmd = canon.getCommand("tselarr");
 +  ok(tselcmd == null, "tselcmd removed from the canon");
 +}
+diff --git a/browser/locales/en-US/chrome/browser/gcli.properties b/browser/locales/en-US/chrome/browser/gcli.properties
+new file mode 100644
+--- /dev/null
++++ b/browser/locales/en-US/chrome/browser/gcli.properties
+@@ -0,0 +1,118 @@
++
++canonDescNone=(No description)
++cliEvalJavascript=Enter JavaScript directly
++fieldSelectionSelect=Select a %S ...
++fieldArrayAdd=Add
++fieldArrayDel=Del
++jstypeParseScope=Scope lost
++jstypeParseMissing=Can\'t find property \'%S\'
++jstypeBeginSyntax=Syntax error
++jstypeBeginUnterm=Unterminated string literal
++typesNumberNan=Can\'t convert "%S" to a number.
++typesNumberMax=%1$S is greater that maximum allowed: %2$S.
++typesNumberMin=%1$S is smaller that minimum allowed: %2$S.
++typesSelectionNomatch=Can\'t use \'%S\'.'
++
++nodeParseSyntax=Syntax error in CSS query
++
++editDesc=Tweak a page resource
++editManual=Edit one of the resources that is part of this page (or maybe any generic web resource?)
++editResourceDesc=URL to edit
++editPretend=Pretend this is an popup editor containing
++
++stylizerDesc=Edit CSS for a node
++stylizerManual=Find the CSS rules that affect a node so we can edit them together
++stylizerNodeDesc=Node to edit (by CSS expression)
++stylizerReply=This is where we open a window to edit the styles for: %S.
++
++breakDesc=Manage breakpoints
++breakManual=Commands to list, add and remove breakpoints
++
++breaklistDesc=Display known breakpoints
++breaklistNone=No breakpoints set
++breaklistIntro=The following breakpoints are set:
++
++breakaddIfDesc=Break condition
++breakaddAdded=Added breakpoint
++breakaddDesc=Add a breakpoint
++breakaddManual=Breakpoint types supported: line, function, xhr, event
++
++breakaddlineDesc=Add a line breakpoint
++breakaddlineFileDesc=JS file
++breakaddlineLineDesc=Line number
++breakaddfuncDesc=Add a function breakpoint
++breakaddfuncFunctionDesc=Function
++breakaddxhrDesc=Add an XHR breakpoint
++breakaddeventDesc=Add an event breakpoint
++breakaddeventEventDesc=Event type
++breakaddeventNodeDesc=Node
++
++breaknextDesc=Break at next line
++breaknextReply=Breaking at next line
++
++breakdelDesc=Remove a breakpoint
++breakdelBreakidDesc=Index of breakpoint
++breakdelRemoved=Breakpoint removed
++
++stepDesc=Move the debugger on
++stepManual=When the debugger is stopped, move it to a new place
++stepInsult=The debugger is not stopped. How do you expect to start it? Duh!
++
++stepupDesc=Step out of the current function
++stepupManual=Move the debug position up one stack frame by running to the end of the current function
++
++stepinDesc=Step into the current function
++stepinManual=Move the debug position down one stack frame into the current function call
++
++stepnextDesc=Step to the next line
++stepnextManual=Move the debug position to the start of the next line
++
++steponDesc=Continue running
++steponManual=Resume the debugger running normally
++
++steptoDesc=Run to the given line
++steptoManual=Move the debug position to the start of the specified line
++steptoLineDesc=Line to run to
++
++highlightDesc=Highlight a node
++highlightManual=Examine the dimensions and essential properties of a node (by CSS query)
++highlightNodeDesc=CSS query
++highlightReply=Pretend the highlighter thing is doing its stuff now.
++
++inspectDesc=Inspect the CSS for a node
++inspectManual=Examine the detail of the CSS properties for a node
++inspectNodeDesc=CSS query
++inspectReply=Pretend the style inspector is doing its stuff now.
++
++doctorDesc=Open CSS Doctor for a node
++doctorManual=Diagnose why a CSS rule isn\'t working for an element
++doctorNodeDesc=CSS query
++doctorReply=Pretend the CSS Doctor is doing its stuff now.
++
++echoDesc=Show a message
++echoMessageDesc=Message
++
++consoleDesc=Commands to control the console
++consoleManual=Filter, clear and close the web console
++
++consoleclearDesc=Clear the console
++consoleclearReply=I\'m sorry, Dave, I can\'t let you do that
++
++consolecloseDesc=Close the console
++consolecloseReply=A closed console is like a closed mind which is like a closed book which is bad.
++
++consolefilterDesc=Filter displayed events
++consolefilterCategoryDesc=Category
++consolefilterLevelDesc=Level
++consolefilterDisplayDesc=Show|Hide
++consolefilterReply=This needs implementing
++
++scratchpadDesc=Open a scratchpad
++scratchpadManual=Scratchpad allows editing JavaScript in a smalltalk-like environment
++scratchpadFileDesc=Initial file
++scratchpadScriptDesc=Initial script
++scratchpadChromeDesc=Chrome privilages
++scratchpadOnesource=Only one of --file and --script should be used
++scratchpadFilepretend=Pretend this is a scratchpad with the contents of %S
++scratchpadScriptpretend=Pretend this is a scratchpad containing this text
++scratchpadEmptypretend=Pretend this is an empty scratchpad
+diff --git a/browser/locales/jar.mn b/browser/locales/jar.mn
+--- a/browser/locales/jar.mn
++++ b/browser/locales/jar.mn
+@@ -14,6 +14,7 @@
+ *   locale/browser/browser.dtd                     (%chrome/browser/browser.dtd)
+     locale/browser/baseMenuOverlay.dtd             (%chrome/browser/baseMenuOverlay.dtd)
+     locale/browser/browser.properties              (%chrome/browser/browser.properties)
++    locale/browser/gcli.properties                 (%chrome/browser/gcli.properties)
+     locale/browser/styleinspector.properties       (%chrome/browser/styleinspector.properties)
+     locale/browser/styleinspector.dtd              (%chrome/browser/styleinspector.dtd)
+     locale/browser/scratchpad.properties           (%chrome/browser/scratchpad.properties)
 diff --git a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
 --- a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
 +++ b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties

@@ -1,3 +1,4 @@
 bug656668-gcli.patch
 bug656666-hudservice.patch
+bug684721-templater.patch
 bug659885-debugger.patch #+debugger
