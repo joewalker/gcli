@@ -1,4 +1,5 @@
 bug684721-templater.patch
 bug656668-gcli.patch
 bug656666-hudservice.patch
+bug685134-panel.patch #+panel
 bug659885-debugger.patch #+debugger
