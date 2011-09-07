@@ -40,6 +40,7 @@ define(function(require, exports, module) {
      * - jsEnvironment.evalFunction: 'eval' in a sandbox
      * - inputElement: GCLITerm.inputNode
      * - completeElement: GCLITerm.completeNode
+     * - popup: GCLITerm.hintPopup
      * - hintElement: GCLITerm.hintNode
      * - inputBackgroundElement: GCLITerm.inputStack
      */
@@ -54,6 +55,7 @@ define(function(require, exports, module) {
 
       var inputter = new Inputter(options);
       inputter.update();
+      inputter.sendFocusEventsToPopup(options.popup);
 
       var menu = new CommandMenu(options.document, options.requisition);
       options.hintElement.appendChild(menu.element);
