@@ -55,15 +55,19 @@ define(function(require, exports, module) {
 
       var inputter = new Inputter(options);
       inputter.update();
-      inputter.sendFocusEventsToPopup(options.popup);
+      if (options.popup) {
+        inputter.sendFocusEventsToPopup(options.popup);
+      }
 
-      var menu = new CommandMenu(options.document, options.requisition);
-      options.hintElement.appendChild(menu.element);
+      if (options.hintElement) {
+        var menu = new CommandMenu(options.document, options.requisition);
+        options.hintElement.appendChild(menu.element);
 
-      var argFetcher = new ArgFetcher(options.document, options.requisition);
-      options.hintElement.appendChild(argFetcher.element);
+        var argFetcher = new ArgFetcher(options.document, options.requisition);
+        options.hintElement.appendChild(argFetcher.element);
 
-      menu.onCommandChange();
+        menu.onCommandChange();
+      }
     },
 
     commandOutputManager: require('gcli/canon').commandOutputManager
