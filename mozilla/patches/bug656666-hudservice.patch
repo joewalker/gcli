@@ -1197,8 +1197,9 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 + *        Console object to use within the GcliTerm
 + * @constructor
 + */
-+function GcliTerm(aContext, aHudId, aDocument, aConsole)
++function GcliTerm(aContext, aHudId, aDocument, aConsole, aHintNode)
 +{
++  this.hintNode = aHintNode;
 +  this.context = aContext;
 +  this.hudId = aHudId;
 +  this.document = aDocument;
