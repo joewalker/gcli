@@ -1,0 +1,5 @@
+# HG changeset patch
+# Parent 54d0873dc464eb256d267da65c4c875a177ace4c
+# User Joe Walker <jwalker@mozilla.com>
+Bug 685135 - GCLI should display popup hints in a column left of the console output
+
