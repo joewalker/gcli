@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent ca58b6fe3ef4b7f32a270559e311695e2aa58a51
+# Parent c54bbc668856c4737845353befc37691c57cd1d0
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/devtools/webconsole/Commands.jsm b/browser/devtools/webconsole/Commands.jsm
@@ -918,7 +918,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
  var EXPORTED_SYMBOLS = ["HUDService", "ConsoleUtils"];
  
-@@ -1744,7 +1758,9 @@ HUD_SERVICE.prototype =
+@@ -1744,7 +1747,9 @@ HUD_SERVICE.prototype =
      // Remove children from the output. If the output is not cleared, there can
      // be leaks as some nodes has node.onclick = function; set and GC can't
      // remove the nodes then.
@@ -929,7 +929,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      hud.destroy();
  
-@@ -1763,7 +1779,9 @@ HUD_SERVICE.prototype =
+@@ -1763,7 +1768,9 @@ HUD_SERVICE.prototype =
        hud.splitter.parentNode.removeChild(hud.splitter);
      }
  
@@ -940,7 +940,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      delete this.hudReferences[aHUDId];
  
-@@ -2600,9 +2618,24 @@ HUD_SERVICE.prototype =
+@@ -2600,9 +2607,24 @@ HUD_SERVICE.prototype =
      // create Initial JS Workspace:
      var context = Cu.getWeakReference(aContext);
  
@@ -961,13 +961,13 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +      let hudId = getHudIdFromNode(aParentNode);
 +      let doc = aParentNode.ownerDocument;
 +
-+      var gcliterm = new GcliTerm(context, hudId, doc, aConsole);
++      var gcliterm = new GcliTerm(context, hudId, doc, aConsole, this.hintNode);
 +      aParentNode.appendChild(gcliterm.element);
 +    }
  
      // TODO: injection of additional functionality needs re-thinking/api
      // see bug 559748
-@@ -2962,6 +2995,30 @@ HUD_SERVICE.prototype =
+@@ -2962,6 +2984,30 @@ HUD_SERVICE.prototype =
    }
  };
  
@@ -998,7 +998,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  //////////////////////////////////////////////////////////////////////////
  // HeadsUpDisplay
  //////////////////////////////////////////////////////////////////////////
-@@ -3068,7 +3125,12 @@ function HeadsUpDisplay(aConfig)
+@@ -3068,7 +3114,12 @@ function HeadsUpDisplay(aConfig)
    // create the JSTerm input element
    try {
      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
@@ -1012,7 +1012,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    }
    catch (ex) {
      Cu.reportError(ex);
-@@ -3181,9 +3243,12 @@ HeadsUpDisplay.prototype = {
+@@ -3181,9 +3232,12 @@ HeadsUpDisplay.prototype = {
          this.outputNode.ensureIndexIsVisible(lastIndex);
        }
  
@@ -1026,7 +1026,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }).bind(this);
  
      panel.addEventListener("popupshown", onPopupShown,false);
-@@ -3372,8 +3437,15 @@ HeadsUpDisplay.prototype = {
+@@ -3372,8 +3426,15 @@ HeadsUpDisplay.prototype = {
        this.consolePanel.hidePopup();
      }
  
@@ -1044,7 +1044,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -3407,6 +3479,12 @@ HeadsUpDisplay.prototype = {
+@@ -3407,6 +3468,12 @@ HeadsUpDisplay.prototype = {
    jsterm: null,
  
    /**
@@ -1057,7 +1057,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
     * creates and attaches the console input node
     *
     * @param nsIDOMWindow aWindow
-@@ -3417,10 +3495,23 @@ HeadsUpDisplay.prototype = {
+@@ -3417,10 +3484,23 @@ HeadsUpDisplay.prototype = {
    {
      var context = Cu.getWeakReference(aWindow);
  
@@ -1078,13 +1078,13 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +      }
 +      else {
 +        this.gcliterm = new GcliTerm(context, this.hudId, this.chromeDocument,
-+                                     this.console);
++                                     this.console, this.hintNode);
 +        aParentNode.appendChild(this.gcliterm.element);
 +      }
      }
      else {
        throw new Error("Unsupported Gecko Application");
-@@ -3450,6 +3541,8 @@ HeadsUpDisplay.prototype = {
+@@ -3450,6 +3530,8 @@ HeadsUpDisplay.prototype = {
        this.jsterm.context = Cu.getWeakReference(this.contentWindow);
        this.jsterm.console = this.console;
        this.jsterm.createSandbox();
@@ -1093,7 +1093,80 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -3902,7 +3995,9 @@ HeadsUpDisplay.prototype = {
+@@ -3494,6 +3576,40 @@ HeadsUpDisplay.prototype = {
+     consoleWrap.setAttribute("class", "hud-console-wrapper");
+     consoleWrap.setAttribute("flex", "1");
+ 
++    this.filterSpacer = this.makeXULNode("spacer");
++    this.filterSpacer.setAttribute("flex", "1");
++
++    this.filterBox = this.makeXULNode("textbox");
++    this.filterBox.setAttribute("class", "compact hud-filter-box");
++    this.filterBox.setAttribute("hudId", this.hudId);
++    this.filterBox.setAttribute("placeholder", this.getStr("stringFilter"));
++    this.filterBox.setAttribute("type", "search");
++
++    this.setFilterTextBoxEvents();
++
++    this.createConsoleMenu(this.consoleWrap);
++
++    this.filterPrefs = HUDService.getDefaultFilterPrefs(this.hudId);
++
++    let consoleFilterToolbar = this.makeFilterToolbar();
++    consoleFilterToolbar.setAttribute("id", "viewGroup");
++    this.consoleFilterToolbar = consoleFilterToolbar;
++
++    let hintSpacerNode = this.makeXULNode("box");
++    hintSpacerNode.setAttribute("flex", 1);
++
++    this.hintNode = this.makeXULNode("div");
++    this.hintNode.setAttribute("class", "gcliterm-hint-node");
++
++    let hintParentNode = this.makeXULNode("vbox");
++    hintParentNode.setAttribute("flex", "0");
++    hintParentNode.setAttribute("class", "gcliterm-hint-parent");
++    hintParentNode.appendChild(hintSpacerNode);
++    hintParentNode.appendChild(this.hintNode);
++
++    let hbox = this.makeXULNode("hbox");
++    hbox.setAttribute("flex", "1");
++
+     this.outputNode = this.makeXULNode("richlistbox");
+     this.outputNode.setAttribute("class", "hud-output-node");
+     this.outputNode.setAttribute("flex", "1");
+@@ -3502,27 +3618,11 @@ HeadsUpDisplay.prototype = {
+     this.outputNode.setAttribute("style", "direction: ltr;");
+     this.outputNode.setAttribute("seltype", "multiple");
+ 
+-    this.filterSpacer = this.makeXULNode("spacer");
+-    this.filterSpacer.setAttribute("flex", "1");
+-
+-    this.filterBox = this.makeXULNode("textbox");
+-    this.filterBox.setAttribute("class", "compact hud-filter-box");
+-    this.filterBox.setAttribute("hudId", this.hudId);
+-    this.filterBox.setAttribute("placeholder", this.getStr("stringFilter"));
+-    this.filterBox.setAttribute("type", "search");
+-
+-    this.setFilterTextBoxEvents();
+-
+-    this.createConsoleMenu(this.consoleWrap);
+-
+-    this.filterPrefs = HUDService.getDefaultFilterPrefs(this.hudId);
+-
+-    let consoleFilterToolbar = this.makeFilterToolbar();
+-    consoleFilterToolbar.setAttribute("id", "viewGroup");
+-    this.consoleFilterToolbar = consoleFilterToolbar;
++    hbox.appendChild(hintParentNode);
++    hbox.appendChild(this.outputNode);
++
+     consoleWrap.appendChild(consoleFilterToolbar);
+-
+-    consoleWrap.appendChild(this.outputNode);
++    consoleWrap.appendChild(hbox);
+ 
+     outerWrap.appendChild(consoleWrap);
+ 
+@@ -3902,7 +4002,9 @@ HeadsUpDisplay.prototype = {
     */
    destroy: function HUD_destroy()
    {
@@ -1104,7 +1177,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.positionMenuitems.above.removeEventListener("command",
        this._positionConsoleAbove, false);
-@@ -5396,6 +5491,7 @@ JSTermFirefoxMixin.prototype = {
+@@ -5396,6 +5498,7 @@ JSTermFirefoxMixin.prototype = {
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -1112,7 +1185,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5409,22 +5505,15 @@ JSTermFirefoxMixin.prototype = {
+@@ -5409,22 +5512,15 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -1144,7 +1217,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    get inputValue()
-@@ -5554,9 +5643,8 @@ ConsoleUtils = {
+@@ -5554,9 +5650,8 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
                                            aBody, aSourceURL, aSourceLine,
                                            aClipboardText, aLevel) {
@@ -1156,7 +1229,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5592,6 +5680,13 @@ ConsoleUtils = {
+@@ -5592,6 +5687,13 @@ ConsoleUtils = {
      aBody = aBody instanceof Ci.nsIDOMNode && !(aLevel == "dir") ?
              aBody : aDocument.createTextNode(aBody);
  
@@ -1170,7 +1243,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6720,3 +6815,341 @@ catch (ex) {
+@@ -6720,3 +6822,345 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -1195,15 +1268,17 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 + *        The DOM document from which to create nodes
 + * @param object aConsole
 + *        Console object to use within the GcliTerm
++ * @param nsIDOMElement aHintNode
++ *        The node to which we add GCLI's hints
 + * @constructor
 + */
 +function GcliTerm(aContext, aHudId, aDocument, aConsole, aHintNode)
 +{
-+  this.hintNode = aHintNode;
 +  this.context = aContext;
 +  this.hudId = aHudId;
 +  this.document = aDocument;
 +  this.console = aConsole;
++  this.hintNode = aHintNode;
 +
 +  this.createUI();
 +  this.createSandbox();
@@ -1218,6 +1293,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    inputElement: this.inputNode,
 +    completeElement: this.completeNode,
 +    inputBackgroundElement: this.inputStack,
++    hintElement: this.hintNode,
 +    completionPrompt: ""
 +  });
 +}
@@ -1249,6 +1325,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  {
 +    this.element = this.document.createElement("vbox");
 +    this.element.setAttribute("class", "gcliterm-input-container");
++    this.element.setAttribute("flex", "0");
 +
 +    this.inputStack = this.document.createElement("stack");
 +    this.inputStack.setAttribute("class", "gcliterm-stack-node");
@@ -1512,7 +1589,6 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +You do not need to change initializeJSTerm
 +
 +*/
-+
 diff --git a/browser/devtools/webconsole/Makefile.in b/browser/devtools/webconsole/Makefile.in
 --- a/browser/devtools/webconsole/Makefile.in
 +++ b/browser/devtools/webconsole/Makefile.in
@@ -1958,17 +2034,18 @@ diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pin
 diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/winstripe/global/webConsole.css
 --- a/toolkit/themes/winstripe/global/webConsole.css
 +++ b/toolkit/themes/winstripe/global/webConsole.css
-@@ -134,10 +134,53 @@
- 
- .hud-output-node,
- .jsterm-input-node,
--.jsterm-complete-node {
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-   font: 12px Consolas, Lucida Console, monospace;
+@@ -296,7 +296,86 @@
+   -moz-appearance: none;
  }
  
+-.jsterm-input-node {
++
++
++
++
++
++
++
 +.usegcli .jsterm-input-node,
 +.usegcli .jsterm-complete-node,
 +.gcliterm-input-node,
@@ -1981,6 +2058,7 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  font: 12px Consolas, Lucida Console, monospace;
 +  padding: 2px 0 0 16px;
 +}
++
 +
 +.gcliterm-complete-node {
 +  padding: 4px 4px 2px 21px;
@@ -2010,17 +2088,28 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  color: #999;
 +}
 +
- .hud-output-node {
-   -moz-appearance: none;
-   border-bottom: 1px solid ThreeDShadow;
-@@ -296,7 +339,18 @@
-   -moz-appearance: none;
- }
- 
--.jsterm-input-node {
++
++
++.gcliterm-input-node,
++.gcliterm-complete-node {
++  font: 12px Consolas, Lucida Console, monospace;
++}
++
 +.gcliterm-stack-node {
 +  background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
 +  width: 100%;
++}
++
++.gcliterm-hint-node {
++  color: #000;
++  background: rgba(250, 250, 250, 0.8);
++  border: 1px solid #AAA;
++  border-top-right-radius: 5px;
++  border-top-left-radius: 5px;
++  margin-left: 10px;
++  margin-right: 10px;
++  display: inline-block;
++  overflow: hidden;
 +}
 +
 +.gcliterm-input-node,
@@ -2033,11 +2122,274 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
    background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
  }
  
-@@ -331,3 +385,7 @@
+@@ -331,3 +410,270 @@
    width: 100%;
    background-color: white;
  }
 +
 +.gcliCmdHelpRight {
 +  text-align: right;
++}
++
++
++/* From: gcli/lib/gcli/ui/arg_fetch.css */
++.gcliCmdDesc {
++  font-weight: bold;
++  text-align: center;
++  margin-bottom: 5px;
++  border-bottom: 1px solid #ddd;
++  padding-bottom: 3px;
++}
++
++.gcliParamGroup {
++  font-weight: bold;
++}
++
++.gcliParamName {
++  text-align: right;
++  font-size: 90%;
++}
++
++.gcliParamError {
++  font-size: 80%;
++  color: #900;
++}
++
++.gcliParamSubmit {
++  text-align: right;
++}
++
++.gcliGroupSymbol {
++  font-size: 90%;
++  color: #666;
++}
++
++.gcliRequired {
++  font-size: 80%;
++  color: #666;
++}
++
++.gcliParams {
++  width: 100%;
++}
++
++/* From: gcli/lib/gcli/ui/hinter.css */
++.gcliHintParent {
++  color: #000;
++  background: rgba(250, 250, 250, 0.8);
++  border: 1px solid #AAA;
++  border-top-right-radius: 5px;
++  border-top-left-radius: 5px;
++  margin-left: 10px;
++  margin-right: 10px;
++  display: inline-block;
++  overflow: hidden;
++}
++
++.gcliterm-hint-parent {
++  border-bottom: 1px solid #AAA;
++}
++
++.gcliterm-hint-node, .gcliHints {
++  overflow: auto;
++  padding: 10px;
++  display: inline-block;
++  border-bottom: 0px !important;
++}
++
++.gcliHints ul {
++  margin: 0;
++  padding: 0 15px;
++}
++
++/* From: /gcli/lib/gcli/ui/menu.css */
++.gcliOption {
++  overflow: hidden;
++  white-space: nowrap;
++  cursor: pointer;
++  padding: 2px;
++}
++
++.gcliOption:hover {
++  background-color: rgb(230, 230, 230);
++}
++
++.gcliOptionName {
++  padding-right: 5px;
++}
++
++.gcliOptionDesc {
++  font-size: 80%;
++  color: #999;
++}
++
++.gcliMenuError {
++  overflow: hidden;
++  white-space: nowrap;
++  padding: 8px 2px 2px 2px;
++  font-size: 80%;
++  color: red;
++}
++
++.gcliMenuField {
++  background-color: white;
++  color: black;
++  border: 1px solid #aaa;
++  padding: 2px;
++  max-height: 300px;
++  overflow-y: auto;
++  max-width: 220px;
++  overflow-x: hidden;
++  margin: 0 10px;
++  border-top: 0px !important;
++  border-bottom-right-radius: 5px;
++  border-bottom-left-radius: 5px;
++  font: -webkit-small-control;
++}
++
++/* From: gcli/lib/gcli/ui/inputter.css */
++.gcliCompletion {
++  position: absolute;
++  z-index: -1000;
++  background-color: #DDD;
++  border: 1px transparent solid;
++  padding: 1px 1px 1px 2px;
++}
++
++.gcliCompletion span {
++  color: #DDD;
++}
++
++.gcliCompletion span.gcliINCOMPLETE {
++  color: #DDD;
++  border-bottom: 2px dotted #999;
++}
++
++.gcliCompletion span.gcliERROR {
++  color: #DDD;
++  border-bottom: 2px dotted #F00;
++}
++
++span.gcliPrompt {
++  color: #66F;
++  font-weight: bold;
++}
++
++span.gcliCompl {
++  color: #999;
++}
++
++span.gcliCloseBrace {
++  color: #999;
++}
++
++/* From: gcli/lib/gcli/ui/command_output_view.css */
++.gcliCommandOutput {
++  overflow: auto;
++  top: 0;
++  height: 100%;
++}
++
++.gcliRowIn {
++  margin-top: 5px;
++  margin-right: 5px;
++  color: #333;
++  background-color: #EEE;
++  padding: 3px 8px 1px 1px;
++  border: 1px solid #aaa;
++  border-radius: 4px;
++  -moz-border-radius: 4px;
++  -webkit-border-radius: 4px;
++}
++
++.gcliRowIn > img {
++  cursor: pointer;
++}
++
++.gcliHover {
++  display: none;
++  float: right;
++  padding: 2px 2px 0 2px;
++}
++
++.gcliRowIn:hover > .gcliHover {
++  display: inline;
++}
++
++.gcliRowIn:hover > .gcliHover.gcliHidden {
++  display: none;
++}
++
++.gcliOutTyped {
++  color: #000;
++  font-family: consolas, courier, monospace;
++}
++
++.gcliRowOutput {
++  padding-left: 10px;
++  line-height: 1.2em;
++  font-size: 95%;
++}
++
++.gcliRowOutput strong,
++.gcliRowOutput b,
++.gcliRowOutput th,
++.gcliRowOutput h1,
++.gcliRowOutput h2,
++.gcliRowOutput h3 {
++  color: #000;
++}
++
++.gcliRowOutput a {
++  font-weight: bold;
++  color: #666;
++  text-decoration: none;
++}
++
++.gcliRowOutput a:hover {
++  text-decoration: underline;
++  cursor: pointer;
++}
++
++.gcliRowOutput input[type=password],
++.gcliRowOutput input[type=text],
++.gcliRowOutput textarea {
++  color: #000;
++  font-size: 120%;
++  background: transparent;
++  padding: 3px;
++  border-radius: 5px;
++  -moz-border-radius: 5px;
++  -webkit-border-radius: 5px;
++}
++
++.gcliRowOutput table,
++.gcliRowOutput td,
++.gcliRowOutput th {
++  border: 0;
++  padding: 0 2px;
++}
++
++.gcliRowOutput .right {
++  text-align: right;
++}
++
++.gcliGt {
++  font-family: consolas, courier, monospace;
++  color: #00F;
++  font-weight: bold;
++  font-size: 120%;
++  padding-left: 2px;
++}
++
++.gcliGt.gcliComplete {
++  color: #060;
++}
++
++.gcliGt.gcliError {
++  color: #F00;
++}
++
++.gcliDuration {
++  font-size: 80%;
 +}
