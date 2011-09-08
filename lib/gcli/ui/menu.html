@@ -6,7 +6,7 @@ things with a name and description.
 In the command context it is evaluated once for every keypress in the cli
 when a command has not been entered.
 -->
-<div id="gcliOptTempl">
+<div id="gcliOptTempl" aria-live="polite">
   <div class="gcliOption" foreach="item in ${items}" onclick="${onItemClick}"
       title="${item.manual || ''}">
     ${__element.item = item; ''}
