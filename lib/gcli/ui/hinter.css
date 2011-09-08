@@ -17,4 +17,7 @@
   display: inline-block;
 }
 
-.gcliHints ul { margin: 0; padding: 0 15px; }
+.gcliHints ul {
+  margin: 0;
+  padding: 0 15px;
+}
