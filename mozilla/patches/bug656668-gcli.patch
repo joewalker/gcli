@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306496118 -3600
 # Node ID c9f0d4142413be8bd4cf553732568c1249999196
-# Parent f4b5c162d622a2ecb9a4ff3b8ef01403b3269be5
+# Parent ab4aeb2f1141b56d8d9b0e3bd5e5a0bd280e0c37
 Bug 656668 - Create Export from GCLI project to JSM
 
 diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
@@ -715,7 +715,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
      console.log("define: " + moduleName + " -> " + payload.toString()
          .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
    }
-@@ -417,151 +418,6352 @@ function define(moduleName, deps, payloa
+@@ -417,151 +418,6359 @@ function define(moduleName, deps, payloa
      console.error(this.depth + " Error: Redefining module: " + moduleName);
    }
    define.modules[moduleName] = payload;
@@ -1051,8 +1051,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    throw new Error('command.params must be an array in ' + this.name);
 +  }
 +
-+  this.description = lookup(this.description || undefined, 'canonDescNone');
-+  this.manual = lookup(this.manual || undefined);
++  this.description = 'description' in this ? this.description : undefined;
++  this.description = lookup(this.description, 'canonDescNone');
++  this.manual = 'manual' in this ? this.manual : undefined;
++  this.manual = lookup(this.manual);
 +
 +  // At this point this.params has nested param groups. We want to flatten it
 +  // out and replace the param object literals with Parameter objects
@@ -1141,8 +1143,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    this[key] = paramSpec[key];
 +  }, this);
 +
-+  this.description = lookup(this.description || undefined, 'canonDescNone');
-+  this.manual = lookup(this.manual || undefined);
++  this.description = 'description' in this ? this.description : undefined;
++  this.description = lookup(this.description, 'canonDescNone');
++  this.manual = 'manual' in this ? this.manual : undefined;
++  this.manual = lookup(this.manual);
 +  this.groupName = groupName;
 +
 +  if (!this.name) {
@@ -1372,7 +1376,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + *   hat.putOn.add(function(ev) {
 + *   console.log('The hat ', ev.hat, ' has is worn by ', ev.person);
 + *   }, scope);
-+ * @param {string} name Optional name that helps us work out what event this
++ * @param name Optional name that helps us work out what event this
 + * is when debugging.
 + */
 +exports.createEvent = function(name) {
@@ -1380,7 +1384,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  /**
 +   * This is how the event is triggered.
-+   * @param {object} ev The event object to be passed to the event listeners
++   * @param ev The event object to be passed to the event listeners
 +   */
 +  var event = function(ev) {
 +    // Use for rather than forEach because it step debugs better, which is
@@ -1418,8 +1422,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  /**
 +   * Add a new handler function
-+   * @param {function} func The function to call when this event is triggered
-+   * @param {object} scope Optional 'this' object for the function call
++   * @param func The function to call when this event is triggered
++   * @param scope Optional 'this' object for the function call
 +   */
 +  event.add = function(func, scope) {
 +    handlers.push({ func: func, scope: scope });
@@ -1428,8 +1432,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  /**
 +   * Remove a handler function added through add(). Both func and scope must
 +   * be strict equals (===) the values used in the call to add()
-+   * @param {function} func The function to call when this event is triggered
-+   * @param {object} scope Optional 'this' object for the function call
++   * @param func The function to call when this event is triggered
++   * @param scope Optional 'this' object for the function call
 +   */
 +  event.remove = function(func, scope) {
 +    handlers = handlers.filter(function(test) {
@@ -1457,24 +1461,28 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +/**
 + * Pass-through to createElement or createElementNS
-+ * @param {string} tag The name of the tag to create
-+ * @param {string} ns Custom namespace
-+ * @param {HTMLDocument} doc The document in which to create the element
-+ * @returns {HTMLElement} The created element
++ * @param doc The document in which to create the element
++ * @param tag The name of the tag to create
++ * @param ns Custom namespace, HTML/XHTML is assumed if this is missing
++ * @returns The created element
 + */
-+dom.createElement = function(tag, ns, doc) {
-+  var doc = doc || document;
-+  return doc.createElement(tag);
-+  /*
-+  return doc.createElementNS ?
-+         doc.createElementNS(ns || NS_XHTML, tag) :
-+         doc.createElement(tag);
-+   */
++dom.createElement = function(doc, tag, ns) {
++  // If we've not been given a namespace, but the document is XML, then we
++  // use an XHTML namespace, otherwise we use HTML
++  if (ns == null && doc.xmlVersion != null) {
++    ns = NS_XHTML;
++  }
++  if (ns == null) {
++    return doc.createElement(tag);
++  }
++  else {
++    return doc.createElementNS(ns, tag);
++  }
 +};
 +
 +/**
 + * Remove all the child nodes from this node
-+ * @param {HTMLElement} el The element that should have it's children removed
++ * @param el The element that should have it's children removed
 + */
 +dom.clearElement = function(el) {
 +  while (el.hasChildNodes()) {
@@ -1573,8 +1581,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +/**
 + * Create a style element in the document head, and add the given CSS text to
 + * it.
-+ * @param {string} cssText The CSS declarations to append
-+ * @param {HTMLDocument} doc The document element to work from
++ * @param cssText The CSS declarations to append
++ * @param doc The document element to work from
 + */
 +dom.importCssString = function(cssText, doc) {
 +  doc = doc || document;
@@ -1584,10 +1592,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    sheet.cssText = cssText;
 +  }
 +  else {
-+    var style = doc.createElementNS ?
-+        doc.createElementNS(NS_XHTML, 'style') :
-+        doc.createElement('style');
-+
++    var style = dom.createElement(doc, 'style');
 +    style.appendChild(doc.createTextNode(cssText));
 +
 +    var head = doc.getElementsByTagName('head')[0] || doc.documentElement;
@@ -3363,7 +3368,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * but could be something else in non-web-content environments.
 + */
 +var globalObject;
-+if ('window' in this) {
++if (typeof window !== 'undefined') {
 +  globalObject = window;
 +}
 +
@@ -5777,7 +5782,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +    if (!this.element) {
 +      this.elementCreated = true;
-+      this.element = dom.createElement('div', null, this.doc);
++      this.element = dom.createElement(this.doc, 'div');
 +      this.element.className = 'gcliCompletion gcliVALID';
 +      this.element.setAttribute('tabindex', '-1');
 +      this.element.setAttribute('aria-live', 'polite');
@@ -6047,7 +6052,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    throw new Error('No document');
 +  }
 +
-+  this.element =  dom.createElement('div', null, this.doc);
++  this.element =  dom.createElement(this.doc, 'div');
 +  this.element.className = 'gcliCliEle';
 +  // We cache the fields we create so we can destroy them later
 +  this.fields = [];
@@ -6060,7 +6065,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  if (!ArgFetcher.reqTempl) {
 +    dom.importCssString(editorCss, this.doc);
 +
-+    var templates = dom.createElement('div', null, this.doc);
++    var templates = dom.createElement(this.doc, 'div');
 +    dom.setInnerHtml(templates, argFetchHtml);
 +    ArgFetcher.reqTempl = templates.querySelector('#gcliReqTempl');
 +  }
@@ -6359,8 +6364,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.type = type;
 +  this.arg = new Argument();
 +
-+  this.element = dom.createElement('input', null, this.doc);
++  this.element = dom.createElement(this.doc, 'input');
 +  this.element.type = 'text';
++  this.element.style.width = '100%';
 +
 +  this.onInputChange = this.onInputChange.bind(this);
 +  this.element.addEventListener('keyup', this.onInputChange, false);
@@ -6402,7 +6408,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.type = type;
 +  this.arg = new Argument();
 +
-+  this.element = dom.createElement('input', null, this.doc);
++  this.element = dom.createElement(this.doc, 'input');
 +  this.element.type = 'number';
 +  if (this.type.max) {
 +    this.element.max = this.type.max;
@@ -6454,7 +6460,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.name = options.name;
 +  this.named = options.named;
 +
-+  this.element = dom.createElement('input', null, this.doc);
++  this.element = dom.createElement(this.doc, 'input');
 +  this.element.type = 'checkbox';
 +  this.element.id = 'gcliForm' + this.name;
 +
@@ -6507,7 +6513,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.type = type;
 +  this.items = [];
 +
-+  this.element = dom.createElement('select', null, this.doc);
++  this.element = dom.createElement(this.doc, 'select');
 +  this.element.style.width = '180px';
 +  this._addOption({
 +    name: l10n.lookupFormat('fieldSelectionSelect', [ options.name ])
@@ -6553,7 +6559,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  item.index = this.items.length;
 +  this.items.push(item);
 +
-+  var option = dom.createElement('option', null, this.doc);
++  var option = dom.createElement(this.doc, 'option');
 +  option.innerHTML = item.name;
 +  option.value = item.index;
 +  this.element.appendChild(option);
@@ -6574,13 +6580,13 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.onInputChange = this.onInputChange.bind(this);
 +  this.arg = new Argument('', '{ ', ' }');
 +
-+  this.element = dom.createElement('div', null, this.doc);
++  this.element = dom.createElement(this.doc, 'div');
 +
-+  this.input = dom.createElement('input', null, this.doc);
++  this.input = dom.createElement(this.doc, 'input');
 +  this.input.type = 'text';
 +  this.input.addEventListener('keyup', this.onInputChange, false);
 +  this.input.style.marginBottom = '0px';
-+  this.input.style.width = options.name.length === 0 ? '240px' : '180px';
++  this.input.style.width = options.name.length === 0 ? '240px' : '160px';
 +  this.element.appendChild(this.input);
 +
 +  this.menu = new Menu(this.doc, { field: true });
@@ -6673,7 +6679,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.requ = options.requisition;
 +  this.requ.assignmentChange.add(this.update, this);
 +
-+  this.element = dom.createElement('div', null, this.doc);
++  this.element = dom.createElement(this.doc, 'div');
 +  this.update();
 +
 +  this.fieldChanged = createEvent('DeferredField.fieldChanged');
@@ -6726,7 +6732,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +function BlankField(type, options) {
 +  this.doc = options.document;
 +  this.type = type;
-+  this.element = dom.createElement('div', null, this.doc);
++  this.element = dom.createElement(this.doc, 'div');
 +
 +  this.fieldChanged = createEvent('BlankField.fieldChanged');
 +}
@@ -6761,18 +6767,18 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.members = [];
 +
 +  // <div class=gcliArrayParent save="${element}">
-+  this.element = dom.createElement('div', null, this.doc);
++  this.element = dom.createElement(this.doc, 'div');
 +  this.element.className = 'gcliArrayParent';
 +
 +  // <button class=gcliArrayMbrAdd onclick="${_onAdd}" save="${addButton}">Add
-+  this.addButton = dom.createElement('button', null, this.doc);
++  this.addButton = dom.createElement(this.doc, 'button');
 +  this.addButton.className = 'gcliArrayMbrAdd';
 +  this.addButton.addEventListener('click', this._onAdd, false);
 +  this.addButton.innerHTML = l10n.lookup('fieldArrayAdd');
 +  this.element.appendChild(this.addButton);
 +
 +  // <div class=gcliArrayMbrs save="${mbrElement}">
-+  this.container = dom.createElement('div', null, this.doc);
++  this.container = dom.createElement(this.doc, 'div');
 +  this.container.className = 'gcliArrayMbrs';
 +  this.element.appendChild(this.container);
 +
@@ -6814,7 +6820,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +ArrayField.prototype._onAdd = function(ev, subConversion) {
 +  // <div class=gcliArrayMbr save="${element}">
-+  var element = dom.createElement('div', null, this.doc);
++  var element = dom.createElement(this.doc, 'div');
 +  element.className = 'gcliArrayMbr';
 +  this.container.appendChild(element);
 +
@@ -6832,7 +6838,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  element.appendChild(field.element);
 +
 +  // <div class=gcliArrayMbrDel onclick="${_onDel}">
-+  var delButton = dom.createElement('button', null, this.doc);
++  var delButton = dom.createElement(this.doc, 'button');
 +  delButton.className = 'gcliArrayMbrDel';
 +  delButton.addEventListener('click', this._onDel, false);
 +  delButton.innerHTML = l10n.lookup('fieldArrayDel');
@@ -6892,7 +6898,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +function Menu(doc, options) {
 +  this.doc = doc;
 +
-+  this.element =  dom.createElement('div', null, this.doc);
++  this.element =  dom.createElement(this.doc, 'div');
 +  this.element.className = 'gcliMenu';
 +  if (options && options.field) {
 +    this.element.className += ' gcliMenuField';
@@ -6902,7 +6908,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  if (!Menu.optTempl) {
 +    dom.importCssString(menuCss, this.doc);
 +
-+    var templates = dom.createElement('div', null, this.doc);
++    var templates = dom.createElement(this.doc, 'div');
 +    dom.setInnerHtml(templates, menuHtml);
 +    Menu.optTempl = templates.querySelector('#gcliOptTempl');
 +  }
@@ -7135,7 +7141,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  "" +
 +  ".gcliParams {" +
 +  "  width: 100%;" +
-+  "}");
++  "}" +
++  "");
 +
 +define("text!gcli/ui/arg_fetch.html", [], "" +
 +  "<!--" +
@@ -7159,7 +7166,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  "          </td>" +
 +  "          <td class=\"gcliParamInput\">${getInputFor(assignment)}</td>" +
 +  "          <td>" +
-+  "            <span class=\"gcliRequired\" if=\"${assignment.param.isDataRequired()}\">*</span>" +
++  "            <span class=\"gcliRequired\" if=\"${assignment.param.isDataRequired()}\"> *</span>" +
 +  "          </td>" +
 +  "        </tr>" +
 +  "        <tr class=\"gcliGroupRow\">" +

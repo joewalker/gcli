@@ -2,14 +2,14 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent c54bbc668856c4737845353befc37691c57cd1d0
+# Parent e800bdc3425c363f7d27e24925f3e16e8429d57d
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/devtools/webconsole/Commands.jsm b/browser/devtools/webconsole/Commands.jsm
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/webconsole/Commands.jsm
-@@ -0,0 +1,888 @@
+@@ -0,0 +1,902 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -48,7 +48,7 @@ new file mode 100644
 + * ***** END LICENSE BLOCK ***** */
 +
 +
-+let EXPORTED_SYMBOLS = [];
++let EXPORTED_SYMBOLS = [ "Commands" ];
 +
 +Components.utils.import("resource:///modules/gcli.jsm");
 +Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
@@ -57,6 +57,20 @@ new file mode 100644
 +XPCOMUtils.defineLazyGetter(this, "stringBundle", function () {
 +  return Services.strings.createBundle("chrome://browser/locale/gcli.properties");
 +});
++
++var document;
++
++/**
++ * The exported API
++ */
++var Commands = {
++  /**
++   * Allow HUDService to inform us of the document against which we work
++   */
++  setDocument: function commands_setDocument(aDocument) {
++    document = aDocument;
++  }
++};
 +
 +/**
 + * Lookup a string in the GCLI string bundle
@@ -146,7 +160,7 @@ new file mode 100644
 +  }
 +  reply.push({
 +    name: "page",
-+    value: window.document
++    value: document
 +  });
 +  // There are other page resources that we need to include here too
 +  return reply;
@@ -249,7 +263,7 @@ new file mode 100644
 +  this.type = type;
 +  this.arg = new Argument();
 +
-+  this.element = dom.createElement("input", null, this.doc);
++  this.element = dom.createElement(this.doc, "input");
 +  this.element.type = "file";
 +
 +  this.onInputChange = this.onInputChange.bind(this);
@@ -1243,7 +1257,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6720,3 +6822,345 @@ catch (ex) {
+@@ -6720,3 +6822,368 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -1283,22 +1297,45 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  this.createUI();
 +  this.createSandbox();
 +
++  var window = this.context.get().QueryInterface(Ci.nsIDOMWindow);
++
++  this.show = this.show.bind(this);
++  this.hide = this.hide.bind(this);
++
 +  gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
 +  gcli._internal.createView({
 +    document: this.document,
 +    jsEnvironment: {
-+      globalObject: this.context.get().QueryInterface(Ci.nsIDOMWindow),
++      globalObject: window,
 +      evalFunction: this.evalInSandbox.bind(this)
 +    },
 +    inputElement: this.inputNode,
 +    completeElement: this.completeNode,
 +    inputBackgroundElement: this.inputStack,
 +    hintElement: this.hintNode,
-+    completionPrompt: ""
++    completionPrompt: "",
++    popup: this
 +  });
++
++  Commands.setDocument(window.document);
 +}
 +
 +GcliTerm.prototype = {
++  /**
++   * Remove the hint column from the display
++   */
++  hide: function() {
++    this._prevDisplay = this.hintNode.parentNode.style.display;
++    this.hintNode.parentNode.style.display = "none";
++  },
++
++  /**
++   * Undo the effects of calling hide()
++   */
++  show: function() {
++    this.hintNode.parentNode.style.display = this._prevDisplay;
++  },
++
 +  /**
 +   * Re-attaches a console when the contentWindow is recreated
 +   *
@@ -2122,13 +2159,24 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
    background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
  }
  
-@@ -331,3 +410,270 @@
+@@ -331,3 +410,276 @@
    width: 100%;
    background-color: white;
  }
 +
 +.gcliCmdHelpRight {
 +  text-align: right;
++}
++
++.gcliterm-hint-parent {
++  border-bottom: 1px solid #AAA;
++}
++
++.gcliterm-hint-node {
++  border-bottom: 0px !important;
++  overflow: auto;
++  padding: 10px;
++  display: inline-block;
 +}
 +
 +
@@ -2186,15 +2234,10 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  overflow: hidden;
 +}
 +
-+.gcliterm-hint-parent {
-+  border-bottom: 1px solid #AAA;
-+}
-+
-+.gcliterm-hint-node, .gcliHints {
++.gcliHints {
 +  overflow: auto;
 +  padding: 10px;
 +  display: inline-block;
-+  border-bottom: 0px !important;
 +}
 +
 +.gcliHints ul {
@@ -2202,7 +2245,7 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  padding: 0 15px;
 +}
 +
-+/* From: /gcli/lib/gcli/ui/menu.css */
++/* From: gcli/lib/gcli/ui/menu.css */
 +.gcliOption {
 +  overflow: hidden;
 +  white-space: nowrap;
