@@ -113,5 +113,21 @@ function buildFirefox() {
     dest: 'built/ff/gcli.jsm'
   });
 
+  copy({
+    source: [
+      { value: '\n/* From: gcli/lib/gcli/ui/arg_fetch.css */' },
+      'lib/gcli/ui/arg_fetch.css',
+      { value: '\n/* From: gcli/lib/gcli/ui/hinter.css */' },
+      'lib/gcli/ui/hinter.css',
+      { value: '\n/* From: gcli/lib/gcli/ui/menu.css */' },
+      'lib/gcli/ui/menu.css',
+      { value: '\n/* From: gcli/lib/gcli/ui/inputter.css */' },
+      'lib/gcli/ui/inputter.css',
+      { value: '\n/* From: gcli/lib/gcli/ui/command_output_view.css */' },
+      'lib/gcli/ui/command_output_view.css'
+    ],
+    dest: 'built/ff/gcli.css'
+  });
+
   console.log(project.report());
 }
