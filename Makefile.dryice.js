@@ -34,7 +34,7 @@ function buildStandard() {
   copy({
     source: copy.source.commonjs({
       project: project,
-      // This list of dependencies should be the same as in build/index.html
+      // This list of dependencies should be the same as in index.html
       require: [ 'gcli/index', 'demo/index', 'gclitest/index' ]
     }),
     filter: copy.filter.moduleDefines,
@@ -61,7 +61,7 @@ function buildStandard() {
   }
 
   // Create the output scripts, compressed and uncompressed
-  copy({ source: 'build/index.html', dest: 'built/index.html' });
+  copy({ source: 'index.html', filter: tweakIndex, dest: 'built/index.html' });
   copy({ source: 'scripts/es5-shim.js', dest: 'built/es5-shim.js' });
   copy({
     source: [ copy.getMiniRequire(), sources ],
@@ -79,7 +79,6 @@ function buildStandard() {
         'Skipping creation of built/gcli.js\n');
   }
 }
-
 
 /**
  * Build the Javascript JSM files for Firefox
@@ -130,4 +129,17 @@ function buildFirefox() {
   });
 
   console.log(project.report());
+}
+
+/**
+ * Filter index.html to:
+ * - Make links relative, we flatten out the scripts directory
+ * - Replace require.js with the built GCLI script file
+ * - Remove the RequireJS configuration
+ */
+function tweakIndex(data) {
+  return data
+      .replace(/scripts\/es5-shim.js/, 'es5-shim.js')
+      .replace(/scripts\/require.js/, 'gcli-uncompressed.js')
+      .replace(/\s*require\([^;]*;\n/, '');
 }
