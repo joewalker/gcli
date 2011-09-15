@@ -11,8 +11,8 @@ define(function(require, exports, module) {
   exports.removeCommand = require('gcli/canon').removeCommand;
 
   // Internal startup process. Not exported
-  require('gcli/types').startup();
-  require('gcli/jstype').startup();
+  require('gcli/types/basic').startup();
+  require('gcli/types/javascript').startup();
   require('gcli/cli').startup();
 
   var Requisition = require('gcli/cli').Requisition;
@@ -21,7 +21,7 @@ define(function(require, exports, module) {
   var ArgFetcher = require('gcli/ui/arg_fetch').ArgFetcher;
   var CommandMenu = require('gcli/ui/menu').CommandMenu;
 
-  var jstype = require('gcli/jstype');
+  var jstype = require('gcli/types/javascript');
 
   /**
    * API for use by HUDService only.
