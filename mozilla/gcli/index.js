@@ -13,6 +13,7 @@ define(function(require, exports, module) {
   // Internal startup process. Not exported
   require('gcli/types/basic').startup();
   require('gcli/types/javascript').startup();
+  require('gcli/types/node').startup();
   require('gcli/cli').startup();
 
   var Requisition = require('gcli/cli').Requisition;
@@ -22,6 +23,7 @@ define(function(require, exports, module) {
   var CommandMenu = require('gcli/ui/menu').CommandMenu;
 
   var jstype = require('gcli/types/javascript');
+  var nodetype = require('gcli/types/node');
 
   /**
    * API for use by HUDService only.
@@ -35,7 +37,9 @@ define(function(require, exports, module) {
     /**
      * createView() for Firefox requires an options object with the following
      * members:
-     * - document: GCLITerm.document
+     * - contentDocument: The window of the attached tab
+     * - chromeDocument: GCLITerm.document
+     * - environment.hudId: GCLITerm.hudId
      * - jsEnvironment.globalObject: 'window'
      * - jsEnvironment.evalFunction: 'eval' in a sandbox
      * - inputElement: GCLITerm.inputNode
@@ -47,10 +51,11 @@ define(function(require, exports, module) {
     createView: function(options) {
       options.preStyled = true;
       options.autoHide = true;
-      options.requisition = new Requisition();
+      options.requisition = new Requisition(options.environment, options.chromeDocument);
       options.completionPrompt = '';
 
       jstype.setGlobalObject(options.jsEnvironment.globalObject);
+      nodetype.setDocument(options.contentDocument);
       cli.setEvalFunction(options.jsEnvironment.evalFunction);
 
       var inputter = new Inputter(options);
@@ -60,10 +65,10 @@ define(function(require, exports, module) {
       }
 
       if (options.hintElement) {
-        var menu = new CommandMenu(options.document, options.requisition);
+        var menu = new CommandMenu(options.chromeDocument, options.requisition);
         options.hintElement.appendChild(menu.element);
 
-        var argFetcher = new ArgFetcher(options.document, options.requisition);
+        var argFetcher = new ArgFetcher(options.chromeDocument, options.requisition);
         options.hintElement.appendChild(argFetcher.element);
 
         menu.onCommandChange();
