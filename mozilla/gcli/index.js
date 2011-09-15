@@ -48,28 +48,28 @@ define(function(require, exports, module) {
      * - hintElement: GCLITerm.hintNode
      * - inputBackgroundElement: GCLITerm.inputStack
      */
-    createView: function(options) {
-      options.preStyled = true;
-      options.autoHide = true;
-      options.requisition = new Requisition(options.environment, options.chromeDocument);
-      options.completionPrompt = '';
+    createView: function(opts) {
+      opts.preStyled = true;
+      opts.autoHide = true;
+      opts.requisition = new Requisition(opts.environment, opts.chromeDocument);
+      opts.completionPrompt = '';
 
-      jstype.setGlobalObject(options.jsEnvironment.globalObject);
-      nodetype.setDocument(options.contentDocument);
-      cli.setEvalFunction(options.jsEnvironment.evalFunction);
+      jstype.setGlobalObject(opts.jsEnvironment.globalObject);
+      nodetype.setDocument(opts.contentDocument);
+      cli.setEvalFunction(opts.jsEnvironment.evalFunction);
 
-      var inputter = new Inputter(options);
+      var inputter = new Inputter(opts);
       inputter.update();
-      if (options.popup) {
-        inputter.sendFocusEventsToPopup(options.popup);
+      if (opts.popup) {
+        inputter.sendFocusEventsToPopup(opts.popup);
       }
 
-      if (options.hintElement) {
-        var menu = new CommandMenu(options.chromeDocument, options.requisition);
-        options.hintElement.appendChild(menu.element);
+      if (opts.hintElement) {
+        var menu = new CommandMenu(opts.chromeDocument, opts.requisition);
+        opts.hintElement.appendChild(menu.element);
 
-        var argFetcher = new ArgFetcher(options.chromeDocument, options.requisition);
-        options.hintElement.appendChild(argFetcher.element);
+        var argFetcher = new ArgFetcher(opts.chromeDocument, opts.requisition);
+        opts.hintElement.appendChild(argFetcher.element);
 
         menu.onCommandChange();
       }
