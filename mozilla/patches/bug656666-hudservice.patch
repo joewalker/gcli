@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent 3ed660f5f77d8099b2cace240ee35e027b994272
+# Parent 8a6edd08455426e688f9ed54bffb6a6a48ce1a72
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/devtools/webconsole/Commands.jsm b/browser/devtools/webconsole/Commands.jsm
@@ -882,30 +882,16 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
   *
   * Alternatively, the contents of this file may be used under the terms of
   * either the GNU General Public License Version 2 or later (the "GPL"), or
-@@ -53,6 +54,9 @@ Cu.import("resource://gre/modules/XPCOMU
+@@ -53,6 +54,8 @@ Cu.import("resource://gre/modules/XPCOMU
  Cu.import("resource://gre/modules/Services.jsm");
  Cu.import("resource:///modules/NetworkHelper.jsm");
  Cu.import("resource:///modules/PropertyPanel.jsm");
 +Cu.import("resource:///modules/gcli.jsm");
 +Cu.import("resource:///modules/Commands.jsm");
-+Cu.import("resource:///modules/devtools/StyleInspector.jsm");
  
  var EXPORTED_SYMBOLS = ["HUDService", "ConsoleUtils"];
  
-@@ -72,12 +76,6 @@ XPCOMUtils.defineLazyServiceGetter(this,
-                                    "@mozilla.org/widget/clipboardhelper;1",
-                                    "nsIClipboardHelper");
- 
--XPCOMUtils.defineLazyGetter(this, "StyleInspector", function () {
--  var obj = {};
--  Cu.import("resource:///modules/devtools/StyleInspector.jsm", obj);
--  return obj.StyleInspector;
--});
--
- XPCOMUtils.defineLazyGetter(this, "NetUtil", function () {
-   var obj = {};
-   Cu.import("resource://gre/modules/NetUtil.jsm", obj);
-@@ -1744,7 +1742,9 @@ HUD_SERVICE.prototype =
+@@ -1744,7 +1747,9 @@ HUD_SERVICE.prototype =
      // Remove children from the output. If the output is not cleared, there can
      // be leaks as some nodes has node.onclick = function; set and GC can't
      // remove the nodes then.
@@ -916,7 +902,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      hud.destroy();
  
-@@ -1763,7 +1763,9 @@ HUD_SERVICE.prototype =
+@@ -1763,7 +1768,9 @@ HUD_SERVICE.prototype =
        hud.splitter.parentNode.removeChild(hud.splitter);
      }
  
@@ -927,38 +913,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      delete this.hudReferences[aHUDId];
  
-@@ -2961,6 +2978,30 @@ HUD_SERVICE.prototype =
-   }
- };
- 
-+/**
-+ * Get the HudId from an element contained inside the HUD.
-+ * This is nasty nasty code, but rather than re-architect I'm just going to
-+ * document what I think is going on here. The refactoring should be done in a
-+ * separate bug.
-+ * We want a reference to the main HUD so we can add output to it, and rather
-+ * than passing a reference to that console around, we look it up via an id.
-+ * However we don't have that either so we walk up the tree to find the first
-+ * thing that has an id, and make the assumption that this is the correct one.
-+ * For reference, what we're looking for is vbox.hud-box.animated which is
-+ * created high up in makeHUDNodes(). I think.
-+ * @see JSTerm constructor where this code comes from
-+ * @see Bug 592469
-+ * @param nsIDOMNode aNode The node to search from
-+ * @return string The HUD ID
-+ */
-+function getHudIdFromNode(aNode) {
-+  let node = aNode;
-+  while (!node.hasAttribute("id")) {
-+    node = node.parentNode;
-+  }
-+  return node.getAttribute("id");
-+}
-+
- //////////////////////////////////////////////////////////////////////////
- // HeadsUpDisplay
- //////////////////////////////////////////////////////////////////////////
-@@ -3067,7 +3108,12 @@ function HeadsUpDisplay(aConfig)
+@@ -3067,7 +3074,12 @@ function HeadsUpDisplay(aConfig)
    // create the JSTerm input element
    try {
      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
@@ -972,7 +927,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    }
    catch (ex) {
      Cu.reportError(ex);
-@@ -3180,9 +3226,12 @@ HeadsUpDisplay.prototype = {
+@@ -3180,9 +3192,12 @@ HeadsUpDisplay.prototype = {
          this.outputNode.ensureIndexIsVisible(lastIndex);
        }
  
@@ -986,7 +941,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }).bind(this);
  
      panel.addEventListener("popupshown", onPopupShown,false);
-@@ -3371,8 +3420,15 @@ HeadsUpDisplay.prototype = {
+@@ -3371,8 +3386,15 @@ HeadsUpDisplay.prototype = {
        this.consolePanel.hidePopup();
      }
  
@@ -1004,7 +959,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -3406,6 +3462,12 @@ HeadsUpDisplay.prototype = {
+@@ -3406,6 +3428,12 @@ HeadsUpDisplay.prototype = {
    jsterm: null,
  
    /**
@@ -1017,7 +972,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
     * creates and attaches the console input node
     *
     * @param nsIDOMWindow aWindow
-@@ -3416,10 +3478,23 @@ HeadsUpDisplay.prototype = {
+@@ -3416,10 +3444,23 @@ HeadsUpDisplay.prototype = {
    {
      var context = Cu.getWeakReference(aWindow);
  
@@ -1044,7 +999,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
      else {
        throw new Error("Unsupported Gecko Application");
-@@ -3442,13 +3517,14 @@ HeadsUpDisplay.prototype = {
+@@ -3442,13 +3483,14 @@ HeadsUpDisplay.prototype = {
        this.consolePanel.label = this.getPanelTitle();
      }
  
@@ -1063,7 +1018,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -3493,6 +3569,40 @@ HeadsUpDisplay.prototype = {
+@@ -3493,6 +3535,40 @@ HeadsUpDisplay.prototype = {
      consoleWrap.setAttribute("class", "hud-console-wrapper");
      consoleWrap.setAttribute("flex", "1");
  
@@ -1104,7 +1059,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      this.outputNode = this.makeXULNode("richlistbox");
      this.outputNode.setAttribute("class", "hud-output-node");
      this.outputNode.setAttribute("flex", "1");
-@@ -3501,27 +3611,11 @@ HeadsUpDisplay.prototype = {
+@@ -3501,27 +3577,11 @@ HeadsUpDisplay.prototype = {
      this.outputNode.setAttribute("style", "direction: ltr;");
      this.outputNode.setAttribute("seltype", "multiple");
  
@@ -1136,7 +1091,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      outerWrap.appendChild(consoleWrap);
  
-@@ -3907,7 +4001,9 @@ HeadsUpDisplay.prototype = {
+@@ -3907,7 +3967,9 @@ HeadsUpDisplay.prototype = {
     */
    destroy: function HUD_destroy()
    {
@@ -1147,7 +1102,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.positionMenuitems.above.removeEventListener("command",
        this._positionConsoleAbove, false);
-@@ -5401,6 +5497,7 @@ JSTermFirefoxMixin.prototype = {
+@@ -5401,6 +5463,7 @@ JSTermFirefoxMixin.prototype = {
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -1155,7 +1110,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5414,22 +5511,15 @@ JSTermFirefoxMixin.prototype = {
+@@ -5414,22 +5477,15 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -1187,7 +1142,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    get inputValue()
-@@ -5559,9 +5649,8 @@ ConsoleUtils = {
+@@ -5559,9 +5615,8 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
                                            aBody, aSourceURL, aSourceLine,
                                            aClipboardText, aLevel) {
@@ -1199,7 +1154,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5597,6 +5686,13 @@ ConsoleUtils = {
+@@ -5597,6 +5652,13 @@ ConsoleUtils = {
      aBody = aBody instanceof Ci.nsIDOMNode && !(aLevel == "dir") ?
              aBody : aDocument.createTextNode(aBody);
  
@@ -1213,7 +1168,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6725,3 +6821,243 @@ catch (ex) {
+@@ -6725,3 +6787,243 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -1480,7 +1435,7 @@ diff --git a/browser/devtools/webconsole/test/browser/Makefile.in b/browser/devt
  	browser_webconsole_bug_598357_jsterm_output.js \
  	browser_webconsole_bug_603750_websocket.js \
 diff --git a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_integrate.js b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_integrate.js
-new file mode 100755
+new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_integrate.js
 @@ -0,0 +1,96 @@
