@@ -927,33 +927,6 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      delete this.hudReferences[aHUDId];
  
-@@ -2599,9 +2601,24 @@ HUD_SERVICE.prototype =
-     // create Initial JS Workspace:
-     var context = Cu.getWeakReference(aContext);
- 
-+    let usegcli = false;
-+    try {
-+      usegcli = Services.prefs.getBoolPref("devtools.gcli.enable");
-+    }
-+    catch (ex) {}
-+
-     // Attach the UI into the target parent node using the mixin.
--    var firefoxMixin = new JSTermFirefoxMixin(context, aParentNode);
--    var jsTerm = new JSTerm(context, aParentNode, firefoxMixin, aConsole);
-+    if (!usegcli) {
-+      var firefoxMixin = new JSTermFirefoxMixin(context, aParentNode);
-+      var jsTerm = new JSTerm(context, aParentNode, firefoxMixin, aConsole);
-+    }
-+    else {
-+      let hudId = getHudIdFromNode(aParentNode);
-+      let doc = aParentNode.ownerDocument;
-+
-+      var gcliterm = new GcliTerm(context, hudId, doc, aConsole, this.hintNode);
-+      aParentNode.appendChild(gcliterm.element);
-+    }
- 
-     // TODO: injection of additional functionality needs re-thinking/api
-     // see bug 559748
 @@ -2961,6 +2978,30 @@ HUD_SERVICE.prototype =
    }
  };
