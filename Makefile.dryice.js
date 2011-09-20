@@ -75,7 +75,7 @@ function buildStandard() {
     });
   }
   catch (ex) {
-    console.log('ERROR: Uglify compression fails on windows. ' +
+    console.log('ERROR: Uglify compression fails on windows/linux. ' +
         'Skipping creation of built/gcli.js\n');
   }
 }
