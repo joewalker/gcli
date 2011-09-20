@@ -11,14 +11,19 @@ define(function(require, exports, module) {
   exports.removeCommand = require('gcli/canon').removeCommand;
 
   // Internal startup process. Not exported
-  require('gcli/types').startup();
-  require('gcli/jstype').startup();
+  require('gcli/types/basic').startup();
+  require('gcli/types/javascript').startup();
+  require('gcli/types/node').startup();
   require('gcli/cli').startup();
 
   var Requisition = require('gcli/cli').Requisition;
+  var cli = require('gcli/cli');
   var Inputter = require('gcli/ui/inputter').Inputter;
   var ArgFetcher = require('gcli/ui/arg_fetch').ArgFetcher;
   var CommandMenu = require('gcli/ui/menu').CommandMenu;
+
+  var jstype = require('gcli/types/javascript');
+  var nodetype = require('gcli/types/node');
 
   /**
    * API for use by HUDService only.
@@ -32,28 +37,42 @@ define(function(require, exports, module) {
     /**
      * createView() for Firefox requires an options object with the following
      * members:
-     * - document: GCLITerm.document
+     * - contentDocument: From the window of the attached tab
+     * - chromeDocument: GCLITerm.document
+     * - environment.hudId: GCLITerm.hudId
+     * - jsEnvironment.globalObject: 'window'
+     * - jsEnvironment.evalFunction: 'eval' in a sandbox
      * - inputElement: GCLITerm.inputNode
      * - completeElement: GCLITerm.completeNode
+     * - popup: GCLITerm.hintPopup
      * - hintElement: GCLITerm.hintNode
      * - inputBackgroundElement: GCLITerm.inputStack
      */
-    createView: function(options) {
-      options.preStyled = true;
-      options.autoHide = true;
-      options.requisition = new Requisition();
-      options.completionPrompt = '';
+    createView: function(opts) {
+      opts.preStyled = true;
+      opts.autoHide = true;
+      opts.requisition = new Requisition(opts.environment, opts.chromeDocument);
+      opts.completionPrompt = '';
 
-      var inputter = new Inputter(options);
+      jstype.setGlobalObject(opts.jsEnvironment.globalObject);
+      nodetype.setDocument(opts.contentDocument);
+      cli.setEvalFunction(opts.jsEnvironment.evalFunction);
+
+      var inputter = new Inputter(opts);
       inputter.update();
+      if (opts.popup) {
+        inputter.sendFocusEventsToPopup(opts.popup);
+      }
 
-      var menu = new CommandMenu(options.document, options.requisition);
-      options.hintElement.appendChild(menu.element);
+      if (opts.hintElement) {
+        var menu = new CommandMenu(opts.chromeDocument, opts.requisition);
+        opts.hintElement.appendChild(menu.element);
 
-      var argFetcher = new ArgFetcher(options.document, options.requisition);
-      options.hintElement.appendChild(argFetcher.element);
+        var argFetcher = new ArgFetcher(opts.chromeDocument, opts.requisition);
+        opts.hintElement.appendChild(argFetcher.element);
 
-      menu.onCommandChange();
+        menu.onCommandChange();
+      }
     },
 
     commandOutputManager: require('gcli/canon').commandOutputManager

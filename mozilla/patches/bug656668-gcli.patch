@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306496118 -3600
 # Node ID c9f0d4142413be8bd4cf553732568c1249999196
-# Parent b20403c808316e669b92fd004673d5d9cdc41dff
+# Parent 2d1fecae86ef03e04164187206afe747617b9428
 Bug 656668 - Create Export from GCLI project to JSM
 
 diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
@@ -62,7 +62,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
   * - A very basic commonjs AMD (Asynchronous Modules Definition) 'require'
   *   implementation (which is just good enough to load GCLI). For more, see
   *   http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
-@@ -83,10 +52,6 @@
+@@ -83,319 +52,431 @@
   */
  
  var EXPORTED_SYMBOLS = [ "gcli" ];
@@ -73,10 +73,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
  /*
   * This creates a console object that somewhat replicates Firebug's console
   * object. It currently writes to dump(), but should write to the web
-@@ -95,307 +60,337 @@ var EXPORTED_SYMBOLS = [ "gcli" ];
+  * console's chrome error section (when it has one)
+  */
  
- 
- /**
+-
+-/**
 - * String utility to ensure that strings are a specified length. Strings
 - * that are too long are truncated to the max length and the last char is
 - * set to "_". Strings that are too short are left padded with spaces.
@@ -105,92 +106,94 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 -  if (aStr.length > aMaxLen) {
 -    if (aOptions && aOptions.truncate == "start") {
 -      return "_" + aStr.substring(aStr.length - aMaxLen + 1);
--    }
--    else {
--      return aStr.substring(0, aMaxLen - 1) + "_";
--    }
--  }
--  if (aStr.length < aMinLen) {
--    return Array(aMinLen - aStr.length + 1).join(" ") + aStr;
--  }
--  return aStr;
--}
--
--/**
-- * Utility to extract the constructor name of an object.
-- * Object.toString gives: "[object ?????]"; we want the "?????".
-- *
-- * @param {object} aObj
-- *        The object from which to extract the constructor name
-- * @return {string}
-- *        The constructor name
-- */
--function getCtorName(aObj) {
--  return Object.prototype.toString.call(aObj).slice(8, -1);
--}
--
--/**
-- * A single line stringification of an object designed for use by humans
-- *
-- * @param {any} aThing
-- *        The object to be stringified
-- * @return {string}
-- *        A single line representation of aThing, which will generally be at
-- *        most 60 chars long
-- */
--function stringify(aThing) {
--  if (aThing === undefined) {
--    return "undefined";
--  }
--
--  if (aThing === null) {
--    return "null";
--  }
--
--  if (typeof aThing == "object") {
--    try {
--      return getCtorName(aThing) + " " + fmt(JSON.stringify(aThing), 50, 0);
--    }
--    catch (ex) {
--      return "[stringify error]";
--    }
--  }
--
--  var str = aThing.toString().replace(/\s+/g, " ");
--  return fmt(str, 60, 0);
--}
--
--/**
-- * A multi line stringification of an object, designed for use by humans
-- *
-- * @param {any} aThing
-- *        The object to be stringified
-- * @return {string}
-- *        A multi line representation of aThing
-- */
--function log(aThing) {
--  if (aThing == null) {
--    return "null";
--  }
--
--  if (aThing == undefined) {
--    return "undefined";
--  }
--
--  if (typeof aThing == "object") {
--    var reply = "";
--    var type = getCtorName(aThing);
--    if (type == "Error") {
--      reply += "  " + aThing.message + "\n";
--      reply += logProperty("stack", aThing.stack);
--    }
--    else {
--      var keys = Object.getOwnPropertyNames(aThing);
--      if (keys.length > 0) {
--        reply += type + "\n";
--        keys.forEach(function(aProp) {
--          reply += logProperty(aProp, aThing[aProp]);
--        }, this);
++/**
++ * This is extra to the console object. It allows us to use the Node constants
++ * without resorting to hardcoded numbers
++ */
++var Node = Components.interfaces.nsIDOMNode;
++
++
++Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
++
++/**
++ * Define setTimeout and clearTimeout to match the browser functions
++ */
++var setTimeout;
++var clearTimeout;
++
++(function() {
++  /**
++   * The next value to be returned by setTimeout
++   */
++  var nextID = 1;
++
++  /**
++   * The map of outstanding timeouts
++   */
++  var timers = {};
++
++  /**
++   * Object to be passed to Timer.initWithCallback()
++   */
++  function TimerCallback(callback) {
++    this._callback = callback;
++    var interfaces = [ Components.interfaces.nsITimerCallback ];
++    this.QueryInterface = XPCOMUtils.generateQI(interfaces);
++  }
++
++  TimerCallback.prototype.notify = function(timer) {
++    try {
++      for (var timerID in timers) {
++        if (timers[timerID] === timer) {
++          delete timers[timerID];
++          break;
++        }
++      }
++      this._callback.apply(null, []);
++    }
++    catch (ex) {
++      console.error(ex);
++    }
++  };
++
++  /**
++   * Executes a code snippet or a function after specified delay.
++   * This is designed to have the same interface contract as the browser
++   * function.
++   * @param callback is the function you want to execute after the delay.
++   * @param delay is the number of milliseconds that the function call should
++   * be delayed by. Note that the actual delay may be longer, see Notes below.
++   * @return the ID of the timeout, which can be used later with
++   * window.clearTimeout.
++   */
++  setTimeout = function setTimeout(callback, delay) {
++    var timer = Components.classes["@mozilla.org/timer;1"]
++                          .createInstance(Components.interfaces.nsITimer);
++
++    var timerID = nextID++;
++    timers[timerID] = timer;
++
++    timer.initWithCallback(new TimerCallback(callback), delay, timer.TYPE_ONE_SHOT);
++    return timerID;
++  };
++
++  /**
++   * Clears the delay set by window.setTimeout() and prevents the callback from
++   * being executed (if it hasn't been executed already)
++   * @param timerID the ID of the timeout you wish to clear, as returned by
++   * window.setTimeout().
++   */
++  clearTimeout = function clearTimeout(timerID) {
++    var timer = timers[timerID];
++    if (timer) {
++      timer.cancel();
++      delete timers[timerID];
++    }
++  };
++})();
++
++
++/**
 + * The console object to expose
 + */
 +var console = {};
@@ -225,12 +228,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    if (aStr.length > aMaxLen) {
 +      if (aOptions && aOptions.truncate == "start") {
 +        return "_" + aStr.substring(aStr.length - aMaxLen + 1);
-       }
-       else {
--        reply += type + " (enumerated with for-in)\n";
--        var prop;
--        for (prop in aThing) {
--          reply += logProperty(prop, aThing[prop]);
++      }
++      else {
 +        return aStr.substring(0, aMaxLen - 1) + "_";
 +      }
 +    }
@@ -350,10 +349,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +          for (prop in aThing) {
 +            reply += logProperty(prop, aThing[prop]);
 +          }
-         }
-       }
--    }
--
++        }
++      }
 +
 +      return reply;
 +    }
@@ -377,10 +374,170 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    if (aProp == "stack" && typeof value == "string") {
 +      var trace = parseStack(aValue);
 +      reply += formatTrace(trace);
-+    }
-+    else {
+     }
+     else {
+-      return aStr.substring(0, aMaxLen - 1) + "_";
 +      reply += "    - " + aProp + " = " + stringify(aValue) + "\n";
-+    }
+     }
+-  }
+-  if (aStr.length < aMinLen) {
+-    return Array(aMinLen - aStr.length + 1).join(" ") + aStr;
+-  }
+-  return aStr;
+-}
+-
+-/**
+- * Utility to extract the constructor name of an object.
+- * Object.toString gives: "[object ?????]"; we want the "?????".
+- *
+- * @param {object} aObj
+- *        The object from which to extract the constructor name
+- * @return {string}
+- *        The constructor name
+- */
+-function getCtorName(aObj) {
+-  return Object.prototype.toString.call(aObj).slice(8, -1);
+-}
+-
+-/**
+- * A single line stringification of an object designed for use by humans
+- *
+- * @param {any} aThing
+- *        The object to be stringified
+- * @return {string}
+- *        A single line representation of aThing, which will generally be at
+- *        most 60 chars long
+- */
+-function stringify(aThing) {
+-  if (aThing === undefined) {
+-    return "undefined";
+-  }
+-
+-  if (aThing === null) {
+-    return "null";
+-  }
+-
+-  if (typeof aThing == "object") {
+-    try {
+-      return getCtorName(aThing) + " " + fmt(JSON.stringify(aThing), 50, 0);
++    return reply;
++  }
++
++  /**
++   * Parse a stack trace, returning an array of stack frame objects, where
++   * each has file/line/call members
++   *
++   * @param {string} aStack
++   *        The serialized stack trace
++   * @return {object[]}
++   *        Array of { file: "...", line: NNN, call: "..." } objects
++   */
++  function parseStack(aStack) {
++    var trace = [];
++    aStack.split("\n").forEach(function(line) {
++      if (!line) {
++        return;
++      }
++      var at = line.lastIndexOf("@");
++      var posn = line.substring(at + 1);
++      trace.push({
++        file: posn.split(":")[0],
++        line: posn.split(":")[1],
++        call: line.substring(0, at)
++      });
++    }, this);
++    return trace;
++  }
++
++  /**
++   * parseStack() takes output from an exception from which it creates the an
++   * array of stack frame objects, this has the same output but using data from
++   * Components.stack
++   *
++   * @param {string} aFrame
++   *        The stack frame from which to begin the walk
++   * @return {object[]}
++   *        Array of { file: "...", line: NNN, call: "..." } objects
++   */
++  function getStack(aFrame) {
++    if (!aFrame) {
++      aFrame = Components.stack.caller;
+     }
+-    catch (ex) {
+-      return "[stringify error]";
++    var trace = [];
++    while (aFrame) {
++      trace.push({
++        file: aFrame.filename,
++        line: aFrame.lineNumber,
++        call: aFrame.name
++      });
++      aFrame = aFrame.caller;
+     }
+-  }
+-
+-  var str = aThing.toString().replace(/\s+/g, " ");
+-  return fmt(str, 60, 0);
+-}
+-
+-/**
+- * A multi line stringification of an object, designed for use by humans
+- *
+- * @param {any} aThing
+- *        The object to be stringified
+- * @return {string}
+- *        A multi line representation of aThing
+- */
+-function log(aThing) {
+-  if (aThing == null) {
+-    return "null";
+-  }
+-
+-  if (aThing == undefined) {
+-    return "undefined";
+-  }
+-
+-  if (typeof aThing == "object") {
++    return trace;
++  }
++
++  /**
++   * Take the output from parseStack() and convert it to nice readable
++   * output
++   *
++   * @param {object[]} aTrace
++   *        Array of trace objects as created by parseStack()
++   * @return {string} Multi line report of the stack trace
++   */
++  function formatTrace(aTrace) {
+     var reply = "";
+-    var type = getCtorName(aThing);
+-    if (type == "Error") {
+-      reply += "  " + aThing.message + "\n";
+-      reply += logProperty("stack", aThing.stack);
+-    }
+-    else {
+-      var keys = Object.getOwnPropertyNames(aThing);
+-      if (keys.length > 0) {
+-        reply += type + "\n";
+-        keys.forEach(function(aProp) {
+-          reply += logProperty(aProp, aThing[aProp]);
+-        }, this);
+-      }
+-      else {
+-        reply += type + " (enumerated with for-in)\n";
+-        var prop;
+-        for (prop in aThing) {
+-          reply += logProperty(prop, aThing[prop]);
+-        }
+-      }
+-    }
+-
++    aTrace.forEach(function(frame) {
++      reply += fmt(frame.file, 20, 20, { truncate: "start" }) + " " +
++               fmt(frame.line, 5, 5) + " " +
++               fmt(frame.call, 75, 75) + "\n";
++    });
      return reply;
    }
  
@@ -431,73 +588,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 -      file: posn.split(":")[0],
 -      line: posn.split(":")[1],
 -      call: line.substring(0, at)
-+  /**
-+   * Parse a stack trace, returning an array of stack frame objects, where
-+   * each has file/line/call members
-+   *
-+   * @param {string} aStack
-+   *        The serialized stack trace
-+   * @return {object[]}
-+   *        Array of { file: "...", line: NNN, call: "..." } objects
-+   */
-+  function parseStack(aStack) {
-+    var trace = [];
-+    aStack.split("\n").forEach(function(line) {
-+      if (!line) {
-+        return;
-+      }
-+      var at = line.lastIndexOf("@");
-+      var posn = line.substring(at + 1);
-+      trace.push({
-+        file: posn.split(":")[0],
-+        line: posn.split(":")[1],
-+        call: line.substring(0, at)
-+      });
-+    }, this);
-+    return trace;
-+  }
-+
-+  /**
-+   * parseStack() takes output from an exception from which it creates the an
-+   * array of stack frame objects, this has the same output but using data from
-+   * Components.stack
-+   *
-+   * @param {string} aFrame
-+   *        The stack frame from which to begin the walk
-+   * @return {object[]}
-+   *        Array of { file: "...", line: NNN, call: "..." } objects
-+   */
-+  function getStack(aFrame) {
-+    if (!aFrame) {
-+      aFrame = Components.stack.caller;
-+    }
-+    var trace = [];
-+    while (aFrame) {
-+      trace.push({
-+        file: aFrame.filename,
-+        line: aFrame.lineNumber,
-+        call: aFrame.name
-+      });
-+      aFrame = aFrame.caller;
-+    }
-+    return trace;
-+  }
-+
-+  /**
-+   * Take the output from parseStack() and convert it to nice readable
-+   * output
-+   *
-+   * @param {object[]} aTrace
-+   *        Array of trace objects as created by parseStack()
-+   * @return {string} Multi line report of the stack trace
-+   */
-+  function formatTrace(aTrace) {
-+    var reply = "";
-+    aTrace.forEach(function(frame) {
-+      reply += fmt(frame.file, 20, 20, { truncate: "start" }) + " " +
-+               fmt(frame.line, 5, 5) + " " +
-+               fmt(frame.call, 75, 75) + "\n";
-     });
+-    });
 -  }, this);
 -  return trace;
 -}
@@ -598,9 +689,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 -  warn: createDumper("warn"),
 -  error: createMultiLineDumper("error"),
 -  trace: function Console_trace() {
-+    return reply;
-+  }
-+
 +  /**
 +   * Create a function which will output a concise level of output when used
 +   * as a logging function
@@ -698,7 +786,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
   */
  function define(moduleName, deps, payload) {
    if (typeof moduleName != "string") {
-@@ -408,7 +403,7 @@ function define(moduleName, deps, payloa
+@@ -408,7 +489,7 @@ function define(moduleName, deps, payloa
      payload = deps;
    }
  
@@ -707,7 +795,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
      console.log("define: " + moduleName + " -> " + payload.toString()
          .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
    }
-@@ -417,151 +412,7152 @@ function define(moduleName, deps, payloa
+@@ -417,151 +498,6497 @@ function define(moduleName, deps, payloa
      console.error(this.depth + " Error: Redefining module: " + moduleName);
    }
    define.modules[moduleName] = payload;
@@ -734,50 +822,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 -  if (debugDependencies) {
 -    this.depth = "";
 -  }
--}
--
--/**
-- * Lookup module names and resolve them by calling the definition function if
-- * needed.
-- * There are 2 ways to call this, either with an array of dependencies and a
-- * callback to call when the dependencies are found (which can happen
-- * asynchronously in an in-page context) or with a single string an no callback
-- * where the dependency is resolved synchronously and returned.
-- * The API is designed to be compatible with the CommonJS AMD spec and
-- * RequireJS.
-- * @param {string[]|string} deps A name, or names for the payload
-- * @param {function|undefined} callback Function to call when the dependencies
-- * are resolved
-- * @return {undefined|object} The module required or undefined for
-- * array/callback method
-- */
--Domain.prototype.require = function(deps, callback) {
--  if (Array.isArray(deps)) {
--    var params = deps.map(function(dep) {
--      return this.lookup(dep);
--    }, this);
--    if (callback) {
--      callback.apply(null, params);
--    }
--    return undefined;
--  }
--  else {
--    return this.lookup(deps);
--  }
--};
--
--/**
-- * Lookup module names and resolve them by calling the definition function if
-- * needed.
-- * @param {string} moduleName A name for the payload to lookup
-- * @return {object} The module specified by aModuleName or null if not found.
-- */
--Domain.prototype.lookup = function(moduleName) {
--  if (moduleName in this.modules) {
--    var module = this.modules[moduleName];
--    if (debugDependencies) {
--      console.log(this.depth + " Using module: " + moduleName);
--    }
 +/**
 + * Should we console.log on module definition/instantiation/requirement?
 + */
@@ -881,53 +925,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    // cache the resulting module object for next time
 +    this.modules[moduleName] = module;
 +
-     return module;
--  }
--
--  if (!(moduleName in define.modules)) {
--    console.error(this.depth + " Missing module: " + moduleName);
--    return null;
--  }
--
--  var module = define.modules[moduleName];
--
--  if (debugDependencies) {
--    console.log(this.depth + " Compiling module: " + moduleName);
--  }
--
--  if (typeof module == "function") {
--    if (debugDependencies) {
--      this.depth += ".";
--    }
--
--    var exports = {};
--    try {
--      module(this.require.bind(this), exports, { id: moduleName, uri: "" });
--    }
--    catch (ex) {
--      console.error("Error using module: " + moduleName, ex);
--      throw ex;
--    }
--    module = exports;
--
--    if (debugDependencies) {
--      this.depth = this.depth.slice(0, -1);
--    }
--  }
--
--  // cache the resulting module object for next time
--  this.modules[moduleName] = module;
--
--  return module;
--};
--
--/**
-- * Expose the Domain constructor and a global domain (on the define function
-- * to avoid exporting more than we need. This is a common pattern with require
-- * systems)
-- */
--define.Domain = Domain;
--define.globalDomain = new Domain();
++    return module;
 +  };
 +
 +  /**
@@ -938,48 +936,38 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  define.Domain = Domain;
 +  define.globalDomain = new Domain();
 +})();
- 
- /**
-  * Expose a default require function which is the require of the global
-  * sandbox to make it easy to use.
-  */
- var require = define.globalDomain.require.bind(define.globalDomain);
--
--
--///////////////////////////////////////////////////////////////////////////////
--
- /*
-- * The API of interest to people wanting to create GCLI commands is as
-- * follows. The implementation of this API is left to bug 659061 and other
-- * bugs.
-- */
--
--define('gcli/index', [ ], function(require, exports, module) {
--
--  exports.addCommand = function() { /* implementation goes here */ };
--  exports.removeCommand = function() { /* implementation goes here */ };
--  exports.startup = function() { /* implementation goes here */ };
--  exports.shutdown = function() { /* implementation goes here */ };
++
++/**
++ * Expose a default require function which is the require of the global
++ * sandbox to make it easy to use.
++ */
++var require = define.globalDomain.require.bind(define.globalDomain);
++/*
 + * Copyright 2009-2011 Mozilla Foundation and contributors
 + * Licensed under the New BSD license. See LICENSE.txt or:
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/firefox/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types', 'gcli/jstype', 'gcli/cli', 'gcli/ui/inputter', 'gcli/ui/arg_fetch', 'gcli/ui/menu'], function(require, exports, module) {
++define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types/basic', 'gcli/types/javascript', 'gcli/types/node', 'gcli/cli', 'gcli/ui/inputter', 'gcli/ui/arg_fetch', 'gcli/ui/menu'], function(require, exports, module) {
 +
 +  // The API for use by command authors
 +  exports.addCommand = require('gcli/canon').addCommand;
 +  exports.removeCommand = require('gcli/canon').removeCommand;
 +
 +  // Internal startup process. Not exported
-+  require('gcli/types').startup();
-+  require('gcli/jstype').startup();
++  require('gcli/types/basic').startup();
++  require('gcli/types/javascript').startup();
++  require('gcli/types/node').startup();
 +  require('gcli/cli').startup();
 +
 +  var Requisition = require('gcli/cli').Requisition;
++  var cli = require('gcli/cli');
 +  var Inputter = require('gcli/ui/inputter').Inputter;
 +  var ArgFetcher = require('gcli/ui/arg_fetch').ArgFetcher;
 +  var CommandMenu = require('gcli/ui/menu').CommandMenu;
++
++  var jstype = require('gcli/types/javascript');
++  var nodetype = require('gcli/types/node');
 +
 +  /**
 +   * API for use by HUDService only.
@@ -993,43 +981,55 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    /**
 +     * createView() for Firefox requires an options object with the following
 +     * members:
-+     * - document: GCLITerm.document
++     * - contentDocument: The window of the attached tab
++     * - chromeDocument: GCLITerm.document
++     * - environment.hudId: GCLITerm.hudId
++     * - jsEnvironment.globalObject: 'window'
++     * - jsEnvironment.evalFunction: 'eval' in a sandbox
 +     * - inputElement: GCLITerm.inputNode
 +     * - completeElement: GCLITerm.completeNode
++     * - popup: GCLITerm.hintPopup
 +     * - hintElement: GCLITerm.hintNode
 +     * - inputBackgroundElement: GCLITerm.inputStack
 +     */
-+    createView: function(options) {
-+      options.preStyled = true;
-+      options.autoHide = true;
-+      options.requisition = new Requisition();
-+      options.completionPrompt = '';
++    createView: function(opts) {
++      opts.preStyled = true;
++      opts.autoHide = true;
++      opts.requisition = new Requisition(opts.environment, opts.chromeDocument);
++      opts.completionPrompt = '';
 +
-+      var inputter = new Inputter(options);
++      jstype.setGlobalObject(opts.jsEnvironment.globalObject);
++      nodetype.setDocument(opts.contentDocument);
++      cli.setEvalFunction(opts.jsEnvironment.evalFunction);
++
++      var inputter = new Inputter(opts);
 +      inputter.update();
++      if (opts.popup) {
++        inputter.sendFocusEventsToPopup(opts.popup);
++      }
 +
-+      var menu = new CommandMenu(options.document, options.requisition);
-+      options.hintElement.appendChild(menu.element);
++      if (opts.hintElement) {
++        var menu = new CommandMenu(opts.chromeDocument, opts.requisition);
++        opts.hintElement.appendChild(menu.element);
 +
-+      var argFetcher = new ArgFetcher(options.document, options.requisition);
-+      options.hintElement.appendChild(argFetcher.element);
++        var argFetcher = new ArgFetcher(opts.chromeDocument, opts.requisition);
++        opts.hintElement.appendChild(argFetcher.element);
 +
-+      menu.onCommandChange();
++        menu.onCommandChange();
++      }
 +    },
 +
 +    commandOutputManager: require('gcli/canon').commandOutputManager
 +  };
- 
- });
--
--///////////////////////////////////////////////////////////////////////////////
++
++});
 +/*
 + * Copyright 2009-2011 Mozilla Foundation and contributors
 + * Licensed under the New BSD license. See LICENSE.txt or:
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/canon', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/types'], function(require, exports, module) {
++define('gcli/canon', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/types', 'gcli/types/basic'], function(require, exports, module) {
 +var canon = exports;
 +
 +
@@ -1038,7 +1038,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +var types = require('gcli/types');
 +var Status = require('gcli/types').Status;
-+var BooleanType = require('gcli/types').BooleanType;
++var BooleanType = require('gcli/types/basic').BooleanType;
 +
 +
 +/**
@@ -1093,9 +1093,30 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +
 +  return l10n.lookup(onUndefined);
-+}
-+
-+/**
+ }
+ 
+ /**
+- * Lookup module names and resolve them by calling the definition function if
+- * needed.
+- * There are 2 ways to call this, either with an array of dependencies and a
+- * callback to call when the dependencies are found (which can happen
+- * asynchronously in an in-page context) or with a single string an no callback
+- * where the dependency is resolved synchronously and returned.
+- * The API is designed to be compatible with the CommonJS AMD spec and
+- * RequireJS.
+- * @param {string[]|string} deps A name, or names for the payload
+- * @param {function|undefined} callback Function to call when the dependencies
+- * are resolved
+- * @return {undefined|object} The module required or undefined for
+- * array/callback method
+- */
+-Domain.prototype.require = function(deps, callback) {
+-  if (Array.isArray(deps)) {
+-    var params = deps.map(function(dep) {
+-      return this.lookup(dep);
+-    }, this);
+-    if (callback) {
+-      callback.apply(null, params);
 + * The command object is mostly just setup around a commandSpec (as passed to
 + * #addCommand()).
 + */
@@ -1115,7 +1136,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    throw new Error('command.params must be an array in ' + this.name);
 +  }
 +
-+  this.description = lookup(this.description, 'canon_desc_none');
++  this.description = 'description' in this ? this.description : undefined;
++  this.description = lookup(this.description, 'canonDescNone');
++  this.manual = 'manual' in this ? this.manual : undefined;
 +  this.manual = lookup(this.manual);
 +
 +  // At this point this.params has nested param groups. We want to flatten it
@@ -1144,7 +1167,25 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +        var param = new Parameter(spec, this, null);
 +        this.params.push(param);
 +      }
-+    }
+     }
+-    return undefined;
+-  }
+-  else {
+-    return this.lookup(deps);
+-  }
+-};
+-
+-/**
+- * Lookup module names and resolve them by calling the definition function if
+- * needed.
+- * @param {string} moduleName A name for the payload to lookup
+- * @return {object} The module specified by aModuleName or null if not found.
+- */
+-Domain.prototype.lookup = function(moduleName) {
+-  if (moduleName in this.modules) {
+-    var module = this.modules[moduleName];
+-    if (debugDependencies) {
+-      console.log(this.depth + " Using module: " + moduleName);
 +    else {
 +      spec.params.forEach(function(ispec) {
 +        var param = new Parameter(ispec, this, spec.group);
@@ -1152,7 +1193,24 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      }, this);
 +
 +      usingGroups = true;
-+    }
+     }
+-    return module;
+-  }
+-
+-  if (!(moduleName in define.modules)) {
+-    console.error(this.depth + " Missing module: " + moduleName);
+-    return null;
+-  }
+-
+-  var module = define.modules[moduleName];
+-
+-  if (debugDependencies) {
+-    console.log(this.depth + " Compiling module: " + moduleName);
+-  }
+-
+-  if (typeof module == "function") {
+-    if (debugDependencies) {
+-      this.depth += ".";
 +  }, this);
 +}
 +
@@ -1170,7 +1228,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    this[key] = paramSpec[key];
 +  }, this);
 +
-+  this.description = lookup(this.description, 'canon_desc_none');
++  this.description = 'description' in this ? this.description : undefined;
++  this.description = lookup(this.description, 'canonDescNone');
++  this.manual = 'manual' in this ? this.manual : undefined;
 +  this.manual = lookup(this.manual);
 +  this.groupName = groupName;
 +
@@ -1194,7 +1254,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      console.error('In ' + this.command.name + '/' + this.name +
 +          ': boolean parameters can not have a defaultValue.' +
 +          ' Ignoring');
-+    }
+     }
+-
+-    var exports = {};
 +    this.defaultValue = false;
 +  }
 +
@@ -1203,7 +1265,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  // there is no defaultValue, and null is used when the parameter is
 +  // optional, neither are required to parse and stringify.
 +  if (this.defaultValue != null) {
-+    try {
+     try {
+-      module(this.require.bind(this), exports, { id: moduleName, uri: "" });
 +      var defaultText = this.type.stringify(this.defaultValue);
 +      var defaultConversion = this.type.parseString(defaultText);
 +      if (defaultConversion.getStatus() !== Status.VALID) {
@@ -1211,11 +1274,17 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +            ': Error round tripping defaultValue. status = ' +
 +            defaultConversion.getStatus());
 +      }
-+    }
-+    catch (ex) {
+     }
+     catch (ex) {
+-      console.error("Error using module: " + moduleName, ex);
+-      throw ex;
 +      console.error('In ' + this.command.name + '/' + this.name +
 +        ': ' + ex);
-+    }
+     }
+-    module = exports;
+-
+-    if (debugDependencies) {
+-      this.depth = this.depth.slice(0, -1);
 +  }
 +}
 +
@@ -1225,7 +1294,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * @param name The name to check
 + */
 +Parameter.prototype.isKnownAs = function(name) {
-+  return name === '--' + this.name || name === '-' + this.short;
++  if (name === '--' + this.name) {
++    return true;
++  }
++  return false;
 +};
 +
 +/**
@@ -1252,13 +1324,16 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * This function is exposed to the outside world (via gcli/index). It is
 + * documented in docs/index.md for all the world to see.
 + * @param commandSpec The command and its metadata.
++ * @return The new command
 + */
 +canon.addCommand = function addCommand(commandSpec) {
-+  commands[commandSpec.name] = new Command(commandSpec);
++  var command = new Command(commandSpec);
++  commands[commandSpec.name] = command;
 +  commandNames.push(commandSpec.name);
 +  commandNames.sort();
 +
 +  canon.canonChange();
++  return command;
 +};
 +
 +/**
@@ -1386,7 +1461,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + *   hat.putOn.add(function(ev) {
 + *   console.log('The hat ', ev.hat, ' has is worn by ', ev.person);
 + *   }, scope);
-+ * @param {string} name Optional name that helps us work out what event this
++ * @param name Optional name that helps us work out what event this
 + * is when debugging.
 + */
 +exports.createEvent = function(name) {
@@ -1394,7 +1469,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  /**
 +   * This is how the event is triggered.
-+   * @param {object} ev The event object to be passed to the event listeners
++   * @param ev The event object to be passed to the event listeners
 +   */
 +  var event = function(ev) {
 +    // Use for rather than forEach because it step debugs better, which is
@@ -1402,13 +1477,38 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    for (var i = 0; i < handlers.length; i++) {
 +      var handler = handlers[i];
 +      handler.func.call(handler.scope, ev);
-+    }
+     }
+-  }
+-
+-  // cache the resulting module object for next time
+-  this.modules[moduleName] = module;
+-
+-  return module;
+-};
+-
+-/**
+- * Expose the Domain constructor and a global domain (on the define function
+- * to avoid exporting more than we need. This is a common pattern with require
+- * systems)
+- */
+-define.Domain = Domain;
+-define.globalDomain = new Domain();
+-
+-/**
+- * Expose a default require function which is the require of the global
+- * sandbox to make it easy to use.
+- */
+-var require = define.globalDomain.require.bind(define.globalDomain);
+-
+-
+-///////////////////////////////////////////////////////////////////////////////
+-
 +  };
 +
 +  /**
 +   * Add a new handler function
-+   * @param {function} func The function to call when this event is triggered
-+   * @param {object} scope Optional 'this' object for the function call
++   * @param func The function to call when this event is triggered
++   * @param scope Optional 'this' object for the function call
 +   */
 +  event.add = function(func, scope) {
 +    handlers.push({ func: func, scope: scope });
@@ -1417,8 +1517,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  /**
 +   * Remove a handler function added through add(). Both func and scope must
 +   * be strict equals (===) the values used in the call to add()
-+   * @param {function} func The function to call when this event is triggered
-+   * @param {object} scope Optional 'this' object for the function call
++   * @param func The function to call when this event is triggered
++   * @param scope Optional 'this' object for the function call
 +   */
 +  event.remove = function(func, scope) {
 +    handlers = handlers.filter(function(test) {
@@ -1446,24 +1546,28 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +/**
 + * Pass-through to createElement or createElementNS
-+ * @param {string} tag The name of the tag to create
-+ * @param {string} ns Custom namespace
-+ * @param {HTMLDocument} doc The document in which to create the element
-+ * @returns {HTMLElement} The created element
++ * @param doc The document in which to create the element
++ * @param tag The name of the tag to create
++ * @param ns Custom namespace, HTML/XHTML is assumed if this is missing
++ * @returns The created element
 + */
-+dom.createElement = function(tag, ns, doc) {
-+  var doc = doc || document;
-+  return doc.createElement(tag);
-+  /*
-+  return doc.createElementNS ?
-+         doc.createElementNS(ns || NS_XHTML, tag) :
-+         doc.createElement(tag);
-+   */
++dom.createElement = function(doc, tag, ns) {
++  // If we've not been given a namespace, but the document is XML, then we
++  // use an XHTML namespace, otherwise we use HTML
++  if (ns == null && doc.xmlVersion != null) {
++    ns = NS_XHTML;
++  }
++  if (ns == null) {
++    return doc.createElement(tag);
++  }
++  else {
++    return doc.createElementNS(ns, tag);
++  }
 +};
 +
 +/**
 + * Remove all the child nodes from this node
-+ * @param {HTMLElement} el The element that should have it's children removed
++ * @param el The element that should have it's children removed
 + */
 +dom.clearElement = function(el) {
 +  while (el.hasChildNodes()) {
@@ -1562,8 +1666,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +/**
 + * Create a style element in the document head, and add the given CSS text to
 + * it.
-+ * @param {string} cssText The CSS declarations to append
-+ * @param {HTMLDocument} doc The document element to work from
++ * @param cssText The CSS declarations to append
++ * @param doc The document element to work from
 + */
 +dom.importCssString = function(cssText, doc) {
 +  doc = doc || document;
@@ -1573,10 +1677,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    sheet.cssText = cssText;
 +  }
 +  else {
-+    var style = doc.createElementNS ?
-+        doc.createElementNS(NS_XHTML, 'style') :
-+        doc.createElement('style');
-+
++    var style = dom.createElement(doc, 'style');
 +    style.appendChild(doc.createTextNode(cssText));
 +
 +    var head = doc.getElementsByTagName('head')[0] || doc.documentElement;
@@ -1856,556 +1957,80 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +
 +});
-+/*
+ /*
+- * The API of interest to people wanting to create GCLI commands is as
+- * follows. The implementation of this API is left to bug 659061 and other
+- * bugs.
+- */
+-
+-define('gcli/index', [ ], function(require, exports, module) {
+-
+-  exports.addCommand = function() { /* implementation goes here */ };
+-  exports.removeCommand = function() { /* implementation goes here */ };
+-  exports.startup = function() { /* implementation goes here */ };
+-  exports.shutdown = function() { /* implementation goes here */ };
+-
 + * Copyright 2009-2011 Mozilla Foundation and contributors
 + * Licensed under the New BSD license. See LICENSE.txt or:
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/l10n', ['require', 'exports', 'module' , 'i18n!gcli/nls/strings'], function(require, exports, module) {
++define('gcli/l10n', ['require', 'exports', 'module' ], function(require, exports, module) {
 +
-+var strings = require('i18n!gcli/nls/strings');
++Components.utils.import('resource://gre/modules/XPCOMUtils.jsm');
++Components.utils.import('resource://gre/modules/Services.jsm');
 +
-+
-+/**
-+ * Finds the preferred locales of the user as an array of RFC 4646 strings
-+ * (e.g. 'pt-br').
-+ * . There is considerable confusion as to the correct value
-+ * since there are a number of places the information can be stored:
-+ * - In the OS (IE:navigator.userLanguage, IE:navigator.systemLanguage)
-+ * - In the browser (navigator.language, IE:navigator.browserLanguage)
-+ * - By GEO-IP
-+ * - By website specific settings
-+ * This implementation uses navigator.language || navigator.userLanguage as
-+ * this is compatible with requirejs.
-+ * See http://tools.ietf.org/html/rfc4646
-+ * See http://stackoverflow.com/questions/1043339/javascript-for-detecting-browser-language-preference
-+ * See http://msdn.microsoft.com/en-us/library/ms534713.aspx
-+ * @return The current locale as an RFC 4646 string
++XPCOMUtils.defineLazyGetter(this, 'stringBundle', function () {
++  return Services.strings.createBundle('chrome://browser/locale/gcli.properties');
+ });
+ 
+-///////////////////////////////////////////////////////////////////////////////
++/*
++ * Not supported when embedded - we're doing things the Mozilla way not the
++ * require.js way.
 + */
-+exports.getPreferredLocales = function() {
-+  var language = (navigator.language || navigator.userLanguage).toLowerCase();
-+  var parts = language.split('-');
-+  var reply = parts.map(function(part, index) {
-+    return parts.slice(0, parts.length - index).join('-');
-+  });
-+  reply.push('root');
-+  return reply;
++exports.registerStringsSource = function(modulePath) {
++  throw new Error('registerStringsSource is not available in mozilla');
 +};
 +
-+/**
-+ * Lookup a key in the current locale, throwing an error if that string does
-+ * not exist.
-+ * @param key The string to lookup
-+ * @return The string resolved from the correct locale
-+ */
-+function lookupKey(key) {
-+  var str = strings[key];
-+  if (!str) {
-+    throw new Error('No i18n key: ' + key);
-+  }
-+  return str;
-+}
-+
-+/**
-+ * Helper function to process swaps.
-+ * For example:
-+ *   replace('the {subject} {verb} {preposition} the {object}', {
-+ *     subject: 'cat', verb: 'sat', preposition: 'on', object: 'mat'
-+ *   });
-+ * Returns 'the cat sat on the mat'.
-+ * @param str The string containing parts delimited by { and } to be replaced
-+ * @param swaps Lookup map containing the replacement strings
-+ */
-+function replace(str, swaps) {
-+  return str.replace(/\{[^}]*\}/g, function(name) {
-+    name = name.slice(1, -1);
-+    var replacement = swaps[name];
-+    if (replacement == null) {
-+      console.log('Missing lookup \'' + name +
-+              '\' given ' + JSON.stringify(swaps));
-+    }
-+    return replacement;
-+  });
-+}
-+
-+/**
-+ * Lookup a key in our strings file using localized versions if possible,
-+ * and perform string interpolation to inject runtime values into the string.
-+ * l10n lookup is required for user visible strings, but not required for
-+ * console messages and throw strings.
-+ * @param key The string to lookup in gcli/nls/strings.js
-+ * This should generally be in the general form 'filename_export_issue' where
-+ * filename is the name of the module (all lowercase without underscores) and
-+ * export is the name of a top level thing in which the message is used and
-+ * issue is a short string indicating the issue.
-+ * The point of a 'standard' like this is to keep strings fairly short whilst
-+ * still allowing users to have an idea where they come from, and preventing
-+ * name clashes.
-+ * The value looked up may contain {variables} to be exchanged using swaps
-+ * @param swaps A map of variable values to be swapped.
-+ * @return A looked-up and interpolated message for display to the user.
-+ */
-+exports.lookup = function(key, swaps) {
-+  var str = lookupKey(key);
-+  return replace(str, swaps);
++exports.unregisterStringsSource = function(modulePath) {
++  throw new Error('unregisterStringsSource is not available in mozilla');
 +};
 +
-+/**
-+ * Lookup the correct pluralization of a word/string.
-+ * The first ``key`` and ``swaps`` parameters of lookupPlural() are the same
-+ * as for lookup(), however there is an extra ``ord`` parameter which indicates
-+ * the plural ordinal to use.
-+ * For example, in looking up the string '39 steps', the ordinal would be 39.
-+ *
-+ * More detailed example:
-+ * French has 2 plural forms: the first for 0 and 1, the second for everything
-+ * else. English also has 2, but the first only covers 1. Zero is lumped into
-+ * the 'everything else' category. Vietnamese has only 1 plural form - so it
-+ * uses the same noun form however many of them there are.
-+ * The following localization strings describe how to pluralize the phrase
-+ * '1 minute':
-+ *   'en-us': { demo_plural_time: [ '{ord} minute', '{ord} minutes' ] },
-+ *   'fr-fr': { demo_plural_time: [ '{ord} minute', '{ord} minutes' ] },
-+ *   'vi-vn': { demo_plural_time: [ '{ord} phut' ] },
-+ *
-+ *   l10n.lookupPlural('demo_plural_time', 0); // '0 minutes' in 'en-us'
-+ *   l10n.lookupPlural('demo_plural_time', 1); // '1 minute' in 'en-us'
-+ *   l10n.lookupPlural('demo_plural_time', 9); // '9 minutes' in 'en-us'
-+ *
-+ *   l10n.lookupPlural('demo_plural_time', 0); // '0 minute' in 'fr-fr'
-+ *   l10n.lookupPlural('demo_plural_time', 1); // '1 minute' in 'fr-fr'
-+ *   l10n.lookupPlural('demo_plural_time', 9); // '9 minutes' in 'fr-fr'
-+ *
-+ *   l10n.lookupPlural('demo_plural_time', 0); // '0 phut' in 'vi-vn'
-+ *   l10n.lookupPlural('demo_plural_time', 1); // '1 phut' in 'vi-vn'
-+ *   l10n.lookupPlural('demo_plural_time', 9); // '9 phut' in 'vi-vn'
-+ *
-+ * The
-+ * Note that the localization strings are (correctly) the same (since both
-+ * the English and the French words have the same etimology)
-+ */
++exports.lookupSwap = function(key, swaps) {
++  throw new Error('lookupSwap is not available in mozilla');
++};
++
 +exports.lookupPlural = function(key, ord, swaps) {
-+  var index = getPluralRule().get(ord);
-+  var words = lookupKey(key);
-+  var str = words[index];
-+
-+  swaps = swaps || {};
-+  swaps.ord = ord;
-+
-+  return replace(str, swaps);
++  throw new Error('lookupPlural is not available in mozilla');
 +};
 +
-+/**
-+ * Find the correct plural rule for the current locale
-+ * @return a plural rule with a ``get()`` function
-+ */
-+function getPluralRule() {
-+  if (!pluralRule) {
-+    var index;
-+    try {
-+      var svc = Components.classes["@mozilla.org/intl/stringbundle;1"]
-+          .getService(Components.interfaces.nsIStringBundleService);
-+      var bundle = svc.createBundle("chrome://global/locale/intl.properties");
-+      var pluralRule = bundle.GetStringFromName("pluralRule");
-+      index = parseInt(pluralRule);
-+      pluralRule = pluralRules(index);
-+    }
-+    catch (ex) {
-+      // Will happen in non firefox instances
-+      var lang = navigator.language || navigator.userLanguage;
-+      // Next: convert lang to a rule index
-+      pluralRules.some(function(rule) {
-+        if (rule.locales.indexOf(lang) !== -1) {
-+          pluralRule = rule;
-+          return true;
-+        }
-+        return false;
-+      });
-+    }
++exports.getPreferredLocales = function() {
++  return [ 'root' ];
++};
++
++/** @see lookup() in lib/gcli/l10n.js */
++exports.lookup = function(key) {
++  try {
++    return stringBundle.GetStringFromName(key);
 +  }
-+
-+  return pluralRule;
-+}
-+
-+/**
-+ * A plural form is a way to pluralize a noun. There are 2 simple plural forms
-+ * in English, with (s) and without - e.g. tree and trees. There are many other
-+ * ways to pluralize (e.g. witches, ladies, teeth, oxen, axes, data, alumini)
-+ * However they all follow the rule that 1 is 'singular' while everything
-+ * else is 'plural' (words without a plural form like sheep can be seen as
-+ * following this rule where the singular and plural forms are the same)
-+ * <p>Non-English languages have different pluralization rules, for example
-+ * French uses singular for 0 as well as 1. Japanese has no plurals while
-+ * Arabic and Russian are very complex.
-+ *
-+ * See https://developer.mozilla.org/en/Localization_and_Plurals
-+ * See https://secure.wikimedia.org/wikipedia/en/wiki/List_of_ISO_639-1_codes
-+ *
-+ * Contains code inspired by Mozilla L10n code originally developed by
-+ *     Edward Lee <edward.lee@engineering.uiuc.edu>
-+ */
-+var pluralRules = [
-+  /**
-+   * Index 0 - Only one form for all
-+   * Asian family: Japanese, Vietnamese, Korean
-+   */
-+  {
-+    locales: [
-+      'fa', 'fa-ir',
-+      'id',
-+      'ja', 'ja-jp-mac',
-+      'ka',
-+      'ko', 'ko-kr',
-+      'th', 'th-th',
-+      'tr', 'tr-tr',
-+      'zh', 'zh-tw', 'zh-cn'
-+    ],
-+    numForms: 1,
-+    get: function(n) {
-+      return 0;
-+    }
-+  },
-+
-+  /**
-+   * Index 1 - Two forms, singular used for one only
-+   * Germanic family: English, German, Dutch, Swedish, Danish, Norwegian,
-+   *          Faroese
-+   * Romanic family: Spanish, Portuguese, Italian, Bulgarian
-+   * Latin/Greek family: Greek
-+   * Finno-Ugric family: Finnish, Estonian
-+   * Semitic family: Hebrew
-+   * Artificial: Esperanto
-+   * Finno-Ugric family: Hungarian
-+   * Turkic/Altaic family: Turkish
-+   */
-+  {
-+    locales: [
-+      'af', 'af-za',
-+      'as', 'ast',
-+      'bg',
-+      'br',
-+      'bs', 'bs-ba',
-+      'ca',
-+      'cy', 'cy-gb',
-+      'da',
-+      'de', 'de-de', 'de-ch',
-+      'en', 'en-gb', 'en-us', 'en-za',
-+      'el', 'el-gr',
-+      'eo',
-+      'es', 'es-es', 'es-ar', 'es-cl', 'es-mx',
-+      'et', 'et-ee',
-+      'eu',
-+      'fi', 'fi-fi',
-+      'fy', 'fy-nl',
-+      'gl', 'gl-gl',
-+      'he',
-+     //     'hi-in', Without an unqualified language, looks dodgy
-+      'hu', 'hu-hu',
-+      'hy', 'hy-am',
-+      'it', 'it-it',
-+      'kk',
-+      'ku',
-+      'lg',
-+      'mai',
-+     // 'mk', 'mk-mk', Should be 14?
-+      'ml', 'ml-in',
-+      'mn',
-+      'nb', 'nb-no',
-+      'no', 'no-no',
-+      'nl',
-+      'nn', 'nn-no',
-+      'no', 'no-no',
-+      'nb', 'nb-no',
-+      'nso', 'nso-za',
-+      'pa', 'pa-in',
-+      'pt', 'pt-pt',
-+      'rm', 'rm-ch',
-+     // 'ro', 'ro-ro', Should be 5?
-+      'si', 'si-lk',
-+     // 'sl',      Should be 10?
-+      'son', 'son-ml',
-+      'sq', 'sq-al',
-+      'sv', 'sv-se',
-+      'vi', 'vi-vn',
-+      'zu', 'zu-za'
-+    ],
-+    numForms: 2,
-+    get: function(n) {
-+      return n != 1 ?
-+        1 :
-+        0;
-+    }
-+  },
-+
-+  /**
-+   * Index 2 - Two forms, singular used for zero and one
-+   * Romanic family: Brazilian Portuguese, French
-+   */
-+  {
-+    locales: [
-+      'ak', 'ak-gh',
-+      'bn', 'bn-in', 'bn-bd',
-+      'fr', 'fr-fr',
-+      'gu', 'gu-in',
-+      'kn', 'kn-in',
-+      'mr', 'mr-in',
-+      'oc', 'oc-oc',
-+      'or', 'or-in',
-+            'pt-br',
-+      'ta', 'ta-in', 'ta-lk',
-+      'te', 'te-in'
-+    ],
-+    numForms: 2,
-+    get: function(n) {
-+      return n > 1 ?
-+        1 :
-+        0;
-+    }
-+  },
-+
-+  /**
-+   * Index 3 - Three forms, special case for zero
-+   * Latvian
-+   */
-+  {
-+    locales: [ 'lv' ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n % 10 == 1 && n % 100 != 11 ?
-+        1 :
-+        n != 0 ?
-+          2 :
-+          0;
-+    }
-+  },
-+
-+  /**
-+   * Index 4 -
-+   * Scottish Gaelic
-+   */
-+  {
-+    locales: [ 'gd', 'gd-gb' ],
-+    numForms: 4,
-+    get: function(n) {
-+      return n == 1 || n == 11 ?
-+        0 :
-+        n == 2 || n == 12 ?
-+          1 :
-+          n > 0 && n < 20 ?
-+            2 :
-+            3;
-+    }
-+  },
-+
-+  /**
-+   * Index 5 - Three forms, special case for numbers ending in 00 or [2-9][0-9]
-+   * Romanian
-+   */
-+  {
-+    locales: [ 'ro', 'ro-ro' ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n == 1 ?
-+        0 :
-+        n == 0 || n % 100 > 0 && n % 100 < 20 ?
-+          1 :
-+          2;
-+    }
-+  },
-+
-+  /**
-+   * Index 6 - Three forms, special case for numbers ending in 1[2-9]
-+   * Lithuanian
-+   */
-+  {
-+    locales: [ 'lt' ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n % 10 == 1 && n % 100 != 11 ?
-+        0 :
-+        n % 10 >= 2 && (n % 100 < 10 || n % 100 >= 20) ?
-+          2 :
-+          1;
-+    }
-+  },
-+
-+  /**
-+   * Index 7 - Three forms, special cases for numbers ending in 1 and
-+   *       2, 3, 4, except those ending in 1[1-4]
-+   * Slavic family: Russian, Ukrainian, Serbian, Croatian
-+   */
-+  {
-+    locales: [
-+      'be', 'be-by',
-+      'hr', 'hr-hr',
-+      'ru', 'ru-ru',
-+      'sr', 'sr-rs', 'sr-cs',
-+      'uk'
-+    ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n % 10 == 1 && n % 100 != 11 ?
-+        0 :
-+        n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ?
-+          1 :
-+          2;
-+    }
-+  },
-+
-+  /**
-+   * Index 8 - Three forms, special cases for 1 and 2, 3, 4
-+   * Slavic family: Czech, Slovak
-+   */
-+  {
-+    locales: [ 'cs', 'sk' ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n == 1 ?
-+        0 :
-+        n >= 2 && n <= 4 ?
-+          1 :
-+          2;
-+    }
-+  },
-+
-+  /**
-+   * Index 9 - Three forms, special case for one and some numbers ending in
-+   *       2, 3, or 4
-+   * Polish
-+   */
-+  {
-+    locales: [ 'pl' ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n == 1 ?
-+        0 :
-+        n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ?
-+          1 :
-+          2;
-+    }
-+  },
-+
-+  /**
-+   * Index 10 - Four forms, special case for one and all numbers ending in
-+   *      02, 03, or 04
-+   * Slovenian
-+   */
-+  {
-+    locales: [ 'sl' ],
-+    numForms: 4,
-+    get: function(n) {
-+      return n % 100 == 1 ?
-+        0 :
-+        n % 100 == 2 ?
-+          1 :
-+          n % 100 == 3 || n % 100 == 4 ?
-+            2 :
-+            3;
-+    }
-+  },
-+
-+  /**
-+   * Index 11 -
-+   * Irish Gaeilge
-+   */
-+  {
-+    locales: [ 'ga-ie', 'ga-ie', 'ga', 'en-ie' ],
-+    numForms: 5,
-+    get: function(n) {
-+      return n == 1 ?
-+        0 :
-+        n == 2 ?
-+          1 :
-+          n >= 3 && n <= 6 ?
-+            2 :
-+            n >= 7 && n <= 10 ?
-+              3 :
-+              4;
-+    }
-+  },
-+
-+  /**
-+   * Index 12 -
-+   * Arabic
-+   */
-+  {
-+    locales: [ 'ar' ],
-+    numForms: 6,
-+    get: function(n) {
-+      return n == 0 ?
-+        5 :
-+        n == 1 ?
-+          0 :
-+          n == 2 ?
-+            1 :
-+            n % 100 >= 3 && n % 100 <= 10 ?
-+              2 :
-+              n % 100 >= 11 && n % 100 <= 99 ?
-+                3 :
-+                4;
-+    }
-+  },
-+
-+  /**
-+   * Index 13 -
-+   * Maltese
-+   */
-+  {
-+    locales: [ 'mt' ],
-+    numForms: 4,
-+    get: function(n) {
-+      return n == 1 ?
-+        0 :
-+        n == 0 || n % 100 > 0 && n % 100 <= 10 ?
-+          1 :
-+          n % 100 > 10 && n % 100 < 20 ?
-+            2 :
-+            3;
-+    }
-+  },
-+
-+  /**
-+   * Index 14 -
-+   * Macedonian
-+   */
-+  {
-+    locales: [ 'mk', 'mk-mk' ],
-+    numForms: 3,
-+    get: function(n) {
-+      return n % 10 == 1 ?
-+        0 :
-+        n % 10 == 2 ?
-+          1 :
-+          2;
-+    }
-+  },
-+
-+  /**
-+   * Index 15 -
-+   * Icelandic
-+   */
-+  {
-+    locales: [ 'is' ],
-+    numForms: 2,
-+    get: function(n) {
-+      return n % 10 == 1 && n % 100 != 11 ?
-+        0 :
-+        1;
-+    }
++  catch (ex) {
++    console.error('Failed to lookup ', key, ex);
++    return key;
 +  }
++};
 +
-+  /*
-+  // Known locales without a known plural rule
-+  'km', 'ms', 'ne-np', 'ne-np', 'ne', 'nr', 'nr-za', 'rw', 'ss', 'ss-za',
-+  'st', 'st-za', 'tn', 'tn-za', 'ts', 'ts-za', 've', 've-za', 'xh', 'xh-za'
-+  */
-+];
++/** @see lookupFormat in lib/gcli/l10n.js */
++exports.lookupFormat = function(key, swaps) {
++  try {
++    return stringBundle.formatStringFromName(key, swaps, swaps.length);
++  }
++  catch (ex) {
++    console.error('Failed to format ', key, ex);
++    return key;
++  }
++};
 +
-+/**
-+ * Use rule 0 by default, which is no plural forms at all
-+ */
-+var pluralRule = pluralRules[0];
 +
 +});
 +/*
@@ -2414,16 +2039,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/types', ['require', 'exports', 'module' , 'gcli/argument', 'gcli/l10n'], function(require, exports, module) {
++define('gcli/types', ['require', 'exports', 'module' , 'gcli/argument'], function(require, exports, module) {
 +var types = exports;
 +
 +
 +var Argument = require('gcli/argument').Argument;
-+var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
-+var FalseNamedArgument = require('gcli/argument').FalseNamedArgument;
-+var ArrayArgument = require('gcli/argument').ArrayArgument;
-+
-+var l10n = require('gcli/l10n');
 +
 +
 +/**
@@ -2601,6 +2221,16 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +/**
 + * If status === INCOMPLETE, then we may be able to provide predictions as to
 + * how the argument can be completed.
++ * @return An array of items, where each item is an object with the following
++ * properties:
++ * - name (mandatory): Displayed to the user, and typed in. No whitespace
++ * - description (optional): Short string for display in a tool-tip
++ * - manual (optional): Longer description which details usage
++ * - incomplete (optional): Indicates that the prediction if used should not
++ *   be considered necessarily sufficient, which typically will mean that the
++ *   UI should not append a space to the completion
++ * - value (optional): If a value property is present, this will be used as the
++ *   value of the conversion, otherwise the item itself will be used.
 + */
 +Conversion.prototype.getPredictions = function() {
 +  if (typeof this.predictions === 'function') {
@@ -2843,509 +2473,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +
-+/**
-+ * 'string' the most basic string type that doesn't need to convert
-+ */
-+function StringType(typeSpec) {
-+  if (typeSpec != null) {
-+    throw new Error('StringType can not be customized');
-+  }
-+}
-+
-+StringType.prototype = Object.create(Type.prototype);
-+
-+StringType.prototype.stringify = function(value) {
-+  if (value == null) {
-+    return '';
-+  }
-+  return value.toString();
-+};
-+
-+StringType.prototype.parse = function(arg) {
-+  if (arg.text == null || arg.text === '') {
-+    return new Conversion(null, arg, Status.INCOMPLETE, '');
-+  }
-+  return new Conversion(arg.text, arg);
-+};
-+
-+StringType.prototype.name = 'string';
-+
-+types.StringType = StringType;
-+
-+
-+/**
-+ * We don't currently plan to distinguish between integers and floats
-+ */
-+function NumberType(typeSpec) {
-+  if (typeSpec) {
-+    this.min = typeSpec.min || 0;
-+    this.max = typeSpec.max;
-+    this.step = typeSpec.step || 1;
-+  }
-+  else {
-+    this.step = 1;
-+  }
-+}
-+
-+NumberType.prototype = Object.create(Type.prototype);
-+
-+NumberType.prototype.stringify = function(value) {
-+  if (value == null) {
-+    return '';
-+  }
-+  return '' + value;
-+};
-+
-+NumberType.prototype.parse = function(arg) {
-+  if (arg.text.replace(/\s/g, '').length === 0) {
-+    return new Conversion(null, arg, Status.INCOMPLETE, '');
-+  }
-+
-+  var value = parseInt(arg.text, 10);
-+  if (isNaN(value)) {
-+    return new Conversion(this.min, arg, Status.ERROR,
-+        l10n.lookup('types_number_nan', { text: arg.text }));
-+  }
-+
-+  if (this.max != null && value > this.max) {
-+    return new Conversion(value, arg, Status.ERROR,
-+        l10n.lookup('types_number_max', { value: value, max: this.max }));
-+  }
-+
-+  if (this.min != null && value < this.min) {
-+    return new Conversion(value, arg, Status.ERROR,
-+        l10n.lookup('types_number_min', { value: value, max: this.max }));
-+  }
-+
-+  return new Conversion(value, arg);
-+};
-+
-+NumberType.prototype.decrement = function(value) {
-+  if (typeof value !== 'number' || isNaN(value)) {
-+    return this.max || 1;
-+  }
-+  var newValue = value - this.step;
-+  // Snap to the nearest incremental of the step
-+  newValue = Math.ceil(newValue / this.step) * this.step;
-+  if (this.min == null) {
-+    return newValue;
-+  }
-+  return this._boundsCheck(newValue);
-+};
-+
-+NumberType.prototype.increment = function(value) {
-+  if (typeof value !== 'number' || isNaN(value)) {
-+    return this.min;
-+  }
-+  var newValue = value + this.step;
-+  // Snap to the nearest incremental of the step
-+  newValue = Math.floor(newValue / this.step) * this.step;
-+  if (this.max == null) {
-+    return newValue;
-+  }
-+  return this._boundsCheck(newValue);
-+};
-+
-+/**
-+ * Return the input value so long as it is within the max/min bounds. If it is
-+ * lower than the minimum, return the minimum. If it is bigger than the maximum
-+ * then return the maximum.
-+ */
-+NumberType.prototype._boundsCheck = function(value) {
-+  if (value < this.min) {
-+    return this.min;
-+  }
-+  if (value > this.max) {
-+    return this.max;
-+  }
-+  return value;
-+};
-+
-+NumberType.prototype.name = 'number';
-+
-+types.NumberType = NumberType;
-+
-+
-+/**
-+ * One of a known set of options
-+ */
-+function SelectionType(typeSpec) {
-+  if (typeSpec) {
-+    Object.keys(typeSpec).forEach(function(key) {
-+      this[key] = typeSpec[key];
-+    }, this);
-+  }
-+}
-+
-+SelectionType.prototype = Object.create(Type.prototype);
-+
-+SelectionType.prototype.stringify = function(value) {
-+  var name = null;
-+  var lookup = this.getLookup();
-+  var keys = Object.keys(lookup);
-+  keys.some(function(test) {
-+    if (value === lookup[test]) {
-+      name = test;
-+      return true;
-+    }
-+    return false;
-+  }, this);
-+
-+  return name;
-+};
-+
-+/**
-+ * There are several ways to get selection data. This unifies them into one
-+ * single function.
-+ * @return A map of names to values. It is NOT safe to mutate this object
-+ */
-+SelectionType.prototype.getLookup = function() {
-+  if (this.lookup) {
-+    if (typeof this.lookup === 'function') {
-+      return this.lookup();
-+    }
-+    return this.lookup;
-+  }
-+
-+  if (Array.isArray(this.data)) {
-+    this.lookup = this._dataToLookup(this.data);
-+    return this.lookup;
-+  }
-+
-+  if (typeof(this.data) === 'function') {
-+    return this._dataToLookup(this.data());
-+  }
-+
-+  throw new Error('SelectionType has no data');
-+};
-+
-+/**
-+ * Like getLookup() except that rather than returning a map of name->value,
-+ * @return An new array of { name:..., value:... } pairs. It is safe to mutate
-+ * this array.
-+ */
-+SelectionType.prototype._getLookupArray = function() {
-+  var array = [];
-+  var lookup = this.getLookup();
-+  Object.keys(lookup).forEach(function(name) {
-+    array.push({ name: name, value: lookup[name] });
-+  });
-+  return array;
-+};
-+
-+/**
-+ * Selection can be provided with either a lookup object (in the 'lookup'
-+ * property) or an array of strings (in the 'data' property). Internally we
-+ * always use lookup, so we need a way to convert a 'data' array to a lookup.
-+ */
-+SelectionType.prototype._dataToLookup = function(data) {
-+  var lookup = {};
-+  data.forEach(function(option) {
-+    var name = (typeof option === 'string') ? option : option.name;
-+    lookup[name] = option;
-+  }, this);
-+  return lookup;
-+};
-+
-+/**
-+ * Return a list of possible completions for the given arg.
-+ * This code is very similar to CommandType._findPredictions(). If you are
-+ * making changes to this code, you should check there too.
-+ * @param arg The initial input to match
-+ * @return A trimmed lookup table of string:value pairs
-+ */
-+SelectionType.prototype._findPredictions = function(arg) {
-+  var predictions = [];
-+
-+  var lookup = this.getLookup();
-+  var matchedValue = lookup[arg.text];
-+  if (matchedValue !== undefined) {
-+    predictions.push({ name: arg.text, value: matchedValue });
-+  }
-+  else {
-+    Object.keys(lookup).forEach(function(name) {
-+      if (name.indexOf(arg.text) === 0) {
-+        predictions.push({ name: name, value: lookup[name] });
-+      }
-+    }, this);
-+  }
-+
-+  return predictions;
-+};
-+
-+SelectionType.prototype.parse = function(arg) {
-+  var predictions = this._findPredictions(arg);
-+  var matches = Object.keys(predictions).length;
-+
-+  if (matches === 1 && predictions[0].name === arg.text) {
-+    return new Conversion(predictions[0].value, arg);
-+  }
-+
-+  // This is something of a hack it basically allows us to tell the
-+  // setting type to forget its last setting hack.
-+  if (this.noMatch) {
-+    this.noMatch();
-+  }
-+
-+  if (matches > 0) {
-+    // Especially at startup, predictions live over the time that things
-+    // change so we provide a completion function rather than completion
-+    // values.
-+    // This was primarily designed for commands, which have since moved
-+    // into their own type, so technically we could remove this code,
-+    // except that it provides more up-to-date answers, and it's hard to
-+    // predict when it will be required.
-+    var predictFunc = function() {
-+      return this._findPredictions(arg);
-+    }.bind(this);
-+    return new Conversion(null, arg, Status.INCOMPLETE, '', predictFunc);
-+  }
-+
-+  return new Conversion(null, arg, Status.ERROR,
-+      l10n.lookup('types_selection_nomatch', { text: arg.text }));
-+};
-+
-+/**
-+ * For selections, up is down and black is white. It's like this, given a list
-+ * [ a, b, c, d ], it's natural to think that it starts at the top and that
-+ * going up the list, moves towards 'a'. However 'a' has the lowest index, so
-+ * for SelectionType, up is down and down is up.
-+ * Sorry.
-+ */
-+SelectionType.prototype.decrement = function(value) {
-+  var data = this._getLookupArray();
-+  var index = this._findValue(data, value);
-+  if (index === -1) {
-+    index = 0;
-+  }
-+  index++;
-+  if (index >= data.length) {
-+    index = 0;
-+  }
-+  return data[index].value;
-+};
-+
-+/**
-+ * See note on SelectionType.decrement()
-+ */
-+SelectionType.prototype.increment = function(value) {
-+  var data = this._getLookupArray();
-+  var index = this._findValue(data, value);
-+  if (index === -1) {
-+    // For an increment operation when there is nothing to start from, we
-+    // want to start from the top, i.e. index 0, so the value before we
-+    // 'increment' (see note above) must be 1.
-+    index = 1;
-+  }
-+  index--;
-+  if (index < 0) {
-+    index = data.length - 1;
-+  }
-+  return data[index].value;
-+};
-+
-+/**
-+ * Walk through an array of { name:.., value:... } objects looking for a
-+ * matching value (using strict equality), returning the matched index (or -1
-+ * if not found).
-+ * @param data Array of objects with name/value properties to search through
-+ * @param value The value to search for
-+ * @return The index at which the match was found, or -1 if no match was found
-+ */
-+SelectionType.prototype._findValue = function(data, value) {
-+  var index = -1;
-+  for (var i = 0; i < data.length; i++) {
-+    var pair = data[i];
-+    if (pair.value === value) {
-+      index = i;
-+      break;
-+    }
-+  }
-+  return index;
-+};
-+
-+SelectionType.prototype.name = 'selection';
-+
-+types.SelectionType = SelectionType;
-+
-+
-+/**
-+ * true/false values
-+ */
-+function BooleanType(typeSpec) {
-+  if (typeSpec != null) {
-+    throw new Error('BooleanType can not be customized');
-+  }
-+}
-+
-+BooleanType.prototype = Object.create(SelectionType.prototype);
-+
-+BooleanType.prototype.lookup = { 'true': true, 'false': false };
-+
-+BooleanType.prototype.parse = function(arg) {
-+  if (arg instanceof TrueNamedArgument) {
-+    return new Conversion(true, arg);
-+  }
-+  if (arg instanceof FalseNamedArgument) {
-+    return new Conversion(false, arg);
-+  }
-+  return SelectionType.prototype.parse.call(this, arg);
-+};
-+
-+BooleanType.prototype.stringify = function(value) {
-+  return '' + value;
-+};
-+
-+BooleanType.prototype.getDefault = function() {
-+  return new Conversion(false, new Argument(''));
-+};
-+
-+BooleanType.prototype.name = 'boolean';
-+
-+types.BooleanType = BooleanType;
-+
-+
-+/**
-+ * A type for "we don't know right now, but hope to soon".
-+ */
-+function DeferredType(typeSpec) {
-+  if (typeof typeSpec.defer !== 'function') {
-+    throw new Error('Instances of DeferredType need typeSpec.defer to be a function that returns a type');
-+  }
-+  Object.keys(typeSpec).forEach(function(key) {
-+    this[key] = typeSpec[key];
-+  }, this);
-+}
-+
-+DeferredType.prototype = Object.create(Type.prototype);
-+
-+DeferredType.prototype.stringify = function(value) {
-+  return this.defer().stringify(value);
-+};
-+
-+DeferredType.prototype.parse = function(arg) {
-+  return this.defer().parse(arg);
-+};
-+
-+DeferredType.prototype.decrement = function(value) {
-+  var deferred = this.defer();
-+  return (deferred.decrement ? deferred.decrement(value) : undefined);
-+};
-+
-+DeferredType.prototype.increment = function(value) {
-+  var deferred = this.defer();
-+  return (deferred.increment ? deferred.increment(value) : undefined);
-+};
-+
-+DeferredType.prototype.increment = function(value) {
-+  var deferred = this.defer();
-+  return (deferred.increment ? deferred.increment(value) : undefined);
-+};
-+
-+DeferredType.prototype.name = 'deferred';
-+
-+types.DeferredType = DeferredType;
-+
-+
-+/**
-+ * 'blank' is a type for use with DeferredType when we don't know yet.
-+ * It should not be used anywhere else.
-+ */
-+function BlankType(typeSpec) {
-+  if (typeSpec != null) {
-+    throw new Error('BlankType can not be customized');
-+  }
-+}
-+
-+BlankType.prototype = Object.create(Type.prototype);
-+
-+BlankType.prototype.stringify = function(value) {
-+  return '';
-+};
-+
-+BlankType.prototype.parse = function(arg) {
-+  return new Conversion(null, arg);
-+};
-+
-+BlankType.prototype.name = 'blank';
-+
-+types.BlankType = BlankType;
-+
-+
-+/**
-+ * A set of objects of the same type
-+ */
-+function ArrayType(typeSpec) {
-+  if (!typeSpec.subtype) {
-+    console.error('Array.typeSpec is missing subtype. Assuming string.' +
-+        JSON.stringify(typeSpec));
-+    typeSpec.subtype = 'string';
-+  }
-+
-+  Object.keys(typeSpec).forEach(function(key) {
-+    this[key] = typeSpec[key];
-+  }, this);
-+  this.subtype = types.getType(this.subtype);
-+}
-+
-+ArrayType.prototype = Object.create(Type.prototype);
-+
-+ArrayType.prototype.stringify = function(values) {
-+  // BUG 664204: Check for strings with spaces and add quotes
-+  return values.join(' ');
-+};
-+
-+ArrayType.prototype.parse = function(arg) {
-+  if (arg instanceof ArrayArgument) {
-+    var conversions = arg.getArguments().map(function(subArg) {
-+      var conversion = this.subtype.parse(subArg);
-+      // Hack alert. ArrayConversion needs to be able to answer questions
-+      // about the status of individual conversions in addition to the
-+      // overall state. This allows us to do that easily.
-+      subArg.conversion = conversion;
-+      return conversion;
-+    }, this);
-+    return new ArrayConversion(conversions, arg);
-+  }
-+  else {
-+    console.error('non ArrayArgument to ArrayType.parse', arg);
-+    throw new Error('non ArrayArgument to ArrayType.parse');
-+  }
-+};
-+
-+ArrayType.prototype.getDefault = function() {
-+  return new ArrayConversion([], new ArrayArgument());
-+};
-+
-+ArrayType.prototype.name = 'array';
-+
-+types.ArrayType = ArrayType;
-+
-+
-+/**
-+ * Registration and de-registration.
-+ */
-+types.startup = function() {
-+  types.registerType(StringType);
-+  types.registerType(NumberType);
-+  types.registerType(BooleanType);
-+  types.registerType(BlankType);
-+  types.registerType(SelectionType);
-+  types.registerType(DeferredType);
-+  types.registerType(ArrayType);
-+};
-+
-+types.shutdown = function() {
-+  types.unregisterType(StringType);
-+  types.unregisterType(NumberType);
-+  types.unregisterType(BooleanType);
-+  types.unregisterType(BlankType);
-+  types.unregisterType(SelectionType);
-+  types.unregisterType(DeferredType);
-+  types.unregisterType(ArrayType);
-+};
-+
-+
 +});
 +/*
 + * Copyright 2009-2011 Mozilla Foundation and contributors
@@ -3501,12 +2628,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.prefix = prefix !== undefined ? prefix : '';
 +  this.suffix = suffix !== undefined ? suffix : '';
 +
-+  while (this.text[0] === ' ') {
++  while (this.text.charAt(0) === ' ') {
 +    this.prefix = this.prefix + ' ';
 +    this.text = this.text.substring(1);
 +  }
 +
-+  while (this.text[this.text.length - 1] === ' ') {
++  while (this.text.charAt(this.text.length - 1) === ' ') {
 +    this.suffix = ' ' + this.suffix;
 +    this.text = this.text.slice(0, -1);
 +  }
@@ -3804,7 +2931,530 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/jstype', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types'], function(require, exports, module) {
++define('gcli/types/basic', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
++
++
++var l10n = require('gcli/l10n');
++var types = require('gcli/types');
++var Type = require('gcli/types').Type;
++var Status = require('gcli/types').Status;
++var Conversion = require('gcli/types').Conversion;
++
++var Argument = require('gcli/argument').Argument;
++var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
++var FalseNamedArgument = require('gcli/argument').FalseNamedArgument;
++var ArrayArgument = require('gcli/argument').ArrayArgument;
++
++
++/**
++ * Registration and de-registration.
++ */
++exports.startup = function() {
++  types.registerType(StringType);
++  types.registerType(NumberType);
++  types.registerType(BooleanType);
++  types.registerType(BlankType);
++  types.registerType(SelectionType);
++  types.registerType(DeferredType);
++  types.registerType(ArrayType);
++};
++
++exports.shutdown = function() {
++  types.unregisterType(StringType);
++  types.unregisterType(NumberType);
++  types.unregisterType(BooleanType);
++  types.unregisterType(BlankType);
++  types.unregisterType(SelectionType);
++  types.unregisterType(DeferredType);
++  types.unregisterType(ArrayType);
++};
++
++
++/**
++ * 'string' the most basic string type that doesn't need to convert
++ */
++function StringType(typeSpec) {
++  if (typeSpec != null) {
++    throw new Error('StringType can not be customized');
++  }
++}
++
++StringType.prototype = Object.create(Type.prototype);
++
++StringType.prototype.stringify = function(value) {
++  if (value == null) {
++    return '';
++  }
++  return value.toString();
++};
++
++StringType.prototype.parse = function(arg) {
++  if (arg.text == null || arg.text === '') {
++    return new Conversion(null, arg, Status.INCOMPLETE, '');
++  }
++  return new Conversion(arg.text, arg);
++};
++
++StringType.prototype.name = 'string';
++
++exports.StringType = StringType;
++
++
++/**
++ * We don't currently plan to distinguish between integers and floats
++ */
++function NumberType(typeSpec) {
++  if (typeSpec) {
++    this._min = typeSpec.min;
++    this._max = typeSpec.max;
++    this._step = typeSpec.step || 1;
++  }
++  else {
++    this._step = 1;
++  }
++}
++
++NumberType.prototype = Object.create(Type.prototype);
++
++NumberType.prototype.stringify = function(value) {
++  if (value == null) {
++    return '';
++  }
++  return '' + value;
++};
++
++NumberType.prototype.getMin = function() {
++  if (this._min) {
++    if (typeof this._min === 'function') {
++      return this._min();
++    }
++    if (typeof this._min === 'number') {
++      return this._min;
++    }
++  }
++  return 0;
++};
++
++NumberType.prototype.getMax = function() {
++  if (this._max) {
++    if (typeof this._max === 'function') {
++      return this._max();
++    }
++    if (typeof this._max === 'number') {
++      return this._max;
++    }
++  }
++  return undefined;
++};
++
++NumberType.prototype.parse = function(arg) {
++  if (arg.text.replace(/\s/g, '').length === 0) {
++    return new Conversion(null, arg, Status.INCOMPLETE, '');
++  }
++
++  var value = parseInt(arg.text, 10);
++  if (isNaN(value)) {
++    return new Conversion(null, arg, Status.ERROR,
++        l10n.lookupFormat('typesNumberNan', [ arg.text ]));
++  }
++
++  if (this.getMax() != null && value > this.getMax()) {
++    return new Conversion(null, arg, Status.ERROR,
++        l10n.lookupFormat('typesNumberMax', [ value, this.getMax() ]));
++  }
++
++  if (value < this.getMin()) {
++    return new Conversion(null, arg, Status.ERROR,
++        l10n.lookupFormat('typesNumberMin', [ value, this.getMin() ]));
++  }
++
++  return new Conversion(value, arg);
++};
++
++NumberType.prototype.decrement = function(value) {
++  if (typeof value !== 'number' || isNaN(value)) {
++    return this.getMax() || 1;
++  }
++  var newValue = value - this._step;
++  // Snap to the nearest incremental of the step
++  newValue = Math.ceil(newValue / this._step) * this._step;
++  return this._boundsCheck(newValue);
++};
++
++NumberType.prototype.increment = function(value) {
++  if (typeof value !== 'number' || isNaN(value)) {
++    return this.getMin();
++  }
++  var newValue = value + this._step;
++  // Snap to the nearest incremental of the step
++  newValue = Math.floor(newValue / this._step) * this._step;
++  if (this.getMax() == null) {
++    return newValue;
++  }
++  return this._boundsCheck(newValue);
++};
++
++/**
++ * Return the input value so long as it is within the max/min bounds. If it is
++ * lower than the minimum, return the minimum. If it is bigger than the maximum
++ * then return the maximum.
++ */
++NumberType.prototype._boundsCheck = function(value) {
++  var min = this.getMin();
++  if (value < min) {
++    return min;
++  }
++  var max = this.getMax();
++  if (value > max) {
++    return max;
++  }
++  return value;
++};
++
++NumberType.prototype.name = 'number';
++
++exports.NumberType = NumberType;
++
++/**
++ * One of a known set of options
++ */
++function SelectionType(typeSpec) {
++  if (typeSpec) {
++    Object.keys(typeSpec).forEach(function(key) {
++      this[key] = typeSpec[key];
++    }, this);
++  }
++}
++
++SelectionType.prototype = Object.create(Type.prototype);
++
++SelectionType.prototype.stringify = function(value) {
++  var name = null;
++  var lookup = this.getLookup();
++  lookup.some(function(item) {
++    var test = (item.value == null) ? item : item.value;
++    if (test === value) {
++      name = item.name;
++      return true;
++    }
++    return false;
++  }, this);
++  return name;
++};
++
++/**
++ * There are several ways to get selection data. This unifies them into one
++ * single function.
++ * @return A map of names to values.
++ */
++SelectionType.prototype.getLookup = function() {
++  if (this.lookup) {
++    if (typeof this.lookup === 'function') {
++      return this.lookup();
++    }
++    return this.lookup;
++  }
++
++  if (Array.isArray(this.data)) {
++    this.lookup = this._dataToLookup(this.data);
++    return this.lookup;
++  }
++
++  if (typeof(this.data) === 'function') {
++    return this._dataToLookup(this.data());
++  }
++
++  throw new Error('SelectionType has no data');
++};
++
++/**
++ * Selection can be provided with either a lookup object (in the 'lookup'
++ * property) or an array of strings (in the 'data' property). Internally we
++ * always use lookup, so we need a way to convert a 'data' array to a lookup.
++ */
++SelectionType.prototype._dataToLookup = function(data) {
++  return data.map(function(option) {
++    return { name: option, value: option };
++  });
++};
++
++/**
++ * Return a list of possible completions for the given arg.
++ * This code is very similar to CommandType._findPredictions(). If you are
++ * making changes to this code, you should check there too.
++ * @param arg The initial input to match
++ * @return A trimmed lookup table of string:value pairs
++ */
++SelectionType.prototype._findPredictions = function(arg) {
++  var predictions = [];
++  this.getLookup().forEach(function(item) {
++    if (item.name.indexOf(arg.text) === 0) {
++      predictions.push(item);
++    }
++  }, this);
++  return predictions;
++};
++
++SelectionType.prototype.parse = function(arg) {
++  var predictions = this._findPredictions(arg);
++
++  if (predictions.length === 1 && predictions[0].name === arg.text) {
++    var value = predictions[0].value ? predictions[0].value : predictions[0];
++    return new Conversion(value, arg);
++  }
++
++  // This is something of a hack it basically allows us to tell the
++  // setting type to forget its last setting hack.
++  if (this.noMatch) {
++    this.noMatch();
++  }
++
++  if (predictions.length > 0) {
++    // Especially at startup, predictions live over the time that things
++    // change so we provide a completion function rather than completion
++    // values.
++    // This was primarily designed for commands, which have since moved
++    // into their own type, so technically we could remove this code,
++    // except that it provides more up-to-date answers, and it's hard to
++    // predict when it will be required.
++    var predictFunc = function() {
++      return this._findPredictions(arg);
++    }.bind(this);
++    return new Conversion(null, arg, Status.INCOMPLETE, '', predictFunc);
++  }
++
++  return new Conversion(null, arg, Status.ERROR,
++      l10n.lookupFormat('typesSelectionNomatch', [ arg.text ]));
++};
++
++/**
++ * For selections, up is down and black is white. It's like this, given a list
++ * [ a, b, c, d ], it's natural to think that it starts at the top and that
++ * going up the list, moves towards 'a'. However 'a' has the lowest index, so
++ * for SelectionType, up is down and down is up.
++ * Sorry.
++ */
++SelectionType.prototype.decrement = function(value) {
++  var lookup = this.getLookup();
++  var index = this._findValue(lookup, value);
++  if (index === -1) {
++    index = 0;
++  }
++  index++;
++  if (index >= lookup.length) {
++    index = 0;
++  }
++  return lookup[index].value;
++};
++
++/**
++ * See note on SelectionType.decrement()
++ */
++SelectionType.prototype.increment = function(value) {
++  var lookup = this.getLookup();
++  var index = this._findValue(lookup, value);
++  if (index === -1) {
++    // For an increment operation when there is nothing to start from, we
++    // want to start from the top, i.e. index 0, so the value before we
++    // 'increment' (see note above) must be 1.
++    index = 1;
++  }
++  index--;
++  if (index < 0) {
++    index = lookup.length - 1;
++  }
++  return lookup[index].value;
++};
++
++/**
++ * Walk through an array of { name:.., value:... } objects looking for a
++ * matching value (using strict equality), returning the matched index (or -1
++ * if not found).
++ * @param lookup Array of objects with name/value properties to search through
++ * @param value The value to search for
++ * @return The index at which the match was found, or -1 if no match was found
++ */
++SelectionType.prototype._findValue = function(lookup, value) {
++  var index = -1;
++  for (var i = 0; i < lookup.length; i++) {
++    var pair = lookup[i];
++    if (pair.value === value) {
++      index = i;
++      break;
++    }
++  }
++  return index;
++};
++
++SelectionType.prototype.name = 'selection';
++
++exports.SelectionType = SelectionType;
++
++
++/**
++ * true/false values
++ */
++function BooleanType(typeSpec) {
++  if (typeSpec != null) {
++    throw new Error('BooleanType can not be customized');
++  }
++}
++
++BooleanType.prototype = Object.create(SelectionType.prototype);
++
++BooleanType.prototype.lookup = [
++  { name: 'true', value: true },
++  { name: 'false', value: false }
++];
++
++BooleanType.prototype.parse = function(arg) {
++  if (arg instanceof TrueNamedArgument) {
++    return new Conversion(true, arg);
++  }
++  if (arg instanceof FalseNamedArgument) {
++    return new Conversion(false, arg);
++  }
++  return SelectionType.prototype.parse.call(this, arg);
++};
++
++BooleanType.prototype.stringify = function(value) {
++  return '' + value;
++};
++
++BooleanType.prototype.getDefault = function() {
++  return new Conversion(false, new Argument(''));
++};
++
++BooleanType.prototype.name = 'boolean';
++
++exports.BooleanType = BooleanType;
++
++
++/**
++ * A type for "we don't know right now, but hope to soon".
++ */
++function DeferredType(typeSpec) {
++  if (typeof typeSpec.defer !== 'function') {
++    throw new Error('Instances of DeferredType need typeSpec.defer to be a function that returns a type');
++  }
++  Object.keys(typeSpec).forEach(function(key) {
++    this[key] = typeSpec[key];
++  }, this);
++}
++
++DeferredType.prototype = Object.create(Type.prototype);
++
++DeferredType.prototype.stringify = function(value) {
++  return this.defer().stringify(value);
++};
++
++DeferredType.prototype.parse = function(arg) {
++  return this.defer().parse(arg);
++};
++
++DeferredType.prototype.decrement = function(value) {
++  var deferred = this.defer();
++  return (deferred.decrement ? deferred.decrement(value) : undefined);
++};
++
++DeferredType.prototype.increment = function(value) {
++  var deferred = this.defer();
++  return (deferred.increment ? deferred.increment(value) : undefined);
++};
++
++DeferredType.prototype.increment = function(value) {
++  var deferred = this.defer();
++  return (deferred.increment ? deferred.increment(value) : undefined);
++};
++
++DeferredType.prototype.name = 'deferred';
++
++exports.DeferredType = DeferredType;
++
++
++/**
++ * 'blank' is a type for use with DeferredType when we don't know yet.
++ * It should not be used anywhere else.
++ */
++function BlankType(typeSpec) {
++  if (typeSpec != null) {
++    throw new Error('BlankType can not be customized');
++  }
++}
++
++BlankType.prototype = Object.create(Type.prototype);
++
++BlankType.prototype.stringify = function(value) {
++  return '';
++};
++
++BlankType.prototype.parse = function(arg) {
++  return new Conversion(null, arg);
++};
++
++BlankType.prototype.name = 'blank';
++
++exports.BlankType = BlankType;
++
++
++/**
++ * A set of objects of the same type
++ */
++function ArrayType(typeSpec) {
++  if (!typeSpec.subtype) {
++    console.error('Array.typeSpec is missing subtype. Assuming string.' +
++        JSON.stringify(typeSpec));
++    typeSpec.subtype = 'string';
++  }
++
++  Object.keys(typeSpec).forEach(function(key) {
++    this[key] = typeSpec[key];
++  }, this);
++  this.subtype = types.getType(this.subtype);
++}
++
++ArrayType.prototype = Object.create(Type.prototype);
++
++ArrayType.prototype.stringify = function(values) {
++  // BUG 664204: Check for strings with spaces and add quotes
++  return values.join(' ');
++};
++
++ArrayType.prototype.parse = function(arg) {
++  if (arg instanceof ArrayArgument) {
++    var conversions = arg.getArguments().map(function(subArg) {
++      var conversion = this.subtype.parse(subArg);
++      // Hack alert. ArrayConversion needs to be able to answer questions
++      // about the status of individual conversions in addition to the
++      // overall state. This allows us to do that easily.
++      subArg.conversion = conversion;
++      return conversion;
++    }, this);
++    return new ArrayConversion(conversions, arg);
++  }
++  else {
++    console.error('non ArrayArgument to ArrayType.parse', arg);
++    throw new Error('non ArrayArgument to ArrayType.parse');
++  }
++};
++
++ArrayType.prototype.getDefault = function() {
++  return new ArrayConversion([], new ArrayArgument());
++};
++
++ArrayType.prototype.name = 'array';
++
++exports.ArrayType = ArrayType;
++
++
++});
++/*
++ * Copyright 2009-2011 Mozilla Foundation and contributors
++ * Licensed under the New BSD license. See LICENSE.txt or:
++ * http://opensource.org/licenses/BSD-3-Clause
++ */
++
++define('gcli/types/javascript', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types'], function(require, exports, module) {
 +
 +
 +var l10n = require('gcli/l10n');
@@ -3814,6 +3464,33 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +var Type = types.Type;
 +var Status = types.Status;
 +
++
++/**
++ * Registration and de-registration.
++ */
++exports.startup = function() {
++  types.registerType(JavascriptType);
++};
++
++exports.shutdown = function() {
++  types.unregisterType(JavascriptType);
++};
++
++/**
++ * The object against which we complete, which is usually 'window' if it exists
++ * but could be something else in non-web-content environments.
++ */
++var globalObject;
++if (typeof window !== 'undefined') {
++  globalObject = window;
++}
++
++/**
++ * Setter for the object against which Javascript completions happen
++ */
++exports.setGlobalObject = function(obj) {
++  globalObject = obj;
++};
 +
 +/**
 + * 'javascript' handles scripted input
@@ -3830,12 +3507,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  if (value == null) {
 +    return '';
 +  }
-+  return value.name;
++  return value;
 +};
 +
 +JavascriptType.prototype.parse = function(arg) {
 +  var typed = arg.text;
-+  var scope = window;
++  var scope = globalObject;
 +
 +  // In FX-land we need to unwrap. TODO: Enable in the browser.
 +  // scope = unwrap(scope);
@@ -3868,7 +3545,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      // We can't complete on null.foo, so bail out
 +      if (scope == null) {
 +        return new Conversion(typed, arg, Status.ERROR,
-+                l10n.lookup('jstype_parse_scope'));
++                l10n.lookup('jstypeParseScope'));
 +      }
 +
 +      // TODO: Re-enable this test
@@ -3899,7 +3576,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  // However if the prop was a simple string, it is an error
 +  if (scope == null) {
 +    return new Conversion(typed, arg, Status.ERROR,
-+            l10n.lookup('jstype_parse_missing', { prop: prop }));
++        l10n.lookupFormat('jstypeParseMissing', [ prop ]));
 +  }
 +
 +  // If the thing we're looking for isn't a simple string, then we're not going
@@ -3958,7 +3635,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  // Error message if this isn't valid
 +  if (status !== Status.VALID) {
-+    message = l10n.lookup('jstype_parse_missing', { prop: matchProp });
++    message = l10n.lookupFormat('jstypeParseMissing', [ matchProp ]);
 +  }
 +
 +  // If the match is the only one possible, and its VALID, predict nothing
@@ -3971,6 +3648,14 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    matches.sort(function(p1, p2) {
 +      return p1.name.localeCompare(p2.name);
 +    });
++  }
++
++  // More than 10 matches are generally not helpful. We should really do a
++  // better job of finding matches (bug 682694), but in the mean time there is
++  // a performance problem associated with creating a large number of DOM nodes
++  // that few people will ever read, so trim the list of matches
++  if (matches && matches.length > 10) {
++    matches = matches.slice(0, 9);
 +  }
 +
 +  return new Conversion(typed, arg, status, message, matches);
@@ -4036,7 +3721,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +        else if (CLOSE_BODY.indexOf(c) != -1) {
 +          var last = bodyStack.pop();
 +          if (!last || OPEN_CLOSE_BODY[last.token] != c) {
-+            return { err: l10n.lookup('jstype_begin_syntax') };
++            return { err: l10n.lookup('jstypeBeginSyntax') };
 +          }
 +          if (c === '}') {
 +            start = i + 1;
@@ -4053,7 +3738,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +          i ++;
 +        }
 +        else if (c === '\n') {
-+          return { err: l10n.lookup('jstype_begin_unterm') };
++          return { err: l10n.lookup('jstypeBeginUnterm') };
 +        }
 +        else if (c === '"') {
 +          state = ParseState.NORMAL;
@@ -4066,7 +3751,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +          i ++;
 +        }
 +        else if (c === '\n') {
-+          return { err: l10n.lookup('jstype_begin_unterm') };
++          return { err: l10n.lookup('jstypeBeginUnterm') };
 +        }
 +        else if (c === '\'') {
 +          state = ParseState.NORMAL;
@@ -4118,16 +3803,120 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +exports.JavascriptType = JavascriptType;
 +
 +
++});
++/*
++ * Copyright 2009-2011 Mozilla Foundation and contributors
++ * Licensed under the New BSD license. See LICENSE.txt or:
++ * http://opensource.org/licenses/BSD-3-Clause
++ */
++
++define('gcli/types/node', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types'], function(require, exports, module) {
++
++
++var l10n = require('gcli/l10n');
++var types = require('gcli/types');
++var Type = require('gcli/types').Type;
++var Status = require('gcli/types').Status;
++var Conversion = require('gcli/types').Conversion;
++
++
 +/**
 + * Registration and de-registration.
 + */
 +exports.startup = function() {
-+  types.registerType(JavascriptType);
++  types.registerType(NodeType);
 +};
 +
 +exports.shutdown = function() {
-+  types.unregisterType(JavascriptType);
++  types.unregisterType(NodeType);
 +};
++
++/**
++ * The object against which we complete, which is usually 'window' if it exists
++ * but could be something else in non-web-content environments.
++ */
++var doc;
++if (typeof document !== 'undefined') {
++  doc = document;
++}
++
++/**
++ * Setter for the object against which Javascript completions happen
++ */
++exports.setDocument = function(document) {
++  doc = document;
++};
++
++/**
++ * A CSS expression that refers to a single node
++ */
++function NodeType(typeSpec) {
++  if (typeSpec != null) {
++    throw new Error('NodeType can not be customized');
++  }
++}
++
++NodeType.prototype = Object.create(Type.prototype);
++
++NodeType.prototype.stringify = function(value) {
++  return value.__gcliQuery || 'Error';
++};
++
++NodeType.prototype.parse = function(arg) {
++  if (arg.text === '') {
++    return new Conversion(null, arg, Status.INCOMPLETE,
++        l10n.lookup('nodeParseNone'));
++  }
++
++  var nodes;
++  try {
++    nodes = doc.querySelectorAll(arg.text);
++  }
++  catch (ex) {
++    console.error(ex);
++    return new Conversion(null, arg, Status.ERROR, l10n.lookup('nodeParseSyntax'));
++  }
++
++  if (nodes.length === 0) {
++    return new Conversion(null, arg, Status.INCOMPLETE,
++        l10n.lookup('nodeParseNone'));
++  }
++
++  if (nodes.length === 1) {
++    var node = nodes.item(0);
++    node.__gcliQuery = arg.text;
++
++    flashNode(node, 'green');
++
++    return new Conversion(node, arg, Status.VALID, '');
++  }
++
++  Array.prototype.forEach.call(nodes, function(n) {
++    flashNode(n, 'red');
++  });
++
++  return new Conversion(null, arg, Status.ERROR,
++          l10n.lookupFormat('nodeParseMultiple', [ nodes.length ]));
++};
++
++NodeType.prototype.name = 'node';
++
++
++/**
++ * Helper to turn a node background it's complementary color for 1 second.
++ * There is likely a better way to do this, but this will do for now.
++ */
++function flashNode(node, color) {
++  if (!node.__gcliHighlighting) {
++    node.__gcliHighlighting = true;
++    var original = node.style.background;
++    node.style.background = color;
++    setTimeout(function() {
++      node.style.background = original;
++      delete node.__gcliHighlighting;
++    }, 1000);
++  }
++}
 +
 +
 +});
@@ -4137,7 +3926,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/argument', 'gcli/commands'], function(require, exports, module) {
++define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/types/basic', 'gcli/argument'], function(require, exports, module) {
 +
 +
 +var createEvent = require('gcli/util').createEvent;
@@ -4148,11 +3937,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +var types = require('gcli/types');
 +var Status = require('gcli/types').Status;
 +var Conversion = require('gcli/types').Conversion;
-+var ArrayType = require('gcli/types').ArrayType;
-+var StringType = require('gcli/types').StringType;
-+var BooleanType = require('gcli/types').BooleanType;
-+var SelectionType = require('gcli/types').SelectionType;
 +var Type = require('gcli/types').Type;
++var ArrayType = require('gcli/types/basic').ArrayType;
++var StringType = require('gcli/types/basic').StringType;
++var BooleanType = require('gcli/types/basic').BooleanType;
++var SelectionType = require('gcli/types/basic').SelectionType;
 +
 +var Argument = require('gcli/argument').Argument;
 +var ArrayArgument = require('gcli/argument').ArrayArgument;
@@ -4161,20 +3950,19 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +var MergedArgument = require('gcli/argument').MergedArgument;
 +var ScriptArgument = require('gcli/argument').ScriptArgument;
 +
-+var commands = require('gcli/commands');
 +var evalCommand;
-+
 +
 +/**
 + * Registration and de-registration.
 + */
 +exports.startup = function() {
 +  types.registerType(CommandType);
-+  evalCommand = commands.getEvalCommand();
++  evalCommand = canon.addCommand(evalCommandSpec);
 +};
 +
 +exports.shutdown = function() {
 +  types.unregisterType(CommandType);
++  canon.removeCommand(evalCommandSpec.name);
 +  evalCommand = undefined;
 +};
 +
@@ -4347,14 +4135,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +Assignment.prototype.complete = function() {
 +  var predictions = this.conversion.getPredictions();
 +  if (predictions.length > 0) {
-+    var value = predictions[0].value;
-+    var text = this.param.type.stringify(value);
-+    var arg = this.conversion.arg.beget(text);
++    var arg = this.conversion.arg.beget(predictions[0].name);
 +    if (!predictions[0].incomplete) {
 +      arg.suffix = ' ';
 +    }
 +    var conversion = this.param.type.parse(arg);
-+//    var conversion = new Conversion(value, arg);
 +    this.setConversion(conversion);
 +  }
 +};
@@ -4409,7 +4194,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +CommandType.prototype.name = 'command';
 +
-+CommandType.prototype._getLookupArray = SelectionType.prototype._getLookupArray;
 +CommandType.prototype.decrement = SelectionType.prototype.decrement;
 +CommandType.prototype.increment = SelectionType.prototype.increment;
 +CommandType.prototype._findValue = SelectionType.prototype._findValue;
@@ -4419,48 +4203,22 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +/**
-+ * Create a map of command-name to command that we can mutate if desired
-+ */
-+CommandType.prototype._getLookup = function() {
-+  // This is ripe for optimization, canon.getCommands() creates an array from
-+  // an object and we just turn it back again.
-+  var commands = {};
-+  var cmdarr = canon.getCommands();
-+  cmdarr.sort(function(command1, command2) {
-+    return command1.name.localeCompare(command2.name);
-+  });
-+  cmdarr.forEach(function(command) {
-+    commands[command.name] = command;
-+  }, this);
-+  return commands;
-+};
-+
-+/**
-+ * Trim a list of commands (as from _getLookup) according to those that
-+ * match the provided arg.
++ * Trim a list of commands (as from canon.getCommands()) according to those
++ * that match the provided arg.
 + */
 +CommandType.prototype._findPredictions = function(arg) {
 +  var predictions = [];
-+  var lookup = this._getLookup();
-+
-+  var matchedValue = lookup[arg.text];
-+  if (matchedValue && matchedValue.exec) {
-+    predictions.push({ name: arg.text, value: matchedValue });
-+  }
-+  else {
-+    Object.keys(lookup).forEach(function(name) {
-+      if (name.indexOf(arg.text) === 0) {
-+        // The command type needs to exclude sub-commands when the CLI
-+        // is blank, but include them when we're filtering. This hack
-+        // excludes matches when the filter text is '' and when the
-+        // name includes a space.
-+        if (arg.text.length !== 0 || name.indexOf(' ') === -1) {
-+          predictions.push({ name: name, value: lookup[name] });
-+        }
++  canon.getCommands().forEach(function(command) {
++    if (command.name.indexOf(arg.text) === 0) {
++      // The command type needs to exclude sub-commands when the CLI
++      // is blank, but include them when we're filtering. This hack
++      // excludes matches when the filter text is '' and when the
++      // name includes a space.
++      if (arg.text.length !== 0 || command.name.indexOf(' ') === -1) {
++        predictions.push(command);
 +      }
-+    }, this);
-+  }
-+
++    }
++  }, this);
 +  return predictions;
 +};
 +
@@ -4473,35 +4231,80 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  var predictions = this._findPredictions(arg);
 +
-+  var value = null;
-+  var status = Status.INCOMPLETE;
-+  var msg = '';
-+
-+  var matchCount = Object.keys(predictions).length;
-+  if (matchCount === 0) {
++  if (predictions.length === 0) {
 +    return new Conversion(null, arg, Status.ERROR,
 +        'Can\'t use \'' + arg.text + '\'.', predictFunc);
 +  }
 +
-+  if (matchCount === 1) {
++  var command = predictions[0];
++
++  if (predictions.length === 1) {
 +    // Is it an exact match of an executable command,
 +    // or just the only possibility?
-+    if (predictions[0].name === arg.text) {
-+      value = predictions[0].value;
-+      if (typeof value.exec === 'function') {
-+        status = Status.VALID;
-+        predictFunc = null;
++    if (command.name === arg.text && typeof command.exec === 'function') {
++      return new Conversion(command, arg, Status.VALID, '');
++    }
++    return new Conversion(null, arg, Status.INCOMPLETE, '', predictFunc);
++  }
++
++  // It's valid if the text matches, even if there are several options
++  if (command.name === arg.text) {
++    return new Conversion(command, arg, Status.VALID, '', predictFunc);
++  }
++
++  return new Conversion(null, arg, Status.INCOMPLETE, '', predictFunc);
++};
++
++
++/**
++ * How to dynamically execute JavaScript code
++ */
++var customEval = eval;
++
++exports.setEvalFunction = function(newCustomEval) {
++  customEval = newCustomEval;
++};
++
++/**
++ * 'eval' command
++ */
++var evalCommandSpec = {
++  name: '{',
++  params: [
++    {
++      name: 'javascript',
++      type: 'javascript',
++      description: ''
++    }
++  ],
++  returnType: 'html',
++  description: { key: 'cliEvalJavascript' },
++  exec: function(args, context) {
++    // &#x2192; is right arrow. We use explicit entities to ensure XML validity
++    var resultPrefix = '<em>{ ' + args.javascript + ' }</em> &#x2192; ';
++    try {
++      var result = customEval(args.javascript);
++
++      if (result === null) {
++        return resultPrefix + 'null.';
 +      }
++
++      if (result === undefined) {
++        return resultPrefix + 'undefined.';
++      }
++
++      if (typeof result === 'function') {
++        // &#160; is &nbsp;
++        return resultPrefix +
++            (result + '').replace(/\n/g, '<br>').replace(/ /g, '&#160;');
++      }
++
++      return resultPrefix + result;
++    }
++    catch (ex) {
++      return resultPrefix + 'Exception: ' + ex.message;
 +    }
 +  }
-+
-+  // Exact match when there are several options is incomplete
-+  if (predictions[0].name === arg.text) {
-+    value = predictions[0].value;
-+    status = Status.VALID;
-+  }
-+
-+  return new Conversion(value, arg, status, msg, predictFunc);
 +};
 +
 +
@@ -4838,6 +4641,15 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      line.push(type.stringify(assignment.getValue()));
 +    }
 +  }, this);
++
++  // Canonically, if we've opened with a { then we should have a } to close
++  var command = this.commandAssignment.getValue();
++  if (cmd === '{') {
++    if (this.getAssignment(0).getArg().suffix.indexOf('}') === -1) {
++      line.push(' }');
++    }
++  }
++
 +  return line.join('');
 +};
 +
@@ -5220,10 +5032,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +        .replace(/\uF004/g, '}');
 +  }
 +
-+  var i = 0; // The index of the current character
-+  var start = 0; // Where did this section start?
-+  var prefix = ''; // Stuff that comes before the current argument
-+  var args = [];
++  var i = 0;          // The index of the current character
++  var start = 0;      // Where did this section start?
++  var prefix = '';    // Stuff that comes before the current argument
++  var args = [];      // The array that we're creating
++  var blockDepth = 0; // For JS with nested {}
 +
 +  // This is just a state machine. We're going through the string char by char
 +  // The 'mode' is one of the 'In' states. As we go, we're adding Arguments
@@ -5246,6 +5059,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +        else if (c === '{') {
 +          prefix = typed.substring(start, i + 1);
 +          mode = In.SCRIPT;
++          blockDepth++;
 +          start = i + 1;
 +        }
 +        else if (/ /.test(c)) {
@@ -5291,12 +5105,18 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +        break;
 +
 +      case In.SCRIPT:
-+        if (c === '}') {
-+          var str = unescape2(typed.substring(start, i));
-+          args.push(new ScriptArgument(str, prefix, c));
-+          mode = In.WHITESPACE;
-+          start = i + 1;
-+          prefix = '';
++        if (c === '{') {
++          blockDepth++;
++        }
++        else if (c === '}') {
++          blockDepth--;
++          if (blockDepth === 0) {
++            var str = unescape2(typed.substring(start, i));
++            args.push(new ScriptArgument(str, prefix, c));
++            mode = In.WHITESPACE;
++            start = i + 1;
++            prefix = '';
++          }
 +        }
 +        break;
 +    }
@@ -5560,42 +5380,42 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +
 +/**
-+ * A promise can be in one of 2 states.
-+ * The ERROR and SUCCESS states are terminal, the PENDING state is the only
-+ * start state.
-+ */
-+var ERROR = -1;
-+var PENDING = 0;
-+var SUCCESS = 1;
-+
-+/**
-+ * We give promises and ID so we can track which are outstanding
-+ */
-+var _nextId = 0;
-+
-+/**
-+ * Outstanding promises. Handy list for debugging only.
-+ */
-+var _outstanding = [];
-+
-+/**
-+ * Recently resolved promises. Also for debugging only.
-+ */
-+var _recent = [];
-+
-+/**
 + * Create an unfulfilled promise
 + */
-+Promise = function () {
-+  this._status = PENDING;
++var Promise = function () {
++  this._status = Promise.PENDING;
 +  this._value = undefined;
 +  this._onSuccessHandlers = [];
 +  this._onErrorHandlers = [];
 +
 +  // Debugging help
-+  this._id = _nextId++;
-+  _outstanding[this._id] = this;
++  this._id = Promise._nextId++;
++  Promise._outstanding[this._id] = this;
 +};
++
++/**
++ * We give promises and ID so we can track which are outstanding
++ */
++Promise._nextId = 0;
++
++/**
++ * Outstanding promises. Handy list for debugging only.
++ */
++Promise._outstanding = [];
++
++/**
++ * Recently resolved promises. Also for debugging only.
++ */
++Promise._recent = [];
++
++/**
++ * A promise can be in one of 2 states.
++ * The ERROR and SUCCESS states are terminal, the PENDING state is the only
++ * start state.
++ */
++Promise.ERROR = -1;
++Promise.PENDING = 0;
++Promise.SUCCESS = 1;
 +
 +/**
 + * Yeay for RTTI.
@@ -5613,14 +5433,14 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Have we resolve()ed?
 + */
 +Promise.prototype.isResolved = function() {
-+  return this._status == SUCCESS;
++  return this._status == Promise.SUCCESS;
 +};
 +
 +/**
 + * Have we reject()ed?
 + */
 +Promise.prototype.isRejected = function() {
-+  return this._status == ERROR;
++  return this._status == Promise.ERROR;
 +};
 +
 +/**
@@ -5629,17 +5449,17 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + */
 +Promise.prototype.then = function(onSuccess, onError) {
 +  if (typeof onSuccess === 'function') {
-+    if (this._status === SUCCESS) {
++    if (this._status === Promise.SUCCESS) {
 +      onSuccess.call(null, this._value);
-+    } else if (this._status === PENDING) {
++    } else if (this._status === Promise.PENDING) {
 +      this._onSuccessHandlers.push(onSuccess);
 +    }
 +  }
 +
 +  if (typeof onError === 'function') {
-+    if (this._status === ERROR) {
++    if (this._status === Promise.ERROR) {
 +      onError.call(null, this._value);
-+    } else if (this._status === PENDING) {
++    } else if (this._status === Promise.PENDING) {
 +      this._onErrorHandlers.push(onError);
 +    }
 +  }
@@ -5649,7 +5469,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +/**
 + * Like then() except that rather than returning <tt>this</tt> we return
-+ * a promise which
++ * a promise which resolves when the original promise resolves.
 + */
 +Promise.prototype.chainPromise = function(onSuccess) {
 +  var chain = new Promise();
@@ -5670,14 +5490,14 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Supply the fulfillment of a promise
 + */
 +Promise.prototype.resolve = function(data) {
-+  return this._complete(this._onSuccessHandlers, SUCCESS, data, 'resolve');
++  return this._complete(this._onSuccessHandlers, Promise.SUCCESS, data, 'resolve');
 +};
 +
 +/**
 + * Renege on a promise
 + */
 +Promise.prototype.reject = function(data) {
-+  return this._complete(this._onErrorHandlers, ERROR, data, 'reject');
++  return this._complete(this._onErrorHandlers, Promise.ERROR, data, 'reject');
 +};
 +
 +/**
@@ -5686,7 +5506,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + */
 +Promise.prototype._complete = function(list, status, data, name) {
 +  // Complain if we've already been completed
-+  if (this._status != PENDING) {
++  if (this._status != Promise.PENDING) {
 +    console.group('Promise already closed');
 +    console.error('Attempted ' + name + '() with ', data);
 +    console.error('Previous status = ', this._status,
@@ -5709,10 +5529,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  // Remove the given {promise} from the _outstanding list, and add it to the
 +  // _recent list, pruning more than 20 recent promises from that list.
-+  delete _outstanding[this._id];
-+  _recent.push(this);
-+  while (_recent.length > 20) {
-+    _recent.shift();
++  delete Promise._outstanding[this._id];
++  Promise._recent.push(this);
++  while (Promise._recent.length > 20) {
++    Promise._recent.shift();
 +  }
 +
 +  return this;
@@ -5743,7 +5563,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      results[index] = data;
 +      fulfilled++;
 +      // If the group has already failed, silently drop extra results
-+      if (groupPromise._status !== ERROR) {
++      if (groupPromise._status !== Promise.ERROR) {
 +        if (fulfilled === promiseList.length) {
 +          groupPromise.resolve(results);
 +        }
@@ -5761,84 +5581,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +exports.Promise = Promise;
-+exports._outstanding = _outstanding;
-+exports._recent = _recent;
-+
-+});
-+/*
-+ * Copyright 2009-2011 Mozilla Foundation and contributors
-+ * Licensed under the New BSD license. See LICENSE.txt or:
-+ * http://opensource.org/licenses/BSD-3-Clause
-+ */
-+
-+define('gcli/commands', ['require', 'exports', 'module' , 'gcli/canon'], function(require, exports, module) {
-+
-+
-+var Command = require('gcli/canon').Command;
-+
-+/**
-+ * hidden 'eval' command
-+ */
-+var evalCommandSpec = {
-+  name: 'eval',
-+  params: [
-+    {
-+      name: 'javascript',
-+      type: 'javascript',
-+      description: ''
-+    }
-+  ],
-+  returnType: 'html',
-+  description: { key: 'commands_eval_javascript' },
-+  exec: function(args, context) {
-+    // &#x2192; is right arrow
-+    var resultPrefix = '<em>{ ' + args.javascript + ' }</em> &#x2192; ';
-+    try {
-+      var result = eval(args.javascript);
-+
-+      if (result === null) {
-+        return resultPrefix + 'null.';
-+      }
-+
-+      if (result === undefined) {
-+        return resultPrefix + 'undefined.';
-+      }
-+
-+      if (typeof result === 'function') {
-+        return resultPrefix +
-+          (result + '').replace(/\n/g, '<br>').replace(/ /g, '&#160;');
-+      }
-+
-+      return resultPrefix + result;
-+    } catch (e) {
-+      return resultPrefix + 'Exception: ' + e.message;
-+    }
-+  }
-+};
-+
-+
-+/**
-+ * We don't want to register the eval commands using canon.addCommand(...)
-+ * because we don't want it to pop up in help etc, however it depends on
-+ * types that are dynamically registered/destroyed, so we can't it them be
-+ * static.
-+ */
-+var evalCommand = null;
-+
-+/**
-+ * Registration and de-registration.
-+ */
-+exports.getEvalCommand = function() {
-+  if (!evalCommand) {
-+    evalCommand = new Command(evalCommandSpec);
-+  }
-+  return evalCommand;
-+};
-+
-+exports.destroyInternalCommands = function() {
-+  evalCommand = null;
-+};
-+
 +
 +});
 +/*
@@ -5942,8 +5684,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * can show/hide accordingly.
 + */
 +Inputter.prototype.sendFocusEventsToPopup = function(popup) {
-+  event.addListener(this.element, 'focus', popup.showOutput);
-+  event.addListener(this.element, 'blur', popup.hideOutput);
++  event.addListener(this.element, 'focus', function() {
++    popup.show(this.element);
++  }.bind(this));
++  event.addListener(this.element, 'blur', popup.hide);
 +};
 +
 +/**
@@ -5973,7 +5717,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * set. This is required for completion events.
 + */
 +Inputter.prototype._setInputInternal = function(str) {
-+  if (this.element.value === str) {
++  if (this.element.value && this.element.value === str) {
 +    this._processCaretChange(this.getInputState(), false);
 +    return;
 +  }
@@ -6046,7 +5790,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      do {
 +        start++;
 +      }
-+      while (input.typed[start - 1] !== ' ' && start < input.typed.length);
++      while (start < input.typed.length && input.typed[start - 1] !== ' ');
 +
 +      end = start;
 +      break;
@@ -6255,7 +5999,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +    if (!this.element) {
 +      this.elementCreated = true;
-+      this.element = dom.createElement('div', null, this.doc);
++      this.element = dom.createElement(this.doc, 'div');
 +      this.element.className = 'gcliCompletion gcliVALID';
 +      this.element.setAttribute('tabindex', '-1');
 +      this.element.setAttribute('aria-live', 'polite');
@@ -6362,7 +6106,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  if (input.typed.length > 0 && predictions.length > 0) {
 +    var tab = predictions[0].name;
-+    tab = (typeof tab === 'string') ? tab : tab.name;
 +    var existing = current.getArg().text;
 +    if (isStrictCompletion(existing, tab) && input.cursor.start === input.typed.length) {
 +      // Display the suffix of the prediction as the completion.
@@ -6376,8 +6119,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    }
 +  }
 +
++  // A hack to add a grey '}' to the end of the command line when we've opened
++  // with a { but haven't closed it
 +  var command = this.requ.commandAssignment.getValue();
-+  if (command && command.name === 'eval') {
++  if (command && command.name === '{') {
 +    if (this.requ.getAssignment(0).getArg().suffix.indexOf('}') === -1) {
 +      completion += '<span class="gcliCloseBrace">}</span>';
 +    }
@@ -6524,7 +6269,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    throw new Error('No document');
 +  }
 +
-+  this.element =  dom.createElement('div', null, this.doc);
++  this.element =  dom.createElement(this.doc, 'div');
 +  this.element.className = 'gcliCliEle';
 +  // We cache the fields we create so we can destroy them later
 +  this.fields = [];
@@ -6537,7 +6282,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  if (!ArgFetcher.reqTempl) {
 +    dom.importCssString(editorCss, this.doc);
 +
-+    var templates = dom.createElement('div', null, this.doc);
++    var templates = dom.createElement(this.doc, 'div');
 +    dom.setInnerHtml(templates, argFetchHtml);
 +    ArgFetcher.reqTempl = templates.querySelector('#gcliReqTempl');
 +  }
@@ -6591,25 +6336,22 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * of field for each assignment.
 + */
 +ArgFetcher.prototype.getInputFor = function(assignment) {
-+  var newField = getField(this.doc,
-+      assignment.param.type,
-+      !assignment.param.isPositionalAllowed(),
-+      assignment.param.name,
-+      this.requ);
++  var newField = getField(assignment.param.type, {
++    document: this.doc,
++    type: assignment.param.type,
++    name: assignment.param.name,
++    requisition: this.requ,
++    required: assignment.param.isDataRequired(),
++    named: !assignment.param.isPositionalAllowed()
++  });
 +
 +  // BUG 664198 - remove on delete
 +  newField.fieldChanged.add(function(ev) {
 +    assignment.setConversion(ev.conversion);
 +  }, this);
 +  assignment.assignmentChange.add(function(ev) {
-+    // Don't report an event if the value is unchanged
-+    if (ev.oldConversion != null &&
-+        ev.conversion.valueEquals(ev.oldConversion)) {
-+      return;
-+    }
-+
 +    newField.setConversion(ev.conversion);
-+  });
++  }.bind(this));
 +
 +  this.fields.push(newField);
 +  newField.setConversion(this.assignment.conversion);
@@ -6660,7 +6402,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/ui/field', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/argument', 'gcli/types', 'gcli/jstype', 'gcli/ui/menu'], function(require, exports, module) {
++define('gcli/ui/field', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/argument', 'gcli/types', 'gcli/types/basic', 'gcli/types/javascript', 'gcli/ui/menu'], function(require, exports, module) {
 +
 +
 +var dom = require('gcli/util').dom;
@@ -6676,14 +6418,14 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +var Conversion = require('gcli/types').Conversion;
 +var ArrayConversion = require('gcli/types').ArrayConversion;
 +
-+var StringType = require('gcli/types').StringType;
-+var NumberType = require('gcli/types').NumberType;
-+var BooleanType = require('gcli/types').BooleanType;
-+var BlankType = require('gcli/types').BlankType;
-+var SelectionType = require('gcli/types').SelectionType;
-+var DeferredType = require('gcli/types').DeferredType;
-+var ArrayType = require('gcli/types').ArrayType;
-+var JavascriptType = require('gcli/jstype').JavascriptType;
++var StringType = require('gcli/types/basic').StringType;
++var NumberType = require('gcli/types/basic').NumberType;
++var BooleanType = require('gcli/types/basic').BooleanType;
++var BlankType = require('gcli/types/basic').BlankType;
++var SelectionType = require('gcli/types/basic').SelectionType;
++var DeferredType = require('gcli/types/basic').DeferredType;
++var ArrayType = require('gcli/types/basic').ArrayType;
++var JavascriptType = require('gcli/types/javascript').JavascriptType;
 +
 +var Menu = require('gcli/ui/menu').Menu;
 +
@@ -6806,7 +6548,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +}
 +
-+function getField(doc, type, named, name, requ) {
++function getField(type, options) {
 +  var ctor;
 +  var highestClaim = -1;
 +  fieldCtors.forEach(function(fieldCtor) {
@@ -6822,7 +6564,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    throw new Error('Can\'t find field for ' + type);
 +  }
 +
-+  return new ctor(doc, type, named, name, requ);
++  return new ctor(type, options);
 +}
 +
 +exports.Field = Field;
@@ -6834,19 +6576,14 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +/**
 + * A field that allows editing of strings
 + */
-+function StringField(doc, type, named, name, requ) {
-+  this.doc = doc;
++function StringField(type, options) {
++  this.doc = options.document;
 +  this.type = type;
 +  this.arg = new Argument();
 +
-+  this.element = dom.createElement('input', null, this.doc);
++  this.element = dom.createElement(this.doc, 'input');
 +  this.element.type = 'text';
-+  /*
-+  Bug 680852: finish this off
-+  if (isDataRequired) {
-+    this.element.required = true;
-+  }
-+  */
++  this.element.style.width = '100%';
 +
 +  this.onInputChange = this.onInputChange.bind(this);
 +  this.element.addEventListener('keyup', this.onInputChange, false);
@@ -6857,7 +6594,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +StringField.prototype = Object.create(Field.prototype);
 +
 +StringField.prototype.destroy = function() {
-+  this.element.removeEventListener('keyup', this.onKeyup, false);
++  this.element.removeEventListener('keyup', this.onInputChange, false);
 +};
 +
 +StringField.prototype.setConversion = function(conversion) {
@@ -6883,12 +6620,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +/**
 + * A field that allows editing of numbers using an [input type=number] field
 + */
-+function NumberField(doc, type, named, name, requ) {
-+  this.doc = doc;
++function NumberField(type, options) {
++  this.doc = options.document;
 +  this.type = type;
 +  this.arg = new Argument();
 +
-+  this.element = dom.createElement('input', null, this.doc);
++  this.element = dom.createElement(this.doc, 'input');
 +  this.element.type = 'number';
 +  if (this.type.max) {
 +    this.element.max = this.type.max;
@@ -6913,7 +6650,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +NumberField.prototype.destroy = function() {
-+  this.element.removeEventListener('keyup', this.onKeyup, false);
++  this.element.removeEventListener('keyup', this.onInputChange, false);
 +};
 +
 +NumberField.prototype.setConversion = function(conversion) {
@@ -6934,15 +6671,15 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +/**
 + * A field that uses a checkbox to toggle a boolean field
 + */
-+function BooleanField(doc, type, named, name, requ) {
-+  this.doc = doc;
++function BooleanField(type, options) {
++  this.doc = options.document;
 +  this.type = type;
-+  this.name = name;
-+  this.named = named;
++  this.name = options.name;
++  this.named = options.named;
 +
-+  this.element = dom.createElement('input', null, this.doc);
++  this.element = dom.createElement(this.doc, 'input');
 +  this.element.type = 'checkbox';
-+  this.element.id = 'gcliForm' + name;
++  this.element.id = 'gcliForm' + this.name;
 +
 +  this.onInputChange = this.onInputChange.bind(this);
 +  this.element.addEventListener('change', this.onInputChange, false);
@@ -6957,7 +6694,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +BooleanField.prototype.destroy = function() {
-+  this.element.removeEventListener('change', this.onChange, false);
++  this.element.removeEventListener('change', this.onInputChange, false);
 +};
 +
 +BooleanField.prototype.setConversion = function(conversion) {
@@ -6988,18 +6725,18 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * <li>optText: This is the contents of the DOM option element.
 + * </ul>
 + */
-+function SelectionField(doc, type, named, name, requ) {
-+  this.doc = doc;
++function SelectionField(type, options) {
++  this.doc = options.document;
 +  this.type = type;
-+  this.opts = {};
-+  this.defaultText = l10n.lookup('field_selection_select', { name: name });
++  this.items = [];
 +
-+  this.element = dom.createElement('select', null, this.doc);
-+  this._addOption(null, this.defaultText, SelectionField.DEFAULT_VALUE);
++  this.element = dom.createElement(this.doc, 'select');
++  this.element.style.width = '180px';
++  this._addOption({
++    name: l10n.lookupFormat('fieldSelectionSelect', [ options.name ])
++  });
 +  var lookup = this.type.getLookup();
-+  Object.keys(lookup).forEach(function(key) {
-+    this._addOption(lookup[key], key);
-+  }, this);
++  lookup.forEach(this._addOption, this);
 +
 +  this.onInputChange = this.onInputChange.bind(this);
 +  this.element.addEventListener('change', this.onInputChange, false);
@@ -7014,45 +6751,36 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +SelectionField.prototype.destroy = function() {
-+  this.element.removeEventListener('change', this.onChange, false);
++  this.element.removeEventListener('change', this.onInputChange, false);
 +};
 +
 +SelectionField.prototype.setConversion = function(conversion) {
-+  var optValue = SelectionField.DEFAULT_VALUE;
-+  Object.keys(this.opts).some(function(key) {
-+    var opt = this.opts[key];
-+    if (opt.value === conversion.value) {
-+      optValue = opt.optValue;
-+      return true;
++  var index;
++  this.items.forEach(function(item) {
++    if (item.value && item.value === conversion.value) {
++      index = item.index;
 +    }
-+    return false;
 +  }, this);
-+  this.element.value = optValue;
++  this.element.value = index;
 +  this.setMessage(conversion.message);
 +};
 +
 +SelectionField.prototype.getConversion = function() {
-+  var value = this.element.value === SelectionField.DEFAULT_VALUE ?
-+      null :
-+      this.opts[this.element.value].value;
-+  var arg = new Argument(this.type.stringify(value), ' ');
++  var item = this.items[this.element.value];
++  var arg = new Argument(item.name, ' ');
++  var value = item.value ? item.value : item;
 +  return new Conversion(value, arg);
 +};
 +
-+SelectionField.prototype._addOption = function(value, optText, optValue) {
-+  optValue = optValue || optText;
-+  this.opts[optValue] = {
-+    value: value,
-+    optText: optText,
-+    optValue: optValue
-+  };
-+  var option = dom.createElement('option', null, this.doc);
-+  option.innerHTML = optText;
-+  option.value = optValue;
++SelectionField.prototype._addOption = function(item) {
++  item.index = this.items.length;
++  this.items.push(item);
++
++  var option = dom.createElement(this.doc, 'option');
++  option.innerHTML = item.name;
++  option.value = item.index;
 +  this.element.appendChild(option);
 +};
-+
-+SelectionField.DEFAULT_VALUE = '__SelectionField.DEFAULT_VALUE';
 +
 +exports.SelectionField = SelectionField;
 +addField(SelectionField);
@@ -7061,21 +6789,21 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +/**
 + * A field that allows editing of javascript
 + */
-+function JavascriptField(doc, type, named, name, requ) {
-+  this.doc = doc;
++function JavascriptField(type, options) {
++  this.doc = options.document;
 +  this.type = type;
-+  this.requ = requ;
++  this.requ = options.requisition;
 +
 +  this.onInputChange = this.onInputChange.bind(this);
 +  this.arg = new Argument('', '{ ', ' }');
 +
-+  this.element = doc.createElement('div', null, this.doc);
++  this.element = dom.createElement(this.doc, 'div');
 +
-+  this.input = dom.createElement('input', null, this.doc);
++  this.input = dom.createElement(this.doc, 'input');
 +  this.input.type = 'text';
 +  this.input.addEventListener('keyup', this.onInputChange, false);
 +  this.input.style.marginBottom = '0px';
-+  this.input.style.width = '240px';
++  this.input.style.width = options.name.length === 0 ? '240px' : '160px';
 +  this.element.appendChild(this.input);
 +
 +  this.menu = new Menu(this.doc, { field: true });
@@ -7095,14 +6823,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +JavascriptField.prototype.destroy = function() {
-+  this.input.removeEventListener('keyup', this.onKeyup, false);
++  this.input.removeEventListener('keyup', this.onInputChange, false);
 +};
 +
 +JavascriptField.prototype.setConversion = function(conversion) {
 +  this.arg = conversion.arg;
 +  this.input.value = conversion.arg.text;
-+
-+  var predictions = conversion.getPredictions();
 +
 +  var prefixLen = 0;
 +  if (this.type instanceof JavascriptType) {
@@ -7114,14 +6840,14 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +
 +  var items = [];
-+  predictions.forEach(function(pair) {
-+    var value = pair.value;
++  var predictions = conversion.getPredictions();
++  predictions.forEach(function(item) {
 +    // Commands can be hidden
-+    if (!value.hidden) {
++    if (!item.hidden) {
 +      items.push({
-+        name: pair.name.substring(prefixLen),
-+        complete: pair.name,
-+        description: value.description || ''
++        name: item.name.substring(prefixLen),
++        complete: item.name,
++        description: item.description || ''
 +      });
 +    }
 +  }, this);
@@ -7163,15 +6889,14 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * A field that works with deferred types by delaying resolution until that
 + * last possible time
 + */
-+function DeferredField(doc, type, named, name, requ) {
-+  this.doc = doc;
++function DeferredField(type, options) {
++  this.doc = options.document;
 +  this.type = type;
-+  this.named = named;
-+  this.name = name;
-+  this.requ = requ;
++  this.options = options;
++  this.requ = options.requisition;
 +  this.requ.assignmentChange.add(this.update, this);
 +
-+  this.element = dom.createElement('div', null, this.doc);
++  this.element = dom.createElement(this.doc, 'div');
 +  this.update();
 +
 +  this.fieldChanged = createEvent('DeferredField.fieldChanged');
@@ -7190,7 +6915,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +
 +  this.subtype = subtype;
-+  this.field = getField(this.doc, subtype, this.named, this.name, this.requ);
++  this.field = getField(subtype, this.options);
 +  this.field.fieldChanged.add(this.fieldChanged, this);
 +
 +  dom.clearElement(this.element);
@@ -7221,10 +6946,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * For use with deferred types that do not yet have anything to resolve to.
 + * BlankFields are not for general use.
 + */
-+function BlankField(doc, type, named, name, requ) {
-+  this.doc = doc;
++function BlankField(type, options) {
++  this.doc = options.document;
 +  this.type = type;
-+  this.element = dom.createElement('div', null, this.doc);
++  this.element = dom.createElement(this.doc, 'div');
 +
 +  this.fieldChanged = createEvent('BlankField.fieldChanged');
 +}
@@ -7249,29 +6974,28 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Adds add/delete buttons to a normal field allowing there to be many values
 + * given for a parameter.
 + */
-+function ArrayField(doc, type, named, name, requ) {
-+  this.doc = doc;
++function ArrayField(type, options) {
++  this.doc = options.document;
 +  this.type = type;
-+  this.named = named;
-+  this.name = name;
-+  this.requ = requ;
++  this.options = options;
++  this.requ = options.requisition;
 +
 +  this._onAdd = this._onAdd.bind(this);
 +  this.members = [];
 +
 +  // <div class=gcliArrayParent save="${element}">
-+  this.element = dom.createElement('div', null, this.doc);
++  this.element = dom.createElement(this.doc, 'div');
 +  this.element.className = 'gcliArrayParent';
 +
-+  // <div class=gcliArrayMbrAdd onclick="${_onAdd}" save="${addButton}">
-+  this.addButton = dom.createElement('button', null, this.doc);
++  // <button class=gcliArrayMbrAdd onclick="${_onAdd}" save="${addButton}">Add
++  this.addButton = dom.createElement(this.doc, 'button');
 +  this.addButton.className = 'gcliArrayMbrAdd';
 +  this.addButton.addEventListener('click', this._onAdd, false);
-+  this.addButton.innerHTML = l10n.lookup('field_array_add');
++  this.addButton.innerHTML = l10n.lookup('fieldArrayAdd');
 +  this.element.appendChild(this.addButton);
 +
 +  // <div class=gcliArrayMbrs save="${mbrElement}">
-+  this.container = dom.createElement('div', null, this.doc);
++  this.container = dom.createElement(this.doc, 'div');
 +  this.container.className = 'gcliArrayMbrs';
 +  this.element.appendChild(this.container);
 +
@@ -7312,15 +7036,13 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +ArrayField.prototype._onAdd = function(ev, subConversion) {
-+
 +  // <div class=gcliArrayMbr save="${element}">
-+  var element = dom.createElement('div', null, this.doc);
++  var element = dom.createElement(this.doc, 'div');
 +  element.className = 'gcliArrayMbr';
 +  this.container.appendChild(element);
 +
 +  // ${field.element}
-+  var field = getField(this.doc, this.type.subtype, this.named,
-+      this.name, this.requ);
++  var field = getField(this.type.subtype, this.options);
 +  field.fieldChanged.add(function() {
 +    var conversion = this.getConversion();
 +    this.fieldChanged({ conversion: conversion });
@@ -7333,10 +7055,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  element.appendChild(field.element);
 +
 +  // <div class=gcliArrayMbrDel onclick="${_onDel}">
-+  var delButton = dom.createElement('button', null, this.doc);
++  var delButton = dom.createElement(this.doc, 'button');
 +  delButton.className = 'gcliArrayMbrDel';
 +  delButton.addEventListener('click', this._onDel, false);
-+  delButton.innerHTML = l10n.lookup('field_array_del');
++  delButton.innerHTML = l10n.lookup('fieldArrayDel');
 +  element.appendChild(delButton);
 +
 +  var member = {
@@ -7385,11 +7107,15 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +/**
 + * Menu is a display of the commands that are possible given the state of a
 + * requisition.
++ * @param doc The document from which we create elements.
++ * @param options A way to customize the menu display. Valid options are:
++ * - field:true Turns the menu display into a drop-down for use inside a
++ * JavascriptField.
 + */
 +function Menu(doc, options) {
 +  this.doc = doc;
 +
-+  this.element =  dom.createElement('div', null, this.doc);
++  this.element =  dom.createElement(this.doc, 'div');
 +  this.element.className = 'gcliMenu';
 +  if (options && options.field) {
 +    this.element.className += ' gcliMenuField';
@@ -7399,7 +7125,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  if (!Menu.optTempl) {
 +    dom.importCssString(menuCss, this.doc);
 +
-+    var templates = dom.createElement('div', null, this.doc);
++    var templates = dom.createElement(this.doc, 'div');
 +    dom.setInnerHtml(templates, menuHtml);
 +    Menu.optTempl = templates.querySelector('#gcliOptTempl');
 +  }
@@ -7418,10 +7144,13 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Display a number of items in the menu (or hide the menu if there is nothing
 + * to display)
 + * @param items The items to show in the menu
++ * @param error An error message to display
 + */
-+Menu.prototype.show = function(items) {
++Menu.prototype.show = function(items, error) {
++  this.error = error;
 +  this.items = items;
-+  if (!items || items.length == 0) {
++
++  if (this.error == null && this.items.length === 0) {
 +    this.element.style.display = 'none';
 +    return;
 +  }
@@ -7433,6 +7162,13 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.element.appendChild(options);
 +
 +  this.element.style.display = 'block';
++};
++
++/**
++ * Hide the menu
++ */
++Menu.prototype.hide = function() {
++  this.element.style.display = 'none';
 +};
 +
 +exports.Menu = Menu;
@@ -7456,12 +7192,13 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * We want to fill-in the clicked command in the cli input when the user clicks
 + */
 +CommandMenu.prototype.onItemClick = function(ev) {
-+  var item = ev.currentTarget.item;
 +  var type = this.requ.commandAssignment.param.type;
-+  var text = type.stringify(item);
++
++  var text = type.stringify(ev.currentTarget.item);
 +  var arg = new Argument(text);
 +  arg.suffix = ' ';
-+  var conversion = new Conversion(item, arg);
++
++  var conversion = type.parse(arg);
 +  this.requ.commandAssignment.setConversion(conversion);
 +};
 +
@@ -7471,26 +7208,34 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +CommandMenu.prototype.onCommandChange = function(ev) {
 +  var command = this.requ.commandAssignment.getValue();
 +  if (!command || !command.exec) {
++    var error;
 +    var predictions = this.requ.commandAssignment.getPredictions();
++
++    if (predictions.length === 0) {
++      error = this.requ.commandAssignment.getMessage();
++      var commandType = this.requ.commandAssignment.param.type;
++      var conversion = commandType.parse(new Argument());
++      predictions = conversion.getPredictions();
++    }
++
 +    predictions.sort(function(command1, command2) {
-+      return command1.value.name.localeCompare(command2.value.name);
++      return command1.name.localeCompare(command2.name);
 +    });
 +    var items = [];
-+    predictions.forEach(function(pair) {
-+      var command = pair.value;
-+      if (command.description && !command.hidden) {
-+        items.push(command);
++    predictions.forEach(function(item) {
++      if (item.description && !item.hidden) {
++        items.push(item);
 +      }
 +    }, this);
 +
-+    this.show(items);
++    this.show(items, error);
 +  }
 +  else {
 +    if (ev && ev.oldValue === ev.newValue) {
 +      return; // Just the text has changed
 +    }
 +
-+    this.show(null);
++    this.hide();
 +  }
 +};
 +
@@ -7505,381 +7250,39 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + */
 +
 +define('gcli/ui/domtemplate', ['require', 'exports', 'module' ], function(require, exports, module) {
-+var domtemplate = exports;
 +
-+
-+// WARNING: do not 'use_strict' without reading the notes in envEval;
-+
-+/**
-+ * A templater that allows one to quickly template DOM nodes.
-+ */
-+function Templater() {
-+  this.scope = [];
-+}
-+
-+/**
-+ * Recursive function to walk the tree processing the attributes as it goes.
-+ * @param node the node to process. If you pass a string in instead of a DOM
-+ * element, it is assumed to be an id for use with document.getElementById()
-+ * @param data the data to use for node processing.
-+ */
-+Templater.prototype.processNode = function(node, data) {
-+  if (typeof node === 'string') {
-+    node = document.getElementById(node);
-+  }
-+  if (data === null || data === undefined) {
-+    data = {};
-+  }
-+  this.scope.push(node.nodeName + (node.id ? '#' + node.id : ''));
-+  try {
-+    // Process attributes
-+    if (node.attributes && node.attributes.length) {
-+      // We need to handle 'foreach' and 'if' first because they might stop
-+      // some types of processing from happening, and foreach must come first
-+      // because it defines new data on which 'if' might depend.
-+      if (node.hasAttribute('foreach')) {
-+        this.processForEach(node, data);
-+        return;
-+      }
-+      if (node.hasAttribute('if')) {
-+        if (!this.processIf(node, data)) {
-+          return;
-+        }
-+      }
-+      // Only make the node available once we know it's not going away
-+      data.__element = node;
-+      // It's good to clean up the attributes when we've processed them,
-+      // but if we do it straight away, we mess up the array index
-+      var attrs = Array.prototype.slice.call(node.attributes);
-+      for (var i = 0; i < attrs.length; i++) {
-+        var value = attrs[i].value;
-+        var name = attrs[i].name;
-+        this.scope.push(name);
-+        try {
-+          if (name === 'save') {
-+            // Save attributes are a setter using the node
-+            value = this.stripBraces(value);
-+            this.property(value, data, node);
-+            node.removeAttribute('save');
-+          } else if (name.substring(0, 2) === 'on') {
-+            // Event registration relies on property doing a bind
-+            value = this.stripBraces(value);
-+            var func = this.property(value, data);
-+            if (typeof func !== 'function') {
-+              this.handleError('Expected ' + value +
-+                ' to resolve to a function, but got ' + typeof func);
-+            }
-+            node.removeAttribute(name);
-+            var capture = node.hasAttribute('capture' + name.substring(2));
-+            node.addEventListener(name.substring(2), func, capture);
-+            if (capture) {
-+              node.removeAttribute('capture' + name.substring(2));
-+            }
-+          } else {
-+            // Replace references in all other attributes
-+            var self = this;
-+            var newValue = value.replace(/\$\{[^}]*\}/g, function(path) {
-+              return self.envEval(path.slice(2, -1), data, value);
-+            });
-+            // Remove '_' prefix of attribute names so the DOM won't try
-+            // to use them before we've processed the template
-+            if (name.charAt(0) === '_') {
-+              node.removeAttribute(name);
-+              node.setAttribute(name.substring(1), newValue);
-+            } else if (value !== newValue) {
-+              attrs[i].value = newValue;
-+            }
-+          }
-+        } finally {
-+          this.scope.pop();
-+        }
-+      }
-+    }
-+
-+    // Loop through our children calling processNode. First clone them, so the
-+    // set of nodes that we visit will be unaffected by additions or removals.
-+    var childNodes = Array.prototype.slice.call(node.childNodes);
-+    for (var j = 0; j < childNodes.length; j++) {
-+      this.processNode(childNodes[j], data);
-+    }
-+
-+    if (node.nodeType === 3 /*Node.TEXT_NODE*/) {
-+      this.processTextNode(node, data);
-+    }
-+  } finally {
-+    this.scope.pop();
-+  }
-+};
-+
-+/**
-+ * Handle <x if="${...}">
-+ * @param node An element with an 'if' attribute
-+ * @param data The data to use with envEval
-+ * @returns true if processing should continue, false otherwise
-+ */
-+Templater.prototype.processIf = function(node, data) {
-+  this.scope.push('if');
-+  try {
-+    var originalValue = node.getAttribute('if');
-+    var value = this.stripBraces(originalValue);
-+    var recurse = true;
-+    try {
-+      var reply = this.envEval(value, data, originalValue);
-+      recurse = !!reply;
-+    } catch (ex) {
-+      this.handleError('Error with \'' + value + '\'', ex);
-+      recurse = false;
-+    }
-+    if (!recurse) {
-+      node.parentNode.removeChild(node);
-+    }
-+    node.removeAttribute('if');
-+    return recurse;
-+  } finally {
-+    this.scope.pop();
-+  }
-+};
-+
-+/**
-+ * Handle <x foreach="param in ${array}"> and the special case of
-+ * <loop foreach="param in ${array}">
-+ * @param node An element with a 'foreach' attribute
-+ * @param data The data to use with envEval
-+ */
-+Templater.prototype.processForEach = function(node, data) {
-+  this.scope.push('foreach');
-+  try {
-+    var originalValue = node.getAttribute('foreach');
-+    var value = originalValue;
-+
-+    var paramName = 'param';
-+    if (value.charAt(0) === '$') {
-+      // No custom loop variable name. Use the default: 'param'
-+      value = this.stripBraces(value);
-+    } else {
-+      // Extract the loop variable name from 'NAME in ${ARRAY}'
-+      var nameArr = value.split(' in ');
-+      paramName = nameArr[0].trim();
-+      value = this.stripBraces(nameArr[1].trim());
-+    }
-+    node.removeAttribute('foreach');
-+    try {
-+      var self = this;
-+      // Process a single iteration of a loop
-+      var processSingle = function(member, clone, ref) {
-+        ref.parentNode.insertBefore(clone, ref);
-+        data[paramName] = member;
-+        self.processNode(clone, data);
-+        delete data[paramName];
-+      };
-+
-+      // processSingle is no good for <loop> nodes where we want to work on
-+      // the childNodes rather than the node itself
-+      var processAll = function(scope, member) {
-+        self.scope.push(scope);
-+        try {
-+          if (node.nodeName === 'LOOP') {
-+            for (var i = 0; i < node.childNodes.length; i++) {
-+              var clone = node.childNodes[i].cloneNode(true);
-+              processSingle(member, clone, node);
-+            }
-+          } else {
-+            var clone = node.cloneNode(true);
-+            clone.removeAttribute('foreach');
-+            processSingle(member, clone, node);
-+          }
-+        } finally {
-+          self.scope.pop();
-+        }
-+      };
-+
-+      var reply = this.envEval(value, data, originalValue);
-+      if (Array.isArray(reply)) {
-+        reply.forEach(function(data, i) {
-+          processAll('' + i, data);
-+        }, this);
-+      } else {
-+        for (var param in reply) {
-+          if (reply.hasOwnProperty(param)) {
-+            processAll(param, param);
-+          }
-+        }
-+      }
-+      node.parentNode.removeChild(node);
-+    } catch (ex) {
-+      this.handleError('Error with \'' + value + '\'', ex);
-+    }
-+  } finally {
-+    this.scope.pop();
-+  }
-+};
-+
-+/**
-+ * Take a text node and replace it with another text node with the ${...}
-+ * sections parsed out. We replace the node by altering node.parentNode but
-+ * we could probably use a DOM Text API to achieve the same thing.
-+ * @param node The Text node to work on
-+ * @param data The data to use in calls to envEval
-+ */
-+Templater.prototype.processTextNode = function(node, data) {
-+  // Replace references in other attributes
-+  var value = node.data;
-+  // We can't use the string.replace() with function trick (see generic
-+  // attribute processing in processNode()) because we need to support
-+  // functions that return DOM nodes, so we can't have the conversion to a
-+  // string.
-+  // Instead we process the string as an array of parts. In order to split
-+  // the string up, we first replace '${' with '\uF001$' and '}' with '\uF002'
-+  // We can then split using \uF001 or \uF002 to get an array of strings
-+  // where scripts are prefixed with $.
-+  // \uF001 and \uF002 are just unicode chars reserved for private use.
-+  value = value.replace(/\$\{([^}]*)\}/g, '\uF001$$$1\uF002');
-+  var parts = value.split(/\uF001|\uF002/);
-+  if (parts.length > 1) {
-+    parts.forEach(function(part) {
-+      if (part === null || part === undefined || part === '') {
-+        return;
-+      }
-+      if (part.charAt(0) === '$') {
-+        part = this.envEval(part.slice(1), data, node.data);
-+      }
-+      // It looks like this was done a few lines above but see envEval
-+      if (part === null) {
-+        part = "null";
-+      }
-+      if (part === undefined) {
-+        part = "undefined";
-+      }
-+      // if (isDOMElement(part)) { ... }
-+      if (typeof part.cloneNode !== 'function') {
-+        part = node.ownerDocument.createTextNode(part.toString());
-+      }
-+      node.parentNode.insertBefore(part, node);
-+    }, this);
-+    node.parentNode.removeChild(node);
-+  }
-+};
-+
-+/**
-+ * Warn of string does not begin '${' and end '}'
-+ * @param str the string to check.
-+ * @return The string stripped of ${ and }, or untouched if it does not match
-+ */
-+Templater.prototype.stripBraces = function(str) {
-+  if (!str.match(/\$\{.*\}/g)) {
-+    this.handleError('Expected ' + str + ' to match ${...}');
-+    return str;
-+  }
-+  return str.slice(2, -1);
-+};
-+
-+/**
-+ * Combined getter and setter that works with a path through some data set.
-+ * For example:
-+ * <ul>
-+ * <li>property('a.b', { a: { b: 99 }}); // returns 99
-+ * <li>property('a', { a: { b: 99 }}); // returns { b: 99 }
-+ * <li>property('a', { a: { b: 99 }}, 42); // returns 99 and alters the
-+ * input data to be { a: { b: 42 }}
-+ * </ul>
-+ * @param path An array of strings indicating the path through the data, or
-+ * a string to be cut into an array using <tt>split('.')</tt>
-+ * @param data An object to look in for the <tt>path</tt> argument
-+ * @param newValue (optional) If defined, this value will replace the
-+ * original value for the data at the path specified.
-+ * @return The value pointed to by <tt>path</tt> before any
-+ * <tt>newValue</tt> is applied.
-+ */
-+Templater.prototype.property = function(path, data, newValue) {
-+  this.scope.push(path);
-+  try {
-+    if (typeof path === 'string') {
-+      path = path.split('.');
-+    }
-+    var value = data[path[0]];
-+    if (path.length === 1) {
-+      if (newValue !== undefined) {
-+        data[path[0]] = newValue;
-+      }
-+      if (typeof value === 'function') {
-+        return function() {
-+          return value.apply(data, arguments);
-+        };
-+      }
-+      return value;
-+    }
-+    if (!value) {
-+      this.handleError('Can\'t find path=' + path);
-+      return null;
-+    }
-+    return this.property(path.slice(1), value, newValue);
-+  } finally {
-+    this.scope.pop();
-+  }
-+};
-+
-+/**
-+ * Like eval, but that creates a context of the variables in <tt>env</tt> in
-+ * which the script is evaluated.
-+ * WARNING: This script uses 'with' which is generally regarded to be evil.
-+ * The alternative is to create a Function at runtime that takes X parameters
-+ * according to the X keys in the env object, and then call that function using
-+ * the values in the env object. This is likely to be slow, but workable.
-+ * @param script The string to be evaluated.
-+ * @param env The environment in which to eval the script.
-+ * @param context Optional debugging string in case of failure
-+ * @return The return value of the script, or the error message if the script
-+ * execution failed.
-+ */
-+Templater.prototype.envEval = function(script, env, context) {
-+  with (env) {
-+    try {
-+      this.scope.push(context);
-+      return eval(script);
-+    } catch (ex) {
-+      this.handleError('Template error evaluating \'' + script + '\'' +
-+          ' environment=' + Object.keys(env).join(', '), ex);
-+      return script;
-+    } finally {
-+      this.scope.pop();
-+    }
-+  }
-+};
-+
-+/**
-+ * A generic way of reporting errors, for easy overloading in different
-+ * environments.
-+ * @param message the error message to report.
-+ * @param ex optional associated exception.
-+ */
-+Templater.prototype.handleError = function(message, ex) {
-+  this.logError(message);
-+  this.logError('In: ' + this.scope.join(' > '));
-+  if (ex) {
-+    this.logError(ex);
-+  }
-+};
-+
-+
-+/**
-+ * A generic way of reporting errors, for easy overloading in different
-+ * environments.
-+ * @param message the error message to report.
-+ */
-+Templater.prototype.logError = function(message) {
-+  console.log(message);
-+};
-+
-+domtemplate.Templater = Templater;
-+
++  Components.utils.import("resource:///modules/devtools/Templater.jsm");
++  exports.Templater = Templater;
 +
 +});
 +define("text!gcli/ui/menu.css", [], "" +
-+  "/* The items in a menu. Used primarily for the command menu */" +
-+  ".gcliOption { overflow: hidden; white-space: nowrap; cursor: pointer; }" +
-+  ".gcliOption:hover { background-color: rgb(230, 230, 230) }" +
-+  ".gcliOptName { padding-right: 5px; }" +
-+  ".gcliOptDesc { font-size: 80%; color: #999; }" +
++  ".gcliOption {" +
++  "  overflow: hidden;" +
++  "  white-space: nowrap;" +
++  "  cursor: pointer;" +
++  "  padding: 2px;" +
++  "}" +
++  "" +
++  ".gcliOption:hover {" +
++  "  background-color: rgb(230, 230, 230);" +
++  "}" +
++  "" +
++  ".gcliOptionName {" +
++  "  padding-right: 5px;" +
++  "}" +
++  "" +
++  ".gcliOptionDesc {" +
++  "  font-size: 80%;" +
++  "  color: #999;" +
++  "}" +
++  "" +
++  ".gcliMenuError {" +
++  "  overflow: hidden;" +
++  "  white-space: nowrap;" +
++  "  padding: 8px 2px 2px 2px;" +
++  "  font-size: 80%;" +
++  "  color: red;" +
++  "}" +
 +  "" +
 +  ".gcliMenuField {" +
 +  "  background-color: white;" +
@@ -7906,31 +7309,57 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  "In the command context it is evaluated once for every keypress in the cli" +
 +  "when a command has not been entered." +
 +  "-->" +
-+  "<div id=\"gcliOptTempl\">" +
++  "<div id=\"gcliOptTempl\" aria-live=\"polite\">" +
 +  "  <div class=\"gcliOption\" foreach=\"item in ${items}\" onclick=\"${onItemClick}\"" +
 +  "      title=\"${item.manual || ''}\">" +
 +  "    ${__element.item = item; ''}" +
-+  "    <span class=\"gcliOptName\">${item.name}</span>" +
-+  "    <span class=\"gcliOptDesc\">${item.description}</span>" +
++  "    <span class=\"gcliOptionName\">${item.name}</span>" +
++  "    <span class=\"gcliOptionDesc\">${item.description}</span>" +
 +  "  </div>" +
++  "  <div class=\"gcliMenuError\" if=\"${error}\">${error}</div>" +
 +  "</div>" +
-+  " ");
++  "");
 +
 +define("text!gcli/ui/arg_fetch.css", [], "" +
 +  ".gcliCmdDesc {" +
-+  "  font-weight: bold; text-align: center;" +
-+  "  margin-bottom: 5px; border-bottom: 1px solid #ddd; padding-bottom: 3px;" +
++  "  font-weight: bold;" +
++  "  text-align: center;" +
++  "  margin-bottom: 5px;" +
++  "  border-bottom: 1px solid #ddd;" +
++  "  padding-bottom: 3px;" +
 +  "}" +
 +  "" +
-+  ".gcliParamGroup { font-weight: bold; }" +
-+  ".gcliParamName { text-align: right; font-size: 90%; }" +
-+  ".gcliParamError { font-size: 80%; color: #900; }" +
-+  ".gcliParamSubmit { text-align: right; }" +
++  ".gcliParamGroup {" +
++  "  font-weight: bold;" +
++  "}" +
 +  "" +
-+  ".gcliGroupSymbol { font-size: 90%; color: #666; }" +
-+  ".gcliRequired { font-size: 80%; color: #666; }" +
++  ".gcliParamName {" +
++  "  text-align: right;" +
++  "  font-size: 90%;" +
++  "}" +
 +  "" +
-+  ".gcliParams { width: 100%; }" +
++  ".gcliParamError {" +
++  "  font-size: 80%;" +
++  "  color: #900;" +
++  "}" +
++  "" +
++  ".gcliParamSubmit {" +
++  "  text-align: right;" +
++  "}" +
++  "" +
++  ".gcliGroupSymbol {" +
++  "  font-size: 90%;" +
++  "  color: #666;" +
++  "}" +
++  "" +
++  ".gcliRequired {" +
++  "  font-size: 80%;" +
++  "  color: #666;" +
++  "}" +
++  "" +
++  ".gcliParams {" +
++  "  width: 100%;" +
++  "}" +
 +  "");
 +
 +define("text!gcli/ui/arg_fetch.html", [], "" +
@@ -7938,7 +7367,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  "Template for an Assignment." +
 +  "Evaluated each time the commandAssignment changes" +
 +  "-->" +
-+  "<div id=\"gcliReqTempl\">" +
++  "<div id=\"gcliReqTempl\" aria-live=\"polite\">" +
 +  "  <div>" +
 +  "    <div class=\"gcliCmdDesc\">" +
 +  "      ${requ.commandAssignment.getValue().description}" +
@@ -7955,7 +7384,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  "          </td>" +
 +  "          <td class=\"gcliParamInput\">${getInputFor(assignment)}</td>" +
 +  "          <td>" +
-+  "            <span class=\"gcliRequired\" if=\"${assignment.param.isDataRequired()}\">*</span>" +
++  "            <span class=\"gcliRequired\" if=\"${assignment.param.isDataRequired()}\"> *</span>" +
 +  "          </td>" +
 +  "        </tr>" +
 +  "        <tr class=\"gcliGroupRow\">" +
@@ -7982,8 +7411,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
   * require GCLI so it can be exported as declared in EXPORTED_SYMBOLS
   * The dependencies specified here should be the same as in Makefile.dryice.js
   */
--var gcli = require("gcli/index");
+ var gcli = require("gcli/index");
 -gcli.createView = require("gcli/ui/start/firefox");
 -gcli._internal = { require: require, define: define, console: console };
 -
-+var gcli = require("gcli/firefox/index");

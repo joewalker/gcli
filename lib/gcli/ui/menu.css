@@ -1,17 +1,19 @@
 
-/* The items in a menu. Used primarily for the command menu */
 .gcliOption {
   overflow: hidden;
   white-space: nowrap;
   cursor: pointer;
   padding: 2px;
 }
+
 .gcliOption:hover {
   background-color: rgb(230, 230, 230);
 }
+
 .gcliOptionName {
   padding-right: 5px;
 }
+
 .gcliOptionDesc {
   font-size: 80%;
   color: #999;

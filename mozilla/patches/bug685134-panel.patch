@@ -1,0 +1,274 @@
+# HG changeset patch
+# Parent 54d0873dc464eb256d267da65c4c875a177ace4c
+# User Joe Walker <jwalker@mozilla.com>
+Bug 685134 - GCLI should display popup hints in a panel
+
+diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webconsole/HUDService.jsm
+--- a/browser/devtools/webconsole/HUDService.jsm
++++ b/browser/devtools/webconsole/HUDService.jsm
+@@ -108,6 +108,17 @@ XPCOMUtils.defineLazyGetter(this, "Autoc
+   return obj.AutocompletePopup;
+ });
+ 
++XPCOMUtils.defineLazyGetter(this, "HintPopup", function () {
++  var obj = {};
++  try {
++    Cu.import("resource:///modules/HintPopup.jsm", obj);
++  }
++  catch (err) {
++    Cu.reportError(err);
++  }
++  return obj.HintPopup;
++});
++
+ XPCOMUtils.defineLazyGetter(this, "namesAndValuesOf", function () {
+   var obj = {};
+   Cu.import("resource:///modules/PropertyPanel.jsm", obj);
+@@ -6847,6 +6858,8 @@ function GcliTerm(aContext, aHudId, aDoc
+     inputElement: this.inputNode,
+     completeElement: this.completeNode,
+     inputBackgroundElement: this.inputStack,
++    popup: this.hintPopup,
++    hintElement: this.hintNode,
+     completionPrompt: ""
+   });
+ }
+@@ -6879,6 +6892,9 @@ GcliTerm.prototype = {
+     this.element = this.document.createElement("vbox");
+     this.element.setAttribute("class", "gcliterm-input-container");
+ 
++    this.hintPopup = new HintPopup(this.document);
++    this.hintNode = this.hintPopup.element;
++
+     this.inputStack = this.document.createElement("stack");
+     this.inputStack.setAttribute("class", "gcliterm-stack-node");
+     this.element.appendChild(this.inputStack);
+diff --git a/browser/devtools/webconsole/HintPopup.jsm b/browser/devtools/webconsole/HintPopup.jsm
+new file mode 100644
+--- /dev/null
++++ b/browser/devtools/webconsole/HintPopup.jsm
+@@ -0,0 +1,213 @@
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is Hint Popup.
++ *
++ * The Initial Developer of the Original Code is
++ * The Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2011
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Mihai Sucan <mihai.sucan@gmail.com> (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++Components.utils.import("resource://gre/modules/Services.jsm");
++Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
++
++XPCOMUtils.defineLazyGetter(this, "stringBundle", function () {
++  return Services.strings.createBundle("chrome://global/locale/gcli.properties");
++});
++
++var EXPORTED_SYMBOLS = [ "HintPopup" ];
++
++Components.utils.import("resource:///modules/gcli.jsm");
++var console = gcli._internal.console;
++
++/**
++ * Hint popup UI implementation.
++ * @constructor
++ * @param nsIDOMDocument aDocument
++ *        The document you want the popup attached to.
++ */
++function HintPopup(aDocument)
++{
++  this._document = aDocument;
++
++  // Reuse the existing popup elements.
++  this._panel = this._document.getElementById("webConsole_hintPopup");
++  if (!this._panel) {
++    // let label = stringBundle.GetStringFromName("hintPopup.label");
++
++    this._panel = this._document.createElement("panel");
++    this._panel.setAttribute("id", "webConsole_hintPopup");
++    this._panel.setAttribute("label", "Hint Popup");
++    this._panel.setAttribute("noautofocus", "true");
++    this._panel.setAttribute("ignorekeys", "true");
++    this._panel.setAttribute("level", "top");
++
++    let mainPopupSet = this._document.getElementById("mainPopupSet");
++    if (mainPopupSet) {
++      mainPopupSet.appendChild(this._panel);
++    }
++    else {
++      this._document.documentElement.appendChild(this._panel);
++    }
++
++    this.element = this._document.createElement("div");
++    this.element.flex = 1;
++    this._panel.appendChild(this.element);
++  }
++  else {
++    this.element = this._panel.firstChild;
++  }
++
++  this.show = this.show.bind(this);
++  this.hide = this.hide.bind(this);
++}
++
++HintPopup.prototype = {
++  _document: null,
++  _panel: null,
++  element: null,
++
++  /**
++   * Open the hint popup panel.
++   * @param nsIDOMNode aAnchor
++   *        Optional node to anchor the panel to.
++   */
++  show: function AP_showOutput(aAnchor)
++  {
++console.log("HintPopup.show");
++    this._panel.openPopup(aAnchor, "after_start", 0, 0, false, false);
++    this._updateSize();
++  },
++
++  /**
++   * Hide the hint popup panel.
++   */
++  hide: function AP_hidePopup()
++  {
++console.log("HintPopup.hide");
++    this._panel.hidePopup();
++  },
++
++  /**
++   * Check if the hint popup is open.
++   */
++  get isOpen() {
++    return this._panel.state == "open";
++  },
++
++  /**
++   * Destroy the object instance. Please note that the panel DOM elements remain
++   * in the DOM, because they might still be in use by other instances of the
++   * same code. It is the responsibility of the client code to perform DOM
++   * cleanup.
++   */
++  destroy: function AP_destroy()
++  {
++    if (this.isOpen) {
++      this.hidePopup();
++    }
++    this._clear();
++
++    this._document = null;
++    this.element = null;
++    this._panel = null;
++  },
++
++  /**
++   * Set the hint items list, in one go.
++   * @param array aItems
++   *        The list of items you want displayed in the popup list.
++   */
++  setItems: function AP_setItems(aItems)
++  {
++    this._clear();
++
++    // Make sure that the new content is properly fitted by the XUL richlistbox
++    if (this.isOpen) {
++      // We need the timeout to allow the content to reflow. Attempting to
++      // update the richlistbox size too early does not work.
++      this._document.defaultView.setTimeout(this._updateSize.bind(this), 1);
++    }
++  },
++
++  /**
++   * Update the panel size to fit the content.
++   * @private
++   */
++  _updateSize: function AP_updateSize()
++  {
++    this.element.width = this._panel.clientWidth + this._scrollbarWidth;
++  },
++
++  /**
++   * Clear all the items from the hint list.
++   * @private
++   */
++  _clear: function AP_clear()
++  {
++    while (this.element.hasChildNodes()) {
++      this.element.removeChild(this.element.firstChild);
++    }
++
++    // Reset the panel and list dimensions. New dimensions are calculated when
++    // a new set of items is added to the hint popup.
++    this.element.width = "";
++    this.element.height = "";
++    this._panel.width = "";
++    this._panel.height = "";
++    this._panel.top = "";
++    this._panel.left = "";
++  },
++
++  /**
++   * Determine the scrollbar width in the current document.
++   * @private
++   */
++  get _scrollbarWidth()
++  {
++    if (this.__scrollbarWidth) {
++      return this.__scrollbarWidth;
++    }
++
++    let hbox = this._document.createElement("hbox");
++    hbox.setAttribute("style", "height: 0%; overflow: hidden");
++
++    let scrollbar = this._document.createElement("scrollbar");
++    scrollbar.setAttribute("orient", "vertical");
++    hbox.appendChild(scrollbar);
++
++    this._document.documentElement.appendChild(hbox);
++    this.__scrollbarWidth = scrollbar.clientWidth;
++    this._document.documentElement.removeChild(hbox);
++
++    return this.__scrollbarWidth;
++  },
++};
++
+diff --git a/browser/devtools/webconsole/Makefile.in b/browser/devtools/webconsole/Makefile.in
+--- a/browser/devtools/webconsole/Makefile.in
++++ b/browser/devtools/webconsole/Makefile.in
+@@ -49,6 +49,7 @@ EXTRA_JS_MODULES = \
+ 		PropertyPanel.jsm \
+ 		NetworkHelper.jsm \
+ 		AutocompletePopup.jsm \
++		HintPopup.jsm \
+ 		gcli.jsm \
+ 		Commands.jsm \
+ 		$(NULL)

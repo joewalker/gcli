@@ -1,15 +1,40 @@
 
 .gcliCmdDesc {
-  font-weight: bold; text-align: center;
-  margin-bottom: 5px; border-bottom: 1px solid #ddd; padding-bottom: 3px;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 5px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 3px;
 }
 
-.gcliParamGroup { font-weight: bold; }
-.gcliParamName { text-align: right; font-size: 90%; }
-.gcliParamError { font-size: 80%; color: #900; }
-.gcliParamSubmit { text-align: right; }
+.gcliParamGroup {
+  font-weight: bold;
+}
 
-.gcliGroupSymbol { font-size: 90%; color: #666; }
-.gcliRequired { font-size: 80%; color: #666; }
+.gcliParamName {
+  text-align: right;
+  font-size: 90%;
+}
 
-.gcliParams { width: 100%; }
+.gcliParamError {
+  font-size: 80%;
+  color: #900;
+}
+
+.gcliParamSubmit {
+  text-align: right;
+}
+
+.gcliGroupSymbol {
+  font-size: 90%;
+  color: #666;
+}
+
+.gcliRequired {
+  font-size: 80%;
+  color: #666;
+}
+
+.gcliParams {
+  width: 100%;
+}
