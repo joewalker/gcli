@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent 8a6edd08455426e688f9ed54bffb6a6a48ce1a72
+# Parent 6fcf786fa288834d586fd3b86b02a25062354487
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/devtools/webconsole/Commands.jsm b/browser/devtools/webconsole/Commands.jsm
@@ -1683,189 +1683,49 @@ diff --git a/browser/locales/jar.mn b/browser/locales/jar.mn
      locale/browser/styleinspector.properties       (%chrome/browser/styleinspector.properties)
      locale/browser/styleinspector.dtd              (%chrome/browser/styleinspector.dtd)
      locale/browser/scratchpad.properties           (%chrome/browser/scratchpad.properties)
-diff --git a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
---- a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
-+++ b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
-@@ -172,3 +172,17 @@ stacktrace.anonymousFunction=<anonymous>
- # to console.trace(). The stack trace of JavaScript function calls is displayed.
- # In this minimal message we only show the last call.
- stacktrace.outputMessage=Stack trace from %S, function %S, line %S.
+diff --git a/browser/themes/gnomestripe/browser/devtools/gcli.css b/browser/themes/gnomestripe/browser/devtools/gcli.css
+new file mode 100644
+--- /dev/null
++++ b/browser/themes/gnomestripe/browser/devtools/gcli.css
+@@ -0,0 +1,377 @@
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is the Mozilla Inspector Module.
++ *
++ * The Initial Developer of the Original Code is
++ * The Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2011
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Joe Walker <jwalker@mozilla.com> (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
 +
-+# LOCALIZATION NOTE (termTypeCommand):
-+# This string is used in the Web Console to select the type of input, there are
-+# 2 basic options: JavaScript (i.e. enter instructions using EcmaScript /
-+# JavaScript) or Command (which is more like a traditional command line). This
-+# is the label for the command input type.
-+termTypeCommand=Command
-+
-+# LOCALIZATION NOTE (termTypeJavascript):
-+# This string is used in the Web Console to select the type of input, there are
-+# 2 basic options: JavaScript (i.e. enter instructions using EcmaScript /
-+# JavaScript) or Command (which is more like a traditional command line). This
-+# is the label for the JavaScript input type.
-+termTypeJavascript=JavaScript
-diff --git a/toolkit/themes/gnomestripe/global/webConsole.css b/toolkit/themes/gnomestripe/global/webConsole.css
---- a/toolkit/themes/gnomestripe/global/webConsole.css
-+++ b/toolkit/themes/gnomestripe/global/webConsole.css
-@@ -135,10 +135,19 @@
- 
- .hud-output-node,
- .jsterm-input-node,
--.jsterm-complete-node {
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-   font: 12px "DejaVu Sans Mono", monospace;
- }
- 
-+.jsterm-input-node,
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-+  background-color: transparent;
-+}
-+
- .hud-output-node {
-   -moz-appearance: none;
-   border-bottom: 1px solid ThreeDShadow;
-@@ -280,13 +289,16 @@
- }
- 
- .jsterm-input-node,
--.jsterm-complete-node {
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-   border: none;
-   padding: 0 0 0 16px;
-   -moz-appearance: none;
- }
- 
--.jsterm-input-node {
-+.jsterm-input-node,
-+.gcliterm-input-node {
-   width: 98%;
-   background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
- }
-@@ -314,3 +326,25 @@
-   width: 100%;
-   background-color: white;
- }
-+
-+.gcliterm-complete-node {
-+  color: #F00;
-+  margin: 4px;
-+}
-+
-+.gcliterm-complete-node span.gcliINCOMPLETE {
-+  color: #DDD;
-+  border-bottom: 2px dotted #999;
-+}
-+
-+.gcliterm-complete-node span.gcliERROR {
-+  color: #DDD; border-bottom: 2px dotted #F00;
-+}
-+
-+.gcliterm-complete-node span.gcliPrompt {
-+  color: #66F; font-weight: bold;
-+}
-+
-+.gcliterm-complete-node span.gcliCompl {
-+  color: #999;
-+}
-diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pinstripe/global/webConsole.css
---- a/toolkit/themes/pinstripe/global/webConsole.css
-+++ b/toolkit/themes/pinstripe/global/webConsole.css
-@@ -138,10 +138,19 @@
- 
- .hud-output-node,
- .jsterm-input-node,
--.jsterm-complete-node {
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-   font: 11px Menlo, Monaco, monospace;
- }
- 
-+.jsterm-input-node,
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-+  background-color: transparent;
-+}
-+
- .hud-output-node {
-   -moz-appearance: none;
-   border-bottom: 1px solid ThreeDShadow;
-@@ -353,18 +362,24 @@
- }
- 
- .jsterm-input-node,
--.jsterm-complete-node {
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-   border: none;
-   padding: 0 0 0 16px;
-   -moz-appearance: none;
- }
- 
--.jsterm-input-node {
-+.jsterm-input-node,
-+.gcliterm-input-node {
-   background: url("chrome://global/skin/icons/commandline.png") 4px 2px no-repeat;
- }
- 
- :-moz-any(.jsterm-input-node,
--          .jsterm-complete-node) > .textbox-input-box > .textbox-textarea {
-+          .jsterm-complete-node,
-+          .gcliterm-input-node,
-+          .gcliterm-complete-node
-+          ) > .textbox-input-box > .textbox-textarea {
-   overflow-x: hidden;
- }
- 
-@@ -398,3 +413,25 @@
-   width: 100%;
-   background-color: white;
- }
-+
-+.gcliterm-complete-node {
-+  color: #F00;
-+  margin: 4px;
-+}
-+
-+.gcliterm-complete-node span.gcliINCOMPLETE {
-+  color: #DDD;
-+  border-bottom: 2px dotted #999;
-+}
-+
-+.gcliterm-complete-node span.gcliERROR {
-+  color: #DDD; border-bottom: 2px dotted #F00;
-+}
-+
-+.gcliterm-complete-node span.gcliPrompt {
-+  color: #66F; font-weight: bold;
-+}
-+
-+.gcliterm-complete-node span.gcliCompl {
-+  color: #999;
-+}
-diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/winstripe/global/webConsole.css
---- a/toolkit/themes/winstripe/global/webConsole.css
-+++ b/toolkit/themes/winstripe/global/webConsole.css
-@@ -307,7 +307,86 @@
-   -moz-appearance: none;
- }
- 
--.jsterm-input-node {
-+
-+
-+
-+
-+
-+
-+
++/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */
 +.usegcli .jsterm-input-node,
 +.usegcli .jsterm-complete-node,
 +.gcliterm-input-node,
@@ -1878,7 +1738,6 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  font: 12px Consolas, Lucida Console, monospace;
 +  padding: 2px 0 0 16px;
 +}
-+
 +
 +.gcliterm-complete-node {
 +  padding: 4px 4px 2px 21px;
@@ -1908,8 +1767,6 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  color: #999;
 +}
 +
-+
-+
 +.gcliterm-input-node,
 +.gcliterm-complete-node {
 +  font: 12px Consolas, Lucida Console, monospace;
@@ -1937,16 +1794,6 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  background: transparent;
 +}
 +
-+.jsterm-input-node,
-+.jsterm-complete-node {
-   background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
- }
- 
-@@ -342,3 +421,276 @@
-   width: 100%;
-   background-color: white;
- }
-+
 +.gcliCmdHelpRight {
 +  text-align: right;
 +}
@@ -1962,8 +1809,7 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  display: inline-block;
 +}
 +
-+
-+/* From: gcli/lib/gcli/ui/arg_fetch.css */
++/* From: $GCLI/lib/gcli/ui/arg_fetch.css */
 +.gcliCmdDesc {
 +  font-weight: bold;
 +  text-align: center;
@@ -2004,7 +1850,7 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  width: 100%;
 +}
 +
-+/* From: gcli/lib/gcli/ui/hinter.css */
++/* From: $GCLI/lib/gcli/ui/hinter.css */
 +.gcliHintParent {
 +  color: #000;
 +  background: rgba(250, 250, 250, 0.8);
@@ -2028,7 +1874,7 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  padding: 0 15px;
 +}
 +
-+/* From: gcli/lib/gcli/ui/menu.css */
++/* From: $GCLI/lib/gcli/ui/menu.css */
 +.gcliOption {
 +  overflow: hidden;
 +  white-space: nowrap;
@@ -2073,7 +1919,7 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  font: -webkit-small-control;
 +}
 +
-+/* From: gcli/lib/gcli/ui/inputter.css */
++/* From: $GCLI/lib/gcli/ui/inputter.css */
 +.gcliCompletion {
 +  position: absolute;
 +  z-index: -1000;
@@ -2109,7 +1955,7 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  color: #999;
 +}
 +
-+/* From: gcli/lib/gcli/ui/command_output_view.css */
++/* From: $GCLI/lib/gcli/ui/command_output_view.css */
 +.gcliCommandOutput {
 +  overflow: auto;
 +  top: 0;
@@ -2219,3 +2065,829 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +.gcliDuration {
 +  font-size: 80%;
 +}
+diff --git a/browser/themes/gnomestripe/browser/jar.mn b/browser/themes/gnomestripe/browser/jar.mn
+--- a/browser/themes/gnomestripe/browser/jar.mn
++++ b/browser/themes/gnomestripe/browser/jar.mn
+@@ -86,6 +86,7 @@ browser.jar:
+   skin/classic/browser/tabview/tabview.css            (tabview/tabview.css)
+   skin/classic/browser/devtools/arrows.png            (devtools/arrows.png)
+   skin/classic/browser/devtools/csshtmltree.css       (devtools/csshtmltree.css)
++  skin/classic/browser/devtools/gcli.css              (devtools/gcli.css)
+   skin/classic/browser/devtools/breadcrumbs/ltr-end-pressed.png              (devtools/breadcrumbs/ltr-end-pressed.png)
+   skin/classic/browser/devtools/breadcrumbs/ltr-end-selected-pressed.png     (devtools/breadcrumbs/ltr-end-selected-pressed.png)
+   skin/classic/browser/devtools/breadcrumbs/ltr-end-selected.png             (devtools/breadcrumbs/ltr-end-selected.png)
+diff --git a/browser/themes/pinstripe/browser/devtools/gcli.css b/browser/themes/pinstripe/browser/devtools/gcli.css
+new file mode 100644
+--- /dev/null
++++ b/browser/themes/pinstripe/browser/devtools/gcli.css
+@@ -0,0 +1,377 @@
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is the Mozilla Inspector Module.
++ *
++ * The Initial Developer of the Original Code is
++ * The Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2011
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Joe Walker <jwalker@mozilla.com> (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */
++.usegcli .jsterm-input-node,
++.usegcli .jsterm-complete-node,
++.gcliterm-input-node,
++.gcliterm-complete-node {
++  border: none;
++  -moz-appearance: none;
++  height: 100%;
++  vertical-align: middle;
++  background-color: transparent;
++  font: 12px Consolas, Lucida Console, monospace;
++  padding: 2px 0 0 16px;
++}
++
++.gcliterm-complete-node {
++  padding: 4px 4px 2px 21px;
++}
++
++.gcliterm-complete-node span.gcliVALID {
++  color: #FFF;
++  border-bottom: none;
++}
++
++.gcliterm-complete-node span.gcliINCOMPLETE {
++  color: #DDD;
++  border-bottom: 1px dotted #999;
++}
++
++.gcliterm-complete-node span.gcliERROR {
++  color: #DDD;
++  border-bottom: 1px dotted #F00;
++}
++
++.gcliterm-complete-node span.gcliPrompt {
++  color: #66F;
++  font-weight: bold;
++}
++
++.gcliterm-complete-node span.gcliCompl {
++  color: #999;
++}
++
++.gcliterm-input-node,
++.gcliterm-complete-node {
++  font: 12px Consolas, Lucida Console, monospace;
++}
++
++.gcliterm-stack-node {
++  background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
++  width: 100%;
++}
++
++.gcliterm-hint-node {
++  color: #000;
++  background: rgba(250, 250, 250, 0.8);
++  border: 1px solid #AAA;
++  border-top-right-radius: 5px;
++  border-top-left-radius: 5px;
++  margin-left: 10px;
++  margin-right: 10px;
++  display: inline-block;
++  overflow: hidden;
++}
++
++.gcliterm-input-node,
++.gcliterm-complete-node {
++  background: transparent;
++}
++
++.gcliCmdHelpRight {
++  text-align: right;
++}
++
++.gcliterm-hint-parent {
++  border-bottom: 1px solid #AAA;
++}
++
++.gcliterm-hint-node {
++  border-bottom: 0px !important;
++  overflow: auto;
++  padding: 10px;
++  display: inline-block;
++}
++
++/* From: $GCLI/lib/gcli/ui/arg_fetch.css */
++.gcliCmdDesc {
++  font-weight: bold;
++  text-align: center;
++  margin-bottom: 5px;
++  border-bottom: 1px solid #ddd;
++  padding-bottom: 3px;
++}
++
++.gcliParamGroup {
++  font-weight: bold;
++}
++
++.gcliParamName {
++  text-align: right;
++  font-size: 90%;
++}
++
++.gcliParamError {
++  font-size: 80%;
++  color: #900;
++}
++
++.gcliParamSubmit {
++  text-align: right;
++}
++
++.gcliGroupSymbol {
++  font-size: 90%;
++  color: #666;
++}
++
++.gcliRequired {
++  font-size: 80%;
++  color: #666;
++}
++
++.gcliParams {
++  width: 100%;
++}
++
++/* From: $GCLI/lib/gcli/ui/hinter.css */
++.gcliHintParent {
++  color: #000;
++  background: rgba(250, 250, 250, 0.8);
++  border: 1px solid #AAA;
++  border-top-right-radius: 5px;
++  border-top-left-radius: 5px;
++  margin-left: 10px;
++  margin-right: 10px;
++  display: inline-block;
++  overflow: hidden;
++}
++
++.gcliHints {
++  overflow: auto;
++  padding: 10px;
++  display: inline-block;
++}
++
++.gcliHints ul {
++  margin: 0;
++  padding: 0 15px;
++}
++
++/* From: $GCLI/lib/gcli/ui/menu.css */
++.gcliOption {
++  overflow: hidden;
++  white-space: nowrap;
++  cursor: pointer;
++  padding: 2px;
++}
++
++.gcliOption:hover {
++  background-color: rgb(230, 230, 230);
++}
++
++.gcliOptionName {
++  padding-right: 5px;
++}
++
++.gcliOptionDesc {
++  font-size: 80%;
++  color: #999;
++}
++
++.gcliMenuError {
++  overflow: hidden;
++  white-space: nowrap;
++  padding: 8px 2px 2px 2px;
++  font-size: 80%;
++  color: red;
++}
++
++.gcliMenuField {
++  background-color: white;
++  color: black;
++  border: 1px solid #aaa;
++  padding: 2px;
++  max-height: 300px;
++  overflow-y: auto;
++  max-width: 220px;
++  overflow-x: hidden;
++  margin: 0 10px;
++  border-top: 0px !important;
++  border-bottom-right-radius: 5px;
++  border-bottom-left-radius: 5px;
++  font: -webkit-small-control;
++}
++
++/* From: $GCLI/lib/gcli/ui/inputter.css */
++.gcliCompletion {
++  position: absolute;
++  z-index: -1000;
++  background-color: #DDD;
++  border: 1px transparent solid;
++  padding: 1px 1px 1px 2px;
++}
++
++.gcliCompletion span {
++  color: #DDD;
++}
++
++.gcliCompletion span.gcliINCOMPLETE {
++  color: #DDD;
++  border-bottom: 2px dotted #999;
++}
++
++.gcliCompletion span.gcliERROR {
++  color: #DDD;
++  border-bottom: 2px dotted #F00;
++}
++
++span.gcliPrompt {
++  color: #66F;
++  font-weight: bold;
++}
++
++span.gcliCompl {
++  color: #999;
++}
++
++span.gcliCloseBrace {
++  color: #999;
++}
++
++/* From: $GCLI/lib/gcli/ui/command_output_view.css */
++.gcliCommandOutput {
++  overflow: auto;
++  top: 0;
++  height: 100%;
++}
++
++.gcliRowIn {
++  margin-top: 5px;
++  margin-right: 5px;
++  color: #333;
++  background-color: #EEE;
++  padding: 3px 8px 1px 1px;
++  border: 1px solid #aaa;
++  border-radius: 4px;
++  -moz-border-radius: 4px;
++  -webkit-border-radius: 4px;
++}
++
++.gcliRowIn > img {
++  cursor: pointer;
++}
++
++.gcliHover {
++  display: none;
++  float: right;
++  padding: 2px 2px 0 2px;
++}
++
++.gcliRowIn:hover > .gcliHover {
++  display: inline;
++}
++
++.gcliRowIn:hover > .gcliHover.gcliHidden {
++  display: none;
++}
++
++.gcliOutTyped {
++  color: #000;
++  font-family: consolas, courier, monospace;
++}
++
++.gcliRowOutput {
++  padding-left: 10px;
++  line-height: 1.2em;
++  font-size: 95%;
++}
++
++.gcliRowOutput strong,
++.gcliRowOutput b,
++.gcliRowOutput th,
++.gcliRowOutput h1,
++.gcliRowOutput h2,
++.gcliRowOutput h3 {
++  color: #000;
++}
++
++.gcliRowOutput a {
++  font-weight: bold;
++  color: #666;
++  text-decoration: none;
++}
++
++.gcliRowOutput a:hover {
++  text-decoration: underline;
++  cursor: pointer;
++}
++
++.gcliRowOutput input[type=password],
++.gcliRowOutput input[type=text],
++.gcliRowOutput textarea {
++  color: #000;
++  font-size: 120%;
++  background: transparent;
++  padding: 3px;
++  border-radius: 5px;
++  -moz-border-radius: 5px;
++  -webkit-border-radius: 5px;
++}
++
++.gcliRowOutput table,
++.gcliRowOutput td,
++.gcliRowOutput th {
++  border: 0;
++  padding: 0 2px;
++}
++
++.gcliRowOutput .right {
++  text-align: right;
++}
++
++.gcliGt {
++  font-family: consolas, courier, monospace;
++  color: #00F;
++  font-weight: bold;
++  font-size: 120%;
++  padding-left: 2px;
++}
++
++.gcliGt.gcliComplete {
++  color: #060;
++}
++
++.gcliGt.gcliError {
++  color: #F00;
++}
++
++.gcliDuration {
++  font-size: 80%;
++}
+diff --git a/browser/themes/pinstripe/browser/jar.mn b/browser/themes/pinstripe/browser/jar.mn
+--- a/browser/themes/pinstripe/browser/jar.mn
++++ b/browser/themes/pinstripe/browser/jar.mn
+@@ -125,6 +125,7 @@ browser.jar:
+   skin/classic/browser/tabview/tabview.css                  (tabview/tabview.css)
+   skin/classic/browser/devtools/arrows.png                  (devtools/arrows.png)
+   skin/classic/browser/devtools/csshtmltree.css             (devtools/csshtmltree.css)
++  skin/classic/browser/devtools/gcli.css                    (devtools/gcli.css)
+   skin/classic/browser/devtools/breadcrumbs/ltr-end-pressed.png              (devtools/breadcrumbs/ltr-end-pressed.png)
+   skin/classic/browser/devtools/breadcrumbs/ltr-end-selected-pressed.png     (devtools/breadcrumbs/ltr-end-selected-pressed.png)
+   skin/classic/browser/devtools/breadcrumbs/ltr-end-selected.png             (devtools/breadcrumbs/ltr-end-selected.png)
+diff --git a/browser/themes/winstripe/browser/devtools/gcli.css b/browser/themes/winstripe/browser/devtools/gcli.css
+new file mode 100644
+--- /dev/null
++++ b/browser/themes/winstripe/browser/devtools/gcli.css
+@@ -0,0 +1,377 @@
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is the Mozilla Inspector Module.
++ *
++ * The Initial Developer of the Original Code is
++ * The Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2011
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Joe Walker <jwalker@mozilla.com> (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */
++.usegcli .jsterm-input-node,
++.usegcli .jsterm-complete-node,
++.gcliterm-input-node,
++.gcliterm-complete-node {
++  border: none;
++  -moz-appearance: none;
++  height: 100%;
++  vertical-align: middle;
++  background-color: transparent;
++  font: 12px Consolas, Lucida Console, monospace;
++  padding: 2px 0 0 16px;
++}
++
++.gcliterm-complete-node {
++  padding: 4px 4px 2px 21px;
++}
++
++.gcliterm-complete-node span.gcliVALID {
++  color: #FFF;
++  border-bottom: none;
++}
++
++.gcliterm-complete-node span.gcliINCOMPLETE {
++  color: #DDD;
++  border-bottom: 1px dotted #999;
++}
++
++.gcliterm-complete-node span.gcliERROR {
++  color: #DDD;
++  border-bottom: 1px dotted #F00;
++}
++
++.gcliterm-complete-node span.gcliPrompt {
++  color: #66F;
++  font-weight: bold;
++}
++
++.gcliterm-complete-node span.gcliCompl {
++  color: #999;
++}
++
++.gcliterm-input-node,
++.gcliterm-complete-node {
++  font: 12px Consolas, Lucida Console, monospace;
++}
++
++.gcliterm-stack-node {
++  background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
++  width: 100%;
++}
++
++.gcliterm-hint-node {
++  color: #000;
++  background: rgba(250, 250, 250, 0.8);
++  border: 1px solid #AAA;
++  border-top-right-radius: 5px;
++  border-top-left-radius: 5px;
++  margin-left: 10px;
++  margin-right: 10px;
++  display: inline-block;
++  overflow: hidden;
++}
++
++.gcliterm-input-node,
++.gcliterm-complete-node {
++  background: transparent;
++}
++
++.gcliCmdHelpRight {
++  text-align: right;
++}
++
++.gcliterm-hint-parent {
++  border-bottom: 1px solid #AAA;
++}
++
++.gcliterm-hint-node {
++  border-bottom: 0px !important;
++  overflow: auto;
++  padding: 10px;
++  display: inline-block;
++}
++
++/* From: $GCLI/lib/gcli/ui/arg_fetch.css */
++.gcliCmdDesc {
++  font-weight: bold;
++  text-align: center;
++  margin-bottom: 5px;
++  border-bottom: 1px solid #ddd;
++  padding-bottom: 3px;
++}
++
++.gcliParamGroup {
++  font-weight: bold;
++}
++
++.gcliParamName {
++  text-align: right;
++  font-size: 90%;
++}
++
++.gcliParamError {
++  font-size: 80%;
++  color: #900;
++}
++
++.gcliParamSubmit {
++  text-align: right;
++}
++
++.gcliGroupSymbol {
++  font-size: 90%;
++  color: #666;
++}
++
++.gcliRequired {
++  font-size: 80%;
++  color: #666;
++}
++
++.gcliParams {
++  width: 100%;
++}
++
++/* From: $GCLI/lib/gcli/ui/hinter.css */
++.gcliHintParent {
++  color: #000;
++  background: rgba(250, 250, 250, 0.8);
++  border: 1px solid #AAA;
++  border-top-right-radius: 5px;
++  border-top-left-radius: 5px;
++  margin-left: 10px;
++  margin-right: 10px;
++  display: inline-block;
++  overflow: hidden;
++}
++
++.gcliHints {
++  overflow: auto;
++  padding: 10px;
++  display: inline-block;
++}
++
++.gcliHints ul {
++  margin: 0;
++  padding: 0 15px;
++}
++
++/* From: $GCLI/lib/gcli/ui/menu.css */
++.gcliOption {
++  overflow: hidden;
++  white-space: nowrap;
++  cursor: pointer;
++  padding: 2px;
++}
++
++.gcliOption:hover {
++  background-color: rgb(230, 230, 230);
++}
++
++.gcliOptionName {
++  padding-right: 5px;
++}
++
++.gcliOptionDesc {
++  font-size: 80%;
++  color: #999;
++}
++
++.gcliMenuError {
++  overflow: hidden;
++  white-space: nowrap;
++  padding: 8px 2px 2px 2px;
++  font-size: 80%;
++  color: red;
++}
++
++.gcliMenuField {
++  background-color: white;
++  color: black;
++  border: 1px solid #aaa;
++  padding: 2px;
++  max-height: 300px;
++  overflow-y: auto;
++  max-width: 220px;
++  overflow-x: hidden;
++  margin: 0 10px;
++  border-top: 0px !important;
++  border-bottom-right-radius: 5px;
++  border-bottom-left-radius: 5px;
++  font: -webkit-small-control;
++}
++
++/* From: $GCLI/lib/gcli/ui/inputter.css */
++.gcliCompletion {
++  position: absolute;
++  z-index: -1000;
++  background-color: #DDD;
++  border: 1px transparent solid;
++  padding: 1px 1px 1px 2px;
++}
++
++.gcliCompletion span {
++  color: #DDD;
++}
++
++.gcliCompletion span.gcliINCOMPLETE {
++  color: #DDD;
++  border-bottom: 2px dotted #999;
++}
++
++.gcliCompletion span.gcliERROR {
++  color: #DDD;
++  border-bottom: 2px dotted #F00;
++}
++
++span.gcliPrompt {
++  color: #66F;
++  font-weight: bold;
++}
++
++span.gcliCompl {
++  color: #999;
++}
++
++span.gcliCloseBrace {
++  color: #999;
++}
++
++/* From: $GCLI/lib/gcli/ui/command_output_view.css */
++.gcliCommandOutput {
++  overflow: auto;
++  top: 0;
++  height: 100%;
++}
++
++.gcliRowIn {
++  margin-top: 5px;
++  margin-right: 5px;
++  color: #333;
++  background-color: #EEE;
++  padding: 3px 8px 1px 1px;
++  border: 1px solid #aaa;
++  border-radius: 4px;
++  -moz-border-radius: 4px;
++  -webkit-border-radius: 4px;
++}
++
++.gcliRowIn > img {
++  cursor: pointer;
++}
++
++.gcliHover {
++  display: none;
++  float: right;
++  padding: 2px 2px 0 2px;
++}
++
++.gcliRowIn:hover > .gcliHover {
++  display: inline;
++}
++
++.gcliRowIn:hover > .gcliHover.gcliHidden {
++  display: none;
++}
++
++.gcliOutTyped {
++  color: #000;
++  font-family: consolas, courier, monospace;
++}
++
++.gcliRowOutput {
++  padding-left: 10px;
++  line-height: 1.2em;
++  font-size: 95%;
++}
++
++.gcliRowOutput strong,
++.gcliRowOutput b,
++.gcliRowOutput th,
++.gcliRowOutput h1,
++.gcliRowOutput h2,
++.gcliRowOutput h3 {
++  color: #000;
++}
++
++.gcliRowOutput a {
++  font-weight: bold;
++  color: #666;
++  text-decoration: none;
++}
++
++.gcliRowOutput a:hover {
++  text-decoration: underline;
++  cursor: pointer;
++}
++
++.gcliRowOutput input[type=password],
++.gcliRowOutput input[type=text],
++.gcliRowOutput textarea {
++  color: #000;
++  font-size: 120%;
++  background: transparent;
++  padding: 3px;
++  border-radius: 5px;
++  -moz-border-radius: 5px;
++  -webkit-border-radius: 5px;
++}
++
++.gcliRowOutput table,
++.gcliRowOutput td,
++.gcliRowOutput th {
++  border: 0;
++  padding: 0 2px;
++}
++
++.gcliRowOutput .right {
++  text-align: right;
++}
++
++.gcliGt {
++  font-family: consolas, courier, monospace;
++  color: #00F;
++  font-weight: bold;
++  font-size: 120%;
++  padding-left: 2px;
++}
++
++.gcliGt.gcliComplete {
++  color: #060;
++}
++
++.gcliGt.gcliError {
++  color: #F00;
++}
++
++.gcliDuration {
++  font-size: 80%;
++}
+diff --git a/browser/themes/winstripe/browser/jar.mn b/browser/themes/winstripe/browser/jar.mn
+--- a/browser/themes/winstripe/browser/jar.mn
++++ b/browser/themes/winstripe/browser/jar.mn
+@@ -83,6 +83,7 @@ browser.jar:
+         skin/classic/browser/preferences/Options.png                 (preferences/Options.png)
+         skin/classic/aero/browser/devtools/arrows.png                (devtools/arrows.png)
+         skin/classic/aero/browser/devtools/csshtmltree.css           (devtools/csshtmltree.css)
++        skin/classic/aero/browser/devtools/gcli.css                  (devtools/gcli.css)
+ #ifdef MOZ_SERVICES_SYNC
+         skin/classic/browser/preferences/Options-sync.png            (preferences/Options-sync.png)
+ #endif
+@@ -110,6 +111,7 @@ browser.jar:
+         skin/classic/browser/tabview/tabview.css                    (tabview/tabview.css)
+         skin/classic/browser/devtools/arrows.png                    (devtools/arrows.png)
+         skin/classic/browser/devtools/csshtmltree.css               (devtools/csshtmltree.css)
++        skin/classic/browser/devtools/gcli.css                      (devtools/gcli.css)
+         skin/classic/browser/devtools/breadcrumbs/ltr-end-pressed.png              (devtools/breadcrumbs/ltr-end-pressed.png)
+         skin/classic/browser/devtools/breadcrumbs/ltr-end-selected-pressed.png     (devtools/breadcrumbs/ltr-end-selected-pressed.png)
+         skin/classic/browser/devtools/breadcrumbs/ltr-end-selected.png             (devtools/breadcrumbs/ltr-end-selected.png)
+diff --git a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
+--- a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
++++ b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
+@@ -172,3 +172,17 @@ stacktrace.anonymousFunction=<anonymous>
+ # to console.trace(). The stack trace of JavaScript function calls is displayed.
+ # In this minimal message we only show the last call.
+ stacktrace.outputMessage=Stack trace from %S, function %S, line %S.
++
++# LOCALIZATION NOTE (termTypeCommand):
++# This string is used in the Web Console to select the type of input, there are
++# 2 basic options: JavaScript (i.e. enter instructions using EcmaScript /
++# JavaScript) or Command (which is more like a traditional command line). This
++# is the label for the command input type.
++termTypeCommand=Command
++
++# LOCALIZATION NOTE (termTypeJavascript):
++# This string is used in the Web Console to select the type of input, there are
++# 2 basic options: JavaScript (i.e. enter instructions using EcmaScript /
++# JavaScript) or Command (which is more like a traditional command line). This
++# is the label for the JavaScript input type.
++termTypeJavascript=JavaScript
