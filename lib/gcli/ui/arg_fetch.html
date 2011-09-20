@@ -3,7 +3,7 @@
 Template for an Assignment.
 Evaluated each time the commandAssignment changes
 -->
-<div id="gcliReqTempl">
+<div id="gcliReqTempl" aria-live="polite">
   <div>
     <div class="gcliCmdDesc">
       ${requ.commandAssignment.getValue().description}
@@ -20,7 +20,7 @@ Evaluated each time the commandAssignment changes
           </td>
           <td class="gcliParamInput">${getInputFor(assignment)}</td>
           <td>
-            <span class="gcliRequired" if="${assignment.param.isDataRequired()}">*</span>
+            <span class="gcliRequired" if="${assignment.param.isDataRequired()}"> *</span>
           </td>
         </tr>
         <tr class="gcliGroupRow">

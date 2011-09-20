@@ -380,14 +380,13 @@ appropriate localized strings file:
 
     gcli.addCommand({
       name: 'greet',
-      description: { 'key': 'demo_greeting_desc' }
+      description: { 'key': 'demoGreetingDesc' }
       ...
     });
 
-For web usage, the localized strings are currently stored in
-`lib/gcli/nls/strings.js`. There isn't currently a well defined method for
-adding other strings files. This is being tracked in [bug 681359]
-(https://bugzilla.mozilla.org/show_bug.cgi?id=681359).
+For web usage, the central store of localized strings is
+``lib/gcli/nls/strings.js``. Other string files can be added using the
+``l10n.registerStringsSource(...)`` function.
 
 
 ### Default argument values
@@ -806,7 +805,13 @@ display.
 
     { returnType: "html" }
     ...
-    return context.document.createElement('div');
+    return dom.createElement(context.document, 'div');
+
+``dom.createElement`` is a utility to ensure use of the XHTML namespace in XUL
+and other XML documents. In an HTML document it's functionally equivalent to
+``context.document.createElement('div')``. If your command is likely to be used
+in Firefox or another XML environment, you should use it. You can import it
+with ``var dom = require('gcli/util').dom;``.
 
 GCLI will use the returned HTML element as returned. See notes on ``context``
 above.
@@ -989,7 +994,7 @@ This is an example of a very simple new password field type:
 
     PasswordField.prototype.createElement = function(assignment) {
       this.assignment = assignment;
-      this.input = this.doc.createElement('input');
+      this.input = dom.createElement(this.doc, 'input');
       this.input.type = 'password';
       this.input.value = assignment.arg ? assignment.arg.text : '';
 

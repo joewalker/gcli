@@ -6,9 +6,11 @@
 
 define(function(require, exports, module) {
 
+Components.utils.import('resource://gre/modules/XPCOMUtils.jsm');
+Components.utils.import('resource://gre/modules/Services.jsm');
 
-XPCOMUtils.defineLazyGetter(this, "stringBundle", function () {
-  return Services.strings.createBundle('chrome://global/locale/gcli.properties');
+XPCOMUtils.defineLazyGetter(this, 'stringBundle', function () {
+  return Services.strings.createBundle('chrome://browser/locale/gcli.properties');
 });
 
 /*
@@ -37,12 +39,24 @@ exports.getPreferredLocales = function() {
 
 /** @see lookup() in lib/gcli/l10n.js */
 exports.lookup = function(key) {
-  return stringBundle.GetStringFromName(key);
+  try {
+    return stringBundle.GetStringFromName(key);
+  }
+  catch (ex) {
+    console.error('Failed to lookup ', key, ex);
+    return key;
+  }
 };
 
 /** @see lookupFormat in lib/gcli/l10n.js */
 exports.lookupFormat = function(key, swaps) {
-  return stringBundle.formatStringFromName(key, swaps, swaps.length);
+  try {
+    return stringBundle.formatStringFromName(key, swaps, swaps.length);
+  }
+  catch (ex) {
+    console.error('Failed to format ', key, ex);
+    return key;
+  }
 };
 
 
