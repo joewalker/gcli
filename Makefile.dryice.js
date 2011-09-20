@@ -114,15 +114,18 @@ function buildFirefox() {
 
   copy({
     source: [
-      { value: '\n/* From: gcli/lib/gcli/ui/arg_fetch.css */' },
+      'mozilla/build/license-block.txt',
+      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */' },
+      'mozilla/gcli/ui/gcliterm.css',
+      { value: '\n/* From: $GCLI/lib/gcli/ui/arg_fetch.css */' },
       'lib/gcli/ui/arg_fetch.css',
-      { value: '\n/* From: gcli/lib/gcli/ui/hinter.css */' },
+      { value: '\n/* From: $GCLI/lib/gcli/ui/hinter.css */' },
       'lib/gcli/ui/hinter.css',
-      { value: '\n/* From: gcli/lib/gcli/ui/menu.css */' },
+      { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */' },
       'lib/gcli/ui/menu.css',
-      { value: '\n/* From: gcli/lib/gcli/ui/inputter.css */' },
+      { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */' },
       'lib/gcli/ui/inputter.css',
-      { value: '\n/* From: gcli/lib/gcli/ui/command_output_view.css */' },
+      { value: '\n/* From: $GCLI/lib/gcli/ui/command_output_view.css */' },
       'lib/gcli/ui/command_output_view.css'
     ],
     dest: 'built/ff/gcli.css'
