@@ -37,7 +37,7 @@ define(function(require, exports, module) {
     /**
      * createView() for Firefox requires an options object with the following
      * members:
-     * - contentDocument: The window of the attached tab
+     * - contentDocument: From the window of the attached tab
      * - chromeDocument: GCLITerm.document
      * - environment.hudId: GCLITerm.hudId
      * - jsEnvironment.globalObject: 'window'
