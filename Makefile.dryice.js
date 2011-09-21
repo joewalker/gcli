@@ -15,8 +15,17 @@ var gcliHome = __dirname;
  * globals are setup properly.
  */
 function main() {
-  buildStandard();
-  buildFirefox();
+  var args = process.argv;
+  if (args.length < 3 || args[2] === 'standard') {
+    buildStandard();
+  }
+  else if (args[2] === 'firefox') {
+    buildFirefox(args[3]);
+  }
+  else {
+    console.error('Error: Unknown target: \'' + args[2] + '\'');
+    process.exit(1);
+  }
 }
 
 
@@ -90,8 +99,8 @@ function buildStandard() {
  * Build the Javascript JSM files for Firefox
  * It consists of 1 output file: gcli.jsm
  */
-function buildFirefox() {
-  console.log('Building built/ff/gcli.jsm:');
+function buildFirefox(destDir) {
+  console.log('Building to ' + (destDir || 'built/ff') + '.\n');
 
   if (!path.existsSync(gcliHome + '/built')) {
     fs.mkdirSync(gcliHome + '/built', 0755);
