@@ -10,8 +10,15 @@ var fs = require('fs');
 
 var gcliHome = __dirname;
 
-buildStandard();
-buildFirefox();
+/**
+ * The main() function is called at the bottom of this file to ensure all the
+ * globals are setup properly.
+ */
+function main() {
+  buildStandard();
+  buildFirefox();
+}
+
 
 /**
  * There are 2 important ways to build GCLI.
@@ -148,3 +155,5 @@ function tweakIndex(data) {
       .replace(/scripts\/require.js/, 'gcli-uncompressed.js')
       .replace(/\s*require\([^;]*;\n/, '');
 }
+// Now everything is defined properly, start working
+main();
