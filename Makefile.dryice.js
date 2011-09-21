@@ -110,10 +110,13 @@ function buildFirefox(destDir) {
       fs.mkdirSync(gcliHome + '/built/ff', 0755);
     }
   }
+
   var jsmDir = '/browser/devtools/webconsole';
   var winCssDir = '/browser/themes/winstripe/browser/devtools';
   var pinCssDir = '/browser/themes/pinstripe/browser/devtools';
   var gnomeCssDir = '/browser/themes/gnomestripe/browser/devtools';
+  var propsDir = '/browser/locales/en-US/chrome/browser';
+
   if (destDir) {
     var fail = false;
     if (!path.existsSync(destDir + jsmDir)) {
@@ -130,6 +133,10 @@ function buildFirefox(destDir) {
     }
     if (!path.existsSync(destDir + gnomeCssDir)) {
       console.error('Missing path for Gnome CSS: ' + destDir + gnomeCssDir);
+      fail = true;
+    }
+    if (!path.existsSync(destDir + propsDir)) {
+      console.error('Missing path for l10n string: ' + destDir + propsDir);
       fail = true;
     }
     if (fail) {
@@ -191,6 +198,11 @@ function buildFirefox(destDir) {
     source: css,
     dest: (destDir ? destDir + gnomeCssDir : 'built/ff') + '/gcli.css'
   });
+
+  // Package the i18n strings
+  copy({
+    source: 'lib/gcli/nls/strings.js',
+    dest: (destDir ? destDir + propsDir : 'built/ff') + '/gcli.properties'
   });
 
   console.log(project.report());
