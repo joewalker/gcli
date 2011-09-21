@@ -110,6 +110,16 @@ function buildFirefox(destDir) {
       fs.mkdirSync(gcliHome + '/built/ff', 0755);
     }
   }
+  var jsmDir = '/browser/devtools/webconsole';
+  if (destDir) {
+    var fail = false;
+    if (!path.existsSync(destDir + jsmDir)) {
+      console.error('Missing path for JSM: ' + destDir + jsmDir);
+      fail = true;
+    }
+    if (fail) {
+      process.exit(1);
+    }
   }
 
   var project = copy.createCommonJsProject({
@@ -117,6 +127,7 @@ function buildFirefox(destDir) {
     ignores: [ 'text!gcli/ui/inputter.css' ]
   });
 
+  // Package the JavaScript
   copy({
     source: [
       'mozilla/build/prefix-gcli.jsm',
@@ -130,7 +141,7 @@ function buildFirefox(destDir) {
       'mozilla/build/suffix-gcli.jsm'
     ],
     filter: copy.filter.moduleDefines,
-    dest: 'built/ff/gcli.jsm'
+    dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gcli.jsm'
   });
 
   copy({
