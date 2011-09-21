@@ -8,12 +8,7 @@ var copy = require('dryice').copy;
 var path = require('path');
 var fs = require('fs');
 
-// SETUP
 var gcliHome = __dirname;
-
-if (!path.existsSync(gcliHome + '/built')) {
-  fs.mkdirSync(gcliHome + '/built', 0755);
-}
 
 buildStandard();
 buildFirefox();
@@ -25,6 +20,10 @@ buildFirefox();
  */
 function buildStandard() {
   console.log('Building built/gcli[-uncompressed].js:');
+
+  if (!path.existsSync(gcliHome + '/built')) {
+    fs.mkdirSync(gcliHome + '/built', 0755);
+  }
 
   var project = copy.createCommonJsProject({
     roots: [ gcliHome + '/lib' ]
@@ -87,6 +86,9 @@ function buildStandard() {
 function buildFirefox() {
   console.log('Building built/ff/gcli.jsm:');
 
+  if (!path.existsSync(gcliHome + '/built')) {
+    fs.mkdirSync(gcliHome + '/built', 0755);
+  }
   if (!path.existsSync(gcliHome + '/built/ff')) {
     fs.mkdirSync(gcliHome + '/built/ff', 0755);
   }
