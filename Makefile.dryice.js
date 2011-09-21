@@ -102,11 +102,14 @@ function buildStandard() {
 function buildFirefox(destDir) {
   console.log('Building to ' + (destDir || 'built/ff') + '.\n');
 
-  if (!path.existsSync(gcliHome + '/built')) {
-    fs.mkdirSync(gcliHome + '/built', 0755);
+  if (!destDir) {
+    if (!path.existsSync(gcliHome + '/built')) {
+      fs.mkdirSync(gcliHome + '/built', 0755);
+    }
+    if (!path.existsSync(gcliHome + '/built/ff')) {
+      fs.mkdirSync(gcliHome + '/built/ff', 0755);
+    }
   }
-  if (!path.existsSync(gcliHome + '/built/ff')) {
-    fs.mkdirSync(gcliHome + '/built/ff', 0755);
   }
 
   var project = copy.createCommonJsProject({
