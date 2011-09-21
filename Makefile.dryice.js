@@ -111,10 +111,25 @@ function buildFirefox(destDir) {
     }
   }
   var jsmDir = '/browser/devtools/webconsole';
+  var winCssDir = '/browser/themes/winstripe/browser/devtools';
+  var pinCssDir = '/browser/themes/pinstripe/browser/devtools';
+  var gnomeCssDir = '/browser/themes/gnomestripe/browser/devtools';
   if (destDir) {
     var fail = false;
     if (!path.existsSync(destDir + jsmDir)) {
       console.error('Missing path for JSM: ' + destDir + jsmDir);
+      fail = true;
+    }
+    if (!path.existsSync(destDir + winCssDir)) {
+      console.error('Missing path for Windows CSS: ' + destDir + winCssDir);
+      fail = true;
+    }
+    if (!path.existsSync(destDir + pinCssDir)) {
+      console.error('Missing path for Mac CSS: ' + destDir + pinCssDir);
+      fail = true;
+    }
+    if (!path.existsSync(destDir + gnomeCssDir)) {
+      console.error('Missing path for Gnome CSS: ' + destDir + gnomeCssDir);
       fail = true;
     }
     if (fail) {
@@ -144,6 +159,8 @@ function buildFirefox(destDir) {
     dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gcli.jsm'
   });
 
+  // Package the CSS
+  var css = copy.createDataObject();
   copy({
     source: [
       'mozilla/build/license-block.txt',
@@ -160,7 +177,20 @@ function buildFirefox(destDir) {
       { value: '\n/* From: $GCLI/lib/gcli/ui/command_output_view.css */' },
       'lib/gcli/ui/command_output_view.css'
     ],
-    dest: 'built/ff/gcli.css'
+    dest: css
+  });
+  copy({
+    source: css,
+    dest: (destDir ? destDir + winCssDir : 'built/ff') + '/gcli.css'
+  });
+  copy({
+    source: css,
+    dest: (destDir ? destDir + pinCssDir : 'built/ff') + '/gcli.css'
+  });
+  copy({
+    source: css,
+    dest: (destDir ? destDir + gnomeCssDir : 'built/ff') + '/gcli.css'
+  });
   });
 
   console.log(project.report());
