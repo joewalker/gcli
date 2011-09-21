@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306496118 -3600
 # Node ID c9f0d4142413be8bd4cf553732568c1249999196
-# Parent 2d1fecae86ef03e04164187206afe747617b9428
+# Parent 3eebaa87e86ba2945634012ceaa852dfba74406b
 Bug 656668 - Create Export from GCLI project to JSM
 
 diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
@@ -795,7 +795,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
      console.log("define: " + moduleName + " -> " + payload.toString()
          .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
    }
-@@ -417,151 +498,6497 @@ function define(moduleName, deps, payloa
+@@ -417,151 +498,6564 @@ function define(moduleName, deps, payloa
      console.error(this.depth + " Error: Redefining module: " + moduleName);
    }
    define.modules[moduleName] = payload;
@@ -981,7 +981,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    /**
 +     * createView() for Firefox requires an options object with the following
 +     * members:
-+     * - contentDocument: The window of the attached tab
++     * - contentDocument: From the window of the attached tab
 +     * - chromeDocument: GCLITerm.document
 +     * - environment.hudId: GCLITerm.hudId
 +     * - jsEnvironment.globalObject: 'window'
@@ -1002,21 +1002,39 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      nodetype.setDocument(opts.contentDocument);
 +      cli.setEvalFunction(opts.jsEnvironment.evalFunction);
 +
-+      var inputter = new Inputter(opts);
-+      inputter.update();
++      opts.inputter = new Inputter(opts);
++      opts.inputter.update();
 +      if (opts.popup) {
-+        inputter.sendFocusEventsToPopup(opts.popup);
++        opts.inputter.addPopupListener(opts.popup);
 +      }
 +
 +      if (opts.hintElement) {
-+        var menu = new CommandMenu(opts.chromeDocument, opts.requisition);
-+        opts.hintElement.appendChild(menu.element);
++        opts.menu = new CommandMenu(opts.chromeDocument, opts.requisition);
++        opts.hintElement.appendChild(opts.menu.element);
 +
-+        var argFetcher = new ArgFetcher(opts.chromeDocument, opts.requisition);
-+        opts.hintElement.appendChild(argFetcher.element);
++        opts.argFetcher = new ArgFetcher(opts.chromeDocument, opts.requisition);
++        opts.hintElement.appendChild(opts.argFetcher.element);
 +
-+        menu.onCommandChange();
++        opts.menu.onCommandChange();
 +      }
++    },
++
++    /**
++     * Undo the effects of createView() to prevent memory leaks
++     */
++    removeView: function(opts) {
++      jstype.unsetGlobalObject();
++      nodetype.unsetDocument();
++      cli.unsetEvalFunction();
++      opts.inputter.removePopupListener(opts.popup);
++
++      opts.hintElement.removeChild(opts.menu.element);
++      opts.hintElement.removeChild(opts.argFetcher.element);
++
++      delete opts.inputter;
++      delete opts.requisition;
++      delete opts.menu;
++      delete opts.argFetcher;
 +    },
 +
 +    commandOutputManager: require('gcli/canon').commandOutputManager
@@ -1409,8 +1427,15 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Register a function to be called whenever there is a new command output
 + * object.
 + */
-+CommandOutputManager.prototype.addListener = function (fn, ctx) {
++CommandOutputManager.prototype.addListener = function(fn, ctx) {
 +  this._event.add(fn, ctx);
++};
++
++/**
++ * Undo the effects of CommandOutputManager.addListener()
++ */
++CommandOutputManager.prototype.removeListener = function(fn, ctx) {
++  this._event.remove(fn, ctx);
 +};
 +
 +canon.CommandOutputManager = CommandOutputManager;
@@ -3486,11 +3511,19 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +}
 +
 +/**
-+ * Setter for the object against which Javascript completions happen
++ * Setter for the object against which JavaScript completions happen
 + */
 +exports.setGlobalObject = function(obj) {
 +  globalObject = obj;
 +};
++
++/**
++ * Remove registration of object against which JavaScript completions happen
++ */
++exports.unsetGlobalObject = function() {
++  globalObject = undefined;
++};
++
 +
 +/**
 + * 'javascript' handles scripted input
@@ -3841,11 +3874,19 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +}
 +
 +/**
-+ * Setter for the object against which Javascript completions happen
++ * Setter for the document that contains the nodes we're matching
 + */
 +exports.setDocument = function(document) {
 +  doc = document;
 +};
++
++/**
++ * Undo the effects of setDocument()
++ */
++exports.unsetDocument = function() {
++  doc = undefined;
++};
++
 +
 +/**
 + * A CSS expression that refers to a single node
@@ -4261,8 +4302,26 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + */
 +var customEval = eval;
 +
++/**
++ * Setup a function to be called in place of 'eval', generally for security
++ * reasons
++ */
 +exports.setEvalFunction = function(newCustomEval) {
 +  customEval = newCustomEval;
++};
++
++/**
++ * Remove the binding done by setEvalFunction().
++ * We purposely set customEval to undefined rather than to 'eval' because there
++ * is an implication of setEvalFunction that we're in a security sensitive
++ * situation. What if we can trick GCLI into calling unsetEvalFunction() at the
++ * wrong time?
++ * So to properly undo the effects of setEvalFunction(), you need to call
++ * setEvalFunction(eval) rather than unsetEvalFunction(), however the latter is
++ * preferred in most cases.
++ */
++exports.unsetEvalFunction = function() {
++  customEval = undefined;
 +};
 +
 +/**
@@ -5681,13 +5740,21 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +/**
 + * When the input element gets/loses focus make sure we tell the popup so it
-+ * can show/hide accordingly.
++ * can show/hide accordingly
++ * @param popup An object containing show and hide methods to be called when
++ * the hinter is to be shown or hidden
 + */
-+Inputter.prototype.sendFocusEventsToPopup = function(popup) {
-+  event.addListener(this.element, 'focus', function() {
-+    popup.show(this.element);
-+  }.bind(this));
++Inputter.prototype.addPopupListener = function(popup) {
++  event.addListener(this.element, 'focus', popup.show);
 +  event.addListener(this.element, 'blur', popup.hide);
++};
++
++/**
++ * Undo the effects of Inputter.addPopupListener()
++ */
++Inputter.prototype.removePopupListener = function(popup) {
++  event.removeListener(this.element, 'blur', popup.hide);
++  event.removeListener(this.element, 'focus', popup.show);
 +};
 +
 +/**

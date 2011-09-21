@@ -58,21 +58,39 @@ define(function(require, exports, module) {
       nodetype.setDocument(opts.contentDocument);
       cli.setEvalFunction(opts.jsEnvironment.evalFunction);
 
-      var inputter = new Inputter(opts);
-      inputter.update();
+      opts.inputter = new Inputter(opts);
+      opts.inputter.update();
       if (opts.popup) {
-        inputter.sendFocusEventsToPopup(opts.popup);
+        opts.inputter.addPopupListener(opts.popup);
       }
 
       if (opts.hintElement) {
-        var menu = new CommandMenu(opts.chromeDocument, opts.requisition);
-        opts.hintElement.appendChild(menu.element);
+        opts.menu = new CommandMenu(opts.chromeDocument, opts.requisition);
+        opts.hintElement.appendChild(opts.menu.element);
 
-        var argFetcher = new ArgFetcher(opts.chromeDocument, opts.requisition);
-        opts.hintElement.appendChild(argFetcher.element);
+        opts.argFetcher = new ArgFetcher(opts.chromeDocument, opts.requisition);
+        opts.hintElement.appendChild(opts.argFetcher.element);
 
-        menu.onCommandChange();
+        opts.menu.onCommandChange();
       }
+    },
+
+    /**
+     * Undo the effects of createView() to prevent memory leaks
+     */
+    removeView: function(opts) {
+      jstype.unsetGlobalObject();
+      nodetype.unsetDocument();
+      cli.unsetEvalFunction();
+      opts.inputter.removePopupListener(opts.popup);
+
+      opts.hintElement.removeChild(opts.menu.element);
+      opts.hintElement.removeChild(opts.argFetcher.element);
+
+      delete opts.inputter;
+      delete opts.requisition;
+      delete opts.menu;
+      delete opts.argFetcher;
     },
 
     commandOutputManager: require('gcli/canon').commandOutputManager
