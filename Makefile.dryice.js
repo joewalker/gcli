@@ -202,6 +202,7 @@ function buildFirefox(destDir) {
   // Package the i18n strings
   copy({
     source: 'lib/gcli/nls/strings.js',
+    filter: tweakI18nStrings,
     dest: (destDir ? destDir + propsDir : 'built/ff') + '/gcli.properties'
   });
 
@@ -220,5 +221,61 @@ function tweakIndex(data) {
       .replace(/scripts\/require.js/, 'gcli-uncompressed.js')
       .replace(/\s*require\([^;]*;\n/, '');
 }
+
+/**
+ * Regular expression that removes the header/footer from a nls strings file.
+ * If/when we revert to RequireJS formatted strings files, we'll need to update
+ * this.
+ * See lib/gcli/nls/strings.js for an example
+ */
+var outline = /root: {([^}]*)}/;
+
+/**
+ * Regex to match a set of single line comments followed by a name:value
+ * We run this to fund the list of strings once we've used 'outline' to get the
+ * main body.
+ * See lib/gcli/nls/strings.js for an example
+ */
+var singleString = /((\s*\/\/.*\n)+)\s*([A-z.]+):\s*'(.*)',?\n/g;
+
+/**
+ * Filter to turn GCLIs l18n script file into a Firefox l10n strings file
+ */
+function tweakI18nStrings(data) {
+  // Rip off the CommonJS header/footer
+  var results = outline.exec(data);
+  if (!results) {
+    console.error('Mismatch in lib/gcli/nls/strings.js');
+    process.exit(1);
+  }
+  // Remove the trailing spaces
+  var data = results[1].replace(/ *$/, '');
+  // Convert each of the string definitions
+  data = data.replace(singleString, function(m, note, x, name, value) {
+    note = note.replace(/\n? *\/\/ */g, ' ')
+               .replace(/^ /, '')
+               .replace(/\n$/, '');
+    note = 'LOCALIZATION NOTE (' + name + '): ' + note;
+    var lines = '# ' + wordWrap(note, 77).join('\n# ') + '\n';
+    // Unescape JavaScript strings so they're property values
+    value = value.replace(/\\\\/g, '\\')
+                 .replace(/\\'/g, '\'');
+    return lines + name + '=' + value + '\n\n';
+  });
+
+  return '# LOCALIZATION NOTE These strings are used inside the GCLI.\n\n' + data;
+}
+
+/**
+ * Return an input string split into lines of a given length
+ */
+function wordWrap(input, length) {
+  // LOOK! Over there! Is it an airplane?
+  var wrapper = new RegExp('.{0,' + (length - 1) + '}([ $|\\s$]|$)', 'g');
+  return input.match(wrapper).slice(0, -1).map(function(s) {
+    return s.replace(/ $/, '');
+  });
+}
+
 // Now everything is defined properly, start working
 main();
