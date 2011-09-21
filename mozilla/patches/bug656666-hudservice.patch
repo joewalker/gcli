@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent 6fcf786fa288834d586fd3b86b02a25062354487
+# Parent 0d00fb7768769b32b831654383f89a3450472662
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/base/content/browser.xul b/browser/base/content/browser.xul
@@ -16,11 +16,11 @@ diff --git a/browser/base/content/browser.xul b/browser/base/content/browser.xul
  <?xml-stylesheet href="chrome://browser/skin/" type="text/css"?>
  
  <?xul-overlay href="chrome://global/content/editMenuOverlay.xul"?>
-diff --git a/browser/devtools/webconsole/Commands.jsm b/browser/devtools/webconsole/Commands.jsm
+diff --git a/browser/devtools/webconsole/GcliCommands.jsm b/browser/devtools/webconsole/GcliCommands.jsm
 new file mode 100644
 --- /dev/null
-+++ b/browser/devtools/webconsole/Commands.jsm
-@@ -0,0 +1,861 @@
++++ b/browser/devtools/webconsole/GcliCommands.jsm
+@@ -0,0 +1,156 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -61,13 +61,16 @@ new file mode 100644
 +
 +let EXPORTED_SYMBOLS = [ "Commands" ];
 +
-+Components.utils.import("resource:///modules/gcli.jsm");
 +Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
 +Components.utils.import("resource://gre/modules/Services.jsm");
++Components.utils.import("resource:///modules/gcli.jsm");
 +
-+XPCOMUtils.defineLazyGetter(this, "stringBundle", function () {
-+  return Services.strings.createBundle("chrome://browser/locale/gcli.properties");
-+});
++let bundleName = "chrome://browser/locale/gclicommands.properties";
++let stringBundle = Services.strings.createBundle(bundleName);
++
++let gcli = gcli._internal.require("gcli/index");
++let canon = gcli._internal.require("gcli/canon");
++
 +
 +let document;
 +
@@ -78,10 +81,18 @@ new file mode 100644
 +  /**
 +   * Allow HUDService to inform us of the document against which we work
 +   */
-+  setDocument: function commands_setDocument(aDocument) {
++  setDocument: function Commands_setDocument(aDocument) {
 +    document = aDocument;
++  },
++
++  /**
++   * Undo the effects of Commands.setDocument()
++   */
++  unsetDocument: function Commands_setDocument() {
++    document = undefined;
 +  }
 +};
++
 +
 +/**
 + * Lookup a string in the GCLI string bundle
@@ -114,165 +125,22 @@ new file mode 100644
 +  }
 +}
 +
-+let util = gcli._internal.require("gcli/util");
-+let dom = gcli._internal.require("gcli/util").dom;
-+
-+let gcli = gcli._internal.require("gcli/index");
-+
-+let Argument = gcli._internal.require("gcli/argument").Argument;
-+
-+let types = gcli._internal.require("gcli/types");
-+let Conversion = gcli._internal.require("gcli/types").Conversion;
-+let Type = gcli._internal.require("gcli/types").Type;
-+let Status = gcli._internal.require("gcli/types").Status;
-+let SelectionType = gcli._internal.require("gcli/types/basic").SelectionType;
-+
-+let field = gcli._internal.require("gcli/ui/field");
-+let Field = gcli._internal.require("gcli/ui/field").Field;
-+
-+let canon = gcli._internal.require("gcli/canon");
-+
-+
-+/**
-+ * Utility to create a link to a bug number
-+ */
-+function getBugLink(bugid)
-+{
-+  return '<br/>To comment on this command, use <a target="_blank" ' +
-+      'href="https://bugzilla.mozilla.org/show_bug.cgi?id=' + bugid + '">' +
-+      "bug " + bugid + "</a>.";
-+}
-+
-+
-+/**
-+ * A type for the resources in the current page
-+ */
-+function ResourceType(typeSpec)
-+{
-+  if (typeSpec != null) {
-+    throw new Error("ResourceType can not be customized");
-+  }
-+}
-+
-+ResourceType.prototype = Object.create(SelectionType.prototype);
-+
-+ResourceType.prototype.lookup = function()
-+{
-+  let reply = [];
-+  let sheets = Array.prototype.slice.call(document.styleSheets);
-+  for (let i = 0; i < sheets.length; i++) {
-+    let sheet = sheets[i];
-+    // When we're in chrome, replace style#i with style#Ln where n is the line
-+    // number of the style element in the HTML document.
-+    reply.push({
-+      name: sheet.href || "style#" + i,
-+      value: sheet
-+    });
-+  }
-+  reply.push({
-+    name: "page",
-+    value: document
-+  });
-+  // There are other page resources that we need to include here too
-+  return reply;
-+};
-+
-+ResourceType.prototype.name = "resource";
-+
-+types.registerType(ResourceType);
-+
-+
-+/**
-+ * 'file' allows upload of a file
-+ */
-+function FileType(typeSpec)
-+{
-+  if (typeSpec != null) {
-+    throw new Error("FileType can not be customized");
-+  }
-+}
-+
-+FileType.prototype = Object.create(Type.prototype);
-+
-+FileType.prototype.stringify = function(value)
-+{
-+  if (value == null) {
-+    return "";
-+  }
-+  return value.toString();
-+};
-+
-+FileType.prototype.parse = function(arg)
-+{
-+  if (arg.text == null || arg.text === "") {
-+    return new Conversion(null, arg, Status.INCOMPLETE, "");
-+  }
-+  return new Conversion(arg.text, arg);
-+};
-+
-+FileType.prototype.name = "file";
-+
-+types.registerType(FileType);
-+
-+
-+/**
-+ * A field that allows editing of strings
-+ */
-+function FileField(type, options)
-+{
-+  this.doc = options.document;
-+  this.type = type;
-+  this.arg = new Argument();
-+
-+  this.element = dom.createElement(this.doc, "input");
-+  this.element.type = "file";
-+
-+  this.onInputChange = this.onInputChange.bind(this);
-+  this.element.addEventListener("keyup", this.onInputChange, false);
-+
-+  this.fieldChanged = util.createEvent("FileField.fieldChanged");
-+}
-+
-+FileField.prototype = Object.create(Field.prototype);
-+
-+FileField.prototype.destroy = function()
-+{
-+  this.element.removeEventListener("keyup", this.onKeyup, false);
-+};
-+
-+FileField.prototype.setConversion = function(conversion)
-+{
-+  this.arg = conversion.arg;
-+  this.element.value = conversion.arg.text;
-+  this.setMessage(conversion.message);
-+};
-+
-+FileField.prototype.getConversion = function()
-+{
-+  // This tweaks the prefix/suffix of the argument to fit
-+  this.arg = this.arg.beget(this.element.value, { prefixSpace: true });
-+  return this.type.parse(this.arg);
-+};
-+
-+FileField.claim = function(type)
-+{
-+  return type instanceof FileType ? Field.MATCH : Field.IF_NOTHING_BETTER;
-+};
-+
-+field.addField(FileField);
-+
 +
 +/**
 + * 'echo' command
 + */
 +gcli.addCommand({
 +  name: "echo",
-+  description: "Show a message",
++  description: lookup("echoDesc"),
 +  params: [
-+    { name: "message", type: "string", description: "Message to output" }
++    {
++      name: "message",
++      type: "string",
++      description: lookup("echoMessageDesc")
++    }
 +  ],
 +  returnType: "string",
-+  exec: function(args, env) {
++  exec: function Command_echo(args, context) {
 +    return args.message;
 +  }
 +});
@@ -284,11 +152,11 @@ new file mode 100644
 +gcli.addCommand({
 +  name: "help",
 +  returnType: "html",
-+  description: "Get help on the available commands",
-+  exec: function(args, context) {
++  description: lookup("helpDesc"),
++  exec: function Command_help(args, context) {
 +    let output = [];
 +
-+    output.push("<strong>Available Commands:</strong><br/>");
++    output.push("<strong>" + lookup("helpAvailable") + ":</strong><br/>");
 +
 +    let commandNames = canon.getCommandNames();
 +    commandNames.sort();
@@ -309,579 +177,6 @@ new file mode 100644
 +  }
 +});
 +
-+
-+/**
-+ * 'version' command
-+ */
-+gcli.addCommand({
-+  name: "version",
-+  description: "Show current FF version number",
-+  returnType: "string",
-+  exec: function(args, env) {
-+    return "You are running Firefox version 9.0a1 (2011-08-18)";
-+  }
-+});
-+
-+
-+/**
-+ * 'edit' command
-+ */
-+gcli.addCommand({
-+  name: "edit",
-+  description: lookup("editDesc"),
-+  manual: lookup("editManual"),
-+  params: [
-+     {
-+       name: "resource",
-+       type: "resource",
-+       description: lookup("editResourceDesc")
-+     }
-+   ],
-+   returnType: "html",
-+   exec: function(args, context) {
-+     let element = args.resource.documentElement || args.resource.ownerNode;
-+     return '<textarea rows=5 cols=80 style="font-family:monospace">' +
-+         lookup("editPretend") + ":\n" +
-+         element.innerHTML.substring(0, 500) + "...</textarea>" +
-+         getBugLink(683499);
-+   }
-+});
-+
-+
-+/**
-+ * 'stylizer' command
-+ */
-+gcli.addCommand({
-+  name: "stylizer",
-+  description: lookup("stylizerDesc"),
-+  manual: lookup("stylizerManual"),
-+  params: [
-+     {
-+       name: "node",
-+       type: "node",
-+       description: lookup("stylizerNodeDesc"),
-+     }
-+   ],
-+   returnType: "html",
-+   exec: function(args, context) {
-+     return lookupFormat("stylizerReply", [ "" + args.node ]) +
-+         getBugLink(683502);
-+   }
-+});
-+
-+
-+/**
-+ * 'inspect' command for GCLI
-+ */
-+if (Services.prefs.getBoolPref("devtools.styleinspector.enabled")) {
-+  gcli.addCommand({
-+    name: "inspect",
-+    description: lookup("inspect.desc"),
-+    manual: lookup("inspect.manual"),
-+    params: [
-+      {
-+        name: "node",
-+        type: "node",
-+        description: lookup("inspect.paramNodeDesc")
-+      }
-+    ],
-+    returnType: "html",
-+    exec: function(args, context) {
-+      let errstr = null;
-+
-+      if (!(args.node.style instanceof Ci.nsIDOMCSSStyleDeclaration)) {
-+        throw new Error(lookup("inspect.nodeHasNoStyleProps"));
-+      }
-+
-+      let stylePanel = StyleInspector.createPanel();
-+      stylePanel.setAttribute("hudToolId", context.environment.hudId);
-+      stylePanel.selectNode(args.node, true);
-+    }
-+  });
-+}
-+
-+
-+let breakpoints = [];
-+
-+/**
-+ * 'break' command
-+ */
-+gcli.addCommand({
-+  name: "break",
-+  description: lookup("breakDesc"),
-+  manual: lookup("breakManual")
-+});
-+
-+
-+/**
-+ * 'break list' command
-+ */
-+gcli.addCommand({
-+  name: "break list",
-+  description: lookup("breaklistDesc"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    if (breakpoints.length === 0) {
-+      return lookup("breaklistNone") + getBugLink(683503);
-+    }
-+
-+    let reply = lookup("breaklistIntro");
-+    reply += "<ol>";
-+    breakpoints.forEach(function(breakpoint) {
-+      reply += "<li>" + JSON.stringify(breakpoint) + "</li>";
-+    });
-+    reply += "</ol>";
-+    return reply + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'break add' command
-+ */
-+gcli.addCommand({
-+  name: "break add",
-+  description: lookup("breakaddDesc"),
-+  manual: lookup("breakaddManual")
-+});
-+
-+
-+/**
-+ * 'break add line' command
-+ */
-+gcli.addCommand({
-+  name: "break add line",
-+  description: lookup("breakaddlineDesc"),
-+  params: [
-+    {
-+      name: "file",
-+      type: "string",
-+      description: lookup("breakaddlineFileDesc")
-+    },
-+    {
-+      name: "line",
-+      type: { name: "number", min: 0, step: 10 },
-+      description: lookup("breakaddlineLineDesc")
-+    },
-+    {
-+      group: "Options",
-+      params: [
-+        {
-+         name: "if",
-+         type: "string",
-+         description: lookup("breakaddIfDesc"),
-+         defaultValue: null
-+        },
-+      ]
-+    }
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    args.type = "line";
-+    breakpoints.push(args);
-+    return lookup("breakaddAdded") + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'break add function' command
-+ */
-+gcli.addCommand({
-+  name: "break add function",
-+  description: lookup("breakaddfuncDesc"),
-+  params: [
-+    {
-+      name: "function",
-+      type: "javascript",
-+      description: lookup("breakaddfuncFunctionDesc")
-+    }
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    args.type = "function";
-+    breakpoints.push(args);
-+    return lookup("breakaddAdded") + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'break add xhr' command
-+ */
-+gcli.addCommand({
-+  name: "break add xhr",
-+  description: lookup("breakaddxhrDesc"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    args.type = "xhr";
-+    breakpoints.push(args);
-+    return lookup("breakaddAdded") + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'break add event' command
-+ */
-+gcli.addCommand({
-+  name: "break add event",
-+  description: lookup("breakaddeventDesc"),
-+  params: [
-+    {
-+      name: "event",
-+      type: {
-+        name: "selection",
-+        data: [
-+          "click", "dblclick", "mousedown", "mouseup", "mouseover", "mousemove",
-+          "mouseout", "keydown", "keypress", "keyup", "load", "unload", "abort",
-+          "error", "resize", "scroll", "select", "change", "submit", "reset",
-+          "focus", "blur", "DOMFocusIn", "DOMFocusOut", "DOMActivate",
-+          "DOMSubtreeModified", "DOMNodeInserted", "DOMNodeRemoved",
-+          "DOMNodeRemovedFromDocument", "DOMNodeInsertedIntoDocument",
-+          "DOMAttrModified", "DOMCharacterDataModified",
-+          "touchstart", "touchend", "touchenter", "touchleave", "touchmove",
-+          "touchcancel"
-+        ]
-+      },
-+      description: lookup("breakaddeventEventDesc")
-+    },
-+    {
-+      name: "node",
-+      type: "node",
-+      description: lookup("breakaddeventNodeDesc")
-+    },
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    args.type = "event";
-+    args.node = args.node.__gcliQuery;
-+    breakpoints.push(args);
-+    return lookup("breakaddAdded") + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'break next' command
-+ */
-+gcli.addCommand({
-+  name: "break next",
-+  description: lookup("breaknextDesc"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("breaknextReply") + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'break del' command
-+ */
-+gcli.addCommand({
-+  name: "break del",
-+  description: lookup("breakdelDesc"),
-+  params: [
-+    {
-+      name: "breakid",
-+      type: {
-+        name: "number",
-+        min: 0,
-+        max: function() { return breakpoints.length - 1; }
-+      },
-+      description: lookup("breakdelBreakidDesc")
-+    }
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    breakpoints.splice(args.breakid, 1);
-+    return lookup("breakdelRemoved") + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'step' command
-+ */
-+gcli.addCommand({
-+  name: "step",
-+  description: lookup("stepDesc"),
-+  manual: lookup("stepManual")
-+});
-+
-+
-+/**
-+ * 'step up' command
-+ */
-+gcli.addCommand({
-+  name: "step up",
-+  description: lookup("stepupDesc"),
-+  manual: lookup("stepupManual"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("stepInsult") + getBugLink(683505);
-+  }
-+});
-+
-+
-+/**
-+ * 'step in' command
-+ */
-+gcli.addCommand({
-+  name: "step in",
-+  description: lookup("stepinDesc"),
-+  manual: lookup("stepinManual"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("stepInsult") + getBugLink(683505);
-+  }
-+});
-+
-+
-+/**
-+ * 'step next' command
-+ */
-+gcli.addCommand({
-+  name: "step next",
-+  description: lookup("stepnextDesc"),
-+  manual: lookup("stepnextManual"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("stepInsult") + getBugLink(683505);
-+  }
-+});
-+
-+
-+/**
-+ * 'step on' command
-+ */
-+gcli.addCommand({
-+  name: "step on",
-+  description: lookup("steponDesc"),
-+  manual: lookup("steponManual"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("stepInsult") + getBugLink(683505);
-+  }
-+});
-+
-+
-+/**
-+ * 'step to' command
-+ */
-+gcli.addCommand({
-+  name: "step to",
-+  description: lookup("steptoDesc"),
-+  manual: lookup("steptoManual"),
-+  params: [
-+    {
-+      name: "line",
-+      type: { name: "number", min: 0, step: 10 },
-+      description: lookup("steptoLineDesc")
-+    }
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("stepInsult") + getBugLink(683505);
-+  }
-+});
-+
-+
-+/**
-+ * 'highlight' command
-+ */
-+gcli.addCommand({
-+  name: "highlight",
-+  description: lookup("highlightDesc"),
-+  manual: lookup("highlightManual"),
-+  params: [
-+     {
-+       name: "node",
-+       type: "node",
-+       description: lookup("highlightNodeDesc")
-+     }
-+   ],
-+   returnType: "html",
-+   exec: function(args, context) {
-+     return lookupFormat("highlightReply", [ "" + args.node ]) +
-+         getBugLink(683506);
-+   }
-+});
-+
-+
-+/**
-+ * 'doctor' command
-+ */
-+gcli.addCommand({
-+  name: "doctor",
-+  description: lookup("doctorDesc"),
-+  manual: lookup("doctorManual"),
-+  params: [
-+     {
-+       name: "node",
-+       type: "node",
-+       description: lookup("doctorNodeDesc")
-+     }
-+   ],
-+   returnType: "html",
-+   exec: function(args, context) {
-+     return lookupFormat("doctorReply", [ "" + args.node ]) +
-+         getBugLink(683509);
-+   }
-+});
-+
-+
-+/**
-+ * 'echo' command
-+ */
-+gcli.addCommand({
-+  name: "echo",
-+  description: lookup("echoDesc"),
-+  params: [
-+    {
-+      name: "message",
-+      type: "string",
-+      description: lookup("echoMessageDesc")
-+    }
-+  ],
-+  returnType: "string",
-+  exec: function echo(args, context) {
-+    return args.message;
-+  }
-+});
-+
-+
-+/**
-+ * 'console' command
-+ */
-+gcli.addCommand({
-+  name: "console",
-+  description: lookup("consoleDesc"),
-+  manual: lookup("consoleManual")
-+});
-+
-+
-+/**
-+ * 'console clear' command
-+ */
-+gcli.addCommand({
-+  name: "console clear",
-+  description: lookup("consoleclearDesc"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("consoleclearReply") + getBugLink(683510);
-+  }
-+});
-+
-+
-+/**
-+ * 'console close' command
-+ */
-+gcli.addCommand({
-+  name: "console close",
-+  description: lookup("consolecloseDesc"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("consolecloseReply") + getBugLink(683510);
-+  }
-+});
-+
-+
-+/**
-+ * 'console filter' command
-+ */
-+gcli.addCommand({
-+  name: "console filter",
-+  description: lookup("consolefilterDesc"),
-+  params: [
-+    {
-+      name: "category",
-+      type: {
-+        name: "selection",
-+        data: [ "net", "css", "js", "page" ]
-+      },
-+      description: lookup("consolefilterCategoryDesc")
-+    },
-+    {
-+      name: "level",
-+      type: {
-+        name: "selection",
-+        data: [ "error", "warning", "log", "debug" ]
-+      },
-+      description: lookup("consolefilterLevelDesc")
-+    },
-+    {
-+      name: "display",
-+      type: {
-+        name: "selection",
-+        data: [ "show", "hide" ]
-+      },
-+      description: lookup("consolefilterDisplayDesc")
-+    },
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("consolefilterReply") + getBugLink(683510);
-+  }
-+});
-+
-+
-+/**
-+ * 'scratchpad' command
-+ */
-+gcli.addCommand({
-+  name: "scratchpad",
-+  description: lookup("scratchpadDesc"),
-+  params: [
-+    {
-+      name: "script",
-+      type: "string",
-+      description: lookup("scratchpadScriptDesc"),
-+      defaultValue: null
-+    },
-+    {
-+      group: "Options",
-+      params: [
-+        /*
-+        {
-+          name: "file",
-+          type: "file",
-+          description: lookup("scratchpadFileDesc"),
-+          defaultValue: null
-+        },
-+        */
-+        {
-+          name: "chrome",
-+          type: "boolean",
-+          description: lookup("scratchpadChromeDesc")
-+        }
-+      ]
-+    }
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    // See Bug 659268 - we shouldn't need to do this
-+    if (args.file && args.script) {
-+      throw new Error(lookup("scratchpadOnesource"));
-+    }
-+    if (args.file) {
-+      return '<textarea rows=5 cols=80 style="font-family:monospace">' +
-+          lookupFormat("scratchpadFilepretend", [ args.file ]) +
-+          "</textarea>" +
-+          getBugLink(683513);
-+    }
-+    if (args.script) {
-+      return '<textarea rows=5 cols=80 style="font-family:monospace">' +
-+          lookup("scratchpadScriptpretend") +
-+          ":\n" + args.script + "</textarea>" +
-+          getBugLink(683513);
-+    }
-+    return '<textarea rows=5 cols=80 style="font-family:monospace">' +
-+        lookup("scratchpadEmptypretend") + "</textarea>" +
-+        getBugLink(683513);
-+  }
-+});
-+
 diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webconsole/HUDService.jsm
 --- a/browser/devtools/webconsole/HUDService.jsm
 +++ b/browser/devtools/webconsole/HUDService.jsm
@@ -893,16 +188,26 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
   *
   * Alternatively, the contents of this file may be used under the terms of
   * either the GNU General Public License Version 2 or later (the "GPL"), or
-@@ -53,6 +54,8 @@ Cu.import("resource://gre/modules/XPCOMU
- Cu.import("resource://gre/modules/Services.jsm");
- Cu.import("resource:///modules/NetworkHelper.jsm");
- Cu.import("resource:///modules/PropertyPanel.jsm");
-+Cu.import("resource:///modules/gcli.jsm");
-+Cu.import("resource:///modules/Commands.jsm");
+@@ -72,6 +73,18 @@ XPCOMUtils.defineLazyServiceGetter(this,
+                                    "@mozilla.org/widget/clipboardhelper;1",
+                                    "nsIClipboardHelper");
  
- var EXPORTED_SYMBOLS = ["HUDService", "ConsoleUtils"];
- 
-@@ -1744,7 +1747,9 @@ HUD_SERVICE.prototype =
++XPCOMUtils.defineLazyGetter(this, "gcli", function () {
++  var obj = {};
++  Cu.import("resource:///modules/gcli.jsm", obj);
++  return obj.gcli;
++});
++
++XPCOMUtils.defineLazyGetter(this, "Commands", function () {
++  var obj = {};
++  Cu.import("resource:///modules/GcliCommands.jsm", obj);
++  return obj.Commands;
++});
++
+ XPCOMUtils.defineLazyGetter(this, "StyleInspector", function () {
+   var obj = {};
+   Cu.import("resource:///modules/devtools/StyleInspector.jsm", obj);
+@@ -1744,7 +1757,12 @@ HUD_SERVICE.prototype =
      // Remove children from the output. If the output is not cleared, there can
      // be leaks as some nodes has node.onclick = function; set and GC can't
      // remove the nodes then.
@@ -910,10 +215,13 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    if (hud.jsterm) {
 +      hud.jsterm.clearOutput();
 +    }
++    if (hud.gcliterm) {
++      hud.gcliterm.clearOutput();
++    }
  
      hud.destroy();
  
-@@ -1763,7 +1768,9 @@ HUD_SERVICE.prototype =
+@@ -1763,7 +1781,9 @@ HUD_SERVICE.prototype =
        hud.splitter.parentNode.removeChild(hud.splitter);
      }
  
@@ -924,53 +232,41 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      delete this.hudReferences[aHUDId];
  
-@@ -3067,7 +3074,12 @@ function HeadsUpDisplay(aConfig)
+@@ -3067,7 +3087,12 @@ function HeadsUpDisplay(aConfig)
    // create the JSTerm input element
    try {
      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
 -    this.jsterm.inputNode.focus();
-+    if (!this.usegcli) {
++    if (this.jsterm) {
 +      this.jsterm.inputNode.focus();
 +    }
-+    else {
++    if (this.gcliterm) {
 +      this.gcliterm.inputNode.focus();
 +    }
    }
    catch (ex) {
      Cu.reportError(ex);
-@@ -3180,9 +3192,12 @@ HeadsUpDisplay.prototype = {
-         this.outputNode.ensureIndexIsVisible(lastIndex);
-       }
- 
--      if (this.jsterm) {
-+      if (!this.usegcli) {
+@@ -3183,6 +3208,9 @@ HeadsUpDisplay.prototype = {
+       if (this.jsterm) {
          this.jsterm.inputNode.focus();
        }
-+      else {
++      if (this.gcliterm) {
 +        this.gcliterm.inputNode.focus();
 +      }
      }).bind(this);
  
      panel.addEventListener("popupshown", onPopupShown,false);
-@@ -3371,8 +3386,15 @@ HeadsUpDisplay.prototype = {
-       this.consolePanel.hidePopup();
+@@ -3374,6 +3402,9 @@ HeadsUpDisplay.prototype = {
+     if (this.jsterm) {
+       this.jsterm.inputNode.focus();
      }
- 
--    if (this.jsterm) {
--      this.jsterm.inputNode.focus();
-+    if (!this.usegcli) {
-+      if (this.jsterm) {
-+        this.jsterm.inputNode.focus();
-+      }
++    if (this.gcliterm) {
++      this.gcliterm.inputNode.focus();
 +    }
-+    else {
-+      if (this.gcliterm) {
-+        this.gcliterm.inputNode.focus();
-+      }
-     }
    },
  
-@@ -3406,6 +3428,12 @@ HeadsUpDisplay.prototype = {
+   /**
+@@ -3406,6 +3437,12 @@ HeadsUpDisplay.prototype = {
    jsterm: null,
  
    /**
@@ -983,7 +279,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
     * creates and attaches the console input node
     *
     * @param nsIDOMWindow aWindow
-@@ -3416,10 +3444,23 @@ HeadsUpDisplay.prototype = {
+@@ -3416,10 +3453,23 @@ HeadsUpDisplay.prototype = {
    {
      var context = Cu.getWeakReference(aWindow);
  
@@ -1010,7 +306,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
      else {
        throw new Error("Unsupported Gecko Application");
-@@ -3442,13 +3483,14 @@ HeadsUpDisplay.prototype = {
+@@ -3442,13 +3492,14 @@ HeadsUpDisplay.prototype = {
        this.consolePanel.label = this.getPanelTitle();
      }
  
@@ -1029,7 +325,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
    },
  
-@@ -3493,6 +3535,40 @@ HeadsUpDisplay.prototype = {
+@@ -3493,6 +3544,40 @@ HeadsUpDisplay.prototype = {
      consoleWrap.setAttribute("class", "hud-console-wrapper");
      consoleWrap.setAttribute("flex", "1");
  
@@ -1070,7 +366,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      this.outputNode = this.makeXULNode("richlistbox");
      this.outputNode.setAttribute("class", "hud-output-node");
      this.outputNode.setAttribute("flex", "1");
-@@ -3501,27 +3577,11 @@ HeadsUpDisplay.prototype = {
+@@ -3501,27 +3586,11 @@ HeadsUpDisplay.prototype = {
      this.outputNode.setAttribute("style", "direction: ltr;");
      this.outputNode.setAttribute("seltype", "multiple");
  
@@ -1102,7 +398,22 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      outerWrap.appendChild(consoleWrap);
  
-@@ -3907,7 +3967,9 @@ HeadsUpDisplay.prototype = {
+@@ -3836,7 +3905,13 @@ HeadsUpDisplay.prototype = {
+   {
+     let hudId = this.hudId;
+     function HUD_clearButton_onCommand() {
+-      HUDService.getHudReferenceById(hudId).jsterm.clearOutput();
++      let hud = HUDService.getHudReferenceById(hudId);
++      if (hud.jsterm) {
++        hud.jsterm.clearOutput();
++      }
++      if (hud.gcliterm) {
++        hud.gcliterm.clearOutput();
++      }
+     }
+ 
+     let clearButton = this.makeXULNode("toolbarbutton");
+@@ -3907,7 +3982,12 @@ HeadsUpDisplay.prototype = {
     */
    destroy: function HUD_destroy()
    {
@@ -1110,10 +421,13 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    if (this.jsterm) {
 +      this.jsterm.destroy();
 +    }
++    if (this.gcliterm) {
++      this.gcliterm.destroy();
++    }
  
      this.positionMenuitems.above.removeEventListener("command",
        this._positionConsoleAbove, false);
-@@ -5401,6 +5463,7 @@ JSTermFirefoxMixin.prototype = {
+@@ -5401,6 +5481,7 @@ JSTermFirefoxMixin.prototype = {
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -1121,7 +435,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5414,22 +5477,15 @@ JSTermFirefoxMixin.prototype = {
+@@ -5414,22 +5495,15 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -1153,7 +467,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    get inputValue()
-@@ -5559,9 +5615,8 @@ ConsoleUtils = {
+@@ -5559,9 +5633,8 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
                                            aBody, aSourceURL, aSourceLine,
                                            aClipboardText, aLevel) {
@@ -1165,7 +479,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5597,6 +5652,13 @@ ConsoleUtils = {
+@@ -5597,6 +5670,13 @@ ConsoleUtils = {
      aBody = aBody instanceof Ci.nsIDOMNode && !(aLevel == "dir") ?
              aBody : aDocument.createTextNode(aBody);
  
@@ -1179,7 +493,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6725,3 +6787,243 @@ catch (ex) {
+@@ -6725,3 +6805,214 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -1219,13 +533,12 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  this.createUI();
 +  this.createSandbox();
 +
-+  var window = this.context.get().QueryInterface(Ci.nsIDOMWindow);
++  let window = this.context.get().QueryInterface(Ci.nsIDOMWindow);
 +
 +  this.show = this.show.bind(this);
 +  this.hide = this.hide.bind(this);
 +
-+  gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
-+  gcli._internal.createView({
++  this.opts = {
 +    environment: { hudId: this.hudId },
 +    chromeDocument: this.document,
 +    contentDocument: window.document,
@@ -1239,29 +552,40 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    hintElement: this.hintNode,
 +    completionPrompt: "",
 +    popup: this
-+  });
++  };
 +
++  gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
++  gcli._internal.createView(this.opts);
 +  Commands.setDocument(window.document);
 +}
 +
 +GcliTerm.prototype = {
 +  /**
-+   * Remove the hint column from the display
++   * Remove the hint column from the display.
 +   */
 +  hide: function() {
-+    this._prevDisplay = this.hintNode.parentNode.style.display;
-+    this.hintNode.parentNode.style.display = "none";
++    this.hintNode.parentNode.hidden = true;
 +  },
 +
 +  /**
-+   * Undo the effects of calling hide()
++   * Undo the effects of calling hide().
 +   */
 +  show: function() {
-+    this.hintNode.parentNode.style.display = this._prevDisplay;
++    this.hintNode.parentNode.hidden = false;
 +  },
 +
 +  /**
-+   * Re-attaches a console when the contentWindow is recreated
++   * Destroy the GcliTerm object. Call this method to avoid memory leaks.
++   */
++  destroy: function Gcli_destroy()
++  {
++    Commands.unsetDocument();
++    gcli._internal.removeView(this.opts);
++    gcli._internal.commandOutputManager.removeListener(this.onCommandOutput, this);
++  },
++
++  /**
++   * Re-attaches a console when the contentWindow is recreated.
 +   *
 +   * @param nsIDOMWindow aContentWindow
 +   *        Usually a nsIDOMWindow, however see the comments against the
@@ -1269,7 +593,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +   *        asymmetry between how this function creates the WeakReference where
 +   *        the constructor expects the caller to create it. Yuck.
 +   * @param object aConsole
-+   *        Console object to use within the GcliTerm
++   *        Console object to use within the GcliTerm.
 +   */
 +  reattachConsole: function Gcli_reattachConsole(aContentWindow, aConsole)
 +  {
@@ -1304,7 +628,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  },
 +
 +  /**
-+   * Called by GCLI/canon when command line output changes
++   * Called by GCLI/canon when command line output changes.
 +   */
 +  onCommandOutput: function Gcli_onCommandOutput(aEvent)
 +  {
@@ -1329,7 +653,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  },
 +
 +  /**
-+   * Setup the eval sandbox, should be called whenever we are attached
++   * Setup the eval sandbox, should be called whenever we are attached.
 +   */
 +  createSandbox: function Gcli_createSandbox()
 +  {
@@ -1344,8 +668,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  },
 +
 +  /**
-+   * Evaluates a string in the sandbox. The string is currently wrapped by a
-+   * with(window) { aString } construct, see bug 574033.
++   * Evaluates a string in the sandbox.
 +   *
 +   * @param string aString
 +   *        String to evaluate in the sandbox
@@ -1361,11 +684,11 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +   * JavaScript console.
 +   *
 +   * @param string aOutputMessage
-+   *        The message to display
++   *        The message to display.
 +   * @param number aCategory
-+   *        One of the CATEGORY_ constants
++   *        One of the CATEGORY_ constants.
 +   * @param number aSeverity
-+   *        One of the SEVERITY_ constants
++   *        One of the SEVERITY_ constants.
 +   */
 +  writeOutput: function Gcli_writeOutput(aOutputMessage, aOptions)
 +  {
@@ -1383,45 +706,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    ConsoleUtils.outputMessageNode(node, this.hudId);
 +  },
 +
-+  /**
-+   * Remove all output from the HUD
-+   */
-+  clearOutput: function Gcli_clearOutput()
-+  {
-+    let hud = HUDService.getHudReferenceById(this.hudId);
-+    hud.cssNodes = {};
-+
-+    let node = hud.outputNode;
-+    while (node.firstChild) {
-+      if (node.firstChild.classList &&
-+          node.firstChild.classList.contains("webconsole-msg-inspector")) {
-+        hud.pruneConsoleDirNode(node.firstChild);
-+      }
-+      else {
-+        hud.outputNode.removeChild(node.firstChild);
-+      }
-+    }
-+
-+    hud.HUDBox.lastTimestamp = 0;
-+  },
-+
-+  _formatResult: JSTerm.prototype.formatResult,
-+  _formatString: JSTerm.prototype.formatString,
-+  _getResultType: JSTerm.prototype.getResultType,
-+
-+  /**
-+   * Sets the value of the input field (command line), and resizes the field to
-+   * fit its contents. This method is preferred over setting "inputNode.value"
-+   * directly, because it correctly resizes the field.
-+   *
-+   * @param string aNewValue
-+   *        The new value to set
-+   */
-+  _setInputValue: function Gcli_setInputValue(aNewValue)
-+  {
-+    this.inputNode.value = aNewValue;
-+    this.completeNode.value = "";
-+  },
++  clearOutput: JSTerm.prototype.clearOutput,
 +};
 diff --git a/browser/devtools/webconsole/Makefile.in b/browser/devtools/webconsole/Makefile.in
 --- a/browser/devtools/webconsole/Makefile.in
@@ -1430,7 +715,7 @@ diff --git a/browser/devtools/webconsole/Makefile.in b/browser/devtools/webconso
  		NetworkHelper.jsm \
  		AutocompletePopup.jsm \
  		gcli.jsm \
-+		Commands.jsm \
++		GcliCommands.jsm \
  		$(NULL)
  
  EXTRA_PP_JS_MODULES = \
@@ -1449,7 +734,7 @@ diff --git a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_in
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_integrate.js
-@@ -0,0 +1,96 @@
+@@ -0,0 +1,97 @@
 +/* Any copyright is dedicated to the Public Domain.
 + * http://creativecommons.org/publicdomain/zero/1.0/ */
 +
@@ -1462,7 +747,7 @@ new file mode 100644
 +const TEST_URI = "http://example.com/browser/browser/devtools/webconsole/test/browser/test-console.html";
 +
 +registerCleanupFunction(function() {
-+    Services.prefs.setBoolPref("devtools.gcli.enable", false);
++  Services.prefs.clearUserPref("devtools.gcli.enable");
 +});
 +
 +function test() {
@@ -1512,7 +797,8 @@ new file mode 100644
 +}
 +
 +function testCallCommands() {
-+  let gcliterm = HUDService.getHudByWindow(content).gcliterm;
++  let hud = HUDService.getHudByWindow(content);
++  let gcliterm = hud.gcliterm;
 +  ok(gcliterm, "We have a GCLI term");
 +
 +  // Test successful auto-completion
@@ -1527,7 +813,7 @@ new file mode 100644
 +  EventUtils.synthesizeKey("d");
 +  is(gcliterm.completeNode.value.replace(" ", ""), "", "Completion for \"ecd\"");
 +
-+  let outputNode = hudBox.querySelector(".hud-output-node");
++  let outputNode = hud.outputNode;
 +
 +  // Test a normal command's life cycle
 +  gcliterm._setInputValue("echo hello worl");
@@ -1550,147 +836,124 @@ diff --git a/browser/locales/en-US/chrome/browser/gcli.properties b/browser/loca
 new file mode 100644
 --- /dev/null
 +++ b/browser/locales/en-US/chrome/browser/gcli.properties
-@@ -0,0 +1,132 @@
+@@ -0,0 +1,85 @@
++# LOCALIZATION NOTE These strings are used inside the GCLI.
 +
++# LOCALIZATION NOTE (canonDescNone): Short string used to describe any command
++# or command parameter when no description has been provided.
 +canonDescNone=(No description)
-+cliEvalJavascript=Enter JavaScript directly
-+fieldSelectionSelect=Select a %S ...
-+fieldArrayAdd=Add
-+fieldArrayDel=Del
-+jstypeParseScope=Scope lost
-+jstypeParseMissing=Can\'t find property \'%S\'
-+jstypeBeginSyntax=Syntax error
-+jstypeBeginUnterm=Unterminated string literal
-+typesNumberNan=Can\'t convert "%S" to a number.
-+typesNumberMax=%1$S is greater that maximum allowed: %2$S.
-+typesNumberMin=%1$S is smaller that minimum allowed: %2$S.
-+typesSelectionNomatch=Can\'t use \'%S\'.'
 +
++# LOCALIZATION NOTE (cliEvalJavascript): The special '{' command allows entry
++# of JavaScript like traditional developer too command lines. This describes
++# the '{' command.
++cliEvalJavascript=Enter JavaScript directly
++
++# LOCALIZATION NOTE (fieldSelectionSelect): When a command has a parameter
++# that has a number of pre-defined options the user interface presents these
++# in a drop-down menu, where the first 'option' is an indicator that a
++# selection should be made. This string describes that first option.
++fieldSelectionSelect=Select a %S ...
++
++# LOCALIZATION NOTE (fieldArrayAdd): When a command has a parameter that can
++# be repeated a number of times (e.g. like the 'cat a.txt b.txt' command) the
++# user interface presents buttons to add and remove arguments. This string is
++# used to add arguments.
++fieldArrayAdd=Add
++
++# LOCALIZATION NOTE (fieldArrayDel): When a command has a parameter that can
++# be repeated a number of times (e.g. like the 'cat a.txt b.txt' command) the
++# user interface presents buttons to add and remove arguments. This string is
++# used to remove arguments.
++fieldArrayDel=Del
++
++# LOCALIZATION NOTE (jstypeParseScope): The command line provides completion
++# for JavaScript commands, however there are times when the scope of what
++# we're completing against can't be used. This error message is displayed when
++# this happens.
++jstypeParseScope=Scope lost
++
++# LOCALIZATION NOTE (jstypeParseMissing): When the command line is doing
++# JavaScript completion, sometimes the property to be completed does not
++# exist. This error message is displayed when this happens.
++jstypeParseMissing=Can't find property '%S'
++
++# LOCALIZATION NOTE (jstypeBeginSyntax): When the command line is doing
++# JavaScript completion using invalid JavaScript, this error message is
++# displayed.
++jstypeBeginSyntax=Syntax error
++
++# LOCALIZATION NOTE (jstypeBeginUnterm): When the command line is doing
++# JavaScript completion using a string the is not properly terminated, this
++# error message is displayed.
++jstypeBeginUnterm=Unterminated string literal
++
++# LOCALIZATION NOTE (typesNumberNan): When the command line is passed a
++# number, however the input string is not a valid number, this error message
++# is displayed.
++typesNumberNan=Can't convert "%S" to a number.
++
++# LOCALIZATION NOTE (typesNumberMax): When the command line is passed a
++# number, but the number is bigger than the largest allowed number, this error
++# message is displayed.
++typesNumberMax=%1$S is greater that maximum allowed: %2$S.
++
++# LOCALIZATION NOTE (typesNumberMin): When the command line is passed a
++# number, but the number is lower than the smallest allowed number, this error
++# message is displayed.
++typesNumberMin=%1$S is smaller that minimum allowed: %2$S.
++
++# LOCALIZATION NOTE (typesSelectionNomatch): When the command line is passed
++# an option with a limited number of correct values, but the passed value is
++# not one of them, this error message is displayed.
++typesSelectionNomatch=Can't use '%S'.
++
++# LOCALIZATION NOTE (nodeParseSyntax): When the command line is expecting a
++# CSS query string, however the passed string is not valid, this error message
++# is displayed.
 +nodeParseSyntax=Syntax error in CSS query
++
++# LOCALIZATION NOTE (nodeParseMultiple): When the command line is expecting a
++# CSS string that matches a single node, but more than one node matches, this
++# error message is displayed.
 +nodeParseMultiple=Too many matches (%S)
++
++# LOCALIZATION NOTE (nodeParseNone): When the command line is expecting a CSS
++# string that matches a single node, but no one nodes match, this error
++# message is displayed.
 +nodeParseNone=No matches
 +
-+editDesc=Tweak a page resource
-+editManual=Edit one of the resources that is part of this page (or maybe any generic web resource?)
-+editResourceDesc=URL to edit
-+editPretend=Pretend this is an popup editor containing
+diff --git a/browser/locales/en-US/chrome/browser/gclicommands.properties b/browser/locales/en-US/chrome/browser/gclicommands.properties
+new file mode 100644
+--- /dev/null
++++ b/browser/locales/en-US/chrome/browser/gclicommands.properties
+@@ -0,0 +1,18 @@
++# LOCALIZATION NOTE These strings are used inside GCLI Commands.
 +
-+stylizerDesc=Edit CSS for a node
-+stylizerManual=Find the CSS rules that affect a node so we can edit them together
-+stylizerNodeDesc=Node to edit (by CSS expression)
-+stylizerReply=This is where we open a window to edit the styles for: %S.
-+
-+breakDesc=Manage breakpoints
-+breakManual=Commands to list, add and remove breakpoints
-+
-+breaklistDesc=Display known breakpoints
-+breaklistNone=No breakpoints set
-+breaklistIntro=The following breakpoints are set:
-+
-+breakaddIfDesc=Break condition
-+breakaddAdded=Added breakpoint
-+breakaddDesc=Add a breakpoint
-+breakaddManual=Breakpoint types supported: line, function, xhr, event
-+
-+breakaddlineDesc=Add a line breakpoint
-+breakaddlineFileDesc=JS file
-+breakaddlineLineDesc=Line number
-+breakaddfuncDesc=Add a function breakpoint
-+breakaddfuncFunctionDesc=Function
-+breakaddxhrDesc=Add an XHR breakpoint
-+breakaddeventDesc=Add an event breakpoint
-+breakaddeventEventDesc=Event type
-+breakaddeventNodeDesc=Node
-+
-+breaknextDesc=Break at next line
-+breaknextReply=Breaking at next line
-+
-+breakdelDesc=Remove a breakpoint
-+breakdelBreakidDesc=Index of breakpoint
-+breakdelRemoved=Breakpoint removed
-+
-+stepDesc=Move the debugger on
-+stepManual=When the debugger is stopped, move it to a new place
-+stepInsult=The debugger is not stopped. How do you expect to start it? Duh!
-+
-+stepupDesc=Step out of the current function
-+stepupManual=Move the debug position up one stack frame by running to the end of the current function
-+
-+stepinDesc=Step into the current function
-+stepinManual=Move the debug position down one stack frame into the current function call
-+
-+stepnextDesc=Step to the next line
-+stepnextManual=Move the debug position to the start of the next line
-+
-+steponDesc=Continue running
-+steponManual=Resume the debugger running normally
-+
-+steptoDesc=Run to the given line
-+steptoManual=Move the debug position to the start of the specified line
-+steptoLineDesc=Line to run to
-+
-+highlightDesc=Highlight a node
-+highlightManual=Examine the dimensions and essential properties of a node (by CSS query)
-+highlightNodeDesc=CSS query
-+highlightReply=Pretend the highlighter thing is doing its stuff now.
-+
-+doctorDesc=Open CSS Doctor for a node
-+doctorManual=Diagnose why a CSS rule isn\'t working for an element
-+doctorNodeDesc=CSS query
-+doctorReply=Pretend the CSS Doctor is doing its stuff now.
-+
++# LOCALIZATION NOTE (echoDesc) A very short string used to describe the
++# function of the echo command, shown in the user interface generated by GCLI
 +echoDesc=Show a message
++
++# LOCALIZATION NOTE (echoMessageDesc) A very short string used to describe the
++# message parameter to the echo command, shown in the user interface generated
++# by GCLI
 +echoMessageDesc=Message
 +
-+consoleDesc=Commands to control the console
-+consoleManual=Filter, clear and close the web console
++# LOCALIZATION NOTE (helpDesc) A very short string used to describe the
++# function of the help command, shown in the user interface generated by GCLI
++helpDesc=Get help on the available commands
 +
-+consoleclearDesc=Clear the console
-+consoleclearReply=I\'m sorry, Dave, I can\'t let you do that
-+
-+consolecloseDesc=Close the console
-+consolecloseReply=A closed console is like a closed mind which is like a closed book which is bad.
-+
-+consolefilterDesc=Filter displayed events
-+consolefilterCategoryDesc=Category
-+consolefilterLevelDesc=Level
-+consolefilterDisplayDesc=Show|Hide
-+consolefilterReply=This needs implementing
-+
-+scratchpadDesc=Open a scratchpad
-+scratchpadManual=Scratchpad allows editing JavaScript in a smalltalk-like environment
-+scratchpadFileDesc=Initial file
-+scratchpadScriptDesc=Initial script
-+scratchpadChromeDesc=Chrome privilages
-+scratchpadOnesource=Only one of --file and --script should be used
-+scratchpadFilepretend=Pretend this is a scratchpad with the contents of %S
-+scratchpadScriptpretend=Pretend this is a scratchpad containing this text
-+scratchpadEmptypretend=Pretend this is an empty scratchpad
-+
-+# LOCALIZATION NOTE (command.desc): A short (i.e less than 30 chars) description
-+# of what the command does. A fuller description is supplied in command.manual
-+inspect.desc=Inspect the CSS for a node
-+
-+# LOCALIZATION NOTE (command.manual): A full description of the 'inspect'
-+# command. This should be left blank if the short description (in command.desc)
-+# can't be reasonably expanded upon
-+inspect.manual=Examine the detail of the CSS properties for a node
-+
-+# LOCALIZATION NOTE (command.paramNodeDesc): A short (i.e. less than 20 chars)
-+# description for use in a dialog for the 'inspect' command
-+inspect.paramNodeDesc=CSS query
-+
-+# LOCALIZATION NOTE (command.nodeHasNoStyleProps): This message is returned
-+# when an unstyleable object is passed in to 'inspect'
-+inspect.nodeHasNoStyleProps=Object cannot be styled
++# LOCALIZATION NOTE (helpAvailable) Used in the output of the help command to
++# explain the contents of the command help table.
++helpAvailable=Available Commands
 diff --git a/browser/locales/jar.mn b/browser/locales/jar.mn
 --- a/browser/locales/jar.mn
 +++ b/browser/locales/jar.mn
-@@ -14,6 +14,7 @@
+@@ -14,6 +14,8 @@
  *   locale/browser/browser.dtd                     (%chrome/browser/browser.dtd)
      locale/browser/baseMenuOverlay.dtd             (%chrome/browser/baseMenuOverlay.dtd)
      locale/browser/browser.properties              (%chrome/browser/browser.properties)
 +    locale/browser/gcli.properties                 (%chrome/browser/gcli.properties)
++    locale/browser/gclicommands.properties         (%chrome/browser/gclicommands.properties)
      locale/browser/styleinspector.properties       (%chrome/browser/styleinspector.properties)
      locale/browser/styleinspector.dtd              (%chrome/browser/styleinspector.dtd)
      locale/browser/scratchpad.properties           (%chrome/browser/scratchpad.properties)
