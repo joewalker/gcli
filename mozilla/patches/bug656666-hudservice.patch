@@ -283,9 +283,9 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    {
      var context = Cu.getWeakReference(aWindow);
  
-+    this.usegcli = false;
++    let usegcli = false;
 +    try {
-+      this.usegcli = Services.prefs.getBoolPref("devtools.gcli.enable");
++      usegcli = Services.prefs.getBoolPref("devtools.gcli.enable");
 +    }
 +    catch (ex) {}
 +
@@ -293,7 +293,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 -      let mixin = new JSTermFirefoxMixin(context, aParentNode,
 -                                         aExistingConsole);
 -      this.jsterm = new JSTerm(context, aParentNode, mixin, this.console);
-+      if (!this.usegcli) {
++      if (!usegcli) {
 +        let mixin = new JSTermFirefoxMixin(context, aParentNode,
 +                                           aExistingConsole);
 +        this.jsterm = new JSTerm(context, aParentNode, mixin, this.console);
