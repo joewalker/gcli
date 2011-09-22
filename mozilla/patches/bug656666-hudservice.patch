@@ -2141,24 +2141,3 @@ diff --git a/browser/themes/winstripe/browser/jar.mn b/browser/themes/winstripe/
          skin/classic/browser/devtools/breadcrumbs/ltr-end-pressed.png              (devtools/breadcrumbs/ltr-end-pressed.png)
          skin/classic/browser/devtools/breadcrumbs/ltr-end-selected-pressed.png     (devtools/breadcrumbs/ltr-end-selected-pressed.png)
          skin/classic/browser/devtools/breadcrumbs/ltr-end-selected.png             (devtools/breadcrumbs/ltr-end-selected.png)
-diff --git a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
---- a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
-+++ b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
-@@ -172,3 +172,17 @@ stacktrace.anonymousFunction=<anonymous>
- # to console.trace(). The stack trace of JavaScript function calls is displayed.
- # In this minimal message we only show the last call.
- stacktrace.outputMessage=Stack trace from %S, function %S, line %S.
-+
-+# LOCALIZATION NOTE (termTypeCommand):
-+# This string is used in the Web Console to select the type of input, there are
-+# 2 basic options: JavaScript (i.e. enter instructions using EcmaScript /
-+# JavaScript) or Command (which is more like a traditional command line). This
-+# is the label for the command input type.
-+termTypeCommand=Command
-+
-+# LOCALIZATION NOTE (termTypeJavascript):
-+# This string is used in the Web Console to select the type of input, there are
-+# 2 basic options: JavaScript (i.e. enter instructions using EcmaScript /
-+# JavaScript) or Command (which is more like a traditional command line). This
-+# is the label for the JavaScript input type.
-+termTypeJavascript=JavaScript
