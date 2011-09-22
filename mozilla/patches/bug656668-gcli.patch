@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306496118 -3600
 # Node ID c9f0d4142413be8bd4cf553732568c1249999196
-# Parent 3eebaa87e86ba2945634012ceaa852dfba74406b
+# Parent 3192b8363d095652860583eb9cf78cb276bf8710
 Bug 656668 - Create Export from GCLI project to JSM
 
 diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
@@ -53,62 +53,44 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
  
  /*
   *
-@@ -68,7 +37,7 @@
+@@ -66,336 +35,444 @@
+ ///////////////////////////////////////////////////////////////////////////////
+ 
  /*
-  * This build of GCLI for Firefox is really 4 bits of code:
-  * - Browser support code - Currently just an implementation of the console
+- * This build of GCLI for Firefox is really 4 bits of code:
+- * - Browser support code - Currently just an implementation of the console
 - *   object that uses dump. We may need to add other browser shims to this.
-+ *   object that uses dump. We may need to add other browser shims.
-  * - A very basic commonjs AMD (Asynchronous Modules Definition) 'require'
-  *   implementation (which is just good enough to load GCLI). For more, see
-  *   http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
-@@ -83,319 +52,431 @@
+- * - A very basic commonjs AMD (Asynchronous Modules Definition) 'require'
+- *   implementation (which is just good enough to load GCLI). For more, see
+- *   http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
++ * This build of GCLI for Firefox comes from 4 bits of code:
++ * - prefix-gcli.jsm: Initial commentary and EXPORTED_SYMBOLS
++ * - console.js: Support code common to web content that is not part of the
++ *   default firefox chrome environment and is easy to shim.
++ * - mini_require: A very basic commonjs AMD (Asynchronous Modules Definition)
++ *   'require' implementation (which is just good enough to load GCLI). For
++ *   more, see http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
+  *   This alleviates the need for requirejs (http://requirejs.org/) which is
+- *   used when running in the browser.
+- *   This section of code is a copy of mini_require.js without the header and
+- *   footers. Changes to one should be reflected in the other.
++ *   used when running in the browser. This code is provided by dryice.
+  * - A build of GCLI itself, packaged using dryice (for more details see the
+  *   project https://github.com/mozilla/dryice and the build file in this
+  *   project at Makefile.dryice.js)
+- * - Lastly, code to require the gcli object as needed by EXPORTED_SYMBOLS.
++ * - suffix-gcli.jsm - code to require the gcli object for EXPORTED_SYMBOLS.
   */
  
  var EXPORTED_SYMBOLS = [ "gcli" ];
--
--
+ 
+ 
 -///////////////////////////////////////////////////////////////////////////////
 -
- /*
-  * This creates a console object that somewhat replicates Firebug's console
-  * object. It currently writes to dump(), but should write to the web
-  * console's chrome error section (when it has one)
-  */
- 
--
--/**
-- * String utility to ensure that strings are a specified length. Strings
-- * that are too long are truncated to the max length and the last char is
-- * set to "_". Strings that are too short are left padded with spaces.
-- *
-- * @param {string} aStr
-- *        The string to format to the correct length
-- * @param {number} aMaxLen
-- *        The maximum allowed length of the returned string
-- * @param {number} aMinLen (optional)
-- *        The minimum allowed length of the returned string. If undefined,
-- *        then aMaxLen will be used
-- * @param {object} aOptions (optional)
-- *        An object allowing format customization. The only customization
-- *        allowed currently is 'truncate' which can take the value "start" to
-- *        truncate strings from the start as opposed to the end.
-- * @return {string}
-- *        The original string formatted to fit the specified lengths
-- */
--function fmt(aStr, aMaxLen, aMinLen, aOptions) {
--  if (aMinLen == undefined) {
--    aMinLen = aMaxLen;
--  }
--  if (aStr == null) {
--    aStr = "";
--  }
--  if (aStr.length > aMaxLen) {
--    if (aOptions && aOptions.truncate == "start") {
--      return "_" + aStr.substring(aStr.length - aMaxLen + 1);
+-/*
 +/**
-+ * This is extra to the console object. It allows us to use the Node constants
-+ * without resorting to hardcoded numbers
++ * Expose a Node object. This allows us to use the Node constants without
++ * resorting to hardcoded numbers
 + */
 +var Node = Components.interfaces.nsIDOMNode;
 +
@@ -194,10 +176,42 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +
 +/**
-+ * The console object to expose
-+ */
+  * This creates a console object that somewhat replicates Firebug's console
+  * object. It currently writes to dump(), but should write to the web
+  * console's chrome error section (when it has one)
+  */
+-
+-
+-/**
+- * String utility to ensure that strings are a specified length. Strings
+- * that are too long are truncated to the max length and the last char is
+- * set to "_". Strings that are too short are left padded with spaces.
+- *
+- * @param {string} aStr
+- *        The string to format to the correct length
+- * @param {number} aMaxLen
+- *        The maximum allowed length of the returned string
+- * @param {number} aMinLen (optional)
+- *        The minimum allowed length of the returned string. If undefined,
+- *        then aMaxLen will be used
+- * @param {object} aOptions (optional)
+- *        An object allowing format customization. The only customization
+- *        allowed currently is 'truncate' which can take the value "start" to
+- *        truncate strings from the start as opposed to the end.
+- * @return {string}
+- *        The original string formatted to fit the specified lengths
+- */
+-function fmt(aStr, aMaxLen, aMinLen, aOptions) {
+-  if (aMinLen == undefined) {
+-    aMinLen = aMaxLen;
+-  }
+-  if (aStr == null) {
+-    aStr = "";
+-  }
+-  if (aStr.length > aMaxLen) {
+-    if (aOptions && aOptions.truncate == "start") {
+-      return "_" + aStr.substring(aStr.length - aMaxLen + 1);
 +var console = {};
-+
 +(function() {
 +  /**
 +   * String utility to ensure that strings are a specified length. Strings
@@ -786,7 +800,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
   */
  function define(moduleName, deps, payload) {
    if (typeof moduleName != "string") {
-@@ -408,7 +489,7 @@ function define(moduleName, deps, payloa
+@@ -408,7 +485,7 @@ function define(moduleName, deps, payloa
      payload = deps;
    }
  
@@ -795,7 +809,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
      console.log("define: " + moduleName + " -> " + payload.toString()
          .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
    }
-@@ -417,151 +498,6564 @@ function define(moduleName, deps, payloa
+@@ -417,151 +494,6564 @@ function define(moduleName, deps, payloa
      console.error(this.depth + " Error: Redefining module: " + moduleName);
    }
    define.modules[moduleName] = payload;
