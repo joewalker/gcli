@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent 0d00fb7768769b32b831654383f89a3450472662
+# Parent 7c51a23dcca478b7d16e6872c5d1c8d846f6646b
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/base/content/browser.xul b/browser/base/content/browser.xul
@@ -551,7 +551,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    inputBackgroundElement: this.inputStack,
 +    hintElement: this.hintNode,
 +    completionPrompt: "",
-+    popup: this
++    gcliTerm: this
 +  };
 +
 +  gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);

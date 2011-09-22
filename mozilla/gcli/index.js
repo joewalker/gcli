@@ -45,7 +45,7 @@ define(function(require, exports, module) {
      * - jsEnvironment.evalFunction: 'eval' in a sandbox
      * - inputElement: GCLITerm.inputNode
      * - completeElement: GCLITerm.completeNode
-     * - popup: GCLITerm.hintPopup
+     * - gcliTerm: GCLITerm
      * - hintElement: GCLITerm.hintNode
      * - inputBackgroundElement: GCLITerm.inputStack
      */
@@ -67,10 +67,10 @@ define(function(require, exports, module) {
 
       opts.inputter = new Inputter(opts);
       opts.inputter.update();
-      if (opts.popup) {
-        opts.focusManager.onFocus.add(opts.popup.show, opts.popup);
-        opts.focusManager.onBlur.add(opts.popup.hide, opts.popup);
-        opts.focusManager.addMonitoredElement(opts.popup.hintNode, 'gcliTerm');
+      if (opts.gcliTerm) {
+        opts.focusManager.onFocus.add(opts.gcliTerm.show, opts.gcliTerm);
+        opts.focusManager.onBlur.add(opts.gcliTerm.hide, opts.gcliTerm);
+        opts.focusManager.addMonitoredElement(opts.gcliTerm.hintNode, 'gcliTerm');
       }
 
       if (opts.hintElement) {
@@ -92,8 +92,8 @@ define(function(require, exports, module) {
       nodetype.unsetDocument();
       cli.unsetEvalFunction();
 
-      opts.focusManager.onFocus.remove(opts.popup.show, opts.popup);
-      opts.focusManager.onBlur.remove(opts.popup.hide, opts.popup);
+      opts.focusManager.onFocus.remove(opts.gcliTerm.show, opts.gcliTerm);
+      opts.focusManager.onBlur.remove(opts.gcliTerm.hide, opts.gcliTerm);
 
       opts.hintElement.removeChild(opts.menu.element);
       opts.hintElement.removeChild(opts.argFetcher.element);
