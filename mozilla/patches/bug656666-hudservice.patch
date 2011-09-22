@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent 7c51a23dcca478b7d16e6872c5d1c8d846f6646b
+# Parent c8615d626a616edb6a9a156fafffca75afa67c3c
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/base/content/browser.xul b/browser/base/content/browser.xul
@@ -883,7 +883,7 @@ new file mode 100644
 +jstypeBeginSyntax=Syntax error
 +
 +# LOCALIZATION NOTE (jstypeBeginUnterm): When the command line is doing
-+# JavaScript completion using a string the is not properly terminated, this
++# JavaScript completion using a string that is not properly terminated, this
 +# error message is displayed.
 +jstypeBeginUnterm=Unterminated string literal
 +
@@ -918,8 +918,8 @@ new file mode 100644
 +nodeParseMultiple=Too many matches (%S)
 +
 +# LOCALIZATION NOTE (nodeParseNone): When the command line is expecting a CSS
-+# string that matches a single node, but no one nodes match, this error
-+# message is displayed.
++# string that matches a single node, but no nodes match, this error message is
++# displayed.
 +nodeParseNone=No matches
 +
 diff --git a/browser/locales/en-US/chrome/browser/gclicommands.properties b/browser/locales/en-US/chrome/browser/gclicommands.properties
