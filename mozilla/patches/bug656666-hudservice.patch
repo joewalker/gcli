@@ -961,7 +961,7 @@ diff --git a/browser/themes/gnomestripe/browser/devtools/gcli.css b/browser/them
 new file mode 100644
 --- /dev/null
 +++ b/browser/themes/gnomestripe/browser/devtools/gcli.css
-@@ -0,0 +1,377 @@
+@@ -0,0 +1,376 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -1190,7 +1190,6 @@ new file mode 100644
 +  border-top: 0px !important;
 +  border-bottom-right-radius: 5px;
 +  border-bottom-left-radius: 5px;
-+  font: -webkit-small-control;
 +}
 +
 +/* From: $GCLI/lib/gcli/ui/inputter.css */
@@ -1354,7 +1353,7 @@ diff --git a/browser/themes/pinstripe/browser/devtools/gcli.css b/browser/themes
 new file mode 100644
 --- /dev/null
 +++ b/browser/themes/pinstripe/browser/devtools/gcli.css
-@@ -0,0 +1,377 @@
+@@ -0,0 +1,376 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -1583,7 +1582,6 @@ new file mode 100644
 +  border-top: 0px !important;
 +  border-bottom-right-radius: 5px;
 +  border-bottom-left-radius: 5px;
-+  font: -webkit-small-control;
 +}
 +
 +/* From: $GCLI/lib/gcli/ui/inputter.css */
@@ -1747,7 +1745,7 @@ diff --git a/browser/themes/winstripe/browser/devtools/gcli.css b/browser/themes
 new file mode 100644
 --- /dev/null
 +++ b/browser/themes/winstripe/browser/devtools/gcli.css
-@@ -0,0 +1,377 @@
+@@ -0,0 +1,376 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -1976,7 +1974,6 @@ new file mode 100644
 +  border-top: 0px !important;
 +  border-bottom-right-radius: 5px;
 +  border-bottom-left-radius: 5px;
-+  font: -webkit-small-control;
 +}
 +
 +/* From: $GCLI/lib/gcli/ui/inputter.css */

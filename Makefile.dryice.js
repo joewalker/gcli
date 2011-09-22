@@ -184,6 +184,7 @@ function buildFirefox(destDir) {
       { value: '\n/* From: $GCLI/lib/gcli/ui/command_output_view.css */' },
       'lib/gcli/ui/command_output_view.css'
     ],
+    filter: removeNonMozPrefixes,
     dest: css
   });
   copy({
@@ -275,6 +276,14 @@ function wordWrap(input, length) {
   return input.match(wrapper).slice(0, -1).map(function(s) {
     return s.replace(/ $/, '');
   });
+}
+
+/**
+ * Hack to remove the '-vendorprefix' definitions. This currently works to
+ * remove -webkit, -ie and -op from CSS values (but not CSS properties).
+ */
+function removeNonMozPrefixes(data) {
+  return data.replace(/\n?\s*[-a-z]*:\s*-(webkit|op|ie)[-a-z]*\s*;[ \t]*/g, '');
 }
 
 // Now everything is defined properly, start working
