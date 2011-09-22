@@ -21,6 +21,7 @@ define(function(require, exports, module) {
   var Inputter = require('gcli/ui/inputter').Inputter;
   var ArgFetcher = require('gcli/ui/arg_fetch').ArgFetcher;
   var CommandMenu = require('gcli/ui/menu').CommandMenu;
+  var FocusManager = require('gcli/ui/focus').FocusManager;
 
   var jstype = require('gcli/types/javascript');
   var nodetype = require('gcli/types/node');
@@ -58,10 +59,18 @@ define(function(require, exports, module) {
       nodetype.setDocument(opts.contentDocument);
       cli.setEvalFunction(opts.jsEnvironment.evalFunction);
 
+      // Create a FocusManager for the various parts to register with
+      if (!opts.focusManager) {
+        opts.debug = true;
+        opts.focusManager = new FocusManager({ document: opts.chromeDocument });
+      }
+
       opts.inputter = new Inputter(opts);
       opts.inputter.update();
       if (opts.popup) {
-        opts.inputter.addPopupListener(opts.popup);
+        opts.focusManager.onFocus.add(opts.popup.show, opts.popup);
+        opts.focusManager.onBlur.add(opts.popup.hide, opts.popup);
+        opts.focusManager.addMonitoredElement(opts.popup.hintNode, 'gcliTerm');
       }
 
       if (opts.hintElement) {
@@ -82,7 +91,9 @@ define(function(require, exports, module) {
       jstype.unsetGlobalObject();
       nodetype.unsetDocument();
       cli.unsetEvalFunction();
-      opts.inputter.removePopupListener(opts.popup);
+
+      opts.focusManager.onFocus.remove(opts.popup.show, opts.popup);
+      opts.focusManager.onBlur.remove(opts.popup.hide, opts.popup);
 
       opts.hintElement.removeChild(opts.menu.element);
       opts.hintElement.removeChild(opts.argFetcher.element);
