@@ -809,7 +809,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
      console.log("define: " + moduleName + " -> " + payload.toString()
          .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
    }
-@@ -417,151 +494,6771 @@ function define(moduleName, deps, payloa
+@@ -417,151 +494,6768 @@ function define(moduleName, deps, payloa
      console.error(this.depth + " Error: Redefining module: " + moduleName);
    }
    define.modules[moduleName] = payload;
@@ -1020,10 +1020,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      // Create a FocusManager for the various parts to register with
 +      if (!opts.focusManager) {
 +        opts.debug = true;
-+        opts.focusManager = new FocusManager({
-+          debug: true,
-+          document: opts.chromeDocument
-+        });
++        opts.focusManager = new FocusManager({ document: opts.chromeDocument });
 +      }
 +
 +      opts.inputter = new Inputter(opts);
@@ -5752,11 +5749,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.completer = options.completer;
 +  this.completer.decorate(this);
 +
-+  // Use the provided history object, or instantiate our own.
++  // Use the provided history object, or instantiate our own
 +  this.history = options.history = options.history || new History(options);
 +  this._scrollingThroughHistory = false;
 +
-+  // Cursor position affects hint severity.
++  // Cursor position affects hint severity
 +  this.onMouseUp = function(ev) {
 +    this.completer.update(this.getInputState());
 +  }.bind(this);
