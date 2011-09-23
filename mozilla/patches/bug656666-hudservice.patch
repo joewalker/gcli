@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent c8615d626a616edb6a9a156fafffca75afa67c3c
+# Parent f0628446384c3bd51f567a902cad8e5f4e0af4d5
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/base/content/browser.xul b/browser/base/content/browser.xul
@@ -961,7 +961,7 @@ diff --git a/browser/themes/gnomestripe/browser/devtools/gcli.css b/browser/them
 new file mode 100644
 --- /dev/null
 +++ b/browser/themes/gnomestripe/browser/devtools/gcli.css
-@@ -0,0 +1,376 @@
+@@ -0,0 +1,256 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -1014,30 +1014,25 @@ new file mode 100644
 +}
 +
 +.gcliterm-complete-node {
++  color: #FFF;
 +  padding: 4px 4px 2px 21px;
 +}
 +
-+.gcliterm-complete-node span.gcliVALID {
-+  color: #FFF;
++.gcliVALID {
 +  border-bottom: none;
 +}
 +
-+.gcliterm-complete-node span.gcliINCOMPLETE {
++.gcliINCOMPLETE {
 +  color: #DDD;
 +  border-bottom: 1px dotted #999;
 +}
 +
-+.gcliterm-complete-node span.gcliERROR {
++.gcliERROR {
 +  color: #DDD;
 +  border-bottom: 1px dotted #F00;
 +}
 +
-+.gcliterm-complete-node span.gcliPrompt {
-+  color: #66F;
-+  font-weight: bold;
-+}
-+
-+.gcliterm-complete-node span.gcliCompl {
++.gcliCompl {
 +  color: #999;
 +}
 +
@@ -1061,6 +1056,11 @@ new file mode 100644
 +  margin-right: 10px;
 +  display: inline-block;
 +  overflow: hidden;
++
++  border-bottom: 0px !important;
++  overflow: auto;
++  padding: 10px;
++  display: inline-block;
 +}
 +
 +.gcliterm-input-node,
@@ -1068,19 +1068,12 @@ new file mode 100644
 +  background: transparent;
 +}
 +
-+.gcliCmdHelpRight {
-+  text-align: right;
-+}
-+
 +.gcliterm-hint-parent {
 +  border-bottom: 1px solid #AAA;
 +}
 +
-+.gcliterm-hint-node {
-+  border-bottom: 0px !important;
-+  overflow: auto;
-+  padding: 10px;
-+  display: inline-block;
++.gcliCmdHelpRight {
++  text-align: right;
 +}
 +
 +/* From: $GCLI/lib/gcli/ui/arg_fetch.css */
@@ -1201,142 +1194,29 @@ new file mode 100644
 +  padding: 1px 1px 1px 2px;
 +}
 +
-+.gcliCompletion span {
++.gcliCompletion {
 +  color: #DDD;
 +}
 +
-+.gcliCompletion span.gcliINCOMPLETE {
-+  color: #DDD;
++.gcliINCOMPLETE {
 +  border-bottom: 2px dotted #999;
 +}
 +
-+.gcliCompletion span.gcliERROR {
-+  color: #DDD;
++.gcliERROR {
 +  border-bottom: 2px dotted #F00;
 +}
 +
-+span.gcliPrompt {
++.gcliPrompt {
 +  color: #66F;
 +  font-weight: bold;
 +}
 +
-+span.gcliCompl {
++.gcliCompl {
 +  color: #999;
 +}
 +
-+span.gcliCloseBrace {
++.gcliCloseBrace {
 +  color: #999;
-+}
-+
-+/* From: $GCLI/lib/gcli/ui/command_output_view.css */
-+.gcliCommandOutput {
-+  overflow: auto;
-+  top: 0;
-+  height: 100%;
-+}
-+
-+.gcliRowIn {
-+  margin-top: 5px;
-+  margin-right: 5px;
-+  color: #333;
-+  background-color: #EEE;
-+  padding: 3px 8px 1px 1px;
-+  border: 1px solid #aaa;
-+  border-radius: 4px;
-+  -moz-border-radius: 4px;
-+  -webkit-border-radius: 4px;
-+}
-+
-+.gcliRowIn > img {
-+  cursor: pointer;
-+}
-+
-+.gcliHover {
-+  display: none;
-+  float: right;
-+  padding: 2px 2px 0 2px;
-+}
-+
-+.gcliRowIn:hover > .gcliHover {
-+  display: inline;
-+}
-+
-+.gcliRowIn:hover > .gcliHover.gcliHidden {
-+  display: none;
-+}
-+
-+.gcliOutTyped {
-+  color: #000;
-+  font-family: consolas, courier, monospace;
-+}
-+
-+.gcliRowOutput {
-+  padding-left: 10px;
-+  line-height: 1.2em;
-+  font-size: 95%;
-+}
-+
-+.gcliRowOutput strong,
-+.gcliRowOutput b,
-+.gcliRowOutput th,
-+.gcliRowOutput h1,
-+.gcliRowOutput h2,
-+.gcliRowOutput h3 {
-+  color: #000;
-+}
-+
-+.gcliRowOutput a {
-+  font-weight: bold;
-+  color: #666;
-+  text-decoration: none;
-+}
-+
-+.gcliRowOutput a:hover {
-+  text-decoration: underline;
-+  cursor: pointer;
-+}
-+
-+.gcliRowOutput input[type=password],
-+.gcliRowOutput input[type=text],
-+.gcliRowOutput textarea {
-+  color: #000;
-+  font-size: 120%;
-+  background: transparent;
-+  padding: 3px;
-+  border-radius: 5px;
-+  -moz-border-radius: 5px;
-+  -webkit-border-radius: 5px;
-+}
-+
-+.gcliRowOutput table,
-+.gcliRowOutput td,
-+.gcliRowOutput th {
-+  border: 0;
-+  padding: 0 2px;
-+}
-+
-+.gcliRowOutput .right {
-+  text-align: right;
-+}
-+
-+.gcliGt {
-+  font-family: consolas, courier, monospace;
-+  color: #00F;
-+  font-weight: bold;
-+  font-size: 120%;
-+  padding-left: 2px;
-+}
-+
-+.gcliGt.gcliComplete {
-+  color: #060;
-+}
-+
-+.gcliGt.gcliError {
-+  color: #F00;
-+}
-+
-+.gcliDuration {
-+  font-size: 80%;
 +}
 diff --git a/browser/themes/gnomestripe/browser/jar.mn b/browser/themes/gnomestripe/browser/jar.mn
 --- a/browser/themes/gnomestripe/browser/jar.mn
@@ -1353,7 +1233,7 @@ diff --git a/browser/themes/pinstripe/browser/devtools/gcli.css b/browser/themes
 new file mode 100644
 --- /dev/null
 +++ b/browser/themes/pinstripe/browser/devtools/gcli.css
-@@ -0,0 +1,376 @@
+@@ -0,0 +1,256 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -1406,30 +1286,25 @@ new file mode 100644
 +}
 +
 +.gcliterm-complete-node {
++  color: #FFF;
 +  padding: 4px 4px 2px 21px;
 +}
 +
-+.gcliterm-complete-node span.gcliVALID {
-+  color: #FFF;
++.gcliVALID {
 +  border-bottom: none;
 +}
 +
-+.gcliterm-complete-node span.gcliINCOMPLETE {
++.gcliINCOMPLETE {
 +  color: #DDD;
 +  border-bottom: 1px dotted #999;
 +}
 +
-+.gcliterm-complete-node span.gcliERROR {
++.gcliERROR {
 +  color: #DDD;
 +  border-bottom: 1px dotted #F00;
 +}
 +
-+.gcliterm-complete-node span.gcliPrompt {
-+  color: #66F;
-+  font-weight: bold;
-+}
-+
-+.gcliterm-complete-node span.gcliCompl {
++.gcliCompl {
 +  color: #999;
 +}
 +
@@ -1453,6 +1328,11 @@ new file mode 100644
 +  margin-right: 10px;
 +  display: inline-block;
 +  overflow: hidden;
++
++  border-bottom: 0px !important;
++  overflow: auto;
++  padding: 10px;
++  display: inline-block;
 +}
 +
 +.gcliterm-input-node,
@@ -1460,19 +1340,12 @@ new file mode 100644
 +  background: transparent;
 +}
 +
-+.gcliCmdHelpRight {
-+  text-align: right;
-+}
-+
 +.gcliterm-hint-parent {
 +  border-bottom: 1px solid #AAA;
 +}
 +
-+.gcliterm-hint-node {
-+  border-bottom: 0px !important;
-+  overflow: auto;
-+  padding: 10px;
-+  display: inline-block;
++.gcliCmdHelpRight {
++  text-align: right;
 +}
 +
 +/* From: $GCLI/lib/gcli/ui/arg_fetch.css */
@@ -1593,142 +1466,29 @@ new file mode 100644
 +  padding: 1px 1px 1px 2px;
 +}
 +
-+.gcliCompletion span {
++.gcliCompletion {
 +  color: #DDD;
 +}
 +
-+.gcliCompletion span.gcliINCOMPLETE {
-+  color: #DDD;
++.gcliINCOMPLETE {
 +  border-bottom: 2px dotted #999;
 +}
 +
-+.gcliCompletion span.gcliERROR {
-+  color: #DDD;
++.gcliERROR {
 +  border-bottom: 2px dotted #F00;
 +}
 +
-+span.gcliPrompt {
++.gcliPrompt {
 +  color: #66F;
 +  font-weight: bold;
 +}
 +
-+span.gcliCompl {
++.gcliCompl {
 +  color: #999;
 +}
 +
-+span.gcliCloseBrace {
++.gcliCloseBrace {
 +  color: #999;
-+}
-+
-+/* From: $GCLI/lib/gcli/ui/command_output_view.css */
-+.gcliCommandOutput {
-+  overflow: auto;
-+  top: 0;
-+  height: 100%;
-+}
-+
-+.gcliRowIn {
-+  margin-top: 5px;
-+  margin-right: 5px;
-+  color: #333;
-+  background-color: #EEE;
-+  padding: 3px 8px 1px 1px;
-+  border: 1px solid #aaa;
-+  border-radius: 4px;
-+  -moz-border-radius: 4px;
-+  -webkit-border-radius: 4px;
-+}
-+
-+.gcliRowIn > img {
-+  cursor: pointer;
-+}
-+
-+.gcliHover {
-+  display: none;
-+  float: right;
-+  padding: 2px 2px 0 2px;
-+}
-+
-+.gcliRowIn:hover > .gcliHover {
-+  display: inline;
-+}
-+
-+.gcliRowIn:hover > .gcliHover.gcliHidden {
-+  display: none;
-+}
-+
-+.gcliOutTyped {
-+  color: #000;
-+  font-family: consolas, courier, monospace;
-+}
-+
-+.gcliRowOutput {
-+  padding-left: 10px;
-+  line-height: 1.2em;
-+  font-size: 95%;
-+}
-+
-+.gcliRowOutput strong,
-+.gcliRowOutput b,
-+.gcliRowOutput th,
-+.gcliRowOutput h1,
-+.gcliRowOutput h2,
-+.gcliRowOutput h3 {
-+  color: #000;
-+}
-+
-+.gcliRowOutput a {
-+  font-weight: bold;
-+  color: #666;
-+  text-decoration: none;
-+}
-+
-+.gcliRowOutput a:hover {
-+  text-decoration: underline;
-+  cursor: pointer;
-+}
-+
-+.gcliRowOutput input[type=password],
-+.gcliRowOutput input[type=text],
-+.gcliRowOutput textarea {
-+  color: #000;
-+  font-size: 120%;
-+  background: transparent;
-+  padding: 3px;
-+  border-radius: 5px;
-+  -moz-border-radius: 5px;
-+  -webkit-border-radius: 5px;
-+}
-+
-+.gcliRowOutput table,
-+.gcliRowOutput td,
-+.gcliRowOutput th {
-+  border: 0;
-+  padding: 0 2px;
-+}
-+
-+.gcliRowOutput .right {
-+  text-align: right;
-+}
-+
-+.gcliGt {
-+  font-family: consolas, courier, monospace;
-+  color: #00F;
-+  font-weight: bold;
-+  font-size: 120%;
-+  padding-left: 2px;
-+}
-+
-+.gcliGt.gcliComplete {
-+  color: #060;
-+}
-+
-+.gcliGt.gcliError {
-+  color: #F00;
-+}
-+
-+.gcliDuration {
-+  font-size: 80%;
 +}
 diff --git a/browser/themes/pinstripe/browser/jar.mn b/browser/themes/pinstripe/browser/jar.mn
 --- a/browser/themes/pinstripe/browser/jar.mn
@@ -1745,7 +1505,7 @@ diff --git a/browser/themes/winstripe/browser/devtools/gcli.css b/browser/themes
 new file mode 100644
 --- /dev/null
 +++ b/browser/themes/winstripe/browser/devtools/gcli.css
-@@ -0,0 +1,376 @@
+@@ -0,0 +1,256 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -1798,30 +1558,25 @@ new file mode 100644
 +}
 +
 +.gcliterm-complete-node {
++  color: #FFF;
 +  padding: 4px 4px 2px 21px;
 +}
 +
-+.gcliterm-complete-node span.gcliVALID {
-+  color: #FFF;
++.gcliVALID {
 +  border-bottom: none;
 +}
 +
-+.gcliterm-complete-node span.gcliINCOMPLETE {
++.gcliINCOMPLETE {
 +  color: #DDD;
 +  border-bottom: 1px dotted #999;
 +}
 +
-+.gcliterm-complete-node span.gcliERROR {
++.gcliERROR {
 +  color: #DDD;
 +  border-bottom: 1px dotted #F00;
 +}
 +
-+.gcliterm-complete-node span.gcliPrompt {
-+  color: #66F;
-+  font-weight: bold;
-+}
-+
-+.gcliterm-complete-node span.gcliCompl {
++.gcliCompl {
 +  color: #999;
 +}
 +
@@ -1845,6 +1600,11 @@ new file mode 100644
 +  margin-right: 10px;
 +  display: inline-block;
 +  overflow: hidden;
++
++  border-bottom: 0px !important;
++  overflow: auto;
++  padding: 10px;
++  display: inline-block;
 +}
 +
 +.gcliterm-input-node,
@@ -1852,19 +1612,12 @@ new file mode 100644
 +  background: transparent;
 +}
 +
-+.gcliCmdHelpRight {
-+  text-align: right;
-+}
-+
 +.gcliterm-hint-parent {
 +  border-bottom: 1px solid #AAA;
 +}
 +
-+.gcliterm-hint-node {
-+  border-bottom: 0px !important;
-+  overflow: auto;
-+  padding: 10px;
-+  display: inline-block;
++.gcliCmdHelpRight {
++  text-align: right;
 +}
 +
 +/* From: $GCLI/lib/gcli/ui/arg_fetch.css */
@@ -1985,142 +1738,29 @@ new file mode 100644
 +  padding: 1px 1px 1px 2px;
 +}
 +
-+.gcliCompletion span {
++.gcliCompletion {
 +  color: #DDD;
 +}
 +
-+.gcliCompletion span.gcliINCOMPLETE {
-+  color: #DDD;
++.gcliINCOMPLETE {
 +  border-bottom: 2px dotted #999;
 +}
 +
-+.gcliCompletion span.gcliERROR {
-+  color: #DDD;
++.gcliERROR {
 +  border-bottom: 2px dotted #F00;
 +}
 +
-+span.gcliPrompt {
++.gcliPrompt {
 +  color: #66F;
 +  font-weight: bold;
 +}
 +
-+span.gcliCompl {
++.gcliCompl {
 +  color: #999;
 +}
 +
-+span.gcliCloseBrace {
++.gcliCloseBrace {
 +  color: #999;
-+}
-+
-+/* From: $GCLI/lib/gcli/ui/command_output_view.css */
-+.gcliCommandOutput {
-+  overflow: auto;
-+  top: 0;
-+  height: 100%;
-+}
-+
-+.gcliRowIn {
-+  margin-top: 5px;
-+  margin-right: 5px;
-+  color: #333;
-+  background-color: #EEE;
-+  padding: 3px 8px 1px 1px;
-+  border: 1px solid #aaa;
-+  border-radius: 4px;
-+  -moz-border-radius: 4px;
-+  -webkit-border-radius: 4px;
-+}
-+
-+.gcliRowIn > img {
-+  cursor: pointer;
-+}
-+
-+.gcliHover {
-+  display: none;
-+  float: right;
-+  padding: 2px 2px 0 2px;
-+}
-+
-+.gcliRowIn:hover > .gcliHover {
-+  display: inline;
-+}
-+
-+.gcliRowIn:hover > .gcliHover.gcliHidden {
-+  display: none;
-+}
-+
-+.gcliOutTyped {
-+  color: #000;
-+  font-family: consolas, courier, monospace;
-+}
-+
-+.gcliRowOutput {
-+  padding-left: 10px;
-+  line-height: 1.2em;
-+  font-size: 95%;
-+}
-+
-+.gcliRowOutput strong,
-+.gcliRowOutput b,
-+.gcliRowOutput th,
-+.gcliRowOutput h1,
-+.gcliRowOutput h2,
-+.gcliRowOutput h3 {
-+  color: #000;
-+}
-+
-+.gcliRowOutput a {
-+  font-weight: bold;
-+  color: #666;
-+  text-decoration: none;
-+}
-+
-+.gcliRowOutput a:hover {
-+  text-decoration: underline;
-+  cursor: pointer;
-+}
-+
-+.gcliRowOutput input[type=password],
-+.gcliRowOutput input[type=text],
-+.gcliRowOutput textarea {
-+  color: #000;
-+  font-size: 120%;
-+  background: transparent;
-+  padding: 3px;
-+  border-radius: 5px;
-+  -moz-border-radius: 5px;
-+  -webkit-border-radius: 5px;
-+}
-+
-+.gcliRowOutput table,
-+.gcliRowOutput td,
-+.gcliRowOutput th {
-+  border: 0;
-+  padding: 0 2px;
-+}
-+
-+.gcliRowOutput .right {
-+  text-align: right;
-+}
-+
-+.gcliGt {
-+  font-family: consolas, courier, monospace;
-+  color: #00F;
-+  font-weight: bold;
-+  font-size: 120%;
-+  padding-left: 2px;
-+}
-+
-+.gcliGt.gcliComplete {
-+  color: #060;
-+}
-+
-+.gcliGt.gcliError {
-+  color: #F00;
-+}
-+
-+.gcliDuration {
-+  font-size: 80%;
 +}
 diff --git a/browser/themes/winstripe/browser/jar.mn b/browser/themes/winstripe/browser/jar.mn
 --- a/browser/themes/winstripe/browser/jar.mn

@@ -809,7 +809,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
      console.log("define: " + moduleName + " -> " + payload.toString()
          .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
    }
-@@ -417,151 +494,6768 @@ function define(moduleName, deps, payloa
+@@ -417,151 +494,6764 @@ function define(moduleName, deps, payloa
      console.error(this.depth + " Error: Redefining module: " + moduleName);
    }
    define.modules[moduleName] = payload;
@@ -5765,12 +5765,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  }
 +
 +  this.requ.inputChange.add(this.onInputChange, this);
-+
-+  setTimeout(function() {
-+    if (this.doc.activeElement === this.element && this.focusManager) {
-+      this.focusManager.reportFocus('startup');
-+    }
-+  }.bind(this), 100);
 +}
 +
 +/**
@@ -6128,9 +6122,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * element look like the input element. backgroundColor is a spiritual part of
 + * this list, but see comment in decorate().
 + */
-+Completer.copyStyles = [
-+  'color', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle'
-+];
++Completer.copyStyles = [ 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle' ];
 +
 +/**
 + * Make ourselves visually similar to the input element, and make the input
@@ -6148,6 +6140,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    Completer.copyStyles.forEach(function(style) {
 +      this.element.style[style] = dom.computedStyle(this.input, style);
 +    }, this);
++
++    // The completer text is by default invisible so we make it the same color
++    // as the input background.
++    this.element.style.color = this.input.style.backgroundColor;
 +
 +    // If there is a separate backgroundElement, then we make the element
 +    // transparent, otherwise it inherits the color of the input node
