@@ -13,30 +13,25 @@
 }
 
 .gcliterm-complete-node {
+  color: #FFF;
   padding: 4px 4px 2px 21px;
 }
 
-.gcliterm-complete-node span.gcliVALID {
-  color: #FFF;
+.gcliVALID {
   border-bottom: none;
 }
 
-.gcliterm-complete-node span.gcliINCOMPLETE {
+.gcliINCOMPLETE {
   color: #DDD;
   border-bottom: 1px dotted #999;
 }
 
-.gcliterm-complete-node span.gcliERROR {
+.gcliERROR {
   color: #DDD;
   border-bottom: 1px dotted #F00;
 }
 
-.gcliterm-complete-node span.gcliPrompt {
-  color: #66F;
-  font-weight: bold;
-}
-
-.gcliterm-complete-node span.gcliCompl {
+.gcliCompl {
   color: #999;
 }
 
@@ -60,6 +55,11 @@
   margin-right: 10px;
   display: inline-block;
   overflow: hidden;
+
+  border-bottom: 0px !important;
+  overflow: auto;
+  padding: 10px;
+  display: inline-block;
 }
 
 .gcliterm-input-node,
@@ -67,17 +67,10 @@
   background: transparent;
 }
 
-.gcliCmdHelpRight {
-  text-align: right;
-}
-
 .gcliterm-hint-parent {
   border-bottom: 1px solid #AAA;
 }
 
-.gcliterm-hint-node {
-  border-bottom: 0px !important;
-  overflow: auto;
-  padding: 10px;
-  display: inline-block;
+.gcliCmdHelpRight {
+  text-align: right;
 }
