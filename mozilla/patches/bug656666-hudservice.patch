@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent f0628446384c3bd51f567a902cad8e5f4e0af4d5
+# Parent eb5aa70685f4e664f0cc16901cd7c88cca9cf6df
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/base/content/browser.xul b/browser/base/content/browser.xul
@@ -975,7 +975,7 @@ new file mode 100644
 + * for the specific language governing rights and limitations under the
 + * License.
 + *
-+ * The Original Code is the Mozilla Inspector Module.
++ * The Original Code is the GCLI.
 + *
 + * The Initial Developer of the Original Code is
 + * The Mozilla Foundation.
@@ -1247,7 +1247,7 @@ new file mode 100644
 + * for the specific language governing rights and limitations under the
 + * License.
 + *
-+ * The Original Code is the Mozilla Inspector Module.
++ * The Original Code is the GCLI.
 + *
 + * The Initial Developer of the Original Code is
 + * The Mozilla Foundation.
@@ -1519,7 +1519,7 @@ new file mode 100644
 + * for the specific language governing rights and limitations under the
 + * License.
 + *
-+ * The Original Code is the Mozilla Inspector Module.
++ * The Original Code is the GCLI.
 + *
 + * The Initial Developer of the Original Code is
 + * The Mozilla Foundation.
