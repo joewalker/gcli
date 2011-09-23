@@ -180,9 +180,7 @@ function buildFirefox(destDir) {
       { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */' },
       'lib/gcli/ui/menu.css',
       { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */' },
-      'lib/gcli/ui/inputter.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/command_output_view.css */' },
-      'lib/gcli/ui/command_output_view.css'
+      'lib/gcli/ui/inputter.css'
     ],
     filter: removeNonMozPrefixes,
     dest: css
