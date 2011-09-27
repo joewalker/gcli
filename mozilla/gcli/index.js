@@ -50,7 +50,6 @@ define(function(require, exports, module) {
      * - inputBackgroundElement: GCLITerm.inputStack
      */
     createView: function(opts) {
-      opts.preStyled = true;
       opts.autoHide = true;
       opts.requisition = new Requisition(opts.environment, opts.chromeDocument);
       opts.completionPrompt = '';

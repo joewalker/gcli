@@ -146,7 +146,11 @@ function buildFirefox(destDir) {
 
   var project = copy.createCommonJsProject({
     roots: [ gcliHome + '/mozilla', gcliHome + '/lib' ],
-    ignores: [ 'text!gcli/ui/inputter.css' ]
+    ignores: [
+      'text!gcli/ui/inputter.css',
+      'text!gcli/ui/menu.css',
+      'text!gcli/ui/arg_fetch.css'
+    ]
   });
 
   // Package the JavaScript
