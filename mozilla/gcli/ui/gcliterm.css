@@ -42,17 +42,14 @@
   color: #000;
   background: rgba(250, 250, 250, 0.8);
   border: 1px solid #AAA;
+  border-bottom: 0px !important;
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
   margin-left: 10px;
   margin-right: 10px;
   display: inline-block;
-  overflow: hidden;
-
-  border-bottom: 0px !important;
   overflow: auto;
   padding: 10px;
-  display: inline-block;
 }
 
 .gcliterm-hint-parent {
