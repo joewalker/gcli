@@ -266,7 +266,15 @@ function tweakI18nStrings(data) {
     return lines + name + '=' + value + '\n\n';
   });
 
-  return '# LOCALIZATION NOTE These strings are used inside the GCLI.\n\n' + data;
+  return '# LOCALIZATION NOTE These strings are used inside the Web Console\n' +
+         '# command line which is available from the Web Developer sub-menu\n' +
+         '# -> \'Web Console\'.\n' +
+         '# The correct localization of this file might be to keep it in' +
+         '# English, or another language commonly spoken among web developers.' +
+         '# You want to make that choice consistent across the developer tools.' +
+         '# A good criteria is the language in which you\'d find the best' +
+         '# documentation on web development on the web.\n' +
+         '\n' + data;
 }
 
 /**
