@@ -154,7 +154,7 @@ var console = {};
    *        The object to be stringified
    * @return {string}
    *        A single line representation of aThing, which will generally be at
-   *        most 60 chars long
+   *        most 80 chars long
    */
   function stringify(aThing) {
     if (aThing === undefined) {
@@ -182,8 +182,8 @@ var console = {};
       return type + fmt(json, 50, 0);
     }
 
-    var str = aThing.toString().replace(/\s+/g, " ");
-    return fmt(str, 60, 0);
+    var str = aThing.toString(); //.replace(/\s+/g, " ");
+    return fmt(str, 80, 0);
   }
 
   /**
