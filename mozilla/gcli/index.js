@@ -102,11 +102,6 @@ define(function(require, exports, module) {
       jstype.unsetGlobalObject();
 
       opts.requisition.destroy();
-
-      //delete opts.inputter;
-      //delete opts.requisition;
-      //delete opts.menu;
-      //delete opts.argFetcher;
     },
 
     commandOutputManager: require('gcli/canon').commandOutputManager
