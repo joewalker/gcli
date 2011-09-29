@@ -93,6 +93,7 @@ define(function(require, exports, module) {
       opts.argFetcher.destroy();
 
       opts.inputter.destroy();
+      opts.focusManager.removeMonitoredElement(opts.gcliTerm.hintNode, 'gcliTerm');
       opts.focusManager.onFocus.remove(opts.gcliTerm.show, opts.gcliTerm);
       opts.focusManager.onBlur.remove(opts.gcliTerm.hide, opts.gcliTerm);
       opts.focusManager.destroy();
