@@ -87,23 +87,28 @@ define(function(require, exports, module) {
      * Undo the effects of createView() to prevent memory leaks
      */
     removeView: function(opts) {
-      jstype.unsetGlobalObject();
-      nodetype.unsetDocument();
-      cli.unsetEvalFunction();
+      opts.hintElement.removeChild(opts.menu.element);
+      opts.menu.destroy();
+      opts.hintElement.removeChild(opts.argFetcher.element);
+      opts.argFetcher.destroy();
 
+      opts.inputter.destroy();
       opts.focusManager.onFocus.remove(opts.gcliTerm.show, opts.gcliTerm);
       opts.focusManager.onBlur.remove(opts.gcliTerm.hide, opts.gcliTerm);
+      opts.focusManager.destroy();
 
-      opts.hintElement.removeChild(opts.menu.element);
-      opts.hintElement.removeChild(opts.argFetcher.element);
+      cli.unsetEvalFunction();
+      nodetype.unsetDocument();
+      jstype.unsetGlobalObject();
 
-      delete opts.inputter;
-      delete opts.requisition;
-      delete opts.menu;
-      delete opts.argFetcher;
+      opts.requisition.destroy();
+
+      //delete opts.inputter;
+      //delete opts.requisition;
+      //delete opts.menu;
+      //delete opts.argFetcher;
     },
 
     commandOutputManager: require('gcli/canon').commandOutputManager
   };
-
 });
