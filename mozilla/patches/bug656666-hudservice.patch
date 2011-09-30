@@ -399,7 +399,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    /**
-@@ -3493,6 +3576,40 @@ HeadsUpDisplay.prototype = {
+@@ -3493,6 +3576,41 @@ HeadsUpDisplay.prototype = {
      consoleWrap.setAttribute("class", "hud-console-wrapper");
      consoleWrap.setAttribute("flex", "1");
  
@@ -433,6 +433,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    hintParentNode.setAttribute("class", "gcliterm-hint-parent");
 +    hintParentNode.appendChild(hintSpacerNode);
 +    hintParentNode.appendChild(this.hintNode);
++    hintParentNode.hidden = true;
 +
 +    let hbox = this.makeXULNode("hbox");
 +    hbox.setAttribute("flex", "1");
@@ -440,7 +441,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      this.outputNode = this.makeXULNode("richlistbox");
      this.outputNode.setAttribute("class", "hud-output-node");
      this.outputNode.setAttribute("flex", "1");
-@@ -3501,27 +3618,11 @@ HeadsUpDisplay.prototype = {
+@@ -3501,27 +3619,11 @@ HeadsUpDisplay.prototype = {
      this.outputNode.setAttribute("style", "direction: ltr;");
      this.outputNode.setAttribute("seltype", "multiple");
  
@@ -472,7 +473,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      outerWrap.appendChild(consoleWrap);
  
-@@ -3836,7 +3937,13 @@ HeadsUpDisplay.prototype = {
+@@ -3836,7 +3938,13 @@ HeadsUpDisplay.prototype = {
    {
      let hudId = this.hudId;
      function HUD_clearButton_onCommand() {
@@ -487,7 +488,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
  
      let clearButton = this.makeXULNode("toolbarbutton");
-@@ -3907,7 +4014,12 @@ HeadsUpDisplay.prototype = {
+@@ -3907,7 +4015,12 @@ HeadsUpDisplay.prototype = {
     */
    destroy: function HUD_destroy()
    {
@@ -501,7 +502,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.positionMenuitems.above.removeEventListener("command",
        this._positionConsoleAbove, false);
-@@ -5401,6 +5513,7 @@ JSTermFirefoxMixin.prototype = {
+@@ -5401,6 +5514,7 @@ JSTermFirefoxMixin.prototype = {
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -509,7 +510,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5414,22 +5527,15 @@ JSTermFirefoxMixin.prototype = {
+@@ -5414,22 +5528,15 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -541,7 +542,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    get inputValue()
-@@ -5559,9 +5665,8 @@ ConsoleUtils = {
+@@ -5559,9 +5666,8 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
                                            aBody, aSourceURL, aSourceLine,
                                            aClipboardText, aLevel) {
@@ -553,7 +554,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5597,6 +5702,13 @@ ConsoleUtils = {
+@@ -5597,6 +5703,13 @@ ConsoleUtils = {
      aBody = aBody instanceof Ci.nsIDOMNode && !(aLevel == "dir") ?
              aBody : aDocument.createTextNode(aBody);
  
@@ -567,7 +568,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6725,3 +6837,234 @@ catch (ex) {
+@@ -6725,3 +6838,234 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
