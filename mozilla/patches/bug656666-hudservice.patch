@@ -5,6 +5,19 @@
 # Parent 28e46645f0692280631049d68d72e16df6c78599
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
+diff --git a/browser/app/profile/firefox.js b/browser/app/profile/firefox.js
+--- a/browser/app/profile/firefox.js
++++ b/browser/app/profile/firefox.js
+@@ -1010,6 +1010,9 @@ pref("devtools.scratchpad.enabled", true
+ // Enable tools for Chrome development.
+ pref("devtools.chrome.enabled", false);
+ 
++// Disable the GCLI enhanced command line.
++pref("devtools.gcli.enable", false);
++
+ // The last Web Console height. This is initially 0 which means that the Web
+ // Console will use the default height next time it shows.
+ // Change to -1 if you do not want the Web Console to remember its last height.
 diff --git a/browser/devtools/webconsole/GcliCommands.jsm b/browser/devtools/webconsole/GcliCommands.jsm
 new file mode 100644
 --- /dev/null
