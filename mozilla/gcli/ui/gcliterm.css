@@ -1,6 +1,4 @@
 
-.usegcli .jsterm-input-node,
-.usegcli .jsterm-complete-node,
 .gcliterm-input-node,
 .gcliterm-complete-node {
   border: none;
@@ -8,41 +6,31 @@
   height: 100%;
   vertical-align: middle;
   background-color: transparent;
-  font: 12px Consolas, Lucida Console, monospace;
+  font: 12px Consolas, "Lucida Console", monospace;
   padding: 2px 0 0 16px;
 }
 
 .gcliterm-complete-node {
+  color: #FFF;
   padding: 4px 4px 2px 21px;
 }
 
-.gcliterm-complete-node span.gcliVALID {
-  color: #FFF;
+.gcliVALID {
   border-bottom: none;
 }
 
-.gcliterm-complete-node span.gcliINCOMPLETE {
+.gcliINCOMPLETE {
   color: #DDD;
   border-bottom: 1px dotted #999;
 }
 
-.gcliterm-complete-node span.gcliERROR {
+.gcliERROR {
   color: #DDD;
   border-bottom: 1px dotted #F00;
 }
 
-.gcliterm-complete-node span.gcliPrompt {
-  color: #66F;
-  font-weight: bold;
-}
-
-.gcliterm-complete-node span.gcliCompl {
+.gcliCompl {
   color: #999;
-}
-
-.gcliterm-input-node,
-.gcliterm-complete-node {
-  font: 12px Consolas, Lucida Console, monospace;
 }
 
 .gcliterm-stack-node {
@@ -54,30 +42,20 @@
   color: #000;
   background: rgba(250, 250, 250, 0.8);
   border: 1px solid #AAA;
+  border-bottom: 0px !important;
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
   margin-left: 10px;
   margin-right: 10px;
   display: inline-block;
-  overflow: hidden;
-}
-
-.gcliterm-input-node,
-.gcliterm-complete-node {
-  background: transparent;
-}
-
-.gcliCmdHelpRight {
-  text-align: right;
+  overflow: auto;
+  padding: 10px;
 }
 
 .gcliterm-hint-parent {
   border-bottom: 1px solid #AAA;
 }
 
-.gcliterm-hint-node {
-  border-bottom: 0px !important;
-  overflow: auto;
-  padding: 10px;
-  display: inline-block;
+.gcliCmdHelpRight {
+  text-align: right;
 }

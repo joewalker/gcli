@@ -146,7 +146,11 @@ function buildFirefox(destDir) {
 
   var project = copy.createCommonJsProject({
     roots: [ gcliHome + '/mozilla', gcliHome + '/lib' ],
-    ignores: [ 'text!gcli/ui/inputter.css' ]
+    ignores: [
+      'text!gcli/ui/inputter.css',
+      'text!gcli/ui/menu.css',
+      'text!gcli/ui/arg_fetch.css'
+    ]
   });
 
   // Package the JavaScript
@@ -180,10 +184,9 @@ function buildFirefox(destDir) {
       { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */' },
       'lib/gcli/ui/menu.css',
       { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */' },
-      'lib/gcli/ui/inputter.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/command_output_view.css */' },
-      'lib/gcli/ui/command_output_view.css'
+      'lib/gcli/ui/inputter.css'
     ],
+    filter: removeNonMozPrefixes,
     dest: css
   });
   copy({
@@ -263,7 +266,15 @@ function tweakI18nStrings(data) {
     return lines + name + '=' + value + '\n\n';
   });
 
-  return '# LOCALIZATION NOTE These strings are used inside the GCLI.\n\n' + data;
+  return '# LOCALIZATION NOTE These strings are used inside the Web Console\n' +
+         '# command line which is available from the Web Developer sub-menu\n' +
+         '# -> \'Web Console\'.\n' +
+         '# The correct localization of this file might be to keep it in' +
+         '# English, or another language commonly spoken among web developers.' +
+         '# You want to make that choice consistent across the developer tools.' +
+         '# A good criteria is the language in which you\'d find the best' +
+         '# documentation on web development on the web.\n' +
+         '\n' + data;
 }
 
 /**
@@ -275,6 +286,14 @@ function wordWrap(input, length) {
   return input.match(wrapper).slice(0, -1).map(function(s) {
     return s.replace(/ $/, '');
   });
+}
+
+/**
+ * Hack to remove the '-vendorprefix' definitions. This currently works to
+ * remove -webkit, -ie and -op from CSS values (but not CSS properties).
+ */
+function removeNonMozPrefixes(data) {
+  return data.replace(/\n?\s*[-a-z]*:\s*-(webkit|op|ie)[-a-z]*\s*;[ \t]*/g, '');
 }
 
 // Now everything is defined properly, start working
