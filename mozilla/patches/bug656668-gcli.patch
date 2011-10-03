@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306496118 -3600
 # Node ID c9f0d4142413be8bd4cf553732568c1249999196
-# Parent 3eebaa87e86ba2945634012ceaa852dfba74406b
+# Parent 23adab1f3dd49fb267099c67800ae093308a9ca3
 Bug 656668 - Create Export from GCLI project to JSM
 
 diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
@@ -53,62 +53,44 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
  
  /*
   *
-@@ -68,7 +37,7 @@
+@@ -66,336 +35,444 @@
+ ///////////////////////////////////////////////////////////////////////////////
+ 
  /*
-  * This build of GCLI for Firefox is really 4 bits of code:
-  * - Browser support code - Currently just an implementation of the console
+- * This build of GCLI for Firefox is really 4 bits of code:
+- * - Browser support code - Currently just an implementation of the console
 - *   object that uses dump. We may need to add other browser shims to this.
-+ *   object that uses dump. We may need to add other browser shims.
-  * - A very basic commonjs AMD (Asynchronous Modules Definition) 'require'
-  *   implementation (which is just good enough to load GCLI). For more, see
-  *   http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
-@@ -83,319 +52,431 @@
+- * - A very basic commonjs AMD (Asynchronous Modules Definition) 'require'
+- *   implementation (which is just good enough to load GCLI). For more, see
+- *   http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
++ * This build of GCLI for Firefox comes from 4 bits of code:
++ * - prefix-gcli.jsm: Initial commentary and EXPORTED_SYMBOLS
++ * - console.js: Support code common to web content that is not part of the
++ *   default firefox chrome environment and is easy to shim.
++ * - mini_require: A very basic commonjs AMD (Asynchronous Modules Definition)
++ *   'require' implementation (which is just good enough to load GCLI). For
++ *   more, see http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
+  *   This alleviates the need for requirejs (http://requirejs.org/) which is
+- *   used when running in the browser.
+- *   This section of code is a copy of mini_require.js without the header and
+- *   footers. Changes to one should be reflected in the other.
++ *   used when running in the browser. This code is provided by dryice.
+  * - A build of GCLI itself, packaged using dryice (for more details see the
+  *   project https://github.com/mozilla/dryice and the build file in this
+  *   project at Makefile.dryice.js)
+- * - Lastly, code to require the gcli object as needed by EXPORTED_SYMBOLS.
++ * - suffix-gcli.jsm - code to require the gcli object for EXPORTED_SYMBOLS.
   */
  
  var EXPORTED_SYMBOLS = [ "gcli" ];
--
--
+ 
+ 
 -///////////////////////////////////////////////////////////////////////////////
 -
- /*
-  * This creates a console object that somewhat replicates Firebug's console
-  * object. It currently writes to dump(), but should write to the web
-  * console's chrome error section (when it has one)
-  */
- 
--
--/**
-- * String utility to ensure that strings are a specified length. Strings
-- * that are too long are truncated to the max length and the last char is
-- * set to "_". Strings that are too short are left padded with spaces.
-- *
-- * @param {string} aStr
-- *        The string to format to the correct length
-- * @param {number} aMaxLen
-- *        The maximum allowed length of the returned string
-- * @param {number} aMinLen (optional)
-- *        The minimum allowed length of the returned string. If undefined,
-- *        then aMaxLen will be used
-- * @param {object} aOptions (optional)
-- *        An object allowing format customization. The only customization
-- *        allowed currently is 'truncate' which can take the value "start" to
-- *        truncate strings from the start as opposed to the end.
-- * @return {string}
-- *        The original string formatted to fit the specified lengths
-- */
--function fmt(aStr, aMaxLen, aMinLen, aOptions) {
--  if (aMinLen == undefined) {
--    aMinLen = aMaxLen;
--  }
--  if (aStr == null) {
--    aStr = "";
--  }
--  if (aStr.length > aMaxLen) {
--    if (aOptions && aOptions.truncate == "start") {
--      return "_" + aStr.substring(aStr.length - aMaxLen + 1);
+-/*
 +/**
-+ * This is extra to the console object. It allows us to use the Node constants
-+ * without resorting to hardcoded numbers
++ * Expose a Node object. This allows us to use the Node constants without
++ * resorting to hardcoded numbers
 + */
 +var Node = Components.interfaces.nsIDOMNode;
 +
@@ -194,10 +176,42 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +
 +/**
-+ * The console object to expose
-+ */
+  * This creates a console object that somewhat replicates Firebug's console
+  * object. It currently writes to dump(), but should write to the web
+  * console's chrome error section (when it has one)
+  */
+-
+-
+-/**
+- * String utility to ensure that strings are a specified length. Strings
+- * that are too long are truncated to the max length and the last char is
+- * set to "_". Strings that are too short are left padded with spaces.
+- *
+- * @param {string} aStr
+- *        The string to format to the correct length
+- * @param {number} aMaxLen
+- *        The maximum allowed length of the returned string
+- * @param {number} aMinLen (optional)
+- *        The minimum allowed length of the returned string. If undefined,
+- *        then aMaxLen will be used
+- * @param {object} aOptions (optional)
+- *        An object allowing format customization. The only customization
+- *        allowed currently is 'truncate' which can take the value "start" to
+- *        truncate strings from the start as opposed to the end.
+- * @return {string}
+- *        The original string formatted to fit the specified lengths
+- */
+-function fmt(aStr, aMaxLen, aMinLen, aOptions) {
+-  if (aMinLen == undefined) {
+-    aMinLen = aMaxLen;
+-  }
+-  if (aStr == null) {
+-    aStr = "";
+-  }
+-  if (aStr.length > aMaxLen) {
+-    if (aOptions && aOptions.truncate == "start") {
+-      return "_" + aStr.substring(aStr.length - aMaxLen + 1);
 +var console = {};
-+
 +(function() {
 +  /**
 +   * String utility to ensure that strings are a specified length. Strings
@@ -259,7 +273,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +   *        The object to be stringified
 +   * @return {string}
 +   *        A single line representation of aThing, which will generally be at
-+   *        most 60 chars long
++   *        most 80 chars long
 +   */
 +  function stringify(aThing) {
 +    if (aThing === undefined) {
@@ -287,8 +301,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      return type + fmt(json, 50, 0);
 +    }
 +
-+    var str = aThing.toString().replace(/\s+/g, " ");
-+    return fmt(str, 60, 0);
++    var str = aThing.toString(); //.replace(/\s+/g, " ");
++    return fmt(str, 80, 0);
 +  }
 +
 +  /**
@@ -786,7 +800,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
   */
  function define(moduleName, deps, payload) {
    if (typeof moduleName != "string") {
-@@ -408,7 +489,7 @@ function define(moduleName, deps, payloa
+@@ -408,7 +485,7 @@ function define(moduleName, deps, payloa
      payload = deps;
    }
  
@@ -795,7 +809,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
      console.log("define: " + moduleName + " -> " + payload.toString()
          .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
    }
-@@ -417,151 +498,6564 @@ function define(moduleName, deps, payloa
+@@ -417,151 +494,6790 @@ function define(moduleName, deps, payloa
      console.error(this.depth + " Error: Redefining module: " + moduleName);
    }
    define.modules[moduleName] = payload;
@@ -948,7 +962,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types/basic', 'gcli/types/javascript', 'gcli/types/node', 'gcli/cli', 'gcli/ui/inputter', 'gcli/ui/arg_fetch', 'gcli/ui/menu'], function(require, exports, module) {
++define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types/basic', 'gcli/types/javascript', 'gcli/types/node', 'gcli/cli', 'gcli/ui/inputter', 'gcli/ui/arg_fetch', 'gcli/ui/menu', 'gcli/ui/focus'], function(require, exports, module) {
 +
 +  // The API for use by command authors
 +  exports.addCommand = require('gcli/canon').addCommand;
@@ -965,6 +979,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  var Inputter = require('gcli/ui/inputter').Inputter;
 +  var ArgFetcher = require('gcli/ui/arg_fetch').ArgFetcher;
 +  var CommandMenu = require('gcli/ui/menu').CommandMenu;
++  var FocusManager = require('gcli/ui/focus').FocusManager;
 +
 +  var jstype = require('gcli/types/javascript');
 +  var nodetype = require('gcli/types/node');
@@ -988,12 +1003,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +     * - jsEnvironment.evalFunction: 'eval' in a sandbox
 +     * - inputElement: GCLITerm.inputNode
 +     * - completeElement: GCLITerm.completeNode
-+     * - popup: GCLITerm.hintPopup
++     * - gcliTerm: GCLITerm
 +     * - hintElement: GCLITerm.hintNode
 +     * - inputBackgroundElement: GCLITerm.inputStack
 +     */
 +    createView: function(opts) {
-+      opts.preStyled = true;
 +      opts.autoHide = true;
 +      opts.requisition = new Requisition(opts.environment, opts.chromeDocument);
 +      opts.completionPrompt = '';
@@ -1002,10 +1016,18 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      nodetype.setDocument(opts.contentDocument);
 +      cli.setEvalFunction(opts.jsEnvironment.evalFunction);
 +
++      // Create a FocusManager for the various parts to register with
++      if (!opts.focusManager) {
++        opts.debug = true;
++        opts.focusManager = new FocusManager({ document: opts.chromeDocument });
++      }
++
 +      opts.inputter = new Inputter(opts);
 +      opts.inputter.update();
-+      if (opts.popup) {
-+        opts.inputter.addPopupListener(opts.popup);
++      if (opts.gcliTerm) {
++        opts.focusManager.onFocus.add(opts.gcliTerm.show, opts.gcliTerm);
++        opts.focusManager.onBlur.add(opts.gcliTerm.hide, opts.gcliTerm);
++        opts.focusManager.addMonitoredElement(opts.gcliTerm.hintNode, 'gcliTerm');
 +      }
 +
 +      if (opts.hintElement) {
@@ -1023,23 +1045,26 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +     * Undo the effects of createView() to prevent memory leaks
 +     */
 +    removeView: function(opts) {
-+      jstype.unsetGlobalObject();
-+      nodetype.unsetDocument();
-+      cli.unsetEvalFunction();
-+      opts.inputter.removePopupListener(opts.popup);
-+
 +      opts.hintElement.removeChild(opts.menu.element);
++      opts.menu.destroy();
 +      opts.hintElement.removeChild(opts.argFetcher.element);
++      opts.argFetcher.destroy();
 +
-+      delete opts.inputter;
-+      delete opts.requisition;
-+      delete opts.menu;
-+      delete opts.argFetcher;
++      opts.inputter.destroy();
++      opts.focusManager.removeMonitoredElement(opts.gcliTerm.hintNode, 'gcliTerm');
++      opts.focusManager.onFocus.remove(opts.gcliTerm.show, opts.gcliTerm);
++      opts.focusManager.onBlur.remove(opts.gcliTerm.hide, opts.gcliTerm);
++      opts.focusManager.destroy();
++
++      cli.unsetEvalFunction();
++      nodetype.unsetDocument();
++      jstype.unsetGlobalObject();
++
++      opts.requisition.destroy();
 +    },
 +
 +    commandOutputManager: require('gcli/canon').commandOutputManager
 +  };
-+
 +});
 +/*
 + * Copyright 2009-2011 Mozilla Foundation and contributors
@@ -1360,8 +1385,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + */
 +canon.removeCommand = function removeCommand(commandOrName) {
 +  var name = typeof commandOrName === 'string' ?
-+    commandOrName :
-+    commandOrName.name;
++          commandOrName :
++          commandOrName.name;
 +  delete commands[name];
 +  commandNames = commandNames.filter(function(test) {
 +    return test !== name;
@@ -1415,8 +1440,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +}
 +
 +/**
-+ * Call this method to notify the manager (and therefor all listeners) of a new
-+ * or updated command output.
++ * Call this method to notify the manager (and therefore all listeners) of a
++ * new or updated command output.
 + * @param output The command output object that has been created or updated.
 + */
 +CommandOutputManager.prototype.sendCommandOutput = function(output) {
@@ -1441,8 +1466,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +canon.CommandOutputManager = CommandOutputManager;
 +
 +/**
-+ * We maintain a global command output manager for the majority case where there
-+ * is only one important set of outputs.
++ * We maintain a global command output manager for the majority case where
++ * there is only one important set of outputs.
 + */
 +canon.commandOutputManager = new CommandOutputManager();
 +
@@ -1694,20 +1719,16 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * @param cssText The CSS declarations to append
 + * @param doc The document element to work from
 + */
-+dom.importCssString = function(cssText, doc) {
++dom.importCss = function(cssText, doc) {
 +  doc = doc || document;
 +
-+  if (doc.createStyleSheet) {
-+    var sheet = doc.createStyleSheet();
-+    sheet.cssText = cssText;
-+  }
-+  else {
-+    var style = dom.createElement(doc, 'style');
-+    style.appendChild(doc.createTextNode(cssText));
++  var style = dom.createElement(doc, 'style');
++  style.appendChild(doc.createTextNode(cssText));
 +
-+    var head = doc.getElementsByTagName('head')[0] || doc.documentElement;
-+    head.appendChild(style);
-+  }
++  var head = doc.getElementsByTagName('head')[0] || doc.documentElement;
++  head.appendChild(style);
++
++  return style;
 +};
 +
 +/**
@@ -2880,7 +2901,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +
 +/**
-+ *
++ * An argument the groups together a number of plain arguments together so they
++ * can be jointly assigned to a single array parameter
 + */
 +function ArrayArgument() {
 +  this.args = [];
@@ -2964,6 +2986,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +var Type = require('gcli/types').Type;
 +var Status = require('gcli/types').Status;
 +var Conversion = require('gcli/types').Conversion;
++var ArrayConversion = require('gcli/types').ArrayConversion;
 +
 +var Argument = require('gcli/argument').Argument;
 +var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
@@ -3631,7 +3654,13 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  for (var prop in scope) {
 +    if (prop.indexOf(matchProp) === 0) {
-+      var value = scope[prop];
++      var value;
++      try {
++        value = scope[prop];
++      }
++      catch (ex) {
++        break;
++      }
 +      var description;
 +      var incomplete = true;
 +      if (typeof value === 'function') {
@@ -4482,7 +4511,6 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  // argument positions
 +  this._structuralChangeInProgress = false;
 +
-+  // Pre-bind the event listeners
 +  this.commandAssignment.assignmentChange.add(this._onCommandAssignmentChange, this);
 +  this.commandAssignment.assignmentChange.add(this._onAssignmentChange, this);
 +
@@ -4498,6 +4526,17 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * MAX_INTEGER if that made sense
 + */
 +var MORE_THAN_THE_MOST_ARGS_POSSIBLE = 1000000;
++
++/**
++ * Avoid memory leaks
++ */
++Requisition.prototype.destroy = function() {
++  this.commandAssignment.assignmentChange.remove(this._onCommandAssignmentChange, this);
++  this.commandAssignment.assignmentChange.remove(this._onAssignmentChange, this);
++
++  delete this.document;
++  delete this.environment;
++};
 +
 +/**
 + * When any assignment changes, we might need to update the _args array to
@@ -5663,36 +5702,28 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +
 +/**
-+ * We only want to import inputterCss once so this tracks whether or not we have
-+ * done it. Note technically it's only once per document, so perhaps we should
-+ * have a list of documents into which we've imported the CSS?
-+ */
-+var inputterCssImported = false;
-+
-+/**
 + * A wrapper to take care of the functions concerning an input element
 + */
 +function Inputter(options) {
-+  if (!inputterCssImported && !options.preStyled) {
-+    dom.importCssString(inputterCss, this.doc);
-+    inputterCssImported = true;
-+  }
-+
-+  this.requ = options.requisition;
++  this.requisition = options.requisition;
 +
 +  // Suss out where the input element is
 +  this.element = options.inputElement || 'gcliInput';
 +  if (typeof this.element === 'string') {
-+    this.doc = options.document || document;
++    this.document = options.document || document;
 +    var name = this.element;
-+    this.element = this.doc.getElementById(name);
++    this.element = this.document.getElementById(name);
 +    if (!this.element) {
 +      throw new Error('No element with id=' + name + '.');
 +    }
 +  }
 +  else {
 +    // Assume we've been passed in the correct node
-+    this.doc = this.element.ownerDocument;
++    this.document = this.element.ownerDocument;
++  }
++
++  if (inputterCss != null) {
++    this.style = dom.importCss(inputterCss, this.document);
 +  }
 +
 +  this.element.spellcheck = false;
@@ -5704,11 +5735,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this._caretChange = null;
 +
 +  // Ensure that TAB/UP/DOWN isn't handled by the browser
-+  event.addListener(this.element, 'keydown', this.onKeyDown.bind(this));
-+  event.addListener(this.element, 'keyup', this.onKeyUp.bind(this));
-+
-+  // Use our document if no other is supplied
-+  options.document = options.document || this.doc;
++  this.onKeyDown = this.onKeyDown.bind(this);
++  this.onKeyUp = this.onKeyUp.bind(this);
++  event.addListener(this.element, 'keydown', this.onKeyDown);
++  event.addListener(this.element, 'keyup', this.onKeyUp);
 +
 +  if (options.completer == null) {
 +    options.completer = new Completer(options);
@@ -5719,42 +5749,55 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.completer = options.completer;
 +  this.completer.decorate(this);
 +
-+  // Use the provided history object, or instantiate our own.
++  // Use the provided history object, or instantiate our own
 +  this.history = options.history = options.history || new History(options);
 +  this._scrollingThroughHistory = false;
 +
-+  // cursor position affects hint severity.
-+  event.addListener(this.element, 'mouseup', function(ev) {
++  // Cursor position affects hint severity
++  this.onMouseUp = function(ev) {
 +    this.completer.update(this.getInputState());
-+  }.bind(this));
++  }.bind(this);
++  event.addListener(this.element, 'mouseup', this.onMouseUp);
 +
-+  this.requ.inputChange.add(this.onInputChange, this);
++  this.focusManager = options.focusManager;
++  if (this.focusManager) {
++    this.focusManager.addMonitoredElement(this.element, 'input');
++  }
++
++  this.requisition.inputChange.add(this.onInputChange, this);
 +}
 +
 +/**
-+ * Utility to add an element into the DOM after the input element.
++ * Avoid memory leaks
++ */
++Inputter.prototype.destroy = function() {
++  this.requisition.inputChange.remove(this.onInputChange, this);
++  if (this.focusManager) {
++    this.focusManager.removeMonitoredElement(this.element, 'input');
++  }
++
++  event.removeListener(this.element, 'keydown', this.onKeyDown);
++  event.removeListener(this.element, 'keyup', this.onKeyUp);
++  delete this.onKeyDown;
++  delete this.onKeyUp;
++
++  this.history.destroy();
++  this.completer.destroy();
++
++  if (this.style) {
++    this.style.parentNode.removeChild(this.style);
++    delete this.style;
++  }
++
++  delete this.document;
++  delete this.element;
++};
++
++/**
++ * Utility to add an element into the DOM after the input element
 + */
 +Inputter.prototype.appendAfter = function(element) {
 +  this.element.parentNode.insertBefore(element, this.element.nextSibling);
-+};
-+
-+/**
-+ * When the input element gets/loses focus make sure we tell the popup so it
-+ * can show/hide accordingly
-+ * @param popup An object containing show and hide methods to be called when
-+ * the hinter is to be shown or hidden
-+ */
-+Inputter.prototype.addPopupListener = function(popup) {
-+  event.addListener(this.element, 'focus', popup.show);
-+  event.addListener(this.element, 'blur', popup.hide);
-+};
-+
-+/**
-+ * Undo the effects of Inputter.addPopupListener()
-+ */
-+Inputter.prototype.removePopupListener = function(popup) {
-+  event.removeListener(this.element, 'blur', popup.hide);
-+  event.removeListener(this.element, 'focus', popup.show);
 +};
 +
 +/**
@@ -5767,7 +5810,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    // best we can do for that right now is the end of the current argument.
 +    this._caretChange = Caret.TO_ARG_END;
 +  }
-+  this._setInputInternal(this.requ.toString());
++  this._setInputInternal(this.requisition.toString());
 +};
 +
 +/**
@@ -5778,12 +5821,16 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * to avoid XUL bug 676520.
 + * This function assumes that the data model is up to date with the new value.
 + * It does attempts to leave the caret position in the same position in the
-+ * input string unless this._caretToArgEndPending is set. This is required for
-+ * completion events.
++ * input string unless this._caretChange === Caret.TO_ARG_END. This is required
++ * for completion events.
 + * It does not change the completer decoration unless this._updatePending is
 + * set. This is required for completion events.
 + */
-+Inputter.prototype._setInputInternal = function(str) {
++Inputter.prototype._setInputInternal = function(str, update) {
++  if (!this.document) {
++    return; // This can happen post-destroy()
++  }
++
 +  if (this.element.value && this.element.value === str) {
 +    this._processCaretChange(this.getInputState(), false);
 +    return;
@@ -5791,14 +5838,22 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  // Updating in a timeout fixes a XUL issue (bug 676520) where textbox gives
 +  // incorrect values for its content
-+  this.doc.defaultView.setTimeout(function() {
++  this.document.defaultView.setTimeout(function() {
++    if (!this.document) {
++      return; // This can happen post-destroy()
++    }
++
 +    // Bug 678520 - We could do better caret handling by recording the caret
 +    // position in terms of offset into an assignment, and then replacing into
 +    // a similar place
 +    var input = this.getInputState();
 +    input.typed = str;
-+    this._processCaretChange(input, true);
++    this._processCaretChange(input);
 +    this.element.value = str;
++
++    if (update) {
++      this.update();
++    }
 +  }.bind(this), 0);
 +};
 +
@@ -5830,8 +5885,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +/**
-+ * If the _caretToArgEndPending is set, we alter the input object to move the
-+ * selection start to the end of the current argument.
++ * If this._caretChange === Caret.TO_ARG_END, we alter the input object to move
++ * the selection start to the end of the current argument.
 + * @param input An object shaped like { typed:'', cursor: { start:0, end:0 }}
 + * @param forceUpdate Do we call this.completer.update even when the cursor has
 + * not changed (useful when input.typed has changed)
@@ -5922,8 +5977,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +      this.lastTabDownAt = ev.timeStamp;
 +    }
 +    if (ev.metaKey || ev.altKey || ev.crtlKey) {
-+      if (this.doc.commandDispatcher) {
-+        this.doc.commandDispatcher.advanceFocus();
++      if (this.document.commandDispatcher) {
++        this.document.commandDispatcher.advanceFocus();
 +      }
 +      else {
 +        this.element.blur();
@@ -5938,12 +5993,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +Inputter.prototype.onKeyUp = function(ev) {
 +  // RETURN does a special exec/highlight thing
 +  if (ev.keyCode === KeyEvent.DOM_VK_RETURN) {
-+    var worst = this.requ.getStatus();
++    var worst = this.requisition.getStatus();
 +    // Deny RETURN unless the command might work
 +    if (worst === Status.VALID) {
 +      this._scrollingThroughHistory = false;
 +      this.history.add(this.element.value);
-+      this.requ.exec();
++      this.requisition.exec();
 +    }
 +    // See bug 664135 - On pressing return with an invalid input, GCLI
 +    // should select the incorrect part of the input for an easy fix
@@ -5973,8 +6028,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  if (ev.keyCode === KeyEvent.DOM_VK_UP) {
 +    if (this.element.value === '' || this._scrollingThroughHistory) {
 +      this._scrollingThroughHistory = true;
-+      this._caretChange = Caret.SELECT_ALL;
-+      this._setInputInternal(this.history.backward());
++      this._setInputInternal(this.history.backward(), true);
 +    }
 +    else {
 +      this.getCurrentAssignment().increment();
@@ -5985,8 +6039,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  if (ev.keyCode === KeyEvent.DOM_VK_DOWN) {
 +    if (this.element.value === '' || this._scrollingThroughHistory) {
 +      this._scrollingThroughHistory = true;
-+      this._caretChange = Caret.SELECT_ALL;
-+      this._setInputInternal(this.history.forward());
++      this._setInputInternal(this.history.forward(), true);
 +    }
 +    else {
 +      this.getCurrentAssignment().decrement();
@@ -6005,7 +6058,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + */
 +Inputter.prototype.getCurrentAssignment = function() {
 +  var start = dom.getSelectionStart(this.element);
-+  return this.requ.getAssignmentAt(start);
++  return this.requisition.getAssignmentAt(start);
 +};
 +
 +/**
@@ -6013,7 +6066,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + */
 +Inputter.prototype.update = function() {
 +  var input = this.getInputState();
-+  this.requ.update(input);
++  this.requisition.update(input);
 +  this.completer.update(input);
 +};
 +
@@ -6055,18 +6108,18 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + *   Defaults to '&#x00bb;' (double greater-than, a.k.a right guillemet).
 + */
 +function Completer(options) {
-+  this.doc = options.document;
-+  this.requ = options.requisition;
++  this.document = options.document;
++  this.requisition = options.requisition;
 +  this.elementCreated = false;
 +
 +  this.element = options.completeElement || 'gcliComplete';
 +  if (typeof this.element === 'string') {
 +    var name = this.element;
-+    this.element = this.doc.getElementById(name);
++    this.element = this.document.getElementById(name);
 +
 +    if (!this.element) {
 +      this.elementCreated = true;
-+      this.element = dom.createElement(this.doc, 'div');
++      this.element = dom.createElement(this.document, 'div');
 +      this.element.className = 'gcliCompletion gcliVALID';
 +      this.element.setAttribute('tabindex', '-1');
 +      this.element.setAttribute('aria-live', 'polite');
@@ -6086,13 +6139,26 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +}
 +
 +/**
++ * Avoid memory leaks
++ */
++Completer.prototype.destroy = function() {
++  delete this.document;
++  delete this.element;
++  delete this.backgroundElement;
++
++  if (this.elementCreated) {
++    event.removeListener(this.document.defaultView, 'resize', this.resizer);
++  }
++
++  delete this.inputter;
++};
++
++/**
 + * A list of the styles that decorate() should copy to make the completion
 + * element look like the input element. backgroundColor is a spiritual part of
 + * this list, but see comment in decorate().
 + */
-+Completer.copyStyles = [
-+  'color', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle'
-+];
++Completer.copyStyles = [ 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle' ];
 +
 +/**
 + * Make ourselves visually similar to the input element, and make the input
@@ -6100,7 +6166,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + */
 +Completer.prototype.decorate = function(inputter) {
 +  this.inputter = inputter;
-+  this.input = inputter.element;
++  var input = inputter.element;
 +
 +  // If we were told which element to use, then assume it is already
 +  // correctly positioned. Otherwise insert it alongside the input element
@@ -6108,8 +6174,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    this.inputter.appendAfter(this.element);
 +
 +    Completer.copyStyles.forEach(function(style) {
-+      this.element.style[style] = dom.computedStyle(this.input, style);
++      this.element.style[style] = dom.computedStyle(input, style);
 +    }, this);
++
++    // The completer text is by default invisible so we make it the same color
++    // as the input background.
++    this.element.style.color = input.style.backgroundColor;
 +
 +    // If there is a separate backgroundElement, then we make the element
 +    // transparent, otherwise it inherits the color of the input node
@@ -6117,15 +6187,15 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    // computedStyle, but it doesn't. Patches welcome!
 +    this.element.style.backgroundColor = (this.backgroundElement != this.element) ?
 +        'transparent' :
-+        this.input.style.backgroundColor;
-+    this.input.style.backgroundColor = 'transparent';
++        input.style.backgroundColor;
++    input.style.backgroundColor = 'transparent';
 +
 +    // Make room for the prompt
-+    this.input.style.paddingLeft = '20px';
++    input.style.paddingLeft = '20px';
 +
-+    var resizer = this.resizer.bind(this);
-+    event.addListener(this.doc.defaultView, 'resize', resizer);
-+    resizer();
++    this.resizer = this.resizer.bind(this);
++    event.addListener(this.document.defaultView, 'resize', this.resizer);
++    this.resizer();
 +  }
 +};
 +
@@ -6133,7 +6203,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Ensure that the completion element is the same size and the inputter element
 + */
 +Completer.prototype.resizer = function() {
-+  var rect = this.input.getBoundingClientRect();
++  var rect = this.inputter.element.getBoundingClientRect();
 +  // -4 to line up with 1px of padding and border, top and bottom
 +  var height = rect.bottom - rect.top - 4;
 +
@@ -6162,12 +6232,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Bring the completion element up to date with what the requisition says
 + */
 +Completer.prototype.update = function(input) {
-+  var current = this.requ.getAssignmentAt(input.cursor.start);
++  var current = this.requisition.getAssignmentAt(input.cursor.start);
 +  var predictions = current.getPredictions();
 +
 +  var completion = '<span class="gcliPrompt">' + this.completionPrompt + '</span> ';
 +  if (input.typed.length > 0) {
-+    var scores = this.requ.getInputStatusMarkup();
++    var scores = this.requisition.getInputStatusMarkup();
 +    completion += this.markupStatusScore(scores, input);
 +  }
 +
@@ -6188,9 +6258,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +  // A hack to add a grey '}' to the end of the command line when we've opened
 +  // with a { but haven't closed it
-+  var command = this.requ.commandAssignment.getValue();
++  var command = this.requisition.commandAssignment.getValue();
 +  if (command && command.name === '{') {
-+    if (this.requ.getAssignment(0).getArg().suffix.indexOf('}') === -1) {
++    if (this.requisition.getAssignment(0).getArg().suffix.indexOf('}') === -1) {
 +      completion += '<span class="gcliCloseBrace">}</span>';
 +    }
 +  }
@@ -6252,15 +6322,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +/**
 + * A History object remembers commands that have been entered in the past and
 + * provides an API for accessing them again.
-+ *
 + * See Bug 681340: Search through history (like C-r in bash)?
 + */
-+function History(options) {
-+  this._options = options;
-+
++function History() {
 +  // This is the actual buffer where previous commands are kept.
-+  //
-+  // `this._buffer[0]` should always be equal the empty string. This is so
++  // 'this._buffer[0]' should always be equal the empty string. This is so
 +  // that when you try to go in to the "future", you will just get an empty
 +  // command.
 +  this._buffer = [''];
@@ -6269,6 +6335,13 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  // currently are in the history.
 +  this._current = 0;
 +}
++
++/**
++ * Avoid memory leaks
++ */
++History.prototype.destroy = function() {
++//  delete this._buffer;
++};
 +
 +/**
 + * Record and save a new command in the history.
@@ -6324,19 +6397,19 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +/**
 + * A widget to display an inline dialog which allows the user to fill out
 + * the arguments to a command.
-+ * @param doc The document to use in creating widgets
-+ * @param requ The Requisition to fill out
++ * @param document The document to use in creating widgets
++ * @param requisition The Requisition to fill out
 + */
-+function ArgFetcher(doc, requ) {
-+  this.doc = doc;
-+  this.requ = requ;
++function ArgFetcher(document, requisition) {
++  this.document = document;
++  this.requisition = requisition;
 +
 +  // FF can be really hard to debug if doc is null, so we check early on
-+  if (!this.doc) {
++  if (!this.document) {
 +    throw new Error('No document');
 +  }
 +
-+  this.element =  dom.createElement(this.doc, 'div');
++  this.element =  dom.createElement(this.document, 'div');
 +  this.element.className = 'gcliCliEle';
 +  // We cache the fields we create so we can destroy them later
 +  this.fields = [];
@@ -6346,23 +6419,43 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.okElement = null;
 +
 +  // Pull the HTML into the DOM, but don't add it to the document
-+  if (!ArgFetcher.reqTempl) {
-+    dom.importCssString(editorCss, this.doc);
-+
-+    var templates = dom.createElement(this.doc, 'div');
-+    dom.setInnerHtml(templates, argFetchHtml);
-+    ArgFetcher.reqTempl = templates.querySelector('#gcliReqTempl');
++  if (editorCss != null) {
++    this.style = dom.importCss(editorCss, this.document);
 +  }
 +
-+  this.requ.commandChange.add(this.onCommandChange, this);
-+  this.requ.inputChange.add(this.onInputChange, this);
++  var templates = dom.createElement(this.document, 'div');
++  dom.setInnerHtml(templates, argFetchHtml);
++  this.reqTempl = templates.querySelector('#gcliReqTempl');
++
++  this.requisition.commandChange.add(this.onCommandChange, this);
++  this.requisition.inputChange.add(this.onInputChange, this);
 +}
++
++/**
++ * Avoid memory leaks
++ */
++ArgFetcher.prototype.destroy = function() {
++  this.requisition.inputChange.remove(this.onInputChange, this);
++  this.requisition.commandChange.remove(this.onCommandChange, this);
++
++  if (this.style) {
++    this.style.parentNode.removeChild(this.style);
++    delete this.style;
++  }
++
++  this.fields.forEach(function(field) { field.destroy(); });
++
++  delete this.document;
++  delete this.element;
++  delete this.okElement;
++  delete this.reqTempl;
++};
 +
 +/**
 + * Called whenever the command part of the requisition changes
 + */
 +ArgFetcher.prototype.onCommandChange = function(ev) {
-+  var command = this.requ.commandAssignment.getValue();
++  var command = this.requisition.commandAssignment.getValue();
 +  if (!command || !command.exec) {
 +    this.element.style.display = 'none';
 +  }
@@ -6375,12 +6468,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    this.fields.forEach(function(field) { field.destroy(); });
 +    this.fields = [];
 +
-+    var reqEle = ArgFetcher.reqTempl.cloneNode(true);
++    var reqEle = this.reqTempl.cloneNode(true);
 +    this.tmpl.processNode(reqEle, this);
 +    dom.clearElement(this.element);
 +    this.element.appendChild(reqEle);
 +
-+    var status = this.requ.getStatus();
++    var status = this.requisition.getStatus();
 +    this.okElement.disabled = (status === Status.VALID);
 +
 +    this.element.style.display = 'block';
@@ -6391,9 +6484,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Called whenever the text input of the requisition changes
 + */
 +ArgFetcher.prototype.onInputChange = function(ev) {
-+  var command = this.requ.commandAssignment.getValue();
++  var command = this.requisition.commandAssignment.getValue();
 +  if (command && command.exec) {
-+    var status = this.requ.getStatus();
++    var status = this.requisition.getStatus();
 +    this.okElement.disabled = (status !== Status.VALID);
 +  }
 +};
@@ -6404,10 +6497,10 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + */
 +ArgFetcher.prototype.getInputFor = function(assignment) {
 +  var newField = getField(assignment.param.type, {
-+    document: this.doc,
++    document: this.document,
 +    type: assignment.param.type,
 +    name: assignment.param.name,
-+    requisition: this.requ,
++    requisition: this.requisition,
 +    required: assignment.param.isDataRequired(),
 +    named: !assignment.param.isPositionalAllowed()
 +  });
@@ -6449,14 +6542,14 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Event handler added by the template menu.html
 + */
 +ArgFetcher.prototype.onFormOk = function(ev) {
-+  this.requ.exec();
++  this.requisition.exec();
 +};
 +
 +/**
 + * Event handler added by the template menu.html
 + */
 +ArgFetcher.prototype.onFormCancel = function(ev) {
-+  this.requ.clear();
++  this.requisition.clear();
 +};
 +
 +argFetch.ArgFetcher = ArgFetcher;
@@ -6502,7 +6595,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * This class is designed to be inherited from. It's important that all
 + * subclasses have a similar constructor signature because they are created
 + * via getField(...)
-+ * @param doc The document we use in calling createElement
++ * @param document The document we use in calling createElement
 + * @param type The type to use in conversions
 + * @param named Is this parameter named? That is to say, are positional
 + * arguments disallowed, if true, then we need to provide updates to the
@@ -6511,7 +6604,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * @param name If this parameter is named, what name should we use
 + * @param requ The requisition that we're attached to
 + */
-+function Field(doc, type, named, name, requ) {
++function Field(document, type, named, name, requ) {
 +}
 +
 +/**
@@ -6525,6 +6618,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Indicates that this field should drop any resources that it has created
 + */
 +Field.prototype.destroy = function() {
++  delete this.messageElement;
 +};
 +
 +/**
@@ -6644,11 +6738,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * A field that allows editing of strings
 + */
 +function StringField(type, options) {
-+  this.doc = options.document;
++  this.document = options.document;
 +  this.type = type;
 +  this.arg = new Argument();
 +
-+  this.element = dom.createElement(this.doc, 'input');
++  this.element = dom.createElement(this.document, 'input');
 +  this.element.type = 'text';
 +  this.element.style.width = '100%';
 +
@@ -6661,7 +6755,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +StringField.prototype = Object.create(Field.prototype);
 +
 +StringField.prototype.destroy = function() {
++  Field.prototype.destroy.call(this);
 +  this.element.removeEventListener('keyup', this.onInputChange, false);
++  delete this.element;
++  delete this.document;
++  delete this.onInputChange;
 +};
 +
 +StringField.prototype.setConversion = function(conversion) {
@@ -6688,11 +6786,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * A field that allows editing of numbers using an [input type=number] field
 + */
 +function NumberField(type, options) {
-+  this.doc = options.document;
++  this.document = options.document;
 +  this.type = type;
 +  this.arg = new Argument();
 +
-+  this.element = dom.createElement(this.doc, 'input');
++  this.element = dom.createElement(this.document, 'input');
 +  this.element.type = 'number';
 +  if (this.type.max) {
 +    this.element.max = this.type.max;
@@ -6717,7 +6815,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +NumberField.prototype.destroy = function() {
++  Field.prototype.destroy.call(this);
 +  this.element.removeEventListener('keyup', this.onInputChange, false);
++  delete this.element;
++  delete this.document;
++  delete this.onInputChange;
 +};
 +
 +NumberField.prototype.setConversion = function(conversion) {
@@ -6739,12 +6841,12 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * A field that uses a checkbox to toggle a boolean field
 + */
 +function BooleanField(type, options) {
-+  this.doc = options.document;
++  this.document = options.document;
 +  this.type = type;
 +  this.name = options.name;
 +  this.named = options.named;
 +
-+  this.element = dom.createElement(this.doc, 'input');
++  this.element = dom.createElement(this.document, 'input');
 +  this.element.type = 'checkbox';
 +  this.element.id = 'gcliForm' + this.name;
 +
@@ -6761,7 +6863,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +BooleanField.prototype.destroy = function() {
++  Field.prototype.destroy.call(this);
 +  this.element.removeEventListener('change', this.onInputChange, false);
++  delete this.element;
++  delete this.document;
++  delete this.onInputChange;
 +};
 +
 +BooleanField.prototype.setConversion = function(conversion) {
@@ -6793,11 +6899,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * </ul>
 + */
 +function SelectionField(type, options) {
-+  this.doc = options.document;
++  this.document = options.document;
 +  this.type = type;
 +  this.items = [];
 +
-+  this.element = dom.createElement(this.doc, 'select');
++  this.element = dom.createElement(this.document, 'select');
 +  this.element.style.width = '180px';
 +  this._addOption({
 +    name: l10n.lookupFormat('fieldSelectionSelect', [ options.name ])
@@ -6818,7 +6924,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +SelectionField.prototype.destroy = function() {
++  Field.prototype.destroy.call(this);
 +  this.element.removeEventListener('change', this.onInputChange, false);
++  delete this.element;
++  delete this.document;
++  delete this.onInputChange;
 +};
 +
 +SelectionField.prototype.setConversion = function(conversion) {
@@ -6843,7 +6953,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  item.index = this.items.length;
 +  this.items.push(item);
 +
-+  var option = dom.createElement(this.doc, 'option');
++  var option = dom.createElement(this.document, 'option');
 +  option.innerHTML = item.name;
 +  option.value = item.index;
 +  this.element.appendChild(option);
@@ -6857,29 +6967,30 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * A field that allows editing of javascript
 + */
 +function JavascriptField(type, options) {
-+  this.doc = options.document;
++  this.document = options.document;
 +  this.type = type;
 +  this.requ = options.requisition;
 +
 +  this.onInputChange = this.onInputChange.bind(this);
 +  this.arg = new Argument('', '{ ', ' }');
 +
-+  this.element = dom.createElement(this.doc, 'div');
++  this.element = dom.createElement(this.document, 'div');
 +
-+  this.input = dom.createElement(this.doc, 'input');
++  this.input = dom.createElement(this.document, 'input');
 +  this.input.type = 'text';
 +  this.input.addEventListener('keyup', this.onInputChange, false);
 +  this.input.style.marginBottom = '0px';
 +  this.input.style.width = options.name.length === 0 ? '240px' : '160px';
 +  this.element.appendChild(this.input);
 +
-+  this.menu = new Menu(this.doc, { field: true });
++  this.menu = new Menu(this.document, { field: true });
 +  this.element.appendChild(this.menu.element);
 +
 +  this.setConversion(this.type.parse(new Argument('')));
 +
 +  this.fieldChanged = createEvent('JavascriptField.fieldChanged');
 +
++  // i.e. Register this.onItemClick as the default action for a menu click
 +  this.menu.onItemClick = this.onItemClick.bind(this);
 +}
 +
@@ -6890,7 +7001,14 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +JavascriptField.prototype.destroy = function() {
++  Field.prototype.destroy.call(this);
 +  this.input.removeEventListener('keyup', this.onInputChange, false);
++  this.menu.destroy();
++  delete this.element;
++  delete this.input;
++  delete this.menu;
++  delete this.document;
++  delete this.onInputChange;
 +};
 +
 +JavascriptField.prototype.setConversion = function(conversion) {
@@ -6957,13 +7075,13 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * last possible time
 + */
 +function DeferredField(type, options) {
-+  this.doc = options.document;
++  this.document = options.document;
 +  this.type = type;
 +  this.options = options;
-+  this.requ = options.requisition;
-+  this.requ.assignmentChange.add(this.update, this);
++  this.requisition = options.requisition;
++  this.requisition.assignmentChange.add(this.update, this);
 +
-+  this.element = dom.createElement(this.doc, 'div');
++  this.element = dom.createElement(this.document, 'div');
 +  this.update();
 +
 +  this.fieldChanged = createEvent('DeferredField.fieldChanged');
@@ -6994,7 +7112,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +DeferredField.prototype.destroy = function() {
-+  this.requ.assignmentChange.remove(this.update, this);
++  Field.prototype.destroy.call(this);
++  this.requisition.assignmentChange.remove(this.update, this);
++  delete this.element;
++  delete this.document;
++  delete this.onInputChange;
 +};
 +
 +DeferredField.prototype.setConversion = function(conversion) {
@@ -7014,9 +7136,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * BlankFields are not for general use.
 + */
 +function BlankField(type, options) {
-+  this.doc = options.document;
++  this.document = options.document;
 +  this.type = type;
-+  this.element = dom.createElement(this.doc, 'div');
++  this.element = dom.createElement(this.document, 'div');
 +
 +  this.fieldChanged = createEvent('BlankField.fieldChanged');
 +}
@@ -7042,7 +7164,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * given for a parameter.
 + */
 +function ArrayField(type, options) {
-+  this.doc = options.document;
++  this.document = options.document;
 +  this.type = type;
 +  this.options = options;
 +  this.requ = options.requisition;
@@ -7051,18 +7173,18 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  this.members = [];
 +
 +  // <div class=gcliArrayParent save="${element}">
-+  this.element = dom.createElement(this.doc, 'div');
++  this.element = dom.createElement(this.document, 'div');
 +  this.element.className = 'gcliArrayParent';
 +
 +  // <button class=gcliArrayMbrAdd onclick="${_onAdd}" save="${addButton}">Add
-+  this.addButton = dom.createElement(this.doc, 'button');
++  this.addButton = dom.createElement(this.document, 'button');
 +  this.addButton.className = 'gcliArrayMbrAdd';
 +  this.addButton.addEventListener('click', this._onAdd, false);
 +  this.addButton.innerHTML = l10n.lookup('fieldArrayAdd');
 +  this.element.appendChild(this.addButton);
 +
 +  // <div class=gcliArrayMbrs save="${mbrElement}">
-+  this.container = dom.createElement(this.doc, 'div');
++  this.container = dom.createElement(this.document, 'div');
 +  this.container.className = 'gcliArrayMbrs';
 +  this.element.appendChild(this.container);
 +
@@ -7078,6 +7200,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +};
 +
 +ArrayField.prototype.destroy = function() {
++  Field.prototype.destroy.call(this);
 +  this.addButton.removeEventListener('click', this._onAdd, false);
 +};
 +
@@ -7104,7 +7227,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +ArrayField.prototype._onAdd = function(ev, subConversion) {
 +  // <div class=gcliArrayMbr save="${element}">
-+  var element = dom.createElement(this.doc, 'div');
++  var element = dom.createElement(this.document, 'div');
 +  element.className = 'gcliArrayMbr';
 +  this.container.appendChild(element);
 +
@@ -7122,7 +7245,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  element.appendChild(field.element);
 +
 +  // <div class=gcliArrayMbrDel onclick="${_onDel}">
-+  var delButton = dom.createElement(this.doc, 'button');
++  var delButton = dom.createElement(this.document, 'button');
 +  delButton.className = 'gcliArrayMbrDel';
 +  delButton.addEventListener('click', this._onDel, false);
 +  delButton.innerHTML = l10n.lookup('fieldArrayDel');
@@ -7174,29 +7297,44 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +/**
 + * Menu is a display of the commands that are possible given the state of a
 + * requisition.
-+ * @param doc The document from which we create elements.
++ * @param document The document from which we create elements.
 + * @param options A way to customize the menu display. Valid options are:
 + * - field:true Turns the menu display into a drop-down for use inside a
 + * JavascriptField.
 + */
-+function Menu(doc, options) {
-+  this.doc = doc;
-+
-+  this.element =  dom.createElement(this.doc, 'div');
++function Menu(document, options) {
++  this.element =  dom.createElement(document, 'div');
 +  this.element.className = 'gcliMenu';
 +  if (options && options.field) {
 +    this.element.className += ' gcliMenuField';
 +  }
 +
 +  // Pull the HTML into the DOM, but don't add it to the document
-+  if (!Menu.optTempl) {
-+    dom.importCssString(menuCss, this.doc);
-+
-+    var templates = dom.createElement(this.doc, 'div');
-+    dom.setInnerHtml(templates, menuHtml);
-+    Menu.optTempl = templates.querySelector('#gcliOptTempl');
++  if (menuCss != null) {
++    this.style = dom.importCss(menuCss, document);
 +  }
++
++  var templates = dom.createElement(document, 'div');
++  dom.setInnerHtml(templates, menuHtml);
++  this.optTempl = templates.querySelector('#gcliOptTempl');
++
++  // Contains the items that should be displayed
++  this.items = null;
 +}
++
++/**
++ * Avoid memory leaks
++ */
++Menu.prototype.destroy = function() {
++  if (this.style) {
++    this.style.parentNode.removeChild(this.style);
++    delete this.style;
++  }
++
++  delete this.element;
++  delete this.items;
++  delete this.optTempl;
++};
 +
 +/**
 + * The default is to do nothing when someone clicks on the menu.
@@ -7222,7 +7360,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +    return;
 +  }
 +
-+  var options = Menu.optTempl.cloneNode(true);
++  var options = this.optTempl.cloneNode(true);
 +  new Templater().processNode(options, this);
 +
 +  dom.clearElement(this.element);
@@ -7245,42 +7383,52 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * CommandMenu is a special menu that integrates with a Requisition to display
 + * available commands.
 + */
-+function CommandMenu(doc, requ) {
-+  Menu.call(this, doc);
-+  this.requ = requ;
++function CommandMenu(document, requisition) {
++  Menu.call(this, document);
++  this.requisition = requisition;
 +
-+  this.requ.commandChange.add(this.onCommandChange, this);
++  this.requisition.commandChange.add(this.onCommandChange, this);
 +  canon.canonChange.add(this.onCommandChange, this);
 +}
 +
 +CommandMenu.prototype = Object.create(Menu.prototype);
 +
 +/**
++ * Avoid memory leaks
++ */
++CommandMenu.prototype.destroy = function() {
++  this.requisition.commandChange.remove(this.onCommandChange, this);
++  canon.canonChange.remove(this.onCommandChange, this);
++
++  Menu.prototype.destroy.call(this);
++};
++
++/**
 + * We want to fill-in the clicked command in the cli input when the user clicks
 + */
 +CommandMenu.prototype.onItemClick = function(ev) {
-+  var type = this.requ.commandAssignment.param.type;
++  var type = this.requisition.commandAssignment.param.type;
 +
 +  var text = type.stringify(ev.currentTarget.item);
 +  var arg = new Argument(text);
 +  arg.suffix = ' ';
 +
 +  var conversion = type.parse(arg);
-+  this.requ.commandAssignment.setConversion(conversion);
++  this.requisition.commandAssignment.setConversion(conversion);
 +};
 +
 +/**
 + * Update the various hint components to reflect the changed command
 + */
 +CommandMenu.prototype.onCommandChange = function(ev) {
-+  var command = this.requ.commandAssignment.getValue();
++  var command = this.requisition.commandAssignment.getValue();
 +  if (!command || !command.exec) {
 +    var error;
-+    var predictions = this.requ.commandAssignment.getPredictions();
++    var predictions = this.requisition.commandAssignment.getPredictions();
 +
 +    if (predictions.length === 0) {
-+      error = this.requ.commandAssignment.getMessage();
-+      var commandType = this.requ.commandAssignment.param.type;
++      error = this.requisition.commandAssignment.getMessage();
++      var commandType = this.requisition.commandAssignment.param.type;
 +      var conversion = commandType.parse(new Argument());
 +      predictions = conversion.getPredictions();
 +    }
@@ -7322,52 +7470,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  exports.Templater = Templater;
 +
 +});
-+define("text!gcli/ui/menu.css", [], "" +
-+  ".gcliOption {" +
-+  "  overflow: hidden;" +
-+  "  white-space: nowrap;" +
-+  "  cursor: pointer;" +
-+  "  padding: 2px;" +
-+  "}" +
-+  "" +
-+  ".gcliOption:hover {" +
-+  "  background-color: rgb(230, 230, 230);" +
-+  "}" +
-+  "" +
-+  ".gcliOptionName {" +
-+  "  padding-right: 5px;" +
-+  "}" +
-+  "" +
-+  ".gcliOptionDesc {" +
-+  "  font-size: 80%;" +
-+  "  color: #999;" +
-+  "}" +
-+  "" +
-+  ".gcliMenuError {" +
-+  "  overflow: hidden;" +
-+  "  white-space: nowrap;" +
-+  "  padding: 8px 2px 2px 2px;" +
-+  "  font-size: 80%;" +
-+  "  color: red;" +
-+  "}" +
-+  "" +
-+  ".gcliMenuField {" +
-+  "  background-color: white;" +
-+  "  color: black;" +
-+  "  border: 1px solid #aaa;" +
-+  "  padding: 2px;" +
-+  "  max-height: 300px;" +
-+  "  overflow-y: auto;" +
-+  "  max-width: 220px;" +
-+  "  overflow-x: hidden;" +
-+  "  margin: 0 10px;" +
-+  "  border-top: 0px !important;" +
-+  "  border-bottom-right-radius: 5px;" +
-+  "  border-bottom-left-radius: 5px;" +
-+  "  font: -webkit-small-control;" +
-+  "}" +
-+  "");
-+
++define("text!gcli/ui/menu.css", [], void 0);
 +define("text!gcli/ui/menu.html", [], "" +
 +  "<!--" +
 +  "Template for the beginnings of a command menu." +
@@ -7387,48 +7490,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  "</div>" +
 +  "");
 +
-+define("text!gcli/ui/arg_fetch.css", [], "" +
-+  ".gcliCmdDesc {" +
-+  "  font-weight: bold;" +
-+  "  text-align: center;" +
-+  "  margin-bottom: 5px;" +
-+  "  border-bottom: 1px solid #ddd;" +
-+  "  padding-bottom: 3px;" +
-+  "}" +
-+  "" +
-+  ".gcliParamGroup {" +
-+  "  font-weight: bold;" +
-+  "}" +
-+  "" +
-+  ".gcliParamName {" +
-+  "  text-align: right;" +
-+  "  font-size: 90%;" +
-+  "}" +
-+  "" +
-+  ".gcliParamError {" +
-+  "  font-size: 80%;" +
-+  "  color: #900;" +
-+  "}" +
-+  "" +
-+  ".gcliParamSubmit {" +
-+  "  text-align: right;" +
-+  "}" +
-+  "" +
-+  ".gcliGroupSymbol {" +
-+  "  font-size: 90%;" +
-+  "  color: #666;" +
-+  "}" +
-+  "" +
-+  ".gcliRequired {" +
-+  "  font-size: 80%;" +
-+  "  color: #666;" +
-+  "}" +
-+  "" +
-+  ".gcliParams {" +
-+  "  width: 100%;" +
-+  "}" +
-+  "");
-+
++define("text!gcli/ui/arg_fetch.css", [], void 0);
 +define("text!gcli/ui/arg_fetch.html", [], "" +
 +  "<!--" +
 +  "Template for an Assignment." +
@@ -7437,11 +7499,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  "<div id=\"gcliReqTempl\" aria-live=\"polite\">" +
 +  "  <div>" +
 +  "    <div class=\"gcliCmdDesc\">" +
-+  "      ${requ.commandAssignment.getValue().description}" +
++  "      ${requisition.commandAssignment.getValue().description}" +
 +  "    </div>" +
 +  "    <table class=\"gcliParams\">" +
 +  "      <tbody class=\"gcliAssignment\"" +
-+  "          foreach=\"assignment in ${requ.getAssignments()}\">" +
++  "          foreach=\"assignment in ${requisition.getAssignments()}\">" +
 +  "        <!-- Parameter -->" +
 +  "        <tr class=\"gcliGroupRow\">" +
 +  "          <td class=\"gcliParamName\">" +
@@ -7473,6 +7535,184 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  "</div>" +
 +  "");
 +
++/*
++ * Copyright 2009-2011 Mozilla Foundation and contributors
++ * Licensed under the New BSD license. See LICENSE.txt or:
++ * http://opensource.org/licenses/BSD-3-Clause
++ */
++
++define('gcli/ui/focus', ['require', 'exports', 'module' , 'gcli/util'], function(require, exports, module) {
++
++
++var util = require('gcli/util');
++
++/**
++ * FocusManager solves the problem of tracking focus among a set of nodes.
++ * The specific problem we are solving is when the hint element must be visible
++ * if either the command line or any of the inputs in the hint element has the
++ * focus, and invisible at other times, without hiding and showing the hint
++ * element even briefly as the focus changes between them.
++ * It does this simply by postponing the hide events by 250ms to see if
++ * something else takes focus.
++ * @param options An optional object containing configuration values. Valid
++ * properties on the options object are:
++ * - document
++ * - blurDelay
++ * - debug
++ * - initialFocus
++ */
++function FocusManager(options) {
++  options = options || {};
++
++  this._debug = options.debug || false;
++  this._blurDelayTimeout = null; // Result of setTimeout in delaying a blur
++  this._monitoredElements = [];  // See addMonitoredElement()
++
++  this.hasFocus = false;
++  this.blurDelay = options.blurDelay || 250;
++  this.document = options.document || document;
++
++  this.onFocus = util.createEvent('FocusManager.onFocus');
++  this.onBlur = util.createEvent('FocusManager.onBlur');
++
++  // We take a focus event anywhere to be an indication that we might be about
++  // to lose focus
++  this._onDocumentFocus = function() {
++    this.reportBlur('document');
++  }.bind(this);
++  this.document.addEventListener('focus', this._onDocumentFocus, true);
++}
++
++/**
++ * Avoid memory leaks
++ */
++FocusManager.prototype.destroy = function() {
++  this.document.removeEventListener('focus', this._onDocumentFocus, true);
++  delete this.document;
++
++  for (var i = 0; i < this._monitoredElements.length; i++) {
++    var monitor = this._monitoredElements[i];
++    console.error('Hanging monitored element: ', monitor.element);
++
++    monitor.element.removeEventListener('focus', monitor.onFocus, true);
++    monitor.element.removeEventListener('blur', monitor.onBlur, true);
++  }
++
++  if (this._blurDelayTimeout) {
++    clearTimeout(this._blurDelayTimeout);
++    this._blurDelayTimeout = null;
++  }
++};
++
++/**
++ * The easy way to include an element in the set of things that are part of the
++ * aggregate focus. Using [add|remove]MonitoredElement() is a simpler way of
++ * option than calling report[Focus|Blur]()
++ * @param element The element on which to track focus|blur events
++ * @param where Optional source string for debugging only
++ */
++FocusManager.prototype.addMonitoredElement = function(element, where) {
++  if (this._debug) {
++    console.log('FocusManager.addMonitoredElement(' + (where || 'unknown') + ')');
++  }
++
++  var monitor = {
++    element: element,
++    where: where,
++    onFocus: function() { this.reportFocus(where); }.bind(this),
++    onBlur: function() { this.reportBlur(where); }.bind(this)
++  };
++
++  element.addEventListener('focus', monitor.onFocus, true);
++  element.addEventListener('blur', monitor.onBlur, true);
++  this._monitoredElements.push(monitor);
++};
++
++/**
++ * Undo the effects of addMonitoredElement()
++ * @param element The element to stop tracking
++ */
++FocusManager.prototype.removeMonitoredElement = function(element) {
++  var monitor;
++  var matchIndex;
++
++  for (var i = 0; i < this._monitoredElements.length; i++) {
++    if (this._monitoredElements[i].element === element) {
++      monitor = this._monitoredElements[i];
++      matchIndex = i;
++    }
++  }
++
++  if (!monitor) {
++    if (this._debug) {
++      console.error('Missing monitor for element. ', element);
++    }
++    return;
++  }
++
++  this._monitoredElements.splice(matchIndex, 1);
++  element.removeEventListener('focus', monitor.onFocus, true);
++  element.removeEventListener('blur', monitor.onBlur, true);
++};
++
++/**
++ * Some component has received a 'focus' event. This sets the internal status
++ * straight away and informs the listeners
++ * @param where Optional source string for debugging only
++ */
++FocusManager.prototype.reportFocus = function(where) {
++  if (this._debug) {
++    console.log('FocusManager.reportFocus(' + (where || 'unknown') + ')');
++  }
++
++  if (this._blurDelayTimeout) {
++    if (this._debug) {
++      console.log('FocusManager.cancelBlur');
++    }
++    clearTimeout(this._blurDelayTimeout);
++    this._blurDelayTimeout = null;
++  }
++
++  if (!this.hasFocus) {
++    this.hasFocus = true;
++    this.onFocus();
++  }
++};
++
++/**
++ * Some component has received a 'blur' event. This waits for a while to see if
++ * we are going to get any subsequent 'focus' events and then sets the internal
++ * status and informs the listeners
++ * @param where Optional source string for debugging only
++ */
++FocusManager.prototype.reportBlur = function(where) {
++  if (this._debug) {
++    console.log('FocusManager.reportBlur(' + where + ')');
++  }
++
++  if (this.hasFocus) {
++    if (this._blurDelayTimeout) {
++      if (this._debug) {
++        console.log('FocusManager.blurPending');
++      }
++      return;
++    }
++
++    this._blurDelayTimeout = setTimeout(function() {
++      if (this._debug) {
++        console.log('FocusManager.blur');
++      }
++      this.hasFocus = false;
++      this.onBlur();
++      this._blurDelayTimeout = null;
++    }.bind(this), this.blurDelay);
++  }
++};
++
++exports.FocusManager = FocusManager;
++
++
++});
  
  /*
   * require GCLI so it can be exported as declared in EXPORTED_SYMBOLS

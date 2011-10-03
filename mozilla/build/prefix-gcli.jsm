@@ -35,20 +35,19 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /*
- * This build of GCLI for Firefox is really 4 bits of code:
- * - Browser support code - Currently just an implementation of the console
- *   object that uses dump. We may need to add other browser shims.
- * - A very basic commonjs AMD (Asynchronous Modules Definition) 'require'
- *   implementation (which is just good enough to load GCLI). For more, see
- *   http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
+ * This build of GCLI for Firefox comes from 4 bits of code:
+ * - prefix-gcli.jsm: Initial commentary and EXPORTED_SYMBOLS
+ * - console.js: Support code common to web content that is not part of the
+ *   default firefox chrome environment and is easy to shim.
+ * - mini_require: A very basic commonjs AMD (Asynchronous Modules Definition)
+ *   'require' implementation (which is just good enough to load GCLI). For
+ *   more, see http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition.
  *   This alleviates the need for requirejs (http://requirejs.org/) which is
- *   used when running in the browser.
- *   This section of code is a copy of mini_require.js without the header and
- *   footers. Changes to one should be reflected in the other.
+ *   used when running in the browser. This code is provided by dryice.
  * - A build of GCLI itself, packaged using dryice (for more details see the
  *   project https://github.com/mozilla/dryice and the build file in this
  *   project at Makefile.dryice.js)
- * - Lastly, code to require the gcli object as needed by EXPORTED_SYMBOLS.
+ * - suffix-gcli.jsm - code to require the gcli object for EXPORTED_SYMBOLS.
  */
 
 var EXPORTED_SYMBOLS = [ "gcli" ];

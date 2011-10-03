@@ -6,11 +6,11 @@ Evaluated each time the commandAssignment changes
 <div id="gcliReqTempl" aria-live="polite">
   <div>
     <div class="gcliCmdDesc">
-      ${requ.commandAssignment.getValue().description}
+      ${requisition.commandAssignment.getValue().description}
     </div>
     <table class="gcliParams">
       <tbody class="gcliAssignment"
-          foreach="assignment in ${requ.getAssignments()}">
+          foreach="assignment in ${requisition.getAssignments()}">
         <!-- Parameter -->
         <tr class="gcliGroupRow">
           <td class="gcliParamName">

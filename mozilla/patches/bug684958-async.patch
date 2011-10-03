@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent ed031c2a955c7acc03f4e1addc769504e767bb3f
+# Parent 43f20a28251cb097c2fa90ad25c0e76f5a6eb570
 # User Joe Walker <jwalker@mozilla.com>
 Bug 684958 - DOM Templater should include async functionality via promises
 
@@ -100,7 +100,7 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
          }
        }
      }
-@@ -142,30 +143,30 @@ Templater.prototype.processNode = functi
+@@ -142,30 +143,31 @@ Templater.prototype.processNode = functi
      }
  
      if (node.nodeType === Node.TEXT_NODE) {
@@ -109,6 +109,7 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
      }
    } finally {
 -    this.scope.pop();
++    delete data.__element;
 +    this.stack.pop();
    }
  };
@@ -139,7 +140,7 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
        recurse = false;
      }
      if (!recurse) {
-@@ -174,18 +175,22 @@ Templater.prototype.processIf = function
+@@ -174,18 +176,22 @@ Templater.prototype.processIf = function
      node.removeAttribute('if');
      return recurse;
    } finally {
@@ -167,7 +168,7 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
    try {
      var originalValue = node.getAttribute('foreach');
      var value = originalValue;
-@@ -193,62 +198,86 @@ Templater.prototype.processForEach = fun
+@@ -193,62 +199,86 @@ Templater.prototype.processForEach = fun
      var paramName = 'param';
      if (value.charAt(0) === '$') {
        // No custom loop variable name. Use the default: 'param'
@@ -299,7 +300,7 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
    }
  };
  
-@@ -257,9 +286,9 @@ Templater.prototype.processForEach = fun
+@@ -257,9 +287,9 @@ Templater.prototype.processForEach = fun
   * sections parsed out. We replace the node by altering node.parentNode but
   * we could probably use a DOM Text API to achieve the same thing.
   * @param node The Text node to work on
@@ -311,7 +312,7 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
    // Replace references in other attributes
    var value = node.data;
    // We can't use the string.replace() with function trick (see generic
-@@ -279,33 +308,68 @@ Templater.prototype.processTextNode = fu
+@@ -279,33 +309,68 @@ Templater.prototype.processTextNode = fu
          return;
        }
        if (part.charAt(0) === '$') {
@@ -395,7 +396,7 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
      return str;
    }
    return str.slice(2, -1);
-@@ -315,9 +379,9 @@ Templater.prototype.stripBraces = functi
+@@ -315,9 +380,9 @@ Templater.prototype.stripBraces = functi
   * Combined getter and setter that works with a path through some data set.
   * For example:
   * <ul>
@@ -408,7 +409,7 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
   * input data to be { a: { b: 42 }}
   * </ul>
   * @param path An array of strings indicating the path through the data, or
-@@ -328,8 +392,8 @@ Templater.prototype.stripBraces = functi
+@@ -328,8 +393,8 @@ Templater.prototype.stripBraces = functi
   * @return The value pointed to by <tt>path</tt> before any
   * <tt>newValue</tt> is applied.
   */
@@ -419,7 +420,7 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
    try {
      if (typeof path === 'string') {
        path = path.split('.');
-@@ -345,12 +409,12 @@ Templater.prototype.property = function(
+@@ -345,12 +410,12 @@ Templater.prototype.property = function(
        return value;
      }
      if (!value) {
@@ -435,7 +436,7 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
    }
  };
  
-@@ -362,22 +426,22 @@ Templater.prototype.property = function(
+@@ -362,22 +427,22 @@ Templater.prototype.property = function(
   * according to the X keys in the env object, and then call that function using
   * the values in the env object. This is likely to be slow, but workable.
   * @param script The string to be evaluated.
@@ -466,7 +467,7 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
      }
    }
  };
-@@ -388,11 +452,11 @@ Templater.prototype.envEval = function(s
+@@ -388,11 +453,11 @@ Templater.prototype.envEval = function(s
   * @param message the error message to report.
   * @param ex optional associated exception.
   */
@@ -480,5 +481,14 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
 -    this.logError(ex);
 +    this._logError(ex);
    }
+ };
+ 
+@@ -402,7 +467,7 @@ Templater.prototype.handleError = functi
+  * environments.
+  * @param message the error message to report.
+  */
+-Templater.prototype.logError = function(message) {
++Templater.prototype._logError = function(message) {
+   Services.console.logStringMessage(message);
  };
  
