@@ -805,7 +805,13 @@ display.
 
     { returnType: "html" }
     ...
-    return context.document.createElement('div');
+    return dom.createElement(context.document, 'div');
+
+``dom.createElement`` is a utility to ensure use of the XHTML namespace in XUL
+and other XML documents. In an HTML document it's functionally equivalent to
+``context.document.createElement('div')``. If your command is likely to be used
+in Firefox or another XML environment, you should use it. You can import it
+with ``var dom = require('gcli/util').dom;``.
 
 GCLI will use the returned HTML element as returned. See notes on ``context``
 above.
@@ -988,7 +994,7 @@ This is an example of a very simple new password field type:
 
     PasswordField.prototype.createElement = function(assignment) {
       this.assignment = assignment;
-      this.input = this.doc.createElement('input');
+      this.input = dom.createElement(this.doc, 'input');
       this.input.type = 'password';
       this.input.value = assignment.arg ? assignment.arg.text : '';
 

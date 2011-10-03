@@ -2,14 +2,27 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent ca58b6fe3ef4b7f32a270559e311695e2aa58a51
+# Parent aed585069643eef1520508a6b23df9643213a95f
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
-diff --git a/browser/devtools/webconsole/Commands.jsm b/browser/devtools/webconsole/Commands.jsm
+diff --git a/browser/app/profile/firefox.js b/browser/app/profile/firefox.js
+--- a/browser/app/profile/firefox.js
++++ b/browser/app/profile/firefox.js
+@@ -1006,6 +1006,9 @@ pref("devtools.scratchpad.enabled", true
+ // Enable tools for Chrome development.
+ pref("devtools.chrome.enabled", false);
+ 
++// Disable the GCLI enhanced command line.
++pref("devtools.gcli.enable", false);
++
+ // The last Web Console height. This is initially 0 which means that the Web
+ // Console will use the default height next time it shows.
+ // Change to -1 if you do not want the Web Console to remember its last height.
+diff --git a/browser/devtools/webconsole/GcliCommands.jsm b/browser/devtools/webconsole/GcliCommands.jsm
 new file mode 100644
 --- /dev/null
-+++ b/browser/devtools/webconsole/Commands.jsm
-@@ -0,0 +1,888 @@
++++ b/browser/devtools/webconsole/GcliCommands.jsm
+@@ -0,0 +1,178 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -48,15 +61,41 @@ new file mode 100644
 + * ***** END LICENSE BLOCK ***** */
 +
 +
-+let EXPORTED_SYMBOLS = [];
++let EXPORTED_SYMBOLS = [ "GcliCommands" ];
 +
-+Components.utils.import("resource:///modules/gcli.jsm");
 +Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
 +Components.utils.import("resource://gre/modules/Services.jsm");
++Components.utils.import("resource:///modules/gcli.jsm");
++Components.utils.import("resource:///modules/HUDService.jsm");
 +
-+XPCOMUtils.defineLazyGetter(this, "stringBundle", function () {
-+  return Services.strings.createBundle("chrome://browser/locale/gcli.properties");
-+});
++let bundleName = "chrome://browser/locale/gclicommands.properties";
++let stringBundle = Services.strings.createBundle(bundleName);
++
++let gcli = gcli._internal.require("gcli/index");
++let canon = gcli._internal.require("gcli/canon");
++
++
++let document;
++
++/**
++ * The exported API
++ */
++let GcliCommands = {
++  /**
++   * Allow HUDService to inform us of the document against which we work
++   */
++  setDocument: function GcliCommands_setDocument(aDocument) {
++    document = aDocument;
++  },
++
++  /**
++   * Undo the effects of GcliCommands.setDocument()
++   */
++  unsetDocument: function GcliCommands_unsetDocument() {
++    document = undefined;
++  }
++};
++
 +
 +/**
 + * Lookup a string in the GCLI string bundle
@@ -68,7 +107,6 @@ new file mode 100644
 +  try {
 +    return stringBundle.GetStringFromName(aName);
 +  } catch (ex) {
-+    Services.console.logStringMessage("Failure in lookup('" + aName + "')");
 +    throw new Error("Failure in lookup('" + aName + "')");
 +  }
 +};
@@ -89,215 +127,22 @@ new file mode 100644
 +  }
 +}
 +
-+let util = gcli._internal.require("gcli/util");
-+let dom = gcli._internal.require("gcli/util").dom;
-+
-+let gcli = gcli._internal.require("gcli/index");
-+
-+let Argument = gcli._internal.require("gcli/argument").Argument;
-+
-+let types = gcli._internal.require("gcli/types");
-+let Conversion = gcli._internal.require("gcli/types").Conversion;
-+let Type = gcli._internal.require("gcli/types").Type;
-+let SelectionType = gcli._internal.require("gcli/types").SelectionType;
-+let Status = gcli._internal.require("gcli/types").Status;
-+
-+let field = gcli._internal.require("gcli/ui/field");
-+let Field = gcli._internal.require("gcli/ui/field").Field;
-+
-+let canon = gcli._internal.require("gcli/canon");
-+
-+
-+/**
-+ * Utility to create a link to a bug number
-+ */
-+function getBugLink(bugid)
-+{
-+  return '<br/>To comment on this command, use <a target="_blank" ' +
-+      'href="https://bugzilla.mozilla.org/show_bug.cgi?id=' + bugid + '">' +
-+      "bug " + bugid + "</a>.";
-+}
-+
-+
-+/**
-+ * A type for the resources in the current page
-+ */
-+function ResourceType(typeSpec)
-+{
-+  if (typeSpec != null) {
-+    throw new Error("ResourceType can not be customized");
-+  }
-+}
-+
-+ResourceType.prototype = Object.create(types.SelectionType.prototype);
-+
-+ResourceType.prototype.lookup = function()
-+{
-+  let reply = [];
-+  let sheets = Array.prototype.slice.call(document.styleSheets);
-+  for (let i = 0; i < sheets.length; i++) {
-+    let sheet = sheets[i];
-+    // When we're in chrome, replace style#i with style#Ln where n is the line
-+    // number of the style element in the HTML document.
-+    reply.push({
-+      name: sheet.href || "style#" + i,
-+      value: sheet
-+    });
-+  }
-+  reply.push({
-+    name: "page",
-+    value: window.document
-+  });
-+  // There are other page resources that we need to include here too
-+  return reply;
-+};
-+
-+ResourceType.prototype.name = "resource";
-+
-+types.registerType(ResourceType);
-+
-+
-+/**
-+ * A CSS expression that refers to a single node
-+ */
-+function NodeType(typeSpec)
-+{
-+  if (typeSpec != null) {
-+    throw new Error("NodeType can not be customized");
-+  }
-+}
-+
-+NodeType.prototype = Object.create(Type.prototype);
-+
-+NodeType.prototype.stringify = function(value)
-+{
-+  return value.__gcliQuery || "Error";
-+};
-+
-+NodeType.prototype.parse = function(arg)
-+{
-+  if (arg.text === "") {
-+    return new Conversion(null, arg, Status.INCOMPLETE, "No matches");
-+  }
-+
-+  let nodes;
-+  try {
-+    nodes = document.querySelectorAll(arg.text);
-+  }
-+  catch (ex) {
-+    return new Conversion(null, arg, Status.ERROR, lookup("nodeParseSyntax"));
-+  }
-+
-+  if (nodes.length === 0) {
-+    return new Conversion(null, arg, Status.INCOMPLETE, "No matches");
-+  }
-+
-+  if (nodes.length === 1) {
-+    let node = nodes.item(0);
-+    node.__gcliQuery = arg.text;
-+    return new Conversion(node, arg, Status.VALID, "");
-+  }
-+
-+  return new Conversion(null, arg, Status.ERROR,
-+      "Too many matches (" + nodes.length + ")");
-+};
-+
-+NodeType.prototype.name = "node";
-+
-+types.registerType(NodeType);
-+
-+
-+/**
-+ * 'file' allows upload of a file
-+ */
-+function FileType(typeSpec)
-+{
-+  if (typeSpec != null) {
-+    throw new Error("FileType can not be customized");
-+  }
-+}
-+
-+FileType.prototype = Object.create(Type.prototype);
-+
-+FileType.prototype.stringify = function(value)
-+{
-+  if (value == null) {
-+    return "";
-+  }
-+  return value.toString();
-+};
-+
-+FileType.prototype.parse = function(arg)
-+{
-+  if (arg.text == null || arg.text === "") {
-+    return new Conversion(null, arg, Status.INCOMPLETE, "");
-+  }
-+  return new Conversion(arg.text, arg);
-+};
-+
-+FileType.prototype.name = "file";
-+
-+types.registerType(FileType);
-+
-+
-+/**
-+ * A field that allows editing of strings
-+ */
-+function FileField(type, options)
-+{
-+  this.doc = options.document;
-+  this.type = type;
-+  this.arg = new Argument();
-+
-+  this.element = dom.createElement("input", null, this.doc);
-+  this.element.type = "file";
-+
-+  this.onInputChange = this.onInputChange.bind(this);
-+  this.element.addEventListener("keyup", this.onInputChange, false);
-+
-+  this.fieldChanged = util.createEvent("FileField.fieldChanged");
-+}
-+
-+FileField.prototype = Object.create(Field.prototype);
-+
-+FileField.prototype.destroy = function()
-+{
-+  this.element.removeEventListener("keyup", this.onKeyup, false);
-+};
-+
-+FileField.prototype.setConversion = function(conversion)
-+{
-+  this.arg = conversion.arg;
-+  this.element.value = conversion.arg.text;
-+  this.setMessage(conversion.message);
-+};
-+
-+FileField.prototype.getConversion = function()
-+{
-+  // This tweaks the prefix/suffix of the argument to fit
-+  this.arg = this.arg.beget(this.element.value, { prefixSpace: true });
-+  return this.type.parse(this.arg);
-+};
-+
-+FileField.claim = function(type)
-+{
-+  return type instanceof FileType ? Field.MATCH : Field.IF_NOTHING_BETTER;
-+};
-+
-+field.addField(FileField);
-+
 +
 +/**
 + * 'echo' command
 + */
 +gcli.addCommand({
 +  name: "echo",
-+  description: "Show a message",
++  description: lookup("echoDesc"),
 +  params: [
-+    { name: "message", type: "string", description: "Message to output" }
++    {
++      name: "message",
++      type: "string",
++      description: lookup("echoMessageDesc")
++    }
 +  ],
 +  returnType: "string",
-+  exec: function(args, env) {
++  exec: function Command_echo(args, context) {
 +    return args.message;
 +  }
 +});
@@ -309,11 +154,11 @@ new file mode 100644
 +gcli.addCommand({
 +  name: "help",
 +  returnType: "html",
-+  description: "Get help on the available commands",
-+  exec: function(args, context) {
++  description: lookup("helpDesc"),
++  exec: function Command_help(args, context) {
 +    let output = [];
 +
-+    output.push("<strong>Available Commands:</strong><br/>");
++    output.push("<strong>" + lookup("helpAvailable") + ":</strong><br/>");
 +
 +    let commandNames = canon.getCommandNames();
 +    commandNames.sort();
@@ -336,438 +181,6 @@ new file mode 100644
 +
 +
 +/**
-+ * 'version' command.
-+ */
-+gcli.addCommand({
-+  name: "version",
-+  description: "Show current FF version number",
-+  returnType: "string",
-+  exec: function(args, env) {
-+    return "You are running Firefox version 9.0a1 (2011-08-18)";
-+  }
-+});
-+
-+
-+/**
-+ * 'edit' command
-+ */
-+gcli.addCommand({
-+  name: "edit",
-+  description: lookup("editDesc"),
-+  manual: lookup("editManual"),
-+  params: [
-+     {
-+       name: "resource",
-+       type: "resource",
-+       description: lookup("editResourceDesc")
-+     }
-+   ],
-+   returnType: "html",
-+   exec: function(args, context) {
-+     let element = args.resource.documentElement || args.resource.ownerNode;
-+     return '<textarea rows=5 cols=80 style="font-family:monospace">' +
-+         lookup("editPretend") + ":\n" +
-+         element.innerHTML.substring(0, 500) + "...</textarea>" +
-+         getBugLink(683499);
-+   }
-+});
-+
-+
-+/**
-+ * 'stylizer' command
-+ */
-+gcli.addCommand({
-+  name: "stylizer",
-+  description: lookup("stylizerDesc"),
-+  manual: lookup("stylizerManual"),
-+  params: [
-+     {
-+       name: "node",
-+       type: "node",
-+       description: lookup("stylizerNodeDesc"),
-+     }
-+   ],
-+   returnType: "html",
-+   exec: function(args, context) {
-+     return lookupFormat("stylizerReply", [ "" + args.node ]) +
-+         getBugLink(683502);
-+   }
-+});
-+
-+
-+let breakpoints = [];
-+
-+/**
-+ * 'break' command
-+ */
-+gcli.addCommand({
-+  name: "break",
-+  description: lookup("breakDesc"),
-+  manual: lookup("breakManual")
-+});
-+
-+
-+/**
-+ * 'break list' command
-+ */
-+gcli.addCommand({
-+  name: "break list",
-+  description: lookup("breaklistDesc"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    if (breakpoints.length === 0) {
-+      return lookup("breaklistNone") + getBugLink(683503);
-+    }
-+
-+    let reply = lookup("breaklistIntro");
-+    reply += "<ol>";
-+    breakpoints.forEach(function(breakpoint) {
-+      reply += "<li>" + JSON.stringify(breakpoint) + "</li>";
-+    });
-+    reply += "</ol>";
-+    return reply + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'break add' command
-+ */
-+gcli.addCommand({
-+  name: "break add",
-+  description: lookup("breakaddDesc"),
-+  manual: lookup("breakaddManual")
-+});
-+
-+
-+/**
-+ * 'break add line' command
-+ */
-+gcli.addCommand({
-+  name: "break add line",
-+  description: lookup("breakaddlineDesc"),
-+  params: [
-+    {
-+      name: "file",
-+      type: "string",
-+      description: lookup("breakaddlineFileDesc")
-+    },
-+    {
-+      name: "line",
-+      type: { name: "number", min: 0, step: 10 },
-+      description: lookup("breakaddlineLineDesc")
-+    },
-+    {
-+      group: "Options",
-+      params: [
-+        {
-+         name: "if",
-+         type: "string",
-+         description: lookup("breakaddIfDesc"),
-+         defaultValue: null
-+        },
-+      ]
-+    }
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    args.type = "line";
-+    breakpoints.push(args);
-+    return lookup("breakaddAdded") + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'break add function' command
-+ */
-+gcli.addCommand({
-+  name: "break add function",
-+  description: lookup("breakaddfuncDesc"),
-+  params: [
-+    {
-+      name: "function",
-+      type: "javascript",
-+      description: lookup("breakaddfuncFunctionDesc")
-+    }
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    args.type = "function";
-+    breakpoints.push(args);
-+    return lookup("breakaddAdded") + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'break add xhr' command
-+ */
-+gcli.addCommand({
-+  name: "break add xhr",
-+  description: lookup("breakaddxhrDesc"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    args.type = "xhr";
-+    breakpoints.push(args);
-+    return lookup("breakaddAdded") + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'break add event' command
-+ */
-+gcli.addCommand({
-+  name: "break add event",
-+  description: lookup("breakaddeventDesc"),
-+  params: [
-+    {
-+      name: "event",
-+      type: {
-+        name: "selection",
-+        data: [
-+          "click", "dblclick", "mousedown", "mouseup", "mouseover", "mousemove",
-+          "mouseout", "keydown", "keypress", "keyup", "load", "unload", "abort",
-+          "error", "resize", "scroll", "select", "change", "submit", "reset",
-+          "focus", "blur", "DOMFocusIn", "DOMFocusOut", "DOMActivate",
-+          "DOMSubtreeModified", "DOMNodeInserted", "DOMNodeRemoved",
-+          "DOMNodeRemovedFromDocument", "DOMNodeInsertedIntoDocument",
-+          "DOMAttrModified", "DOMCharacterDataModified",
-+          "touchstart", "touchend", "touchenter", "touchleave", "touchmove",
-+          "touchcancel"
-+        ]
-+      },
-+      description: lookup("breakaddeventEventDesc")
-+    },
-+    {
-+      name: "node",
-+      type: "node",
-+      description: lookup("breakaddeventNodeDesc")
-+    },
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    args.type = "event";
-+    args.node = args.node.__gcliQuery;
-+    breakpoints.push(args);
-+    return lookup("breakaddAdded") + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'break next' command
-+ */
-+gcli.addCommand({
-+  name: "break next",
-+  description: lookup("breaknextDesc"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("breaknextReply") + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'break del' command
-+ */
-+gcli.addCommand({
-+  name: "break del",
-+  description: lookup("breakdelDesc"),
-+  params: [
-+    {
-+      name: "breakid",
-+      type: {
-+        name: "number",
-+        min: 0,
-+        max: function() { return breakpoints.length - 1; }
-+      },
-+      description: lookup("breakdelBreakidDesc")
-+    }
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    breakpoints.splice(args.breakid, 1);
-+    return lookup("breakdelRemoved") + getBugLink(683503);
-+  }
-+});
-+
-+
-+/**
-+ * 'step' command
-+ */
-+gcli.addCommand({
-+  name: "step",
-+  description: lookup("stepDesc"),
-+  manual: lookup("stepManual")
-+});
-+
-+
-+/**
-+ * 'step up' command
-+ */
-+gcli.addCommand({
-+  name: "step up",
-+  description: lookup("stepupDesc"),
-+  manual: lookup("stepupManual"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("stepInsult") + getBugLink(683505);
-+  }
-+});
-+
-+
-+/**
-+ * 'step in' command
-+ */
-+gcli.addCommand({
-+  name: "step in",
-+  description: lookup("stepinDesc"),
-+  manual: lookup("stepinManual"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("stepInsult") + getBugLink(683505);
-+  }
-+});
-+
-+
-+/**
-+ * 'step next' command
-+ */
-+gcli.addCommand({
-+  name: "step next",
-+  description: lookup("stepnextDesc"),
-+  manual: lookup("stepnextManual"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("stepInsult") + getBugLink(683505);
-+  }
-+});
-+
-+
-+/**
-+ * 'step on' command
-+ */
-+gcli.addCommand({
-+  name: "step on",
-+  description: lookup("steponDesc"),
-+  manual: lookup("steponManual"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("stepInsult") + getBugLink(683505);
-+  }
-+});
-+
-+
-+/**
-+ * 'step to' command
-+ */
-+gcli.addCommand({
-+  name: "step to",
-+  description: lookup("steptoDesc"),
-+  manual: lookup("steptoManual"),
-+  params: [
-+    {
-+      name: "line",
-+      type: { name: "number", min: 0, step: 10 },
-+      description: lookup("steptoLineDesc")
-+    }
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("stepInsult") + getBugLink(683505);
-+  }
-+});
-+
-+
-+/**
-+ * 'highlight' command
-+ */
-+gcli.addCommand({
-+  name: "highlight",
-+  description: lookup("highlightDesc"),
-+  manual: lookup("highlightManual"),
-+  params: [
-+     {
-+       name: "node",
-+       type: "node",
-+       description: lookup("highlightNodeDesc")
-+     }
-+   ],
-+   returnType: "html",
-+   exec: function(args, context) {
-+     return lookupFormat("highlightReply", [ "" + args.node ]) +
-+         getBugLink(683506);
-+   }
-+});
-+
-+
-+/**
-+ * 'inspect' command
-+ */
-+gcli.addCommand({
-+  name: "inspect",
-+  description: lookup("inspectDesc"),
-+  manual: lookup("inspectManual"),
-+  params: [
-+     {
-+       name: "node",
-+       type: "node",
-+       description: lookup("inspectNodeDesc")
-+     }
-+   ],
-+   returnType: "html",
-+   exec: function(args, context) {
-+     return lookupFormat("inspectReply", [ "" + args.node ]) +
-+         getBugLink(683508);
-+   }
-+});
-+
-+
-+/**
-+ * 'doctor' command
-+ */
-+gcli.addCommand({
-+  name: "doctor",
-+  description: lookup("doctorDesc"),
-+  manual: lookup("doctorManual"),
-+  params: [
-+     {
-+       name: "node",
-+       type: "node",
-+       description: lookup("doctorNodeDesc")
-+     }
-+   ],
-+   returnType: "html",
-+   exec: function(args, context) {
-+     return lookupFormat("doctorReply", [ "" + args.node ]) +
-+         getBugLink(683509);
-+   }
-+});
-+
-+
-+/**
-+ * 'echo' command
-+ */
-+gcli.addCommand({
-+  name: "echo",
-+  description: lookup("echoDesc"),
-+  params: [
-+    {
-+      name: "message",
-+      type: "string",
-+      description: lookup("echoMessageDesc")
-+    }
-+  ],
-+  returnType: "string",
-+  exec: function echo(args, context) {
-+    return args.message;
-+  }
-+});
-+
-+
-+/**
 + * 'console' command
 + */
 +gcli.addCommand({
@@ -776,125 +189,15 @@ new file mode 100644
 +  manual: lookup("consoleManual")
 +});
 +
-+
-+/**
-+ * 'console clear' command
-+ */
-+gcli.addCommand({
-+  name: "console clear",
-+  description: lookup("consoleclearDesc"),
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("consoleclearReply") + getBugLink(683510);
-+  }
-+});
-+
-+
 +/**
 + * 'console close' command
 + */
 +gcli.addCommand({
-+  name: "console close",
-+  description: lookup("consolecloseDesc"),
-+  returnType: "html",
++  name: "console clear",
++  description: lookup("consoleclearDesc"),
 +  exec: function(args, context) {
-+    return lookup("consolecloseReply") + getBugLink(683510);
-+  }
-+});
-+
-+
-+/**
-+ * 'console filter' command
-+ */
-+gcli.addCommand({
-+  name: "console filter",
-+  description: lookup("consolefilterDesc"),
-+  params: [
-+    {
-+      name: "category",
-+      type: {
-+        name: "selection",
-+        data: [ "net", "css", "js", "page" ]
-+      },
-+      description: lookup("consolefilterCategoryDesc")
-+    },
-+    {
-+      name: "level",
-+      type: {
-+        name: "selection",
-+        data: [ "error", "warning", "log", "debug" ]
-+      },
-+      description: lookup("consolefilterLevelDesc")
-+    },
-+    {
-+      name: "display",
-+      type: {
-+        name: "selection",
-+        data: [ "show", "hide" ]
-+      },
-+      description: lookup("consolefilterDisplayDesc")
-+    },
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    return lookup("consolefilterReply") + getBugLink(683510);
-+  }
-+});
-+
-+
-+/**
-+ * 'scratchpad' command
-+ */
-+gcli.addCommand({
-+  name: "scratchpad",
-+  description: lookup("scratchpadDesc"),
-+  params: [
-+    {
-+      name: "script",
-+      type: "string",
-+      description: lookup("scratchpadScriptDesc"),
-+      defaultValue: null
-+    },
-+    {
-+      group: "Options",
-+      params: [
-+        /*
-+        {
-+          name: "file",
-+          type: "file",
-+          description: lookup("scratchpadFileDesc"),
-+          defaultValue: null
-+        },
-+        */
-+        {
-+          name: "chrome",
-+          type: "boolean",
-+          description: lookup("scratchpadChromeDesc")
-+        }
-+      ]
-+    }
-+  ],
-+  returnType: "html",
-+  exec: function(args, context) {
-+    // See Bug 659268 - we shouldn't need to do this
-+    if (args.file && args.script) {
-+      throw new Error(lookup("scratchpadOnesource"));
-+    }
-+    if (args.file) {
-+      return '<textarea rows=5 cols=80 style="font-family:monospace">' +
-+          lookupFormat("scratchpadFilepretend", [ args.file ]) +
-+          "</textarea>" +
-+          getBugLink(683513);
-+    }
-+    if (args.script) {
-+      return '<textarea rows=5 cols=80 style="font-family:monospace">' +
-+          lookup("scratchpadScriptpretend") +
-+          ":\n" + args.script + "</textarea>" +
-+          getBugLink(683513);
-+    }
-+    return '<textarea rows=5 cols=80 style="font-family:monospace">' +
-+        lookup("scratchpadEmptypretend") + "</textarea>" +
-+        getBugLink(683513);
++    let hud = HUDService.getHudReferenceById(context.environment.hudId);
++    hud.gcliterm.clearOutput();
 +  }
 +});
 +
@@ -909,16 +212,72 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
   *
   * Alternatively, the contents of this file may be used under the terms of
   * either the GNU General Public License Version 2 or later (the "GPL"), or
-@@ -53,6 +54,8 @@ Cu.import("resource://gre/modules/XPCOMU
- Cu.import("resource://gre/modules/Services.jsm");
- Cu.import("resource:///modules/NetworkHelper.jsm");
- Cu.import("resource:///modules/PropertyPanel.jsm");
-+Cu.import("resource:///modules/gcli.jsm");
-+Cu.import("resource:///modules/Commands.jsm");
+@@ -72,6 +73,18 @@ XPCOMUtils.defineLazyServiceGetter(this,
+                                    "@mozilla.org/widget/clipboardhelper;1",
+                                    "nsIClipboardHelper");
  
- var EXPORTED_SYMBOLS = ["HUDService", "ConsoleUtils"];
++XPCOMUtils.defineLazyGetter(this, "gcli", function () {
++  var obj = {};
++  Cu.import("resource:///modules/gcli.jsm", obj);
++  return obj.gcli;
++});
++
++XPCOMUtils.defineLazyGetter(this, "GcliCommands", function () {
++  var obj = {};
++  Cu.import("resource:///modules/GcliCommands.jsm", obj);
++  return obj.GcliCommands;
++});
++
+ XPCOMUtils.defineLazyGetter(this, "StyleInspector", function () {
+   var obj = {};
+   Cu.import("resource:///modules/devtools/StyleInspector.jsm", obj);
+@@ -1481,6 +1494,24 @@ HUD_SERVICE.prototype =
+     if (!aAnimated || hudRef.consolePanel) {
+       this.disableAnimation(hudId);
+     }
++
++    // Create a processing instruction for GCLIs CSS stylesheet, but only if
++    // we don't have one for this document. Also record the context we're
++    // adding this for so we know when to remove it.
++    let procInstr = aContext.ownerDocument.gcliCssProcInstr;
++    if (!procInstr) {
++      procInstr = aContext.ownerDocument.createProcessingInstruction(
++              "xml-stylesheet",
++              "href='chrome://browser/skin/devtools/gcli.css' type='text/css'");
++      procInstr.contexts = [];
++
++      let root = aContext.ownerDocument.getElementsByTagName('window')[0];
++      root.parentNode.insertBefore(procInstr, root);
++      aContext.ownerDocument.gcliCssProcInstr = procInstr;
++    }
++    if (procInstr.contexts.indexOf(hudId) == -1) {
++      procInstr.contexts.push(hudId);
++    }
+   },
  
-@@ -1744,7 +1758,9 @@ HUD_SERVICE.prototype =
+   /**
+@@ -1512,6 +1543,20 @@ HUD_SERVICE.prototype =
+ 
+       window.focus();
+     }
++
++    // Remove this context from the list of contexts that need the GCLI CSS
++    // processing instruction and then remove the processing instruction if it
++    // isn't needed any more.
++    let procInstr = aContext.ownerDocument.gcliCssProcInstr;
++    if (procInstr) {
++      procInstr.contexts = procInstr.contexts.filter(function(id) {
++        return id !== hudId;
++      });
++      if (procInstr.contexts.length == 0 && procInstr.parentNode) {
++        procInstr.parentNode.removeChild(procInstr);
++        delete aContext.ownerDocument.gcliCssProcInstr;
++      }
++    }
+   },
+ 
+   /**
+@@ -1750,7 +1795,12 @@ HUD_SERVICE.prototype =
      // Remove children from the output. If the output is not cleared, there can
      // be leaks as some nodes has node.onclick = function; set and GC can't
      // remove the nodes then.
@@ -926,10 +285,13 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    if (hud.jsterm) {
 +      hud.jsterm.clearOutput();
 +    }
++    if (hud.gcliterm) {
++      hud.gcliterm.clearOutput();
++    }
  
      hud.destroy();
  
-@@ -1763,7 +1779,9 @@ HUD_SERVICE.prototype =
+@@ -1769,7 +1819,9 @@ HUD_SERVICE.prototype =
        hud.splitter.parentNode.removeChild(hud.splitter);
      }
  
@@ -940,116 +302,45 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      delete this.hudReferences[aHUDId];
  
-@@ -2600,9 +2618,24 @@ HUD_SERVICE.prototype =
-     // create Initial JS Workspace:
-     var context = Cu.getWeakReference(aContext);
- 
-+    let usegcli = false;
-+    try {
-+      usegcli = Services.prefs.getBoolPref("devtools.gcli.enable");
-+    }
-+    catch (ex) {}
-+
-     // Attach the UI into the target parent node using the mixin.
--    var firefoxMixin = new JSTermFirefoxMixin(context, aParentNode);
--    var jsTerm = new JSTerm(context, aParentNode, firefoxMixin, aConsole);
-+    if (!usegcli) {
-+      var firefoxMixin = new JSTermFirefoxMixin(context, aParentNode);
-+      var jsTerm = new JSTerm(context, aParentNode, firefoxMixin, aConsole);
-+    }
-+    else {
-+      let hudId = getHudIdFromNode(aParentNode);
-+      let doc = aParentNode.ownerDocument;
-+
-+      var gcliterm = new GcliTerm(context, hudId, doc, aConsole);
-+      aParentNode.appendChild(gcliterm.element);
-+    }
- 
-     // TODO: injection of additional functionality needs re-thinking/api
-     // see bug 559748
-@@ -2962,6 +2995,30 @@ HUD_SERVICE.prototype =
-   }
- };
- 
-+/**
-+ * Get the HudId from an element contained inside the HUD.
-+ * This is nasty nasty code, but rather than re-architect I'm just going to
-+ * document what I think is going on here. The refactoring should be done in a
-+ * separate bug.
-+ * We want a reference to the main HUD so we can add output to it, and rather
-+ * than passing a reference to that console around, we look it up via an id.
-+ * However we don't have that either so we walk up the tree to find the first
-+ * thing that has an id, and make the assumption that this is the correct one.
-+ * For reference, what we're looking for is vbox.hud-box.animated which is
-+ * created high up in makeHUDNodes(). I think.
-+ * @see JSTerm constructor where this code comes from
-+ * @see Bug 592469
-+ * @param nsIDOMNode aNode The node to search from
-+ * @return string The HUD ID
-+ */
-+function getHudIdFromNode(aNode) {
-+  let node = aNode;
-+  while (!node.hasAttribute("id")) {
-+    node = node.parentNode;
-+  }
-+  return node.getAttribute("id");
-+}
-+
- //////////////////////////////////////////////////////////////////////////
- // HeadsUpDisplay
- //////////////////////////////////////////////////////////////////////////
-@@ -3068,7 +3125,12 @@ function HeadsUpDisplay(aConfig)
+@@ -3091,7 +3143,12 @@ function HeadsUpDisplay(aConfig)
    // create the JSTerm input element
    try {
      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
 -    this.jsterm.inputNode.focus();
-+    if (!this.usegcli) {
++    if (this.jsterm) {
 +      this.jsterm.inputNode.focus();
 +    }
-+    else {
++    if (this.gcliterm) {
 +      this.gcliterm.inputNode.focus();
 +    }
    }
    catch (ex) {
      Cu.reportError(ex);
-@@ -3181,9 +3243,12 @@ HeadsUpDisplay.prototype = {
-         this.outputNode.ensureIndexIsVisible(lastIndex);
-       }
- 
--      if (this.jsterm) {
-+      if (!this.usegcli) {
+@@ -3212,6 +3269,9 @@ HeadsUpDisplay.prototype = {
+       if (this.jsterm) {
          this.jsterm.inputNode.focus();
        }
-+      else {
++      if (this.gcliterm) {
 +        this.gcliterm.inputNode.focus();
 +      }
      }).bind(this);
  
      panel.addEventListener("popupshown", onPopupShown,false);
-@@ -3372,8 +3437,15 @@ HeadsUpDisplay.prototype = {
-       this.consolePanel.hidePopup();
+@@ -3403,6 +3463,9 @@ HeadsUpDisplay.prototype = {
+     if (this.jsterm) {
+       this.jsterm.inputNode.focus();
      }
- 
--    if (this.jsterm) {
--      this.jsterm.inputNode.focus();
-+    if (!this.usegcli) {
-+      if (this.jsterm) {
-+        this.jsterm.inputNode.focus();
-+      }
++    if (this.gcliterm) {
++      this.gcliterm.inputNode.focus();
 +    }
-+    else {
-+      if (this.gcliterm) {
-+        this.gcliterm.inputNode.focus();
-+      }
-     }
    },
  
-@@ -3407,6 +3479,12 @@ HeadsUpDisplay.prototype = {
+   /**
+@@ -3435,6 +3498,11 @@ HeadsUpDisplay.prototype = {
    jsterm: null,
  
    /**
 +   * The GcliTerm object that contains the console's GCLI
-+   *
 +   */
 +  gcliterm: null,
 +
@@ -1057,43 +348,147 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
     * creates and attaches the console input node
     *
     * @param nsIDOMWindow aWindow
-@@ -3417,10 +3495,23 @@ HeadsUpDisplay.prototype = {
+@@ -3443,12 +3511,24 @@ HeadsUpDisplay.prototype = {
+   createConsoleInput:
+   function HUD_createConsoleInput(aWindow, aParentNode, aExistingConsole)
    {
-     var context = Cu.getWeakReference(aWindow);
- 
-+    this.usegcli = false;
+-    var context = Cu.getWeakReference(aWindow);
++    let usegcli = false;
 +    try {
-+      this.usegcli = Services.prefs.getBoolPref("devtools.gcli.enable");
++      usegcli = Services.prefs.getBoolPref("devtools.gcli.enable");
 +    }
 +    catch (ex) {}
-+
+ 
      if (appName() == "FIREFOX") {
 -      let mixin = new JSTermFirefoxMixin(context, aParentNode,
 -                                         aExistingConsole);
 -      this.jsterm = new JSTerm(context, aParentNode, mixin, this.console);
-+      if (!this.usegcli) {
++      if (!usegcli) {
++        let context = Cu.getWeakReference(aWindow);
 +        let mixin = new JSTermFirefoxMixin(context, aParentNode,
 +                                           aExistingConsole);
 +        this.jsterm = new JSTerm(context, aParentNode, mixin, this.console);
 +      }
 +      else {
-+        this.gcliterm = new GcliTerm(context, this.hudId, this.chromeDocument,
-+                                     this.console);
++        this.gcliterm = new GcliTerm(aWindow, this.hudId, this.chromeDocument,
++                                     this.console, this.hintNode);
 +        aParentNode.appendChild(this.gcliterm.element);
 +      }
      }
      else {
        throw new Error("Unsupported Gecko Application");
-@@ -3450,6 +3541,8 @@ HeadsUpDisplay.prototype = {
+@@ -3471,14 +3551,17 @@ HeadsUpDisplay.prototype = {
+       this.consolePanel.label = this.getPanelTitle();
+     }
+ 
+-    if (!this.jsterm) {
+-      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
+-    }
+-    else {
++    if (this.jsterm) {
        this.jsterm.context = Cu.getWeakReference(this.contentWindow);
        this.jsterm.console = this.console;
        this.jsterm.createSandbox();
-+
-+      this.gcliterm.reattachConsole(this.contentWindow, this.console);
      }
++    else if (this.gcliterm) {
++      this.gcliterm.reattachConsole(this.contentWindow, this.console);
++    }
++    else {
++      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
++    }
    },
  
-@@ -3902,7 +3995,9 @@ HeadsUpDisplay.prototype = {
+   /**
+@@ -3522,6 +3605,41 @@ HeadsUpDisplay.prototype = {
+     consoleWrap.setAttribute("class", "hud-console-wrapper");
+     consoleWrap.setAttribute("flex", "1");
+ 
++    this.filterSpacer = this.makeXULNode("spacer");
++    this.filterSpacer.setAttribute("flex", "1");
++
++    this.filterBox = this.makeXULNode("textbox");
++    this.filterBox.setAttribute("class", "compact hud-filter-box");
++    this.filterBox.setAttribute("hudId", this.hudId);
++    this.filterBox.setAttribute("placeholder", this.getStr("stringFilter"));
++    this.filterBox.setAttribute("type", "search");
++
++    this.setFilterTextBoxEvents();
++
++    this.createConsoleMenu(this.consoleWrap);
++
++    this.filterPrefs = HUDService.getDefaultFilterPrefs(this.hudId);
++
++    let consoleFilterToolbar = this.makeFilterToolbar();
++    consoleFilterToolbar.setAttribute("id", "viewGroup");
++    this.consoleFilterToolbar = consoleFilterToolbar;
++
++    let hintSpacerNode = this.makeXULNode("box");
++    hintSpacerNode.setAttribute("flex", 1);
++
++    this.hintNode = this.makeXULNode("div");
++    this.hintNode.setAttribute("class", "gcliterm-hint-node");
++
++    let hintParentNode = this.makeXULNode("vbox");
++    hintParentNode.setAttribute("flex", "0");
++    hintParentNode.setAttribute("class", "gcliterm-hint-parent");
++    hintParentNode.appendChild(hintSpacerNode);
++    hintParentNode.appendChild(this.hintNode);
++    hintParentNode.hidden = true;
++
++    let hbox = this.makeXULNode("hbox");
++    hbox.setAttribute("flex", "1");
++
+     this.outputNode = this.makeXULNode("richlistbox");
+     this.outputNode.setAttribute("class", "hud-output-node");
+     this.outputNode.setAttribute("flex", "1");
+@@ -3530,27 +3648,11 @@ HeadsUpDisplay.prototype = {
+     this.outputNode.setAttribute("style", "direction: ltr;");
+     this.outputNode.setAttribute("seltype", "multiple");
+ 
+-    this.filterSpacer = this.makeXULNode("spacer");
+-    this.filterSpacer.setAttribute("flex", "1");
+-
+-    this.filterBox = this.makeXULNode("textbox");
+-    this.filterBox.setAttribute("class", "compact hud-filter-box");
+-    this.filterBox.setAttribute("hudId", this.hudId);
+-    this.filterBox.setAttribute("placeholder", this.getStr("stringFilter"));
+-    this.filterBox.setAttribute("type", "search");
+-
+-    this.setFilterTextBoxEvents();
+-
+-    this.createConsoleMenu(this.consoleWrap);
+-
+-    this.filterPrefs = HUDService.getDefaultFilterPrefs(this.hudId);
+-
+-    let consoleFilterToolbar = this.makeFilterToolbar();
+-    consoleFilterToolbar.setAttribute("id", "viewGroup");
+-    this.consoleFilterToolbar = consoleFilterToolbar;
++    hbox.appendChild(hintParentNode);
++    hbox.appendChild(this.outputNode);
++
+     consoleWrap.appendChild(consoleFilterToolbar);
+-
+-    consoleWrap.appendChild(this.outputNode);
++    consoleWrap.appendChild(hbox);
+ 
+     outerWrap.appendChild(consoleWrap);
+ 
+@@ -3865,7 +3967,13 @@ HeadsUpDisplay.prototype = {
+   {
+     let hudId = this.hudId;
+     function HUD_clearButton_onCommand() {
+-      HUDService.getHudReferenceById(hudId).jsterm.clearOutput();
++      let hud = HUDService.getHudReferenceById(hudId);
++      if (hud.jsterm) {
++        hud.jsterm.clearOutput();
++      }
++      if (hud.gcliterm) {
++        hud.gcliterm.clearOutput();
++      }
+     }
+ 
+     let clearButton = this.makeXULNode("toolbarbutton");
+@@ -3936,7 +4044,12 @@ HeadsUpDisplay.prototype = {
     */
    destroy: function HUD_destroy()
    {
@@ -1101,10 +496,13 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    if (this.jsterm) {
 +      this.jsterm.destroy();
 +    }
++    if (this.gcliterm) {
++      this.gcliterm.destroy();
++    }
  
      this.positionMenuitems.above.removeEventListener("command",
        this._positionConsoleAbove, false);
-@@ -5396,6 +5491,7 @@ JSTermFirefoxMixin.prototype = {
+@@ -5431,6 +5544,7 @@ JSTermFirefoxMixin.prototype = {
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -1112,7 +510,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5409,22 +5505,15 @@ JSTermFirefoxMixin.prototype = {
+@@ -5444,22 +5558,15 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -1144,10 +542,10 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    get inputValue()
-@@ -5554,9 +5643,8 @@ ConsoleUtils = {
+@@ -5591,9 +5698,8 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
-                                           aBody, aSourceURL, aSourceLine,
-                                           aClipboardText, aLevel) {
+                                           aBody, aHUDId, aSourceURL,
+                                           aSourceLine, aClipboardText, aLevel) {
 -    if (aBody instanceof Ci.nsIDOMNode && aClipboardText == null) {
 -      throw new Error("HUDService.createMessageNode(): DOM node supplied " +
 -                      "without any clipboard text");
@@ -1156,7 +554,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5592,6 +5680,13 @@ ConsoleUtils = {
+@@ -5632,6 +5738,13 @@ ConsoleUtils = {
      aBody = aBody instanceof Ci.nsIDOMNode && !(aLevel == "dir") ?
              aBody : aDocument.createTextNode(aBody);
  
@@ -1170,7 +568,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6720,3 +6815,341 @@ catch (ex) {
+@@ -6761,3 +6874,235 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -1182,57 +580,110 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +/**
 + * GcliTerm
 + *
-+ * Create a GcliTerminal or attach a GcliTerm input node to an existing output
-+ * node, given by the parent node.
++ * Initialize GCLI by creating a set of startup options from the available
++ * properties.
 + *
-+ * @param object aContext
-+ *        Usually a weak reference to an nsIDOMWindow, however this code
-+ *        follows the convention of JSTerm where the context does not have to
-+ *        be to a window.
++ * @param nsIDOMWindow aContentWindow
++ *        The content window that we're providing as the context to commands
 + * @param string aHudId
-+ *        The HUD to which we should send console messages
++ *        The HUD to which we should send console messages.
 + * @param nsIDOMDocument aDocument
-+ *        The DOM document from which to create nodes
++ *        The DOM document from which to create nodes.
 + * @param object aConsole
-+ *        Console object to use within the GcliTerm
++ *        Console object to use within the GcliTerm.
++ * @param nsIDOMElement aHintNode
++ *        The node to which we add GCLI's hints.
 + * @constructor
 + */
-+function GcliTerm(aContext, aHudId, aDocument, aConsole, aHintNode)
++function GcliTerm(aContentWindow, aHudId, aDocument, aConsole, aHintNode)
 +{
-+  this.hintNode = aHintNode;
-+  this.context = aContext;
++  this.context = Cu.getWeakReference(aContentWindow);
 +  this.hudId = aHudId;
 +  this.document = aDocument;
 +  this.console = aConsole;
++  this.hintNode = aHintNode;
 +
 +  this.createUI();
 +  this.createSandbox();
 +
-+  gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
-+  gcli._internal.createView({
-+    document: this.document,
++  this.show = this.show.bind(this);
++  this.hide = this.hide.bind(this);
++
++  this.opts = {
++    environment: { hudId: this.hudId },
++    chromeDocument: this.document,
++    contentDocument: aContentWindow.document,
 +    jsEnvironment: {
-+      globalObject: this.context.get().QueryInterface(Ci.nsIDOMWindow),
++      globalObject: aContentWindow,
 +      evalFunction: this.evalInSandbox.bind(this)
 +    },
 +    inputElement: this.inputNode,
 +    completeElement: this.completeNode,
 +    inputBackgroundElement: this.inputStack,
-+    completionPrompt: ""
-+  });
++    hintElement: this.hintNode,
++    completionPrompt: "",
++    gcliTerm: this
++  };
++
++  gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
++  gcli._internal.createView(this.opts);
++  GcliCommands.setDocument(aContentWindow.document);
 +}
 +
 +GcliTerm.prototype = {
 +  /**
-+   * Re-attaches a console when the contentWindow is recreated
++   * Remove the hint column from the display.
++   */
++  hide: function GcliTerm_hide()
++  {
++    this.hintNode.parentNode.hidden = true;
++  },
++
++  /**
++   * Undo the effects of calling hide().
++   */
++  show: function GcliTerm_show()
++  {
++    this.hintNode.parentNode.hidden = false;
++  },
++
++  /**
++   * Destroy the GcliTerm object. Call this method to avoid memory leaks.
++   */
++  destroy: function Gcli_destroy()
++  {
++    GcliCommands.unsetDocument();
++    gcli._internal.removeView(this.opts);
++    gcli._internal.commandOutputManager.removeListener(this.onCommandOutput, this);
++
++    delete this.opts.chromeDocument;
++    delete this.opts.inputElement;
++    delete this.opts.completeElement;
++    delete this.opts.inputBackgroundElement;
++    delete this.opts.hintElement;
++    delete this.opts.contentDocument;
++    delete this.opts.jsEnvironment;
++    delete this.opts.gcliTerm;
++
++    delete this.context;
++    delete this.document;
++    delete this.console;
++    delete this.hintNode;
++
++    delete this.sandbox;
++    delete this.element
++    delete this.inputStack
++    delete this.completeNode
++    delete this.inputNode
++  },
++
++  /**
++   * Re-attaches a console when the contentWindow is recreated.
 +   *
 +   * @param nsIDOMWindow aContentWindow
-+   *        Usually a nsIDOMWindow, however see the comments against the
-+   *        aContext parameter in the GcliTerm constructor. Also note the
-+   *        asymmetry between how this function creates the WeakReference where
-+   *        the constructor expects the caller to create it. Yuck.
++   *        The content window that we're providing as the context to commands
 +   * @param object aConsole
-+   *        Console object to use within the GcliTerm
++   *        Console object to use within the GcliTerm.
 +   */
 +  reattachConsole: function Gcli_reattachConsole(aContentWindow, aConsole)
 +  {
@@ -1249,6 +700,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  {
 +    this.element = this.document.createElement("vbox");
 +    this.element.setAttribute("class", "gcliterm-input-container");
++    this.element.setAttribute("flex", "0");
 +
 +    this.inputStack = this.document.createElement("stack");
 +    this.inputStack.setAttribute("class", "gcliterm-stack-node");
@@ -1266,7 +718,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  },
 +
 +  /**
-+   * Called by GCLI/canon when command line output changes
++   * Called by GCLI/canon when command line output changes.
 +   */
 +  onCommandOutput: function Gcli_onCommandOutput(aEvent)
 +  {
@@ -1277,6 +729,10 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    }
 +
 +    this.writeOutput(aEvent.output.typed, { category: CATEGORY_INPUT });
++
++    if (aEvent.output.output == null) {
++      return;
++    }
 +
 +    let output = aEvent.output.output;
 +    if (aEvent.output.command.returnType == "html" && typeof output == "string") {
@@ -1291,7 +747,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  },
 +
 +  /**
-+   * Setup the eval sandbox, should be called whenever we are attached
++   * Setup the eval sandbox, should be called whenever we are attached.
 +   */
 +  createSandbox: function Gcli_createSandbox()
 +  {
@@ -1306,8 +762,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  },
 +
 +  /**
-+   * Evaluates a string in the sandbox. The string is currently wrapped by a
-+   * with(window) { aString } construct, see bug 574033.
++   * Evaluates a string in the sandbox.
 +   *
 +   * @param string aString
 +   *        String to evaluate in the sandbox
@@ -1319,52 +774,15 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +  },
 +
 +  /**
-+   * Builds on evalInSandbox, adding output of aExecuteString and the
-+   * results of evaling that to the console output.
-+   *
-+   * @param string aExecuteString
-+   *        The String to evalutate
-+   */
-+  execute: function Gcli_execute(aExecuteString)
-+  {
-+    // attempt to execute the content of the inputNode
-+    aExecuteString = aExecuteString || this.inputNode.value;
-+    if (!aExecuteString) {
-+      this.writeOutput("no value to execute");
-+      return;
-+    }
-+
-+    this.writeOutput(aExecuteString, { category: CATEGORY_INPUT });
-+
-+    try {
-+      this.helperEvaluated = false;
-+      let result = this.evalInSandbox(aExecuteString);
-+
-+      // Hide undefined results coming from helpers.
-+      let shouldShow = !(result === undefined && this.helperEvaluated);
-+      if (shouldShow) {
-+        let resultString = this._formatResult(result)
-+
-+        this.writeOutput(resultString);
-+      }
-+    }
-+    catch (ex) {
-+      this.writeOutput("" + ex, { severity: SEVERITY_ERROR });
-+    }
-+
-+    this._setInputValue("");
-+  },
-+
-+  /**
 +   * Writes a message to the HUD that originates from the interactive
 +   * JavaScript console.
 +   *
 +   * @param string aOutputMessage
-+   *        The message to display
++   *        The message to display.
 +   * @param number aCategory
-+   *        One of the CATEGORY_ constants
++   *        One of the CATEGORY_ constants.
 +   * @param number aSeverity
-+   *        One of the SEVERITY_ constants
++   *        One of the SEVERITY_ constants.
 +   */
 +  writeOutput: function Gcli_writeOutput(aOutputMessage, aOptions)
 +  {
@@ -1375,6 +793,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +                    aOptions.category || CATEGORY_OUTPUT,
 +                    aOptions.severity || SEVERITY_LOG,
 +                    aOutputMessage,
++                    this.hudId,
 +                    aOptions.sourceUrl || undefined,
 +                    aOptions.sourceLine || undefined,
 +                    aOptions.clipboardText || undefined);
@@ -1382,166 +801,51 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +    ConsoleUtils.outputMessageNode(node, this.hudId);
 +  },
 +
-+  /**
-+   * Remove all output from the HUD
-+   */
-+  clearOutput: function Gcli_clearOutput()
-+  {
-+    let hudRef = HUDService.getHudReferenceById(this.console);
-+    if (hudRef) {
-+      hudRef.cssNodes = {};
-+    }
-+
-+    while (this.console.firstChild) {
-+      this.console.removeChild(this.console.firstChild);
-+    }
-+
-+    let hudBox = this.console;
-+    while (!hudBox.classList.contains("hud-box")) {
-+      hudBox = hudBox.parentNode;
-+    }
-+    hudBox.lastTimestamp = 0;
-+  },
-+
-+  _formatResult: JSTerm.prototype.formatResult,
-+  _formatString: JSTerm.prototype.formatString,
-+  _getResultType: JSTerm.prototype.getResultType,
-+
-+  /**
-+   * Sets the value of the input field (command line), and resizes the field to
-+   * fit its contents. This method is preferred over setting "inputNode.value"
-+   * directly, because it correctly resizes the field.
-+   *
-+   * @param string aNewValue
-+   *        The new value to set
-+   */
-+  _setInputValue: function Gcli_setInputValue(aNewValue)
-+  {
-+    this.inputNode.value = aNewValue;
-+    this.completeNode.value = "";
-+  },
++  clearOutput: JSTerm.prototype.clearOutput,
 +};
-+
-+/*
-+
-+Unaddressed review comments:
-+
-+> @@ +3512,5 @@
-+> >        this.jsterm.context = Cu.getWeakReference(this.contentWindow);
-+> >        this.jsterm.console = this.console;
-+> >        this.jsterm.createSandbox();
-+> > +
-+> > +      this.gcliterm.reattachConsole(this.contentWindow, this.console);
-+> 
-+> This code assumes that jsterm is available, but the new line you added
-+> assume that gcliterm is *also* available. I doubt this code works properly.
-+> This needs to be fixed.
-+
-+This is bizarre. I'll work out what's going on.
-+
-+
-+GcliTerm.execute and GcliTerm.clearOutput are unused. The should be used or deleted
-+
-+> @@ +61,5 @@
-+> > +
-+> > +function testCallCommands() {
-+> > +  let console = browser.contentWindow.wrappedJSObject.console;
-+> > +
-+> > +  let hudId = HUDService.displaysIndex()[0];
-+> 
-+> displaysIndex() has been removed, and other methods used by this test.
-+> Please update. :)
-+> 
-+> @@ +78,5 @@
-+> > +  gcliterm._setInputValue("ec");
-+> > +  event = browser.createEvent("KeyboardEvent");
-+> > +  event.initKeyEvent("keyup", true, true, null, false,
-+> > +                     false, false, false, 80, 0);
-+> > +  gcliterm.inputNode.dispatchEvent(event);
-+> 
-+> Please use EventUtils.synthesizeKey() instead of synthetic keyboard events.
-+
-+
-+
-+> ::: toolkit/themes/gnomestripe/global/webConsole.css
-+> @@ +337,5 @@
-+> > +  border-bottom: 2px dotted #999;
-+> > +}
-+> > +
-+> > +.gcliterm-complete-node span.gcliERROR {
-+> > +  color: #DDD; border-bottom: 2px dotted #F00;
-+> 
-+> Please put each property on a new line.
-+> 
-+> @@ +341,5 @@
-+> > +  color: #DDD; border-bottom: 2px dotted #F00;
-+> > +}
-+> > +
-+> > +.gcliterm-complete-node span.gcliPrompt {
-+> > +  color: #66F; font-weight: bold;
-+> 
-+> Same as above.
-+> 
-+> (same comments apply to the other two stylesheets)
-+
-+
-+
-+> > > @@ +6787,5 @@
-+> > > > +{
-+> > > > +  this.context = aContext;
-+> > > > +  this.hudId = aHudId;
-+> > > > +  this.document = aDocument;
-+> > > > +  this.console = aConsole;
-+> > > 
-+> > > this.console refers to the window.console API object in HeadsUpDisplay
-+> > > objects. In clearOutput() you use this.console as if it refers to the
-+> > > outputNode of a HUD object. This is confusing. Please fix.
-+> > 
-+> > It's exactly as confusing as JSTerm ...
-+> > 
-+> > Perhaps the confusion is the reattachConsole() method?
-+> 
-+> Code's not great, indeed, but I believe there's no such confusion in JSTerm.
-+> In JSTerm this.console is well known to refer to the window.console API, and
-+> this.outputNode is always outputNode. GCLITerm in turn confuses the two.
-+> 
-+> The confusion is in clearOutput(), not in reattachConsole(). (both in
-+> GCLITerm) Please recheck. Thank you!
-+
-+
-+You do not need to change initializeJSTerm
-+
-+*/
 +
 diff --git a/browser/devtools/webconsole/Makefile.in b/browser/devtools/webconsole/Makefile.in
 --- a/browser/devtools/webconsole/Makefile.in
 +++ b/browser/devtools/webconsole/Makefile.in
-@@ -50,6 +50,7 @@ EXTRA_JS_MODULES = \
+@@ -49,6 +49,7 @@ EXTRA_JS_MODULES = \
  		NetworkHelper.jsm \
  		AutocompletePopup.jsm \
  		gcli.jsm \
-+		Commands.jsm \
++		GcliCommands.jsm \
  		$(NULL)
  
- ifdef ENABLE_TESTS
+ EXTRA_PP_JS_MODULES = \
 diff --git a/browser/devtools/webconsole/test/browser/Makefile.in b/browser/devtools/webconsole/test/browser/Makefile.in
 --- a/browser/devtools/webconsole/test/browser/Makefile.in
 +++ b/browser/devtools/webconsole/test/browser/Makefile.in
-@@ -109,6 +109,7 @@ _BROWSER_TEST_FILES = \
+@@ -108,7 +108,6 @@ _BROWSER_TEST_FILES = \
+ 	browser_webconsole_bug_600183_charset.js \
  	browser_webconsole_bug_601177_log_levels.js \
  	browser_webconsole_bug_597460_filter_scroll.js \
- 	browser_webconsole_gcli_require.js \
-+	browser_webconsole_gcli_integrate.js \
+-	browser_webconsole_gcli_require.js \
  	browser_webconsole_console_extras.js \
  	browser_webconsole_bug_598357_jsterm_output.js \
  	browser_webconsole_bug_603750_websocket.js \
-diff --git a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_integrate.js b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_integrate.js
+@@ -146,6 +145,8 @@ _BROWSER_TEST_FILES = \
+ 	browser_webconsole_bug_659907_console_dir.js \
+ 	browser_webconsole_bug_678816.js \
+ 	browser_webconsole_bug_664131_console_group.js \
++	browser_gcli_require.js \
++	browser_gcli_integrate.js \
+ 	head.js \
+ 	$(NULL)
+ 
+diff --git a/browser/devtools/webconsole/test/browser/browser_gcli_integrate.js b/browser/devtools/webconsole/test/browser/browser_gcli_integrate.js
 new file mode 100644
 --- /dev/null
-+++ b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_integrate.js
-@@ -0,0 +1,113 @@
++++ b/browser/devtools/webconsole/test/browser/browser_gcli_integrate.js
+@@ -0,0 +1,103 @@
 +/* Any copyright is dedicated to the Public Domain.
 + * http://creativecommons.org/publicdomain/zero/1.0/ */
++
++// For more information on GCLI see:
++// - https://github.com/mozilla/gcli/blob/master/docs/index.md
++// - https://wiki.mozilla.org/DevTools/Features/GCLI
 +
 +// Tests that source URLs in the Web Console can be clicked to display the
 +// standard View Source window.
@@ -1552,7 +856,8 @@ new file mode 100644
 +const TEST_URI = "http://example.com/browser/browser/devtools/webconsole/test/browser/test-console.html";
 +
 +registerCleanupFunction(function() {
-+    Services.prefs.setBoolPref("devtools.gcli.enable", false);
++  require = undefined;
++  Services.prefs.clearUserPref("devtools.gcli.enable");
 +});
 +
 +function test() {
@@ -1563,20 +868,20 @@ new file mode 100644
 +
 +function onLoad() {
 +  browser.removeEventListener("DOMContentLoaded", onLoad, false);
-+  openConsole();
 +
 +  try {
++    openConsole();
++
 +    testCreateCommands();
 +    testCallCommands();
 +    testRemoveCommands();
 +  }
 +  catch (ex) {
-+    console.error(ex);
++    gcli._internal.console.error('Test Failure', ex);
 +  }
 +  finally {
 +    closeConsole();
 +    finishTest();
-+    console.log("test finished");
 +  }
 +}
 +
@@ -1598,51 +903,36 @@ new file mode 100644
 +  let canon = require("gcli/canon");
 +  let tselcmd = canon.getCommand("tselarr");
 +  ok(tselcmd != null, "tselarr exists in the canon");
-+  is(typeof tselcmd.getDescription, "function", "canon storing commands");
++  ok(tselcmd instanceof canon.Command, "canon storing commands");
 +}
 +
 +function testCallCommands() {
-+  let console = browser.contentWindow.wrappedJSObject.console;
-+
-+  let hudId = HUDService.displaysIndex()[0];
-+  let hud = HUDService.hudReferences[hudId];
-+  ok(hud, "There is a console");
-+
-+  let hudBox = HUDService.getHeadsUpDisplay(hudId);
-+  ok(hudBox, "We have a console display");
-+
++  let hud = HUDService.getHudByWindow(content);
 +  let gcliterm = hud.gcliterm;
 +  ok(gcliterm, "We have a GCLI term");
 +
-+  let event;
-+
 +  // Test successful auto-completion
-+  gcliterm._setInputValue("ec");
-+  event = browser.createEvent("KeyboardEvent");
-+  event.initKeyEvent("keyup", true, true, null, false,
-+                     false, false, false, 80, 0);
-+  gcliterm.inputNode.dispatchEvent(event);
-+  is(gcliterm.completeNode.value, "  ho", "Completion for \"ec\"");
++  gcliterm.inputNode.value = "h";
++  gcliterm.inputNode.focus();
++  EventUtils.synthesizeKey("e", {});
++  is(gcliterm.completeNode.textContent, " help", "Completion for \"he\"");
 +
 +  // Test unsuccessful auto-completion
-+  gcliterm._setInputValue("ecd");
-+  event = browser.createEvent("KeyboardEvent");
-+  event.initKeyEvent("keyup", true, true, null, false,
-+                     false, false, false, 81, 0);
-+  gcliterm.inputNode.dispatchEvent(event);
-+  is(gcliterm.completeNode.value.replace(" ", ""), "", "Completion for \"ecd\"");
-+
-+  let outputNode = hudBox.querySelector(".hud-output-node");
++  gcliterm.inputNode.value = "ec";
++  gcliterm.inputNode.focus();
++  EventUtils.synthesizeKey("d", {});
++  is(gcliterm.completeNode.textContent, " ecd", "Completion for \"ecd\"");
 +
 +  // Test a normal command's life cycle
-+  gcliterm._setInputValue("echo hello world");
-+  event = browser.createEvent("KeyboardEvent");
-+  event.initKeyEvent("keyup", true, true, null, false,
-+                     false, false, false, 13, 0);
-+  gcliterm.inputNode.dispatchEvent(event);
-+  let node = outputNode.querySelector(".hud-msg-node");
-+  ok(node, "the command had a resulting output node");
-+  ok(/hello world/.test(node.textContext), "the command's output is correct.");
++  gcliterm.opts.inputter.setInput("echo hello world");
++  gcliterm.opts.requisition.exec();
++
++  let nodes = hud.outputNode.querySelectorAll("description");
++
++  is(nodes.length, 2, "Right number of output nodes");
++  ok(/hello world/.test(nodes[0].textContent), "the command's output is correct.");
++
++  gcliterm.clearOutput();
 +}
 +
 +function testRemoveCommands() {
@@ -1653,324 +943,454 @@ new file mode 100644
 +  let tselcmd = canon.getCommand("tselarr");
 +  ok(tselcmd == null, "tselcmd removed from the canon");
 +}
+diff --git a/browser/devtools/webconsole/test/browser/browser_gcli_require.js b/browser/devtools/webconsole/test/browser/browser_gcli_require.js
+new file mode 100644
+--- /dev/null
++++ b/browser/devtools/webconsole/test/browser/browser_gcli_require.js
+@@ -0,0 +1,126 @@
++/* Any copyright is dedicated to the Public Domain.
++ * http://creativecommons.org/publicdomain/zero/1.0/ */
++
++// For more information on GCLI see:
++// - https://github.com/mozilla/gcli/blob/master/docs/index.md
++// - https://wiki.mozilla.org/DevTools/Features/GCLI
++
++// Tests that source URLs in the Web Console can be clicked to display the
++// standard View Source window.
++
++var modules = { gcli: null };
++
++Components.utils.import("resource:///modules/gcli.jsm", modules);
++
++var define, require, console;
++
++function test() {
++
++  define = modules.gcli._internal.define;
++  require = modules.gcli._internal.require;
++  console = modules.gcli._internal.console;
++
++  define('gclitest/requirable', [], function(require, exports, module) {
++    exports.thing1 = 'thing1';
++    exports.thing2 = 2;
++
++    let status = 'initial';
++    exports.setStatus = function(aStatus) { status = aStatus; };
++    exports.getStatus = function() { return status; };
++  });
++
++  define('gclitest/unrequirable', [], function(require, exports, module) {
++    null.throwNPE();
++  });
++
++  define('gclitest/recurse', [], function(require, exports, module) {
++    require('gclitest/recurse');
++  });
++
++  testWorking();
++  testLeakage();
++  testMultiImport();
++  testRecursive();
++  testUncompilable();
++
++  finishTest();
++
++  delete define.modules['gclitest/requirable'];
++  delete define.globalDomain.modules['gclitest/requirable'];
++  delete define.modules['gclitest/unrequirable'];
++  delete define.globalDomain.modules['gclitest/unrequirable'];
++  delete define.modules['gclitest/recurse'];
++  delete define.globalDomain.modules['gclitest/recurse'];
++
++  define = null;
++  require = null;
++  console = null;
++
++  modules = null;
++}
++
++function testWorking() {
++  // There are lots of requirement tests that we could be doing here
++  // The fact that we can get anything at all working is a testament to
++  // require doing what it should - we don't need to test the
++  let requireable = require('gclitest/requirable');
++  ok('thing1' == requireable.thing1, 'thing1 was required');
++  ok(2 == requireable.thing2, 'thing2 was required');
++  ok(requireable.thing3 === undefined, 'thing3 was not required');
++}
++
++function testDomains() {
++  let requireable = require('gclitest/requirable');
++  ok(requireable.status === undefined, 'requirable has no status');
++  requireable.setStatus(null);
++  ok(null === requireable.getStatus(), 'requirable.getStatus changed to null');
++  ok(requireable.status === undefined, 'requirable still has no status');
++  requireable.setStatus('42');
++  ok('42' == requireable.getStatus(), 'requirable.getStatus changed to 42');
++  ok(requireable.status === undefined, 'requirable *still* has no status');
++
++  let domain = new define.Domain();
++  let requireable2 = domain.require('gclitest/requirable');
++  ok(requireable2.status === undefined, 'requirable2 has no status');
++  ok('initial' === requireable2.getStatus(), 'requirable2.getStatus is initial');
++  requireable2.setStatus(999);
++  ok(999 === requireable2.getStatus(), 'requirable2.getStatus changed to 999');
++  ok(requireable2.status === undefined, 'requirable2 still has no status');
++
++  t.verifyEqual('42', requireable.getStatus());
++  ok(requireable.status === undefined, 'requirable has no status (as expected)');
++
++  delete domain.modules['gclitest/requirable'];
++}
++
++function testLeakage() {
++  let requireable = require('gclitest/requirable');
++  ok(requireable.setup == null, 'leakage of setup');
++  ok(requireable.shutdown == null, 'leakage of shutdown');
++  ok(requireable.testWorking == null, 'leakage of testWorking');
++}
++
++function testMultiImport() {
++  let r1 = require('gclitest/requirable');
++  let r2 = require('gclitest/requirable');
++  ok(r1 === r2, 'double require was strict equal');
++}
++
++function testUncompilable() {
++  // It's not totally clear how a module loader should perform with unusable
++  // modules, however at least it should go into a flat spin ...
++  // GCLI mini_require reports an error as it should
++  try {
++    let unrequireable = require('gclitest/unrequirable');
++    fail();
++  }
++  catch (ex) {
++    // an exception is expected
++  }
++}
++
++function testRecursive() {
++  // See Bug 658583
++  // require('gclitest/recurse');
++  // Also see the comments in the testRecursive() function
++}
+diff --git a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js
+deleted file mode 100644
+--- a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js
++++ /dev/null
+@@ -1,122 +0,0 @@
+-/* Any copyright is dedicated to the Public Domain.
+- * http://creativecommons.org/publicdomain/zero/1.0/ */
+-
+-// Tests that source URLs in the Web Console can be clicked to display the
+-// standard View Source window.
+-
+-var modules = { gcli: null };
+-
+-Components.utils.import("resource:///modules/gcli.jsm", modules);
+-
+-var define, require, console;
+-
+-function test() {
+-
+-  define = modules.gcli._internal.define;
+-  require = modules.gcli._internal.require;
+-  console = modules.gcli._internal.console;
+-
+-  define('gclitest/requirable', [], function(require, exports, module) {
+-    exports.thing1 = 'thing1';
+-    exports.thing2 = 2;
+-
+-    let status = 'initial';
+-    exports.setStatus = function(aStatus) { status = aStatus; };
+-    exports.getStatus = function() { return status; };
+-  });
+-
+-  define('gclitest/unrequirable', [], function(require, exports, module) {
+-    null.throwNPE();
+-  });
+-
+-  define('gclitest/recurse', [], function(require, exports, module) {
+-    require('gclitest/recurse');
+-  });
+-
+-  testWorking();
+-  testLeakage();
+-  testMultiImport();
+-  testRecursive();
+-  testUncompilable();
+-
+-  finishTest();
+-
+-  delete define.modules['gclitest/requirable'];
+-  delete define.globalDomain.modules['gclitest/requirable'];
+-  delete define.modules['gclitest/unrequirable'];
+-  delete define.globalDomain.modules['gclitest/unrequirable'];
+-  delete define.modules['gclitest/recurse'];
+-  delete define.globalDomain.modules['gclitest/recurse'];
+-
+-  define = null;
+-  require = null;
+-  console = null;
+-
+-  modules = null;
+-}
+-
+-function testWorking() {
+-  // There are lots of requirement tests that we could be doing here
+-  // The fact that we can get anything at all working is a testament to
+-  // require doing what it should - we don't need to test the
+-  let requireable = require('gclitest/requirable');
+-  ok('thing1' == requireable.thing1, 'thing1 was required');
+-  ok(2 == requireable.thing2, 'thing2 was required');
+-  ok(requireable.thing3 === undefined, 'thing3 was not required');
+-}
+-
+-function testDomains() {
+-  let requireable = require('gclitest/requirable');
+-  ok(requireable.status === undefined, 'requirable has no status');
+-  requireable.setStatus(null);
+-  ok(null === requireable.getStatus(), 'requirable.getStatus changed to null');
+-  ok(requireable.status === undefined, 'requirable still has no status');
+-  requireable.setStatus('42');
+-  ok('42' == requireable.getStatus(), 'requirable.getStatus changed to 42');
+-  ok(requireable.status === undefined, 'requirable *still* has no status');
+-
+-  let domain = new define.Domain();
+-  let requireable2 = domain.require('gclitest/requirable');
+-  ok(requireable2.status === undefined, 'requirable2 has no status');
+-  ok('initial' === requireable2.getStatus(), 'requirable2.getStatus is initial');
+-  requireable2.setStatus(999);
+-  ok(999 === requireable2.getStatus(), 'requirable2.getStatus changed to 999');
+-  ok(requireable2.status === undefined, 'requirable2 still has no status');
+-
+-  t.verifyEqual('42', requireable.getStatus());
+-  ok(requireable.status === undefined, 'requirable has no status (as expected)');
+-
+-  delete domain.modules['gclitest/requirable'];
+-}
+-
+-function testLeakage() {
+-  let requireable = require('gclitest/requirable');
+-  ok(requireable.setup == null, 'leakage of setup');
+-  ok(requireable.shutdown == null, 'leakage of shutdown');
+-  ok(requireable.testWorking == null, 'leakage of testWorking');
+-}
+-
+-function testMultiImport() {
+-  let r1 = require('gclitest/requirable');
+-  let r2 = require('gclitest/requirable');
+-  ok(r1 === r2, 'double require was strict equal');
+-}
+-
+-function testUncompilable() {
+-  // It's not totally clear how a module loader should perform with unusable
+-  // modules, however at least it should go into a flat spin ...
+-  // GCLI mini_require reports an error as it should
+-  try {
+-    let unrequireable = require('gclitest/unrequirable');
+-    fail();
+-  }
+-  catch (ex) {
+-    // an exception is expected
+-  }
+-}
+-
+-function testRecursive() {
+-  // See Bug 658583
+-  // require('gclitest/recurse');
+-  // Also see the comments in the testRecursive() function
+-}
 diff --git a/browser/locales/en-US/chrome/browser/gcli.properties b/browser/locales/en-US/chrome/browser/gcli.properties
 new file mode 100644
 --- /dev/null
 +++ b/browser/locales/en-US/chrome/browser/gcli.properties
-@@ -0,0 +1,118 @@
+@@ -0,0 +1,88 @@
++# LOCALIZATION NOTE These strings are used inside the Web Console
++# command line which is available from the Web Developer sub-menu
++# -> 'Web Console'.
++# The correct localization of this file might be to keep it in# English, or another language commonly spoken among web developers.# You want to make that choice consistent across the developer tools.# A good criteria is the language in which you'd find the best# documentation on web development on the web.
 +
++# LOCALIZATION NOTE (canonDescNone): Short string used to describe any command
++# or command parameter when no description has been provided.
 +canonDescNone=(No description)
-+cliEvalJavascript=Enter JavaScript directly
-+fieldSelectionSelect=Select a %S ...
-+fieldArrayAdd=Add
-+fieldArrayDel=Del
-+jstypeParseScope=Scope lost
-+jstypeParseMissing=Can\'t find property \'%S\'
-+jstypeBeginSyntax=Syntax error
-+jstypeBeginUnterm=Unterminated string literal
-+typesNumberNan=Can\'t convert "%S" to a number.
-+typesNumberMax=%1$S is greater that maximum allowed: %2$S.
-+typesNumberMin=%1$S is smaller that minimum allowed: %2$S.
-+typesSelectionNomatch=Can\'t use \'%S\'.'
 +
++# LOCALIZATION NOTE (cliEvalJavascript): The special '{' command allows entry
++# of JavaScript like traditional developer tool command lines. This describes
++# the '{' command.
++cliEvalJavascript=Enter JavaScript directly
++
++# LOCALIZATION NOTE (fieldSelectionSelect): When a command has a parameter
++# that has a number of pre-defined options the user interface presents these
++# in a drop-down menu, where the first 'option' is an indicator that a
++# selection should be made. This string describes that first option.
++fieldSelectionSelect=Select a %S ...
++
++# LOCALIZATION NOTE (fieldArrayAdd): When a command has a parameter that can
++# be repeated a number of times (e.g. like the 'cat a.txt b.txt' command) the
++# user interface presents buttons to add and remove arguments. This string is
++# used to add arguments.
++fieldArrayAdd=Add
++
++# LOCALIZATION NOTE (fieldArrayDel): When a command has a parameter that can
++# be repeated a number of times (e.g. like the 'cat a.txt b.txt' command) the
++# user interface presents buttons to add and remove arguments. This string is
++# used to remove arguments.
++fieldArrayDel=Delete
++
++# LOCALIZATION NOTE (jstypeParseScope): The command line provides completion
++# for JavaScript commands, however there are times when the scope of what
++# we're completing against can't be used. This error message is displayed when
++# this happens.
++jstypeParseScope=Scope lost
++
++# LOCALIZATION NOTE (jstypeParseMissing): When the command line is doing
++# JavaScript completion, sometimes the property to be completed does not
++# exist. This error message is displayed when this happens.
++jstypeParseMissing=Can't find property '%S'
++
++# LOCALIZATION NOTE (jstypeBeginSyntax): When the command line is doing
++# JavaScript completion using invalid JavaScript, this error message is
++# displayed.
++jstypeBeginSyntax=Syntax error
++
++# LOCALIZATION NOTE (jstypeBeginUnterm): When the command line is doing
++# JavaScript completion using a string that is not properly terminated, this
++# error message is displayed.
++jstypeBeginUnterm=Unterminated string literal
++
++# LOCALIZATION NOTE (typesNumberNan): When the command line is passed a
++# number, however the input string is not a valid number, this error message
++# is displayed.
++typesNumberNan=Can't convert "%S" to a number.
++
++# LOCALIZATION NOTE (typesNumberMax): When the command line is passed a
++# number, but the number is bigger than the largest allowed number, this error
++# message is displayed.
++typesNumberMax=%1$S is greater that maximum allowed: %2$S.
++
++# LOCALIZATION NOTE (typesNumberMin): When the command line is passed a
++# number, but the number is lower than the smallest allowed number, this error
++# message is displayed.
++typesNumberMin=%1$S is smaller that minimum allowed: %2$S.
++
++# LOCALIZATION NOTE (typesSelectionNomatch): When the command line is passed
++# an option with a limited number of correct values, but the passed value is
++# not one of them, this error message is displayed.
++typesSelectionNomatch=Can't use '%S'.
++
++# LOCALIZATION NOTE (nodeParseSyntax): When the command line is expecting a
++# CSS query string, however the passed string is not valid, this error message
++# is displayed.
 +nodeParseSyntax=Syntax error in CSS query
 +
-+editDesc=Tweak a page resource
-+editManual=Edit one of the resources that is part of this page (or maybe any generic web resource?)
-+editResourceDesc=URL to edit
-+editPretend=Pretend this is an popup editor containing
++# LOCALIZATION NOTE (nodeParseMultiple): When the command line is expecting a
++# CSS string that matches a single node, but more than one node matches, this
++# error message is displayed.
++nodeParseMultiple=Too many matches (%S)
 +
-+stylizerDesc=Edit CSS for a node
-+stylizerManual=Find the CSS rules that affect a node so we can edit them together
-+stylizerNodeDesc=Node to edit (by CSS expression)
-+stylizerReply=This is where we open a window to edit the styles for: %S.
++# LOCALIZATION NOTE (nodeParseNone): When the command line is expecting a CSS
++# string that matches a single node, but no nodes match, this error message is
++# displayed.
++nodeParseNone=No matches
 +
-+breakDesc=Manage breakpoints
-+breakManual=Commands to list, add and remove breakpoints
+diff --git a/browser/locales/en-US/chrome/browser/gclicommands.properties b/browser/locales/en-US/chrome/browser/gclicommands.properties
+new file mode 100644
+--- /dev/null
++++ b/browser/locales/en-US/chrome/browser/gclicommands.properties
+@@ -0,0 +1,37 @@
++# LOCALIZATION NOTE These strings are used inside Web Console commands.
++# The Web Console command line is available from the Web Developer sub-menu
++# -> 'Web Console'.
++#
++# The correct localization of this file might be to keep it in
++# English, or another language commonly spoken among web developers.
++# You want to make that choice consistent across the developer tools.
++# A good criteria is the language in which you'd find the best
++# documentation on web development on the web.
 +
-+breaklistDesc=Display known breakpoints
-+breaklistNone=No breakpoints set
-+breaklistIntro=The following breakpoints are set:
-+
-+breakaddIfDesc=Break condition
-+breakaddAdded=Added breakpoint
-+breakaddDesc=Add a breakpoint
-+breakaddManual=Breakpoint types supported: line, function, xhr, event
-+
-+breakaddlineDesc=Add a line breakpoint
-+breakaddlineFileDesc=JS file
-+breakaddlineLineDesc=Line number
-+breakaddfuncDesc=Add a function breakpoint
-+breakaddfuncFunctionDesc=Function
-+breakaddxhrDesc=Add an XHR breakpoint
-+breakaddeventDesc=Add an event breakpoint
-+breakaddeventEventDesc=Event type
-+breakaddeventNodeDesc=Node
-+
-+breaknextDesc=Break at next line
-+breaknextReply=Breaking at next line
-+
-+breakdelDesc=Remove a breakpoint
-+breakdelBreakidDesc=Index of breakpoint
-+breakdelRemoved=Breakpoint removed
-+
-+stepDesc=Move the debugger on
-+stepManual=When the debugger is stopped, move it to a new place
-+stepInsult=The debugger is not stopped. How do you expect to start it? Duh!
-+
-+stepupDesc=Step out of the current function
-+stepupManual=Move the debug position up one stack frame by running to the end of the current function
-+
-+stepinDesc=Step into the current function
-+stepinManual=Move the debug position down one stack frame into the current function call
-+
-+stepnextDesc=Step to the next line
-+stepnextManual=Move the debug position to the start of the next line
-+
-+steponDesc=Continue running
-+steponManual=Resume the debugger running normally
-+
-+steptoDesc=Run to the given line
-+steptoManual=Move the debug position to the start of the specified line
-+steptoLineDesc=Line to run to
-+
-+highlightDesc=Highlight a node
-+highlightManual=Examine the dimensions and essential properties of a node (by CSS query)
-+highlightNodeDesc=CSS query
-+highlightReply=Pretend the highlighter thing is doing its stuff now.
-+
-+inspectDesc=Inspect the CSS for a node
-+inspectManual=Examine the detail of the CSS properties for a node
-+inspectNodeDesc=CSS query
-+inspectReply=Pretend the style inspector is doing its stuff now.
-+
-+doctorDesc=Open CSS Doctor for a node
-+doctorManual=Diagnose why a CSS rule isn\'t working for an element
-+doctorNodeDesc=CSS query
-+doctorReply=Pretend the CSS Doctor is doing its stuff now.
-+
++# LOCALIZATION NOTE (echoDesc) A very short string used to describe the
++# function of the echo command.
 +echoDesc=Show a message
++
++# LOCALIZATION NOTE (echoMessageDesc) A very short string used to describe the
++# message parameter to the echo command.
 +echoMessageDesc=Message
 +
++# LOCALIZATION NOTE (helpDesc) A very short string used to describe the
++# function of the help command.
++helpDesc=Get help on the available commands
++
++# LOCALIZATION NOTE (helpAvailable) Used in the output of the help command to
++# explain the contents of the command help table.
++helpAvailable=Available Commands
++
++# LOCALIZATION NOTE (consoleDesc) A very short string used to describe the
++# function of the console command.
 +consoleDesc=Commands to control the console
++
++# LOCALIZATION NOTE (consoleManual) A longer description describing the
++# set of commands that control the console.
 +consoleManual=Filter, clear and close the web console
 +
++# LOCALIZATION NOTE (consoleclearDesc) A very short string used to describe the
++# function of the 'console clear' command.
 +consoleclearDesc=Clear the console
-+consoleclearReply=I\'m sorry, Dave, I can\'t let you do that
-+
-+consolecloseDesc=Close the console
-+consolecloseReply=A closed console is like a closed mind which is like a closed book which is bad.
-+
-+consolefilterDesc=Filter displayed events
-+consolefilterCategoryDesc=Category
-+consolefilterLevelDesc=Level
-+consolefilterDisplayDesc=Show|Hide
-+consolefilterReply=This needs implementing
-+
-+scratchpadDesc=Open a scratchpad
-+scratchpadManual=Scratchpad allows editing JavaScript in a smalltalk-like environment
-+scratchpadFileDesc=Initial file
-+scratchpadScriptDesc=Initial script
-+scratchpadChromeDesc=Chrome privilages
-+scratchpadOnesource=Only one of --file and --script should be used
-+scratchpadFilepretend=Pretend this is a scratchpad with the contents of %S
-+scratchpadScriptpretend=Pretend this is a scratchpad containing this text
-+scratchpadEmptypretend=Pretend this is an empty scratchpad
 diff --git a/browser/locales/jar.mn b/browser/locales/jar.mn
 --- a/browser/locales/jar.mn
 +++ b/browser/locales/jar.mn
-@@ -14,6 +14,7 @@
+@@ -14,6 +14,8 @@
  *   locale/browser/browser.dtd                     (%chrome/browser/browser.dtd)
      locale/browser/baseMenuOverlay.dtd             (%chrome/browser/baseMenuOverlay.dtd)
      locale/browser/browser.properties              (%chrome/browser/browser.properties)
 +    locale/browser/gcli.properties                 (%chrome/browser/gcli.properties)
++    locale/browser/gclicommands.properties         (%chrome/browser/gclicommands.properties)
      locale/browser/styleinspector.properties       (%chrome/browser/styleinspector.properties)
      locale/browser/styleinspector.dtd              (%chrome/browser/styleinspector.dtd)
      locale/browser/scratchpad.properties           (%chrome/browser/scratchpad.properties)
-diff --git a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
---- a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
-+++ b/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
-@@ -172,3 +172,17 @@ stacktrace.anonymousFunction=<anonymous>
- # to console.trace(). The stack trace of JavaScript function calls is displayed.
- # In this minimal message we only show the last call.
- stacktrace.outputMessage=Stack trace from %S, function %S, line %S.
+diff --git a/browser/themes/gnomestripe/browser/devtools/gcli.css b/browser/themes/gnomestripe/browser/devtools/gcli.css
+new file mode 100644
+--- /dev/null
++++ b/browser/themes/gnomestripe/browser/devtools/gcli.css
+@@ -0,0 +1,241 @@
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is the GCLI.
++ *
++ * The Initial Developer of the Original Code is
++ * The Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2011
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Joe Walker <jwalker@mozilla.com> (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
 +
-+# LOCALIZATION NOTE (termTypeCommand):
-+# This string is used in the Web Console to select the type of input, there are
-+# 2 basic options: JavaScript (i.e. enter instructions using EcmaScript /
-+# JavaScript) or Command (which is more like a traditional command line). This
-+# is the label for the command input type.
-+termTypeCommand=Command
-+
-+# LOCALIZATION NOTE (termTypeJavascript):
-+# This string is used in the Web Console to select the type of input, there are
-+# 2 basic options: JavaScript (i.e. enter instructions using EcmaScript /
-+# JavaScript) or Command (which is more like a traditional command line). This
-+# is the label for the JavaScript input type.
-+termTypeJavascript=JavaScript
-diff --git a/toolkit/themes/gnomestripe/global/webConsole.css b/toolkit/themes/gnomestripe/global/webConsole.css
---- a/toolkit/themes/gnomestripe/global/webConsole.css
-+++ b/toolkit/themes/gnomestripe/global/webConsole.css
-@@ -135,10 +135,19 @@
- 
- .hud-output-node,
- .jsterm-input-node,
--.jsterm-complete-node {
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-   font: 12px "DejaVu Sans Mono", monospace;
- }
- 
-+.jsterm-input-node,
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-+  background-color: transparent;
-+}
-+
- .hud-output-node {
-   -moz-appearance: none;
-   border-bottom: 1px solid ThreeDShadow;
-@@ -280,13 +289,16 @@
- }
- 
- .jsterm-input-node,
--.jsterm-complete-node {
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-   border: none;
-   padding: 0 0 0 16px;
-   -moz-appearance: none;
- }
- 
--.jsterm-input-node {
-+.jsterm-input-node,
-+.gcliterm-input-node {
-   width: 98%;
-   background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
- }
-@@ -314,3 +326,25 @@
-   width: 100%;
-   background-color: white;
- }
-+
-+.gcliterm-complete-node {
-+  color: #F00;
-+  margin: 4px;
-+}
-+
-+.gcliterm-complete-node span.gcliINCOMPLETE {
-+  color: #DDD;
-+  border-bottom: 2px dotted #999;
-+}
-+
-+.gcliterm-complete-node span.gcliERROR {
-+  color: #DDD; border-bottom: 2px dotted #F00;
-+}
-+
-+.gcliterm-complete-node span.gcliPrompt {
-+  color: #66F; font-weight: bold;
-+}
-+
-+.gcliterm-complete-node span.gcliCompl {
-+  color: #999;
-+}
-diff --git a/toolkit/themes/pinstripe/global/webConsole.css b/toolkit/themes/pinstripe/global/webConsole.css
---- a/toolkit/themes/pinstripe/global/webConsole.css
-+++ b/toolkit/themes/pinstripe/global/webConsole.css
-@@ -138,10 +138,19 @@
- 
- .hud-output-node,
- .jsterm-input-node,
--.jsterm-complete-node {
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-   font: 11px Menlo, Monaco, monospace;
- }
- 
-+.jsterm-input-node,
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-+  background-color: transparent;
-+}
-+
- .hud-output-node {
-   -moz-appearance: none;
-   border-bottom: 1px solid ThreeDShadow;
-@@ -353,18 +362,24 @@
- }
- 
- .jsterm-input-node,
--.jsterm-complete-node {
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-   border: none;
-   padding: 0 0 0 16px;
-   -moz-appearance: none;
- }
- 
--.jsterm-input-node {
-+.jsterm-input-node,
-+.gcliterm-input-node {
-   background: url("chrome://global/skin/icons/commandline.png") 4px 2px no-repeat;
- }
- 
- :-moz-any(.jsterm-input-node,
--          .jsterm-complete-node) > .textbox-input-box > .textbox-textarea {
-+          .jsterm-complete-node,
-+          .gcliterm-input-node,
-+          .gcliterm-complete-node
-+          ) > .textbox-input-box > .textbox-textarea {
-   overflow-x: hidden;
- }
- 
-@@ -398,3 +413,25 @@
-   width: 100%;
-   background-color: white;
- }
-+
-+.gcliterm-complete-node {
-+  color: #F00;
-+  margin: 4px;
-+}
-+
-+.gcliterm-complete-node span.gcliINCOMPLETE {
-+  color: #DDD;
-+  border-bottom: 2px dotted #999;
-+}
-+
-+.gcliterm-complete-node span.gcliERROR {
-+  color: #DDD; border-bottom: 2px dotted #F00;
-+}
-+
-+.gcliterm-complete-node span.gcliPrompt {
-+  color: #66F; font-weight: bold;
-+}
-+
-+.gcliterm-complete-node span.gcliCompl {
-+  color: #999;
-+}
-diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/winstripe/global/webConsole.css
---- a/toolkit/themes/winstripe/global/webConsole.css
-+++ b/toolkit/themes/winstripe/global/webConsole.css
-@@ -134,10 +134,53 @@
- 
- .hud-output-node,
- .jsterm-input-node,
--.jsterm-complete-node {
-+.jsterm-complete-node,
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-   font: 12px Consolas, Lucida Console, monospace;
- }
- 
-+.usegcli .jsterm-input-node,
-+.usegcli .jsterm-complete-node,
++/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */
 +.gcliterm-input-node,
 +.gcliterm-complete-node {
 +  border: none;
@@ -1978,66 +1398,710 @@ diff --git a/toolkit/themes/winstripe/global/webConsole.css b/toolkit/themes/win
 +  height: 100%;
 +  vertical-align: middle;
 +  background-color: transparent;
-+  font: 12px Consolas, Lucida Console, monospace;
++  font: 12px Consolas, "Lucida Console", monospace;
 +  padding: 2px 0 0 16px;
 +}
 +
 +.gcliterm-complete-node {
++  color: #FFF;
 +  padding: 4px 4px 2px 21px;
 +}
 +
-+.gcliterm-complete-node span.gcliVALID {
-+  color: #FFF;
++.gcliVALID {
 +  border-bottom: none;
 +}
 +
-+.gcliterm-complete-node span.gcliINCOMPLETE {
++.gcliINCOMPLETE {
 +  color: #DDD;
 +  border-bottom: 1px dotted #999;
 +}
 +
-+.gcliterm-complete-node span.gcliERROR {
++.gcliERROR {
 +  color: #DDD;
 +  border-bottom: 1px dotted #F00;
 +}
 +
-+.gcliterm-complete-node span.gcliPrompt {
-+  color: #66F;
-+  font-weight: bold;
-+}
-+
-+.gcliterm-complete-node span.gcliCompl {
++.gcliCompl {
 +  color: #999;
 +}
 +
- .hud-output-node {
-   -moz-appearance: none;
-   border-bottom: 1px solid ThreeDShadow;
-@@ -296,7 +339,18 @@
-   -moz-appearance: none;
- }
- 
--.jsterm-input-node {
 +.gcliterm-stack-node {
 +  background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
 +  width: 100%;
 +}
 +
-+.gcliterm-input-node,
-+.gcliterm-complete-node {
-+  background: transparent;
++.gcliterm-hint-node {
++  color: #000;
++  background: rgba(250, 250, 250, 0.8);
++  border: 1px solid #AAA;
++  border-bottom: 0px !important;
++  border-top-right-radius: 5px;
++  border-top-left-radius: 5px;
++  margin-left: 10px;
++  margin-right: 10px;
++  display: inline-block;
++  overflow: auto;
++  padding: 10px;
 +}
 +
-+.jsterm-input-node,
-+.jsterm-complete-node {
-   background: url("chrome://global/skin/icons/commandline.png") 4px 3px no-repeat;
- }
- 
-@@ -331,3 +385,7 @@
-   width: 100%;
-   background-color: white;
- }
++.gcliterm-hint-parent {
++  border-bottom: 1px solid #AAA;
++}
 +
 +.gcliCmdHelpRight {
 +  text-align: right;
 +}
++
++/* From: $GCLI/lib/gcli/ui/arg_fetch.css */
++.gcliCmdDesc {
++  font-weight: bold;
++  text-align: center;
++  margin-bottom: 5px;
++  border-bottom: 1px solid #ddd;
++  padding-bottom: 3px;
++}
++
++.gcliParamGroup {
++  font-weight: bold;
++}
++
++.gcliParamName {
++  text-align: right;
++  font-size: 90%;
++}
++
++.gcliParamError {
++  font-size: 80%;
++  color: #900;
++}
++
++.gcliParamSubmit {
++  text-align: right;
++}
++
++.gcliGroupSymbol {
++  font-size: 90%;
++  color: #666;
++}
++
++.gcliRequired {
++  font-size: 80%;
++  color: #666;
++}
++
++.gcliParams {
++  width: 100%;
++}
++
++/* From: $GCLI/lib/gcli/ui/hinter.css */
++.gcliHintParent {
++  color: #000;
++  background: rgba(250, 250, 250, 0.8);
++  border: 1px solid #AAA;
++  border-top-right-radius: 5px;
++  border-top-left-radius: 5px;
++  margin-left: 10px;
++  margin-right: 10px;
++  display: inline-block;
++  overflow: hidden;
++}
++
++.gcliHints {
++  overflow: auto;
++  padding: 10px;
++  display: inline-block;
++}
++
++.gcliHints ul {
++  margin: 0;
++  padding: 0 15px;
++}
++
++/* From: $GCLI/lib/gcli/ui/menu.css */
++.gcliOption {
++  overflow: hidden;
++  white-space: nowrap;
++  cursor: pointer;
++  padding: 2px;
++}
++
++.gcliOption:hover {
++  background-color: rgb(230, 230, 230);
++}
++
++.gcliOptionName {
++  padding-right: 5px;
++}
++
++.gcliOptionDesc {
++  font-size: 80%;
++  color: #999;
++}
++
++.gcliMenuError {
++  overflow: hidden;
++  white-space: nowrap;
++  padding: 8px 2px 2px 2px;
++  font-size: 80%;
++  color: red;
++}
++
++.gcliMenuField {
++  background-color: white;
++  color: black;
++  border: 1px solid #aaa;
++  padding: 2px;
++  max-height: 300px;
++  overflow-y: auto;
++  max-width: 220px;
++  overflow-x: hidden;
++  margin: 0px 10px;
++  border-top: 0px !important;
++  border-bottom-right-radius: 5px;
++  border-bottom-left-radius: 5px;
++}
++
++/* From: $GCLI/lib/gcli/ui/inputter.css */
++.gcliCompletion {
++  position: absolute;
++  z-index: -1000;
++  background-color: #DDD;
++  border: 1px transparent solid;
++  padding: 1px 1px 1px 2px;
++}
++
++.gcliCompletion {
++  color: #DDD;
++}
++
++.gcliINCOMPLETE {
++  border-bottom: 2px dotted #999;
++}
++
++.gcliERROR {
++  border-bottom: 2px dotted #F00;
++}
++
++.gcliPrompt {
++  color: #66F;
++  font-weight: bold;
++}
++
++.gcliCompl {
++  color: #999;
++}
++
++.gcliCloseBrace {
++  color: #999;
++}
+diff --git a/browser/themes/pinstripe/browser/devtools/gcli.css b/browser/themes/pinstripe/browser/devtools/gcli.css
+new file mode 100644
+--- /dev/null
++++ b/browser/themes/pinstripe/browser/devtools/gcli.css
+@@ -0,0 +1,241 @@
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is the GCLI.
++ *
++ * The Initial Developer of the Original Code is
++ * The Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2011
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Joe Walker <jwalker@mozilla.com> (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */
++.gcliterm-input-node,
++.gcliterm-complete-node {
++  border: none;
++  -moz-appearance: none;
++  height: 100%;
++  vertical-align: middle;
++  background-color: transparent;
++  font: 12px Consolas, "Lucida Console", monospace;
++  padding: 2px 0 0 16px;
++}
++
++.gcliterm-complete-node {
++  color: #FFF;
++  padding: 4px 4px 2px 21px;
++}
++
++.gcliVALID {
++  border-bottom: none;
++}
++
++.gcliINCOMPLETE {
++  color: #DDD;
++  border-bottom: 1px dotted #999;
++}
++
++.gcliERROR {
++  color: #DDD;
++  border-bottom: 1px dotted #F00;
++}
++
++.gcliCompl {
++  color: #999;
++}
++
++.gcliterm-stack-node {
++  background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
++  width: 100%;
++}
++
++.gcliterm-hint-node {
++  color: #000;
++  background: rgba(250, 250, 250, 0.8);
++  border: 1px solid #AAA;
++  border-bottom: 0px !important;
++  border-top-right-radius: 5px;
++  border-top-left-radius: 5px;
++  margin-left: 10px;
++  margin-right: 10px;
++  display: inline-block;
++  overflow: auto;
++  padding: 10px;
++}
++
++.gcliterm-hint-parent {
++  border-bottom: 1px solid #AAA;
++}
++
++.gcliCmdHelpRight {
++  text-align: right;
++}
++
++/* From: $GCLI/lib/gcli/ui/arg_fetch.css */
++.gcliCmdDesc {
++  font-weight: bold;
++  text-align: center;
++  margin-bottom: 5px;
++  border-bottom: 1px solid #ddd;
++  padding-bottom: 3px;
++}
++
++.gcliParamGroup {
++  font-weight: bold;
++}
++
++.gcliParamName {
++  text-align: right;
++  font-size: 90%;
++}
++
++.gcliParamError {
++  font-size: 80%;
++  color: #900;
++}
++
++.gcliParamSubmit {
++  text-align: right;
++}
++
++.gcliGroupSymbol {
++  font-size: 90%;
++  color: #666;
++}
++
++.gcliRequired {
++  font-size: 80%;
++  color: #666;
++}
++
++.gcliParams {
++  width: 100%;
++}
++
++/* From: $GCLI/lib/gcli/ui/hinter.css */
++.gcliHintParent {
++  color: #000;
++  background: rgba(250, 250, 250, 0.8);
++  border: 1px solid #AAA;
++  border-top-right-radius: 5px;
++  border-top-left-radius: 5px;
++  margin-left: 10px;
++  margin-right: 10px;
++  display: inline-block;
++  overflow: hidden;
++}
++
++.gcliHints {
++  overflow: auto;
++  padding: 10px;
++  display: inline-block;
++}
++
++.gcliHints ul {
++  margin: 0;
++  padding: 0 15px;
++}
++
++/* From: $GCLI/lib/gcli/ui/menu.css */
++.gcliOption {
++  overflow: hidden;
++  white-space: nowrap;
++  cursor: pointer;
++  padding: 2px;
++}
++
++.gcliOption:hover {
++  background-color: rgb(230, 230, 230);
++}
++
++.gcliOptionName {
++  padding-right: 5px;
++}
++
++.gcliOptionDesc {
++  font-size: 80%;
++  color: #999;
++}
++
++.gcliMenuError {
++  overflow: hidden;
++  white-space: nowrap;
++  padding: 8px 2px 2px 2px;
++  font-size: 80%;
++  color: red;
++}
++
++.gcliMenuField {
++  background-color: white;
++  color: black;
++  border: 1px solid #aaa;
++  padding: 2px;
++  max-height: 300px;
++  overflow-y: auto;
++  max-width: 220px;
++  overflow-x: hidden;
++  margin: 0px 10px;
++  border-top: 0px !important;
++  border-bottom-right-radius: 5px;
++  border-bottom-left-radius: 5px;
++}
++
++/* From: $GCLI/lib/gcli/ui/inputter.css */
++.gcliCompletion {
++  position: absolute;
++  z-index: -1000;
++  background-color: #DDD;
++  border: 1px transparent solid;
++  padding: 1px 1px 1px 2px;
++}
++
++.gcliCompletion {
++  color: #DDD;
++}
++
++.gcliINCOMPLETE {
++  border-bottom: 2px dotted #999;
++}
++
++.gcliERROR {
++  border-bottom: 2px dotted #F00;
++}
++
++.gcliPrompt {
++  color: #66F;
++  font-weight: bold;
++}
++
++.gcliCompl {
++  color: #999;
++}
++
++.gcliCloseBrace {
++  color: #999;
++}
+diff --git a/browser/themes/winstripe/browser/devtools/gcli.css b/browser/themes/winstripe/browser/devtools/gcli.css
+new file mode 100644
+--- /dev/null
++++ b/browser/themes/winstripe/browser/devtools/gcli.css
+@@ -0,0 +1,241 @@
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is the GCLI.
++ *
++ * The Initial Developer of the Original Code is
++ * The Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2011
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Joe Walker <jwalker@mozilla.com> (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */
++.gcliterm-input-node,
++.gcliterm-complete-node {
++  border: none;
++  -moz-appearance: none;
++  height: 100%;
++  vertical-align: middle;
++  background-color: transparent;
++  font: 12px Consolas, "Lucida Console", monospace;
++  padding: 2px 0 0 16px;
++}
++
++.gcliterm-complete-node {
++  color: #FFF;
++  padding: 4px 4px 2px 21px;
++}
++
++.gcliVALID {
++  border-bottom: none;
++}
++
++.gcliINCOMPLETE {
++  color: #DDD;
++  border-bottom: 1px dotted #999;
++}
++
++.gcliERROR {
++  color: #DDD;
++  border-bottom: 1px dotted #F00;
++}
++
++.gcliCompl {
++  color: #999;
++}
++
++.gcliterm-stack-node {
++  background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
++  width: 100%;
++}
++
++.gcliterm-hint-node {
++  color: #000;
++  background: rgba(250, 250, 250, 0.8);
++  border: 1px solid #AAA;
++  border-bottom: 0px !important;
++  border-top-right-radius: 5px;
++  border-top-left-radius: 5px;
++  margin-left: 10px;
++  margin-right: 10px;
++  display: inline-block;
++  overflow: auto;
++  padding: 10px;
++}
++
++.gcliterm-hint-parent {
++  border-bottom: 1px solid #AAA;
++}
++
++.gcliCmdHelpRight {
++  text-align: right;
++}
++
++/* From: $GCLI/lib/gcli/ui/arg_fetch.css */
++.gcliCmdDesc {
++  font-weight: bold;
++  text-align: center;
++  margin-bottom: 5px;
++  border-bottom: 1px solid #ddd;
++  padding-bottom: 3px;
++}
++
++.gcliParamGroup {
++  font-weight: bold;
++}
++
++.gcliParamName {
++  text-align: right;
++  font-size: 90%;
++}
++
++.gcliParamError {
++  font-size: 80%;
++  color: #900;
++}
++
++.gcliParamSubmit {
++  text-align: right;
++}
++
++.gcliGroupSymbol {
++  font-size: 90%;
++  color: #666;
++}
++
++.gcliRequired {
++  font-size: 80%;
++  color: #666;
++}
++
++.gcliParams {
++  width: 100%;
++}
++
++/* From: $GCLI/lib/gcli/ui/hinter.css */
++.gcliHintParent {
++  color: #000;
++  background: rgba(250, 250, 250, 0.8);
++  border: 1px solid #AAA;
++  border-top-right-radius: 5px;
++  border-top-left-radius: 5px;
++  margin-left: 10px;
++  margin-right: 10px;
++  display: inline-block;
++  overflow: hidden;
++}
++
++.gcliHints {
++  overflow: auto;
++  padding: 10px;
++  display: inline-block;
++}
++
++.gcliHints ul {
++  margin: 0;
++  padding: 0 15px;
++}
++
++/* From: $GCLI/lib/gcli/ui/menu.css */
++.gcliOption {
++  overflow: hidden;
++  white-space: nowrap;
++  cursor: pointer;
++  padding: 2px;
++}
++
++.gcliOption:hover {
++  background-color: rgb(230, 230, 230);
++}
++
++.gcliOptionName {
++  padding-right: 5px;
++}
++
++.gcliOptionDesc {
++  font-size: 80%;
++  color: #999;
++}
++
++.gcliMenuError {
++  overflow: hidden;
++  white-space: nowrap;
++  padding: 8px 2px 2px 2px;
++  font-size: 80%;
++  color: red;
++}
++
++.gcliMenuField {
++  background-color: white;
++  color: black;
++  border: 1px solid #aaa;
++  padding: 2px;
++  max-height: 300px;
++  overflow-y: auto;
++  max-width: 220px;
++  overflow-x: hidden;
++  margin: 0px 10px;
++  border-top: 0px !important;
++  border-bottom-right-radius: 5px;
++  border-bottom-left-radius: 5px;
++}
++
++/* From: $GCLI/lib/gcli/ui/inputter.css */
++.gcliCompletion {
++  position: absolute;
++  z-index: -1000;
++  background-color: #DDD;
++  border: 1px transparent solid;
++  padding: 1px 1px 1px 2px;
++}
++
++.gcliCompletion {
++  color: #DDD;
++}
++
++.gcliINCOMPLETE {
++  border-bottom: 2px dotted #999;
++}
++
++.gcliERROR {
++  border-bottom: 2px dotted #F00;
++}
++
++.gcliPrompt {
++  color: #66F;
++  font-weight: bold;
++}
++
++.gcliCompl {
++  color: #999;
++}
++
++.gcliCloseBrace {
++  color: #999;
++}
+diff --git a/browser/themes/winstripe/browser/jar.mn b/browser/themes/winstripe/browser/jar.mn
+--- a/browser/themes/winstripe/browser/jar.mn
++++ b/browser/themes/winstripe/browser/jar.mn
+@@ -109,6 +109,7 @@ browser.jar:
+         skin/classic/browser/devtools/arrows.png                    (devtools/arrows.png)
+         skin/classic/browser/devtools/search.png                    (devtools/search.png)
+         skin/classic/browser/devtools/csshtmltree.css               (devtools/csshtmltree.css)
++        skin/classic/browser/devtools/gcli.css                      (devtools/gcli.css)
+ #ifdef MOZ_SERVICES_SYNC
+         skin/classic/browser/sync-throbber.png
+         skin/classic/browser/sync-16.png
+@@ -232,6 +233,7 @@ browser.jar:
+         skin/classic/aero/browser/devtools/arrows.png                (devtools/arrows.png)
+         skin/classic/aero/browser/devtools/search.png                (devtools/search.png)
+         skin/classic/aero/browser/devtools/csshtmltree.css           (devtools/csshtmltree.css)
++        skin/classic/aero/browser/devtools/gcli.css                  (devtools/gcli.css)
+ #ifdef MOZ_SERVICES_SYNC
+         skin/classic/aero/browser/sync-throbber.png
+         skin/classic/aero/browser/sync-16.png

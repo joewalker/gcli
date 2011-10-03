@@ -1,21 +1,98 @@
-/*
- * This creates a console object that somewhat replicates Firebug's console
- * object. It currently writes to dump(), but should write to the web
- * console's chrome error section (when it has one)
- */
+
 
 /**
- * This is extra to the console object. It allows us to use the Node constants
- * without resorting to hardcoded numbers
+ * Expose a Node object. This allows us to use the Node constants without
+ * resorting to hardcoded numbers
  */
 var Node = Components.interfaces.nsIDOMNode;
 
 
+Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
+
 /**
- * The console object to expose
+ * Define setTimeout and clearTimeout to match the browser functions
+ */
+var setTimeout;
+var clearTimeout;
+
+(function() {
+  /**
+   * The next value to be returned by setTimeout
+   */
+  var nextID = 1;
+
+  /**
+   * The map of outstanding timeouts
+   */
+  var timers = {};
+
+  /**
+   * Object to be passed to Timer.initWithCallback()
+   */
+  function TimerCallback(callback) {
+    this._callback = callback;
+    var interfaces = [ Components.interfaces.nsITimerCallback ];
+    this.QueryInterface = XPCOMUtils.generateQI(interfaces);
+  }
+
+  TimerCallback.prototype.notify = function(timer) {
+    try {
+      for (var timerID in timers) {
+        if (timers[timerID] === timer) {
+          delete timers[timerID];
+          break;
+        }
+      }
+      this._callback.apply(null, []);
+    }
+    catch (ex) {
+      console.error(ex);
+    }
+  };
+
+  /**
+   * Executes a code snippet or a function after specified delay.
+   * This is designed to have the same interface contract as the browser
+   * function.
+   * @param callback is the function you want to execute after the delay.
+   * @param delay is the number of milliseconds that the function call should
+   * be delayed by. Note that the actual delay may be longer, see Notes below.
+   * @return the ID of the timeout, which can be used later with
+   * window.clearTimeout.
+   */
+  setTimeout = function setTimeout(callback, delay) {
+    var timer = Components.classes["@mozilla.org/timer;1"]
+                          .createInstance(Components.interfaces.nsITimer);
+
+    var timerID = nextID++;
+    timers[timerID] = timer;
+
+    timer.initWithCallback(new TimerCallback(callback), delay, timer.TYPE_ONE_SHOT);
+    return timerID;
+  };
+
+  /**
+   * Clears the delay set by window.setTimeout() and prevents the callback from
+   * being executed (if it hasn't been executed already)
+   * @param timerID the ID of the timeout you wish to clear, as returned by
+   * window.setTimeout().
+   */
+  clearTimeout = function clearTimeout(timerID) {
+    var timer = timers[timerID];
+    if (timer) {
+      timer.cancel();
+      delete timers[timerID];
+    }
+  };
+})();
+
+
+/**
+ * This creates a console object that somewhat replicates Firebug's console
+ * object. It currently writes to dump(), but should write to the web
+ * console's chrome error section (when it has one)
  */
 var console = {};
-
 (function() {
   /**
    * String utility to ensure that strings are a specified length. Strings
@@ -77,7 +154,7 @@ var console = {};
    *        The object to be stringified
    * @return {string}
    *        A single line representation of aThing, which will generally be at
-   *        most 60 chars long
+   *        most 80 chars long
    */
   function stringify(aThing) {
     if (aThing === undefined) {
@@ -105,8 +182,8 @@ var console = {};
       return type + fmt(json, 50, 0);
     }
 
-    var str = aThing.toString().replace(/\s+/g, " ");
-    return fmt(str, 60, 0);
+    var str = aThing.toString(); //.replace(/\s+/g, " ");
+    return fmt(str, 80, 0);
   }
 
   /**
