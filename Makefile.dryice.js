@@ -35,7 +35,7 @@ function main() {
  * It has compressed and uncompressed versions of the output script file.
  */
 function buildStandard() {
-  console.log('Building built/gcli[-uncompressed].js:');
+  console.log('Building standard outputs to built/gcli[-uncompressed].js');
 
   if (!path.existsSync(gcliHome + '/built')) {
     fs.mkdirSync(gcliHome + '/built', 0755);
@@ -100,7 +100,7 @@ function buildStandard() {
  * It consists of 1 output file: gcli.jsm
  */
 function buildFirefox(destDir) {
-  console.log('Building to ' + (destDir || 'built/ff') + '.\n');
+  console.log('Building Firefox outputs to ' + (destDir || 'built/ff') + '.\n');
 
   if (!destDir) {
     if (!path.existsSync(gcliHome + '/built')) {
