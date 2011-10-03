@@ -568,7 +568,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6761,3 +6874,234 @@ catch (ex) {
+@@ -6761,3 +6874,235 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -793,6 +793,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +                    aOptions.category || CATEGORY_OUTPUT,
 +                    aOptions.severity || SEVERITY_LOG,
 +                    aOutputMessage,
++                    this.hudId,
 +                    aOptions.sourceUrl || undefined,
 +                    aOptions.sourceLine || undefined,
 +                    aOptions.clipboardText || undefined);

@@ -1,13 +1,13 @@
 # HG changeset patch
-# Parent 123f45c2d283ba7408fa3fc725f646ffd53916d6
+# Parent 8ba09912a060f2d6ec4582913794d06e459627b6
 # User Joe Walker <jwalker@mozilla.com>
 Bug 690822 - GCLI web tests should be capable of being run in the browser
 
 diff --git a/browser/devtools/webconsole/test/browser/Makefile.in b/browser/devtools/webconsole/test/browser/Makefile.in
 --- a/browser/devtools/webconsole/test/browser/Makefile.in
 +++ b/browser/devtools/webconsole/test/browser/Makefile.in
-@@ -146,6 +146,7 @@ _BROWSER_TEST_FILES = \
- 	browser_webconsole_bug_678816.js \
+@@ -147,6 +147,7 @@ _BROWSER_TEST_FILES = \
+ 	browser_webconsole_bug_664131_console_group.js \
  	browser_gcli_require.js \
  	browser_gcli_integrate.js \
 +	browser_gcli_web.js \
@@ -18,7 +18,7 @@ diff --git a/browser/devtools/webconsole/test/browser/browser_gcli_web.js b/brow
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/webconsole/test/browser/browser_gcli_web.js
-@@ -0,0 +1,1402 @@
+@@ -0,0 +1,1401 @@
 +/*
 + * Copyright 2009-2011 Mozilla Foundation and contributors
 + * Licensed under the New BSD license. See LICENSE.txt or:
@@ -1410,7 +1410,6 @@ new file mode 100644
 +
 +  try {
 +    openConsole();
-+
 +    require("gclitest/index");
 +  }
 +  catch (ex) {
