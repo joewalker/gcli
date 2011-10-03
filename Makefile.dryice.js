@@ -100,6 +100,9 @@ function buildStandard() {
  * It consists of 1 output file: gcli.jsm
  */
 function buildFirefox(destDir) {
+  if (!destDir && process.env.FIREFOX_HOME) {
+    destDir = process.env.FIREFOX_HOME;
+  }
   console.log('Building Firefox outputs to ' + (destDir || 'built/ff') + '.\n');
 
   if (!destDir) {
