@@ -119,6 +119,7 @@ function buildFirefox(destDir) {
   var pinCssDir = '/browser/themes/pinstripe/browser/devtools';
   var gnomeCssDir = '/browser/themes/gnomestripe/browser/devtools';
   var propsDir = '/browser/locales/en-US/chrome/browser';
+  var testDir = '/browser/devtools/webconsole/test/browser';
 
   if (destDir) {
     var fail = false;
@@ -171,6 +172,22 @@ function buildFirefox(destDir) {
     ],
     filter: copy.filter.moduleDefines,
     dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gcli.jsm'
+  });
+
+  // Package the test files
+  project.assumeAllFilesLoaded();
+  copy({
+    source: [
+      'mozilla/build/prefix-test.js',
+      copy.source.commonjs({
+        project: project,
+        // This list of dependencies should be the same as in gclitest/index.js
+        require: [ 'gclitest/index' ]
+      }),
+      'mozilla/build/suffix-test.js'
+    ],
+    filter: copy.filter.moduleDefines,
+    dest: (destDir ? destDir + testDir : 'built/ff') + '/browser_gcli_web.js'
   });
 
   // Package the CSS
