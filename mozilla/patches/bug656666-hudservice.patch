@@ -2,13 +2,13 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent 28e46645f0692280631049d68d72e16df6c78599
+# Parent aed585069643eef1520508a6b23df9643213a95f
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/app/profile/firefox.js b/browser/app/profile/firefox.js
 --- a/browser/app/profile/firefox.js
 +++ b/browser/app/profile/firefox.js
-@@ -1010,6 +1010,9 @@ pref("devtools.scratchpad.enabled", true
+@@ -1006,6 +1006,9 @@ pref("devtools.scratchpad.enabled", true
  // Enable tools for Chrome development.
  pref("devtools.chrome.enabled", false);
  
@@ -231,7 +231,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  XPCOMUtils.defineLazyGetter(this, "StyleInspector", function () {
    var obj = {};
    Cu.import("resource:///modules/devtools/StyleInspector.jsm", obj);
-@@ -1475,6 +1488,24 @@ HUD_SERVICE.prototype =
+@@ -1481,6 +1494,24 @@ HUD_SERVICE.prototype =
      if (!aAnimated || hudRef.consolePanel) {
        this.disableAnimation(hudId);
      }
@@ -256,7 +256,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    /**
-@@ -1506,6 +1537,20 @@ HUD_SERVICE.prototype =
+@@ -1512,6 +1543,20 @@ HUD_SERVICE.prototype =
  
        window.focus();
      }
@@ -277,7 +277,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    /**
-@@ -1744,7 +1789,12 @@ HUD_SERVICE.prototype =
+@@ -1750,7 +1795,12 @@ HUD_SERVICE.prototype =
      // Remove children from the output. If the output is not cleared, there can
      // be leaks as some nodes has node.onclick = function; set and GC can't
      // remove the nodes then.
@@ -291,7 +291,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      hud.destroy();
  
-@@ -1763,7 +1813,9 @@ HUD_SERVICE.prototype =
+@@ -1769,7 +1819,9 @@ HUD_SERVICE.prototype =
        hud.splitter.parentNode.removeChild(hud.splitter);
      }
  
@@ -302,7 +302,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      delete this.hudReferences[aHUDId];
  
-@@ -3067,7 +3119,12 @@ function HeadsUpDisplay(aConfig)
+@@ -3091,7 +3143,12 @@ function HeadsUpDisplay(aConfig)
    // create the JSTerm input element
    try {
      this.createConsoleInput(this.contentWindow, this.consoleWrap, this.outputNode);
@@ -316,7 +316,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    }
    catch (ex) {
      Cu.reportError(ex);
-@@ -3183,6 +3240,9 @@ HeadsUpDisplay.prototype = {
+@@ -3212,6 +3269,9 @@ HeadsUpDisplay.prototype = {
        if (this.jsterm) {
          this.jsterm.inputNode.focus();
        }
@@ -326,7 +326,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }).bind(this);
  
      panel.addEventListener("popupshown", onPopupShown,false);
-@@ -3374,6 +3434,9 @@ HeadsUpDisplay.prototype = {
+@@ -3403,6 +3463,9 @@ HeadsUpDisplay.prototype = {
      if (this.jsterm) {
        this.jsterm.inputNode.focus();
      }
@@ -336,7 +336,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    /**
-@@ -3406,6 +3469,11 @@ HeadsUpDisplay.prototype = {
+@@ -3435,6 +3498,11 @@ HeadsUpDisplay.prototype = {
    jsterm: null,
  
    /**
@@ -348,7 +348,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
     * creates and attaches the console input node
     *
     * @param nsIDOMWindow aWindow
-@@ -3414,12 +3482,24 @@ HeadsUpDisplay.prototype = {
+@@ -3443,12 +3511,24 @@ HeadsUpDisplay.prototype = {
    createConsoleInput:
    function HUD_createConsoleInput(aWindow, aParentNode, aExistingConsole)
    {
@@ -377,7 +377,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
      else {
        throw new Error("Unsupported Gecko Application");
-@@ -3442,14 +3522,17 @@ HeadsUpDisplay.prototype = {
+@@ -3471,14 +3551,17 @@ HeadsUpDisplay.prototype = {
        this.consolePanel.label = this.getPanelTitle();
      }
  
@@ -399,7 +399,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    /**
-@@ -3493,6 +3576,41 @@ HeadsUpDisplay.prototype = {
+@@ -3522,6 +3605,41 @@ HeadsUpDisplay.prototype = {
      consoleWrap.setAttribute("class", "hud-console-wrapper");
      consoleWrap.setAttribute("flex", "1");
  
@@ -441,7 +441,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      this.outputNode = this.makeXULNode("richlistbox");
      this.outputNode.setAttribute("class", "hud-output-node");
      this.outputNode.setAttribute("flex", "1");
-@@ -3501,27 +3619,11 @@ HeadsUpDisplay.prototype = {
+@@ -3530,27 +3648,11 @@ HeadsUpDisplay.prototype = {
      this.outputNode.setAttribute("style", "direction: ltr;");
      this.outputNode.setAttribute("seltype", "multiple");
  
@@ -473,7 +473,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      outerWrap.appendChild(consoleWrap);
  
-@@ -3836,7 +3938,13 @@ HeadsUpDisplay.prototype = {
+@@ -3865,7 +3967,13 @@ HeadsUpDisplay.prototype = {
    {
      let hudId = this.hudId;
      function HUD_clearButton_onCommand() {
@@ -488,7 +488,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
  
      let clearButton = this.makeXULNode("toolbarbutton");
-@@ -3907,7 +4015,12 @@ HeadsUpDisplay.prototype = {
+@@ -3936,7 +4044,12 @@ HeadsUpDisplay.prototype = {
     */
    destroy: function HUD_destroy()
    {
@@ -502,7 +502,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.positionMenuitems.above.removeEventListener("command",
        this._positionConsoleAbove, false);
-@@ -5401,6 +5514,7 @@ JSTermFirefoxMixin.prototype = {
+@@ -5431,6 +5544,7 @@ JSTermFirefoxMixin.prototype = {
      this.completeNode.setAttribute("class", "jsterm-complete-node");
      this.completeNode.setAttribute("multiline", "true");
      this.completeNode.setAttribute("rows", "1");
@@ -510,7 +510,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  
      this.inputNode = this.xulElementFactory("textbox");
      this.inputNode.setAttribute("class", "jsterm-input-node");
-@@ -5414,22 +5528,15 @@ JSTermFirefoxMixin.prototype = {
+@@ -5444,22 +5558,15 @@ JSTermFirefoxMixin.prototype = {
      inputStack.appendChild(this.inputNode);
  
      if (this.existingConsoleNode == undefined) {
@@ -542,10 +542,10 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
    },
  
    get inputValue()
-@@ -5559,9 +5666,8 @@ ConsoleUtils = {
+@@ -5591,9 +5698,8 @@ ConsoleUtils = {
    function ConsoleUtils_createMessageNode(aDocument, aCategory, aSeverity,
-                                           aBody, aSourceURL, aSourceLine,
-                                           aClipboardText, aLevel) {
+                                           aBody, aHUDId, aSourceURL,
+                                           aSourceLine, aClipboardText, aLevel) {
 -    if (aBody instanceof Ci.nsIDOMNode && aClipboardText == null) {
 -      throw new Error("HUDService.createMessageNode(): DOM node supplied " +
 -                      "without any clipboard text");
@@ -554,7 +554,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      }
  
      // Make the icon container, which is a vertical box. Its purpose is to
-@@ -5597,6 +5703,13 @@ ConsoleUtils = {
+@@ -5632,6 +5738,13 @@ ConsoleUtils = {
      aBody = aBody instanceof Ci.nsIDOMNode && !(aLevel == "dir") ?
              aBody : aDocument.createTextNode(aBody);
  
@@ -568,7 +568,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
      bodyNode.appendChild(aBody);
  
      let repeatContainer = aDocument.createElementNS(XUL_NS, "hbox");
-@@ -6725,3 +6838,234 @@ catch (ex) {
+@@ -6761,3 +6874,235 @@ catch (ex) {
    // TODO: kill anything that may have started up
    // see bug 568665
  }
@@ -793,6 +793,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +                    aOptions.category || CATEGORY_OUTPUT,
 +                    aOptions.severity || SEVERITY_LOG,
 +                    aOutputMessage,
++                    this.hudId,
 +                    aOptions.sourceUrl || undefined,
 +                    aOptions.sourceLine || undefined,
 +                    aOptions.clipboardText || undefined);
@@ -817,18 +818,27 @@ diff --git a/browser/devtools/webconsole/Makefile.in b/browser/devtools/webconso
 diff --git a/browser/devtools/webconsole/test/browser/Makefile.in b/browser/devtools/webconsole/test/browser/Makefile.in
 --- a/browser/devtools/webconsole/test/browser/Makefile.in
 +++ b/browser/devtools/webconsole/test/browser/Makefile.in
-@@ -109,6 +109,7 @@ _BROWSER_TEST_FILES = \
+@@ -108,7 +108,6 @@ _BROWSER_TEST_FILES = \
+ 	browser_webconsole_bug_600183_charset.js \
  	browser_webconsole_bug_601177_log_levels.js \
  	browser_webconsole_bug_597460_filter_scroll.js \
- 	browser_webconsole_gcli_require.js \
-+	browser_webconsole_gcli_integrate.js \
+-	browser_webconsole_gcli_require.js \
  	browser_webconsole_console_extras.js \
  	browser_webconsole_bug_598357_jsterm_output.js \
  	browser_webconsole_bug_603750_websocket.js \
-diff --git a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_integrate.js b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_integrate.js
+@@ -146,6 +145,8 @@ _BROWSER_TEST_FILES = \
+ 	browser_webconsole_bug_659907_console_dir.js \
+ 	browser_webconsole_bug_678816.js \
+ 	browser_webconsole_bug_664131_console_group.js \
++	browser_gcli_require.js \
++	browser_gcli_integrate.js \
+ 	head.js \
+ 	$(NULL)
+ 
+diff --git a/browser/devtools/webconsole/test/browser/browser_gcli_integrate.js b/browser/devtools/webconsole/test/browser/browser_gcli_integrate.js
 new file mode 100644
 --- /dev/null
-+++ b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_integrate.js
++++ b/browser/devtools/webconsole/test/browser/browser_gcli_integrate.js
 @@ -0,0 +1,103 @@
 +/* Any copyright is dedicated to the Public Domain.
 + * http://creativecommons.org/publicdomain/zero/1.0/ */
@@ -933,20 +943,264 @@ new file mode 100644
 +  let tselcmd = canon.getCommand("tselarr");
 +  ok(tselcmd == null, "tselcmd removed from the canon");
 +}
-diff --git a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js
---- a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js
-+++ b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js
-@@ -1,6 +1,10 @@
- /* Any copyright is dedicated to the Public Domain.
-  * http://creativecommons.org/publicdomain/zero/1.0/ */
- 
+diff --git a/browser/devtools/webconsole/test/browser/browser_gcli_require.js b/browser/devtools/webconsole/test/browser/browser_gcli_require.js
+new file mode 100644
+--- /dev/null
++++ b/browser/devtools/webconsole/test/browser/browser_gcli_require.js
+@@ -0,0 +1,126 @@
++/* Any copyright is dedicated to the Public Domain.
++ * http://creativecommons.org/publicdomain/zero/1.0/ */
++
 +// For more information on GCLI see:
 +// - https://github.com/mozilla/gcli/blob/master/docs/index.md
 +// - https://wiki.mozilla.org/DevTools/Features/GCLI
 +
- // Tests that source URLs in the Web Console can be clicked to display the
- // standard View Source window.
- 
++// Tests that source URLs in the Web Console can be clicked to display the
++// standard View Source window.
++
++var modules = { gcli: null };
++
++Components.utils.import("resource:///modules/gcli.jsm", modules);
++
++var define, require, console;
++
++function test() {
++
++  define = modules.gcli._internal.define;
++  require = modules.gcli._internal.require;
++  console = modules.gcli._internal.console;
++
++  define('gclitest/requirable', [], function(require, exports, module) {
++    exports.thing1 = 'thing1';
++    exports.thing2 = 2;
++
++    let status = 'initial';
++    exports.setStatus = function(aStatus) { status = aStatus; };
++    exports.getStatus = function() { return status; };
++  });
++
++  define('gclitest/unrequirable', [], function(require, exports, module) {
++    null.throwNPE();
++  });
++
++  define('gclitest/recurse', [], function(require, exports, module) {
++    require('gclitest/recurse');
++  });
++
++  testWorking();
++  testLeakage();
++  testMultiImport();
++  testRecursive();
++  testUncompilable();
++
++  finishTest();
++
++  delete define.modules['gclitest/requirable'];
++  delete define.globalDomain.modules['gclitest/requirable'];
++  delete define.modules['gclitest/unrequirable'];
++  delete define.globalDomain.modules['gclitest/unrequirable'];
++  delete define.modules['gclitest/recurse'];
++  delete define.globalDomain.modules['gclitest/recurse'];
++
++  define = null;
++  require = null;
++  console = null;
++
++  modules = null;
++}
++
++function testWorking() {
++  // There are lots of requirement tests that we could be doing here
++  // The fact that we can get anything at all working is a testament to
++  // require doing what it should - we don't need to test the
++  let requireable = require('gclitest/requirable');
++  ok('thing1' == requireable.thing1, 'thing1 was required');
++  ok(2 == requireable.thing2, 'thing2 was required');
++  ok(requireable.thing3 === undefined, 'thing3 was not required');
++}
++
++function testDomains() {
++  let requireable = require('gclitest/requirable');
++  ok(requireable.status === undefined, 'requirable has no status');
++  requireable.setStatus(null);
++  ok(null === requireable.getStatus(), 'requirable.getStatus changed to null');
++  ok(requireable.status === undefined, 'requirable still has no status');
++  requireable.setStatus('42');
++  ok('42' == requireable.getStatus(), 'requirable.getStatus changed to 42');
++  ok(requireable.status === undefined, 'requirable *still* has no status');
++
++  let domain = new define.Domain();
++  let requireable2 = domain.require('gclitest/requirable');
++  ok(requireable2.status === undefined, 'requirable2 has no status');
++  ok('initial' === requireable2.getStatus(), 'requirable2.getStatus is initial');
++  requireable2.setStatus(999);
++  ok(999 === requireable2.getStatus(), 'requirable2.getStatus changed to 999');
++  ok(requireable2.status === undefined, 'requirable2 still has no status');
++
++  t.verifyEqual('42', requireable.getStatus());
++  ok(requireable.status === undefined, 'requirable has no status (as expected)');
++
++  delete domain.modules['gclitest/requirable'];
++}
++
++function testLeakage() {
++  let requireable = require('gclitest/requirable');
++  ok(requireable.setup == null, 'leakage of setup');
++  ok(requireable.shutdown == null, 'leakage of shutdown');
++  ok(requireable.testWorking == null, 'leakage of testWorking');
++}
++
++function testMultiImport() {
++  let r1 = require('gclitest/requirable');
++  let r2 = require('gclitest/requirable');
++  ok(r1 === r2, 'double require was strict equal');
++}
++
++function testUncompilable() {
++  // It's not totally clear how a module loader should perform with unusable
++  // modules, however at least it should go into a flat spin ...
++  // GCLI mini_require reports an error as it should
++  try {
++    let unrequireable = require('gclitest/unrequirable');
++    fail();
++  }
++  catch (ex) {
++    // an exception is expected
++  }
++}
++
++function testRecursive() {
++  // See Bug 658583
++  // require('gclitest/recurse');
++  // Also see the comments in the testRecursive() function
++}
+diff --git a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js b/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js
+deleted file mode 100644
+--- a/browser/devtools/webconsole/test/browser/browser_webconsole_gcli_require.js
++++ /dev/null
+@@ -1,122 +0,0 @@
+-/* Any copyright is dedicated to the Public Domain.
+- * http://creativecommons.org/publicdomain/zero/1.0/ */
+-
+-// Tests that source URLs in the Web Console can be clicked to display the
+-// standard View Source window.
+-
+-var modules = { gcli: null };
+-
+-Components.utils.import("resource:///modules/gcli.jsm", modules);
+-
+-var define, require, console;
+-
+-function test() {
+-
+-  define = modules.gcli._internal.define;
+-  require = modules.gcli._internal.require;
+-  console = modules.gcli._internal.console;
+-
+-  define('gclitest/requirable', [], function(require, exports, module) {
+-    exports.thing1 = 'thing1';
+-    exports.thing2 = 2;
+-
+-    let status = 'initial';
+-    exports.setStatus = function(aStatus) { status = aStatus; };
+-    exports.getStatus = function() { return status; };
+-  });
+-
+-  define('gclitest/unrequirable', [], function(require, exports, module) {
+-    null.throwNPE();
+-  });
+-
+-  define('gclitest/recurse', [], function(require, exports, module) {
+-    require('gclitest/recurse');
+-  });
+-
+-  testWorking();
+-  testLeakage();
+-  testMultiImport();
+-  testRecursive();
+-  testUncompilable();
+-
+-  finishTest();
+-
+-  delete define.modules['gclitest/requirable'];
+-  delete define.globalDomain.modules['gclitest/requirable'];
+-  delete define.modules['gclitest/unrequirable'];
+-  delete define.globalDomain.modules['gclitest/unrequirable'];
+-  delete define.modules['gclitest/recurse'];
+-  delete define.globalDomain.modules['gclitest/recurse'];
+-
+-  define = null;
+-  require = null;
+-  console = null;
+-
+-  modules = null;
+-}
+-
+-function testWorking() {
+-  // There are lots of requirement tests that we could be doing here
+-  // The fact that we can get anything at all working is a testament to
+-  // require doing what it should - we don't need to test the
+-  let requireable = require('gclitest/requirable');
+-  ok('thing1' == requireable.thing1, 'thing1 was required');
+-  ok(2 == requireable.thing2, 'thing2 was required');
+-  ok(requireable.thing3 === undefined, 'thing3 was not required');
+-}
+-
+-function testDomains() {
+-  let requireable = require('gclitest/requirable');
+-  ok(requireable.status === undefined, 'requirable has no status');
+-  requireable.setStatus(null);
+-  ok(null === requireable.getStatus(), 'requirable.getStatus changed to null');
+-  ok(requireable.status === undefined, 'requirable still has no status');
+-  requireable.setStatus('42');
+-  ok('42' == requireable.getStatus(), 'requirable.getStatus changed to 42');
+-  ok(requireable.status === undefined, 'requirable *still* has no status');
+-
+-  let domain = new define.Domain();
+-  let requireable2 = domain.require('gclitest/requirable');
+-  ok(requireable2.status === undefined, 'requirable2 has no status');
+-  ok('initial' === requireable2.getStatus(), 'requirable2.getStatus is initial');
+-  requireable2.setStatus(999);
+-  ok(999 === requireable2.getStatus(), 'requirable2.getStatus changed to 999');
+-  ok(requireable2.status === undefined, 'requirable2 still has no status');
+-
+-  t.verifyEqual('42', requireable.getStatus());
+-  ok(requireable.status === undefined, 'requirable has no status (as expected)');
+-
+-  delete domain.modules['gclitest/requirable'];
+-}
+-
+-function testLeakage() {
+-  let requireable = require('gclitest/requirable');
+-  ok(requireable.setup == null, 'leakage of setup');
+-  ok(requireable.shutdown == null, 'leakage of shutdown');
+-  ok(requireable.testWorking == null, 'leakage of testWorking');
+-}
+-
+-function testMultiImport() {
+-  let r1 = require('gclitest/requirable');
+-  let r2 = require('gclitest/requirable');
+-  ok(r1 === r2, 'double require was strict equal');
+-}
+-
+-function testUncompilable() {
+-  // It's not totally clear how a module loader should perform with unusable
+-  // modules, however at least it should go into a flat spin ...
+-  // GCLI mini_require reports an error as it should
+-  try {
+-    let unrequireable = require('gclitest/unrequirable');
+-    fail();
+-  }
+-  catch (ex) {
+-    // an exception is expected
+-  }
+-}
+-
+-function testRecursive() {
+-  // See Bug 658583
+-  // require('gclitest/recurse');
+-  // Also see the comments in the testRecursive() function
+-}
 diff --git a/browser/locales/en-US/chrome/browser/gcli.properties b/browser/locales/en-US/chrome/browser/gcli.properties
 new file mode 100644
 --- /dev/null

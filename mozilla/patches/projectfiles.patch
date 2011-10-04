@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent 1ab275d824f9304b940b7fc135712b1bb3e4737f
+# Parent ce689bad5e346597eb4b6bd6e11daaadab756f30
 # User Joe Walker <jwalker@mozilla.com>
 Internal project files. Don't commit
 
@@ -19,47 +19,34 @@ diff --git a/.cproject b/.cproject
 new file mode 100644
 --- /dev/null
 +++ b/.cproject
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,41 @@
 +<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 +<?fileVersion 4.0.0?>
 +
 +<cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
 +	<storageModule moduleId="org.eclipse.cdt.core.settings">
-+		<cconfiguration id="cdt.managedbuild.toolchain.gnu.base.835301276">
-+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.toolchain.gnu.base.835301276" moduleId="org.eclipse.cdt.core.settings" name="Default">
++		<cconfiguration id="cdt.managedbuild.toolchain.gnu.mingw.base.796522455">
++			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.toolchain.gnu.mingw.base.796522455" moduleId="org.eclipse.cdt.core.settings" name="Default">
 +				<externalSettings/>
 +				<extensions>
-+					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
-+					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
-+					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
++					<extension id="org.eclipse.cdt.core.PE" point="org.eclipse.cdt.core.BinaryParser"/>
 +					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 +					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 +					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 +				</extensions>
 +			</storageModule>
 +			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-+				<configuration buildProperties="" description="" id="cdt.managedbuild.toolchain.gnu.base.835301276" name="Default" parent="org.eclipse.cdt.build.core.emptycfg">
-+					<folderInfo id="cdt.managedbuild.toolchain.gnu.base.835301276.2046023373" name="/" resourcePath="">
-+						<toolChain id="cdt.managedbuild.toolchain.gnu.base.1671230291" name="cdt.managedbuild.toolchain.gnu.base" superClass="cdt.managedbuild.toolchain.gnu.base">
-+							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="cdt.managedbuild.target.gnu.platform.base.418708689" name="Debug Platform" osList="linux,hpux,aix,qnx" superClass="cdt.managedbuild.target.gnu.platform.base"/>
-+							<builder arguments="-f client.mk" command="make" id="cdt.managedbuild.target.gnu.builder.base.362944464" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" superClass="cdt.managedbuild.target.gnu.builder.base"/>
-+							<tool id="cdt.managedbuild.tool.gnu.archiver.base.938361073" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.base"/>
-+							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.base.1389165949" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.base">
-+								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.424727559" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
-+							</tool>
-+							<tool id="cdt.managedbuild.tool.gnu.c.compiler.base.14600013" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.base">
-+								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.311579728" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
-+							</tool>
-+							<tool id="cdt.managedbuild.tool.gnu.c.linker.base.1929647369" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.base"/>
-+							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.base.1233984002" name="GCC C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.base">
-+								<inputType id="cdt.managedbuild.tool.gnu.cpp.linker.input.148785837" superClass="cdt.managedbuild.tool.gnu.cpp.linker.input">
-+									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
-+									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
-+								</inputType>
-+							</tool>
-+							<tool id="cdt.managedbuild.tool.gnu.assembler.base.1476677536" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.base">
-+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.256188612" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
-+							</tool>
++				<configuration buildProperties="" id="cdt.managedbuild.toolchain.gnu.mingw.base.796522455" name="Default" parent="org.eclipse.cdt.build.core.emptycfg">
++					<folderInfo id="cdt.managedbuild.toolchain.gnu.mingw.base.796522455.1995197007" name="/" resourcePath="">
++						<toolChain id="cdt.managedbuild.toolchain.gnu.mingw.base.1541960463" name="cdt.managedbuild.toolchain.gnu.mingw.base" superClass="cdt.managedbuild.toolchain.gnu.mingw.base">
++							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.PE" id="cdt.managedbuild.target.gnu.platform.mingw.base.1675341291" name="Debug Platform" osList="win32" superClass="cdt.managedbuild.target.gnu.platform.mingw.base"/>
++							<builder buildPath="${workspace_loc:/devtools/Default}" id="cdt.managedbuild.tool.gnu.builder.mingw.base.1522692355" managedBuildOn="false" name="CDT Internal Builder.Default" superClass="cdt.managedbuild.tool.gnu.builder.mingw.base"/>
++							<tool id="cdt.managedbuild.tool.gnu.assembler.mingw.base.1161906690" name="GCC Assembler" superClass="cdt.managedbuild.tool.gnu.assembler.mingw.base"/>
++							<tool id="cdt.managedbuild.tool.gnu.archiver.mingw.base.1543583267" name="GCC Archiver" superClass="cdt.managedbuild.tool.gnu.archiver.mingw.base"/>
++							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base.508277182" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.base"/>
++							<tool id="cdt.managedbuild.tool.gnu.c.compiler.mingw.base.1169998817" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.mingw.base"/>
++							<tool id="cdt.managedbuild.tool.gnu.c.linker.mingw.base.2077396473" name="MinGW C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.mingw.base"/>
++							<tool id="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base.896503685" name="MinGW C++ Linker" superClass="cdt.managedbuild.tool.gnu.cpp.linker.mingw.base"/>
 +						</toolChain>
 +					</folderInfo>
 +				</configuration>
@@ -68,26 +55,17 @@ new file mode 100644
 +		</cconfiguration>
 +	</storageModule>
 +	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-+		<project id="devtools.null.1311829544" name="devtools"/>
-+	</storageModule>
-+	<storageModule moduleId="refreshScope" versionNumber="1">
-+		<resource resourceType="PROJECT" workspacePath="/devtools"/>
++		<project id="devtools.null.559233961" name="devtools"/>
 +	</storageModule>
 +	<storageModule moduleId="scannerConfiguration">
 +		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.835301276;cdt.managedbuild.toolchain.gnu.base.835301276.2046023373;cdt.managedbuild.tool.gnu.cpp.compiler.base.1389165949;cdt.managedbuild.tool.gnu.cpp.compiler.input.424727559">
-+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileCPP"/>
-+		</scannerConfigBuildInfo>
-+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.835301276;cdt.managedbuild.toolchain.gnu.base.835301276.2046023373;cdt.managedbuild.tool.gnu.c.compiler.base.14600013;cdt.managedbuild.tool.gnu.c.compiler.input.311579728">
-+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId="org.eclipse.cdt.managedbuilder.core.GCCManagedMakePerProjectProfileC"/>
-+		</scannerConfigBuildInfo>
 +	</storageModule>
 +</cproject>
 diff --git a/.project b/.project
 new file mode 100644
 --- /dev/null
 +++ b/.project
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,71 @@
 +<?xml version="1.0" encoding="UTF-8"?>
 +<projectDescription>
 +	<name>devtools</name>
@@ -108,20 +86,16 @@ new file mode 100644
 +					<value>true</value>
 +				</dictionary>
 +				<dictionary>
-+					<key>org.eclipse.cdt.make.core.autoBuildTarget</key>
-+					<value>all</value>
-+				</dictionary>
-+				<dictionary>
 +					<key>org.eclipse.cdt.make.core.buildArguments</key>
-+					<value>-f client.mk</value>
++					<value></value>
 +				</dictionary>
 +				<dictionary>
 +					<key>org.eclipse.cdt.make.core.buildCommand</key>
 +					<value>make</value>
 +				</dictionary>
 +				<dictionary>
-+					<key>org.eclipse.cdt.make.core.cleanBuildTarget</key>
-+					<value>clean</value>
++					<key>org.eclipse.cdt.make.core.buildLocation</key>
++					<value>${workspace_loc:/devtools/Default}</value>
 +				</dictionary>
 +				<dictionary>
 +					<key>org.eclipse.cdt.make.core.contents</key>
@@ -140,16 +114,12 @@ new file mode 100644
 +					<value>true</value>
 +				</dictionary>
 +				<dictionary>
-+					<key>org.eclipse.cdt.make.core.fullBuildTarget</key>
-+					<value>all</value>
-+				</dictionary>
-+				<dictionary>
 +					<key>org.eclipse.cdt.make.core.stopOnError</key>
 +					<value>true</value>
 +				</dictionary>
 +				<dictionary>
 +					<key>org.eclipse.cdt.make.core.useDefaultBuildCmd</key>
-+					<value>false</value>
++					<value>true</value>
 +				</dictionary>
 +			</arguments>
 +		</buildCommand>

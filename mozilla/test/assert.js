@@ -5,5 +5,8 @@
  */
 
 define(function(require, exports, module) {
-  require("test/commands").setup();
+
+  exports.ok = ok;
+  exports.is = is;
+
 });
