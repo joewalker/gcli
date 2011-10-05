@@ -114,7 +114,7 @@ var console = {};
    *        The original string formatted to fit the specified lengths
    */
   function fmt(aStr, aMaxLen, aMinLen, aOptions) {
-    if (aMinLen == undefined) {
+    if (aMinLen == null) {
       aMinLen = aMaxLen;
     }
     if (aStr == null) {
@@ -212,11 +212,11 @@ var console = {};
    *        A multi line representation of aThing
    */
   function log(aThing) {
-    if (aThing == null) {
+    if (aThing === null) {
       return "null\n";
     }
 
-    if (aThing == undefined) {
+    if (aThing === undefined) {
       return "undefined\n";
     }
 
