@@ -1,0 +1,760 @@
+# HG changeset patch
+# Parent addcfd589e5a18192e776b71b577d99cb73ad31e
+# User Joe Walker <jwalker@mozilla.com>
+Bug 692424 - GCLI and DOMTemplate could use a Promise implementation
+
+diff --git a/browser/devtools/shared/Makefile.in b/browser/devtools/shared/Makefile.in
+--- a/browser/devtools/shared/Makefile.in
++++ b/browser/devtools/shared/Makefile.in
+@@ -21,6 +21,7 @@
+ #
+ # Contributor(s):
+ #     Mike Ratcliffe <mratcliffe@mozilla.com>  (Original author)
++#     Joe Walker <jwalker@mozilla.com>
+ #
+ # Alternatively, the contents of this file may be used under the terms of
+ # either the GNU General Public License Version 2 or later (the "GPL"), or
+@@ -45,7 +46,7 @@ include $(DEPTH)/config/autoconf.mk
+ 
+ ifdef ENABLE_TESTS
+ ifneq (mobile,$(MOZ_BUILD_APP))
+-	# DIRS += test # no tests yet
++	DIRS += test
+ endif
+ endif
+ 
+@@ -53,3 +54,4 @@ include $(topsrcdir)/config/rules.mk
+ 
+ libs::
+ 	$(NSINSTALL) $(srcdir)/Templater.jsm $(FINAL_TARGET)/modules/devtools
++	$(NSINSTALL) $(srcdir)/Promise.jsm $(FINAL_TARGET)/modules/devtools
+diff --git a/browser/devtools/shared/Promise.jsm b/browser/devtools/shared/Promise.jsm
+new file mode 100644
+--- /dev/null
++++ b/browser/devtools/shared/Promise.jsm
+@@ -0,0 +1,246 @@
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is GCLI.
++ *
++ * The Initial Developer of the Original Code is
++ * The Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2011
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *   Joe Walker (jwalker@mozilla.com) (original author)
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++
++var EXPORTED_SYMBOLS = [ "Promise" ];
++
++/**
++ * Create an unfulfilled promise
++ * @constructor
++ */
++function Promise() {
++  this._status = Promise.PENDING;
++  this._value = undefined;
++  this._onSuccessHandlers = [];
++  this._onErrorHandlers = [];
++
++  // Debugging help
++  this._id = Promise._nextId++;
++  Promise._outstanding[this._id] = this;
++};
++
++/**
++ * We give promises and ID so we can track which are outstanding
++ */
++Promise._nextId = 0;
++
++/**
++ * Outstanding promises. Handy list for debugging only.
++ */
++Promise._outstanding = [];
++
++/**
++ * Recently resolved promises. Also for debugging only.
++ */
++Promise._recent = [];
++
++/**
++ * A promise can be in one of 2 states.
++ * The ERROR and SUCCESS states are terminal, the PENDING state is the only
++ * start state.
++ */
++Promise.ERROR = -1;
++Promise.PENDING = 0;
++Promise.SUCCESS = 1;
++
++/**
++ * Yeay for RTTI.
++ */
++Promise.prototype.isPromise = true;
++
++/**
++ * Have we either been resolve()ed or reject()ed?
++ */
++Promise.prototype.isComplete = function() {
++  return this._status != Promise.PENDING;
++};
++
++/**
++ * Have we resolve()ed?
++ */
++Promise.prototype.isResolved = function() {
++  return this._status == Promise.SUCCESS;
++};
++
++/**
++ * Have we reject()ed?
++ */
++Promise.prototype.isRejected = function() {
++  return this._status == Promise.ERROR;
++};
++
++/**
++ * Take the specified action of fulfillment of a promise, and (optionally)
++ * a different action on promise rejection.
++ */
++Promise.prototype.then = function(onSuccess, onError) {
++  if (typeof onSuccess === 'function') {
++    if (this._status === Promise.SUCCESS) {
++      onSuccess.call(null, this._value);
++    } else if (this._status === Promise.PENDING) {
++      this._onSuccessHandlers.push(onSuccess);
++    }
++  }
++
++  if (typeof onError === 'function') {
++    if (this._status === Promise.ERROR) {
++      onError.call(null, this._value);
++    } else if (this._status === Promise.PENDING) {
++      this._onErrorHandlers.push(onError);
++    }
++  }
++
++  return this;
++};
++
++/**
++ * Like then() except that rather than returning <tt>this</tt> we return
++ * a promise which resolves when the original promise resolves.
++ */
++Promise.prototype.chainPromise = function(onSuccess) {
++  var chain = new Promise();
++  chain._chainedFrom = this;
++  this.then(function(data) {
++    try {
++      chain.resolve(onSuccess(data));
++    } catch (ex) {
++      chain.reject(ex);
++    }
++  }, function(ex) {
++    chain.reject(ex);
++  });
++  return chain;
++};
++
++/**
++ * Supply the fulfillment of a promise
++ */
++Promise.prototype.resolve = function(data) {
++  return this._complete(this._onSuccessHandlers,
++                        Promise.SUCCESS, data, 'resolve');
++};
++
++/**
++ * Renege on a promise
++ */
++Promise.prototype.reject = function(data) {
++  return this._complete(this._onErrorHandlers, Promise.ERROR, data, 'reject');
++};
++
++/**
++ * Internal method to be called on resolve() or reject().
++ * @private
++ */
++Promise.prototype._complete = function(list, status, data, name) {
++  // Complain if we've already been completed
++  if (this._status != Promise.PENDING) {
++    console.group('Promise already closed');
++    console.error('Attempted ' + name + '() with ', data);
++    console.error('Previous status = ', this._status,
++        ', previous value = ', this._value);
++    console.trace();
++
++    console.groupEnd();
++    return this;
++  }
++
++  this._status = status;
++  this._value = data;
++
++  // Call all the handlers, and then delete them
++  list.forEach(function(handler) {
++    handler.call(null, this._value);
++  }, this);
++  delete this._onSuccessHandlers;
++  delete this._onErrorHandlers;
++
++  // Remove the given {promise} from the _outstanding list, and add it to the
++  // _recent list, pruning more than 20 recent promises from that list.
++  delete Promise._outstanding[this._id];
++  // The original code includes this very useful debugging aid, however there
++  // is concern that it will create a memory leak, so we leave it out here.
++  /*
++  Promise._recent.push(this);
++  while (Promise._recent.length > 20) {
++    Promise._recent.shift();
++  }
++  */
++
++  return this;
++};
++
++/**
++ * Takes an array of promises and returns a promise that that is fulfilled once
++ * all the promises in the array are fulfilled
++ * @param promiseList The array of promises
++ * @return the promise that is fulfilled when all the array is fulfilled
++ */
++Promise.group = function(promiseList) {
++  if (!(promiseList instanceof Array)) {
++    promiseList = Array.prototype.slice.call(arguments);
++  }
++
++  // If the original array has nothing in it, return now to avoid waiting
++  if (promiseList.length === 0) {
++    return new Promise().resolve([]);
++  }
++
++  var groupPromise = new Promise();
++  var results = [];
++  var fulfilled = 0;
++
++  var onSuccessFactory = function(index) {
++    return function(data) {
++      results[index] = data;
++      fulfilled++;
++      // If the group has already failed, silently drop extra results
++      if (groupPromise._status !== Promise.ERROR) {
++        if (fulfilled === promiseList.length) {
++          groupPromise.resolve(results);
++        }
++      }
++    };
++  };
++
++  promiseList.forEach(function(promise, index) {
++    var onSuccess = onSuccessFactory(index);
++    var onError = groupPromise.reject.bind(groupPromise);
++    promise.then(onSuccess, onError);
++  });
++
++  return groupPromise;
++};
+diff --git a/browser/devtools/shared/test/Makefile.in b/browser/devtools/shared/test/Makefile.in
+new file mode 100644
+--- /dev/null
++++ b/browser/devtools/shared/test/Makefile.in
+@@ -0,0 +1,61 @@
++#
++# ***** BEGIN LICENSE BLOCK *****
++# Version: MPL 1.1/GPL 2.0/LGPL 2.1
++#
++# The contents of this file are subject to the Mozilla Public License Version
++# 1.1 (the "License"); you may not use this file except in compliance with
++# the License. You may obtain a copy of the License at
++# http://www.mozilla.org/MPL/
++#
++# Software distributed under the License is distributed on an "AS IS" basis,
++# WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++# for the specific language governing rights and limitations under the
++# License.
++#
++# The Original Code is Style Inspector code.
++#
++# The Initial Developer of the Original Code is
++# Mozilla Corporation.
++# Portions created by the Initial Developer are Copyright (C) 2010
++# the Initial Developer. All Rights Reserved.
++#
++# Contributor(s):
++#     Joe Walker <jwalker@mozilla.com> (Original author)
++#
++# Alternatively, the contents of this file may be used under the terms of
++# either of the GNU General Public License Version 2 or later (the "GPL"),
++# or the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++# in which case the provisions of the GPL or the LGPL are applicable instead
++# of those above. If you wish to allow use of your version of this file only
++# under the terms of either the GPL or the LGPL, and not to allow others to
++# use your version of this file under the terms of the MPL, indicate your
++# decision by deleting the provisions above and replace them with the notice
++# and other provisions required by the GPL or the LGPL. If you do not delete
++# the provisions above, a recipient may use your version of this file under
++# the terms of any one of the MPL, the GPL or the LGPL.
++#
++# ***** END LICENSE BLOCK *****
++
++DEPTH     = ../../../..
++topsrcdir = @top_srcdir@
++srcdir    = @srcdir@
++VPATH     = @srcdir@
++relativesrcdir  = browser/devtools/shared/test
++
++include $(DEPTH)/config/autoconf.mk
++include $(topsrcdir)/config/rules.mk
++
++_BROWSER_TEST_FILES = \
++  browser_templater_basic.js \
++  head.js \
++  $(NULL)
++
++_BROWSER_TEST_PAGES = \
++  browser_templater_basic.html \
++  $(NULL)
++
++libs:: $(_BROWSER_TEST_FILES)
++	$(INSTALL) $(foreach f,$^,"$f") $(DEPTH)/_tests/testing/mochitest/browser/$(relativesrcdir)
++
++libs:: $(_BROWSER_TEST_PAGES)
++	$(INSTALL) $(foreach f,$^,"$f") $(DEPTH)/_tests/testing/mochitest/browser/$(relativesrcdir)
+diff --git a/browser/devtools/shared/test/browser_promise_basic.js b/browser/devtools/shared/test/browser_promise_basic.js
+new file mode 100644
+--- /dev/null
++++ b/browser/devtools/shared/test/browser_promise_basic.js
+@@ -0,0 +1,218 @@
++/* Any copyright is dedicated to the Public Domain.
++   http://creativecommons.org/publicdomain/zero/1.0/ */
++
++// Tests that the DOM Template engine works properly
++
++Cu.import("resource:///modules/devtools/Templater.jsm");
++Cu.import("resource:///modules/devtools/Promise.jsm");
++
++function test()
++{
++  waitForExplicitFinish();
++  addTab("http://example.com/browser/browser/devtools/shared/test/browser_templater_basic.html");
++  browser.addEventListener("load", tabLoaded, true);
++}
++
++function tabLoaded()
++{
++  browser.removeEventListener("load", tabLoaded, true);
++  info("Starting DOM Templater Tests");
++  runTest(0);
++}
++
++function runTest(index) {
++  var options = tests[index] = tests[index]();
++  var holder = content.document.createElement('div');
++  holder.id = options.name;
++  var body = content.document.body;
++  body.appendChild(holder);
++  holder.innerHTML = options.template;
++
++  info('Running ' + options.name);
++  new Templater().processNode(holder, options.data);
++
++  if (typeof options.result == 'string') {
++    is(holder.innerHTML, options.result, options.name);
++  }
++  else {
++    ok(holder.innerHTML.match(options.result), options.name);
++  }
++
++  if (options.also) {
++    options.also(options);
++  }
++
++  function runNextTest() {
++    index++;
++    if (index < tests.length) {
++      runTest(index);
++    }
++    else {
++      finished();
++    }
++  }
++
++  if (options.later) {
++    var ais = is.bind(this);
++
++    function createTester(holder, options) {
++      return function() {
++        ais(holder.innerHTML, options.later, options.name + ' later');
++        runNextTest();
++      }.bind(this);
++    }
++
++    setTimeout(createTester(holder, options), 200);
++  }
++  else {
++    runNextTest();
++  }
++}
++
++function finished() {
++  gBrowser.removeCurrentTab();
++  info("Finishing DOM Templater Tests");
++  leakHunt({ tests: tests })
++  tests = null;
++  finish();
++}
++
++/**
++ * Why have an array of functions that return data rather than just an array
++ * of the data itself? Some of these tests contain calls to delayReply() which
++ * sets up async processing using executeSoon(). Since the execution of these
++ * tests is asynchronous, the delayed reply will probably arrive before the
++ * test is executed, making the test be synchronous. So we wrap the data in a
++ * function so we only set it up just before we use it.
++ */
++var tests = [
++  function() { return {
++    name: 'simpleNesting',
++    template: '<div id="ex1">${nested.value}</div>',
++    data: { nested:{ value:'pass 1' } },
++    result: '<div id="ex1">pass 1</div>'
++  };},
++
++  function() { return {
++    name: 'returnDom',
++    template: '<div id="ex2">${__element.ownerDocument.createTextNode(\'pass 2\')}</div>',
++    data: {},
++    result: '<div id="ex2">pass 2</div>'
++  };},
++
++  function() { return {
++    name: 'srcChange',
++    template: '<img _src="${fred}" id="ex3">',
++    data: { fred:'green.png' },
++    result: /<img( id="ex3")? src="green.png"( id="ex3")?>/
++  };},
++
++  function() { return {
++    name: 'ifTrue',
++    template: '<p if="${name !== \'jim\'}">hello ${name}</p>',
++    data: { name: 'fred' },
++    result: '<p>hello fred</p>'
++  };},
++
++  function() { return {
++    name: 'ifFalse',
++    template: '<p if="${name !== \'jim\'}">hello ${name}</p>',
++    data: { name: 'jim' },
++    result: ''
++  };},
++
++  function() { return {
++    name: 'simpleLoop',
++    template: '<p foreach="index in ${[ 1, 2, 3 ]}">${index}</p>',
++    data: {},
++    result: '<p>1</p><p>2</p><p>3</p>'
++  };},
++
++  function() { return {
++    name: 'loopElement',
++    template: '<loop foreach="i in ${array}">${i}</loop>',
++    data: { array: [ 1, 2, 3 ] },
++    result: '123'
++  };},
++
++  // Bug 692028: DOMTemplate memory leak with asynchronous arrays
++  // Bug 692031: DOMTemplate async loops do not drop the loop element
++  function() { return {
++    name: 'asyncLoopElement',
++    template: '<loop foreach="i in ${array}">${i}</loop>',
++    data: { array: delayReply([1, 2, 3]) },
++    result: '<span></span>',
++    later: '123'
++  };},
++
++  function() { return {
++    name: 'saveElement',
++    template: '<p save="${element}">${name}</p>',
++    data: { name: 'pass 8' },
++    result: '<p>pass 8</p>',
++    also: function(options) {
++      ok(options.data.element.innerHTML, 'pass 9', 'saveElement saved');
++      delete options.data.element;
++    }
++  };},
++
++  function() { return {
++    name: 'useElement',
++    template: '<p id="pass9">${adjust(__element)}</p>',
++    data: {
++      adjust: function(element) {
++        is('pass9', element.id, 'useElement adjust');
++        return 'pass 9b'
++      }
++    },
++    result: '<p id="pass9">pass 9b</p>'
++  };},
++
++  function() { return {
++    name: 'asyncInline',
++    template: '${delayed}',
++    data: { delayed: delayReply('inline') },
++    result: '<span></span>',
++    later: 'inline'
++  };},
++
++  // Bug 692028: DOMTemplate memory leak with asynchronous arrays
++  function() { return {
++    name: 'asyncArray',
++    template: '<p foreach="i in ${delayed}">${i}</p>',
++    data: { delayed: delayReply([1, 2, 3]) },
++    result: '<span></span>',
++    later: '<p>1</p><p>2</p><p>3</p>'
++  };},
++
++  function() { return {
++    name: 'asyncMember',
++    template: '<p foreach="i in ${delayed}">${i}</p>',
++    data: { delayed: [delayReply(4), delayReply(5), delayReply(6)] },
++    result: '<span></span><span></span><span></span>',
++    later: '<p>4</p><p>5</p><p>6</p>'
++  };},
++
++  // Bug 692028: DOMTemplate memory leak with asynchronous arrays
++  function() { return {
++    name: 'asyncBoth',
++    template: '<p foreach="i in ${delayed}">${i}</p>',
++    data: {
++      delayed: delayReply([
++        delayReply(4),
++        delayReply(5),
++        delayReply(6)
++      ])
++    },
++    result: '<span></span>',
++    later: '<p>4</p><p>5</p><p>6</p>'
++  };}
++];
++
++function delayReply(data) {
++  var p = new Promise();
++  executeSoon(function() {
++    p.resolve(data);
++  });
++  return p;
++}
+diff --git a/browser/devtools/shared/test/head.js b/browser/devtools/shared/test/head.js
+new file mode 100644
+--- /dev/null
++++ b/browser/devtools/shared/test/head.js
+@@ -0,0 +1,185 @@
++/* vim:set ts=2 sw=2 sts=2 et: */
++/* ***** BEGIN LICENSE BLOCK *****
++ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
++ *
++ * The contents of this file are subject to the Mozilla Public License Version
++ * 1.1 (the "License"); you may not use this file except in compliance with
++ * the License. You may obtain a copy of the License at
++ * http://www.mozilla.org/MPL/
++ *
++ * Software distributed under the License is distributed on an "AS IS" basis,
++ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
++ * for the specific language governing rights and limitations under the
++ * License.
++ *
++ * The Original Code is DevTools test code.
++ *
++ * The Initial Developer of the Original Code is Mozilla Foundation.
++ * Portions created by the Initial Developer are Copyright (C) 2011
++ * the Initial Developer. All Rights Reserved.
++ *
++ * Contributor(s):
++ *  Mike Ratcliffe <mratcliffe@mozilla.com>
++ *
++ * Alternatively, the contents of this file may be used under the terms of
++ * either the GNU General Public License Version 2 or later (the "GPL"), or
++ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
++ * in which case the provisions of the GPL or the LGPL are applicable instead
++ * of those above. If you wish to allow use of your version of this file only
++ * under the terms of either the GPL or the LGPL, and not to allow others to
++ * use your version of this file under the terms of the MPL, indicate your
++ * decision by deleting the provisions above and replace them with the notice
++ * and other provisions required by the GPL or the LGPL. If you do not delete
++ * the provisions above, a recipient may use your version of this file under
++ * the terms of any one of the MPL, the GPL or the LGPL.
++ *
++ * ***** END LICENSE BLOCK ***** */
++
++Cu.import("resource:///modules/devtools/StyleInspector.jsm");
++Cu.import("resource://gre/modules/HUDService.jsm");
++
++function log(aMsg)
++{
++  dump("*** WebConsoleTest: " + aMsg + "\n");
++}
++
++function pprint(aObj)
++{
++  for (let prop in aObj) {
++    if (typeof aObj[prop] == "function") {
++      log("function " + prop);
++    }
++    else {
++      log(prop + ": " + aObj[prop]);
++    }
++  }
++}
++
++let tab, browser, hudId, hud, hudBox, filterBox, outputNode, cs;
++
++function addTab(aURL)
++{
++  gBrowser.selectedTab = gBrowser.addTab();
++  content.location = aURL;
++  tab = gBrowser.selectedTab;
++  browser = gBrowser.getBrowserForTab(tab);
++}
++
++function afterAllTabsLoaded(callback, win) {
++  win = win || window;
++
++  let stillToLoad = 0;
++
++  function onLoad() {
++    this.removeEventListener("load", onLoad, true);
++    stillToLoad--;
++    if (!stillToLoad)
++      callback();
++  }
++
++  for (let a = 0; a < win.gBrowser.tabs.length; a++) {
++    let browser = win.gBrowser.tabs[a].linkedBrowser;
++    if (browser.contentDocument.readyState != "complete") {
++      stillToLoad++;
++      browser.addEventListener("load", onLoad, true);
++    }
++  }
++
++  if (!stillToLoad)
++    callback();
++}
++
++/**
++ * Check if a log entry exists in the HUD output node.
++ *
++ * @param {Element} aOutputNode
++ *        the HUD output node.
++ * @param {string} aMatchString
++ *        the string you want to check if it exists in the output node.
++ * @param {string} aMsg
++ *        the message describing the test
++ * @param {boolean} [aOnlyVisible=false]
++ *        find only messages that are visible, not hidden by the filter.
++ * @param {boolean} [aFailIfFound=false]
++ *        fail the test if the string is found in the output node.
++ * @param {string} aClass [optional]
++ *        find only messages with the given CSS class.
++ */
++function testLogEntry(aOutputNode, aMatchString, aMsg, aOnlyVisible,
++                      aFailIfFound, aClass)
++{
++  let selector = ".hud-msg-node";
++  // Skip entries that are hidden by the filter.
++  if (aOnlyVisible) {
++    selector += ":not(.hud-filtered-by-type)";
++  }
++  if (aClass) {
++    selector += "." + aClass;
++  }
++
++  let msgs = aOutputNode.querySelectorAll(selector);
++  let found = false;
++  for (let i = 0, n = msgs.length; i < n; i++) {
++    let message = msgs[i].textContent.indexOf(aMatchString);
++    if (message > -1) {
++      found = true;
++      break;
++    }
++
++    // Search the labels too.
++    let labels = msgs[i].querySelectorAll("label");
++    for (let j = 0; j < labels.length; j++) {
++      if (labels[j].getAttribute("value").indexOf(aMatchString) > -1) {
++        found = true;
++        break;
++      }
++    }
++  }
++
++  is(found, !aFailIfFound, aMsg);
++}
++
++/**
++ * A convenience method to call testLogEntry().
++ *
++ * @param string aString
++ *        The string to find.
++ */
++function findLogEntry(aString)
++{
++  testLogEntry(outputNode, aString, "found " + aString);
++}
++
++function openConsole()
++{
++  HUDService.activateHUDForContext(tab);
++}
++
++function closeConsole()
++{
++  HUDService.deactivateHUDForContext(tab);
++}
++
++function finishTest()
++{
++  finish();
++}
++
++function tearDown()
++{
++  try {
++    HUDService.deactivateHUDForContext(gBrowser.selectedTab);
++  }
++  catch (ex) {
++    log(ex);
++  }
++  while (gBrowser.tabs.length > 1) {
++    gBrowser.removeCurrentTab();
++  }
++  tab = browser = hudId = hud = filterBox = outputNode = cs = null;
++}
++
++registerCleanupFunction(tearDown);
++
++waitForExplicitFinish();
++

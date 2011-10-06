@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent 8ba09912a060f2d6ec4582913794d06e459627b6
+# Parent d0de6c687fb4c0e07d16d85b047098714f8e1130
 # User Joe Walker <jwalker@mozilla.com>
 Bug 690822 - GCLI web tests should be capable of being run in the browser
 
@@ -986,7 +986,7 @@ new file mode 100644
 +  test.is(-1, assignC.paramIndex);
 +  test.is(1, assignC.getPredictions().length);
 +  test.is('tselarr', assignC.getPredictions()[0].name);
-+  test.ok(null === requ.commandAssignment.getValue());
++  test.is(null, requ.commandAssignment.getValue());
 +};
 +
 +exports.testTsv = function() {
@@ -1341,7 +1341,7 @@ new file mode 100644
 +exports.testMultiImport = function() {
 +  var r1 = require('gclitest/requirable');
 +  var r2 = require('gclitest/requirable');
-+  test.ok(r1 === r2);
++  test.is(r1, r2);
 +};
 +
 +exports.testUncompilable = function() {

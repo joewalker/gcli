@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent aed585069643eef1520508a6b23df9643213a95f
+# Parent 757e7711eb27a472ca7afb7221a9c725eab668be
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/app/profile/firefox.js b/browser/app/profile/firefox.js
@@ -190,7 +190,7 @@ new file mode 100644
 +});
 +
 +/**
-+ * 'console close' command
++ * 'console clear' command
 + */
 +gcli.addCommand({
 +  name: "console clear",

@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306496118 -3600
 # Node ID c9f0d4142413be8bd4cf553732568c1249999196
-# Parent 4cc236217cfd2694fe92c2b8c5d2985d21ea02e1
+# Parent 54dd0296f12de993362b006c51f82aab283aa491
 Bug 656668 - Create Export from GCLI project to JSM
 
 diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
@@ -254,7 +254,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +   *        The original string formatted to fit the specified lengths
 +   */
 +  function fmt(aStr, aMaxLen, aMinLen, aOptions) {
-+    if (aMinLen == undefined) {
++    if (aMinLen == null) {
 +      aMinLen = aMaxLen;
 +    }
 +    if (aStr == null) {
@@ -352,11 +352,11 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +   *        A multi line representation of aThing
 +   */
 +  function log(aThing) {
-+    if (aThing == null) {
++    if (aThing === null) {
 +      return "null\n";
 +    }
 +
-+    if (aThing == undefined) {
++    if (aThing === undefined) {
 +      return "undefined\n";
 +    }
 +
@@ -830,7 +830,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
      console.log("define: " + moduleName + " -> " + payload.toString()
          .slice(0, 40).replace(/\n/, '\\n').replace(/\r/, '\\r') + "...");
    }
-@@ -417,151 +497,6790 @@ function define(moduleName, deps, payloa
+@@ -417,151 +497,6791 @@ function define(moduleName, deps, payloa
      console.error(this.depth + " Error: Redefining module: " + moduleName);
    }
    define.modules[moduleName] = payload;
@@ -5500,8 +5500,9 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +
 +/**
 + * Create an unfulfilled promise
++ * @constructor
 + */
-+var Promise = function () {
++function Promise() {
 +  this._status = Promise.PENDING;
 +  this._value = undefined;
 +  this._onSuccessHandlers = [];
@@ -5545,7 +5546,7 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 + * Have we either been resolve()ed or reject()ed?
 + */
 +Promise.prototype.isComplete = function() {
-+  return this._status != PENDING;
++  return this._status != Promise.PENDING;
 +};
 +
 +/**
@@ -5643,8 +5644,8 @@ diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/
 +  list.forEach(function(handler) {
 +    handler.call(null, this._value);
 +  }, this);
-+  this._onSuccessHandlers.length = 0;
-+  this._onErrorHandlers.length = 0;
++  delete this._onSuccessHandlers;
++  delete this._onErrorHandlers;
 +
 +  // Remove the given {promise} from the _outstanding list, and add it to the
 +  // _recent list, pruning more than 20 recent promises from that list.
