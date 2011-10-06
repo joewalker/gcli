@@ -4,6 +4,8 @@
 Bug 684958 - DOM Templater should include async functionality via promises
 
 diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Templater.jsm
+old mode 100644
+new mode 100755
 --- a/browser/devtools/shared/Templater.jsm
 +++ b/browser/devtools/shared/Templater.jsm
 @@ -38,7 +38,6 @@
@@ -14,12 +16,15 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
  
  var EXPORTED_SYMBOLS = ["Templater"];
  
-@@ -49,11 +48,13 @@ Cu.import("resource://gre/modules/Servic
+@@ -47,13 +46,15 @@ const Cu = Components.utils;
  
- var Node = Ci.nsIDOMNode;
+ Cu.import("resource://gre/modules/Services.jsm");
  
-+// WARNING: do not 'use_strict' without reading the notes in _envEval();
+-var Node = Ci.nsIDOMNode;
++const Node = Ci.nsIDOMNode;
 +
++// WARNING: do not 'use_strict' without reading the notes in _envEval();
+ 
  /**
   * A templater that allows one to quickly template DOM nodes.
   */

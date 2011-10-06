@@ -3,5 +3,6 @@ bug684721-templater.patch
 bug684958-async.patch
 bug656668-gcli.patch
 bug656666-hudservice.patch
+bug690822-tests.patch
 bug671406-commands.patch
 bug659885-debugger.patch #+debugger
