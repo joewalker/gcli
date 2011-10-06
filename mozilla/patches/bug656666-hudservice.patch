@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent 757e7711eb27a472ca7afb7221a9c725eab668be
+# Parent 27bec2457329e473abfd3bc6072a50ebd2c038ca
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/app/profile/firefox.js b/browser/app/profile/firefox.js
@@ -1205,11 +1205,15 @@ diff --git a/browser/locales/en-US/chrome/browser/gcli.properties b/browser/loca
 new file mode 100644
 --- /dev/null
 +++ b/browser/locales/en-US/chrome/browser/gcli.properties
-@@ -0,0 +1,88 @@
+@@ -0,0 +1,92 @@
 +# LOCALIZATION NOTE These strings are used inside the Web Console
 +# command line which is available from the Web Developer sub-menu
 +# -> 'Web Console'.
-+# The correct localization of this file might be to keep it in# English, or another language commonly spoken among web developers.# You want to make that choice consistent across the developer tools.# A good criteria is the language in which you'd find the best# documentation on web development on the web.
++# The correct localization of this file might be to keep it in
++# English, or another language commonly spoken among web developers.
++# You want to make that choice consistent across the developer tools.
++# A good criteria is the language in which you'd find the best
++# documentation on web development on the web.
 +
 +# LOCALIZATION NOTE (canonDescNone): Short string used to describe any command
 +# or command parameter when no description has been provided.
