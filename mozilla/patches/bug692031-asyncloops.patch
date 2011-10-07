@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent ecca310422a3fdc4240aa64bdf5c2789afba1dad
+# Parent 8d314b11fc27da38119928af5e70f47731d63733
 # User Joe Walker <jwalker@mozilla.com>
 Bug 692031 - DOMTemplate async loops do not drop the loop element
 
@@ -80,3 +80,22 @@ diff --git a/browser/devtools/shared/Templater.jsm b/browser/devtools/shared/Tem
    Services.console.logStringMessage(message);
  };
 -
+diff --git a/browser/devtools/shared/test/browser_templater_basic.js b/browser/devtools/shared/test/browser_templater_basic.js
+--- a/browser/devtools/shared/test/browser_templater_basic.js
++++ b/browser/devtools/shared/test/browser_templater_basic.js
+@@ -135,7 +135,6 @@ var tests = [
+   };},
+ 
+   // Bug 692031: DOMTemplate async loops do not drop the loop element
+-  /*
+   function() { return {
+     name: 'asyncLoopElement',
+     template: '<loop foreach="i in ${array}">${i}</loop>',
+@@ -143,7 +142,6 @@ var tests = [
+     result: '<span></span>',
+     later: '123'
+   };},
+-  //*/
+ 
+   function() { return {
+     name: 'saveElement',

@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent c9dcdf6a6c00a380188e25285db5fd01d376788c
+# Parent 527af64c9fc69be3eca8d86aadd88be236fa12ea
 # User Joe Walker <jwalker@mozilla.com>
 Bug 691012 - DOMTemplate needs chrome tests
 
@@ -42,7 +42,7 @@ diff --git a/browser/devtools/shared/test/browser_templater_basic.js b/browser/d
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/shared/test/browser_templater_basic.js
-@@ -0,0 +1,218 @@
+@@ -0,0 +1,216 @@
 +/* Any copyright is dedicated to the Public Domain.
 +   http://creativecommons.org/publicdomain/zero/1.0/ */
 +
@@ -117,7 +117,6 @@ new file mode 100644
 +function finished() {
 +  gBrowser.removeCurrentTab();
 +  info("Finishing DOM Templater Tests");
-+  leakHunt({ tests: tests })
 +  tests = null;
 +  finish();
 +}
@@ -180,8 +179,8 @@ new file mode 100644
 +    result: '123'
 +  };},
 +
-+  // Bug 692028: DOMTemplate memory leak with asynchronous arrays
 +  // Bug 692031: DOMTemplate async loops do not drop the loop element
++  /*
 +  function() { return {
 +    name: 'asyncLoopElement',
 +    template: '<loop foreach="i in ${array}">${i}</loop>',
@@ -189,6 +188,7 @@ new file mode 100644
 +    result: '<span></span>',
 +    later: '123'
 +  };},
++  //*/
 +
 +  function() { return {
 +    name: 'saveElement',
@@ -221,7 +221,6 @@ new file mode 100644
 +    later: 'inline'
 +  };},
 +
-+  // Bug 692028: DOMTemplate memory leak with asynchronous arrays
 +  function() { return {
 +    name: 'asyncArray',
 +    template: '<p foreach="i in ${delayed}">${i}</p>',
@@ -238,7 +237,6 @@ new file mode 100644
 +    later: '<p>4</p><p>5</p><p>6</p>'
 +  };},
 +
-+  // Bug 692028: DOMTemplate memory leak with asynchronous arrays
 +  function() { return {
 +    name: 'asyncBoth',
 +    template: '<p foreach="i in ${delayed}">${i}</p>',

@@ -175,7 +175,7 @@ new file mode 100644
 +Promise.prototype._complete = function(list, status, data, name) {
 +  // Complain if we've already been completed
 +  if (this._status != Promise.PENDING) {
-+    if (typeof 'console' !== 'undefined') {
++    if (typeof 'console' === 'object') {
 +      console.error('Promise complete. Attempted ' + name + '() with ', data);
 +      console.error('Prev status = ', this._status, ', value = ', this._value);
 +    }
@@ -214,7 +214,7 @@ new file mode 100644
 + * @return the promise that is fulfilled when all the array is fulfilled
 + */
 +Promise.group = function(promiseList) {
-+  if (!(promiseList instanceof Array)) {
++  if (!Array.isArray(promiseList)) {
 +    promiseList = Array.prototype.slice.call(arguments);
 +  }
 +
@@ -469,7 +469,7 @@ new file mode 100644
 +  member2 = new Promise();
 +  member3 = new Promise();
 +  laterGroup = Promise.group(member1, member2, member3);
-+  laterGroup.then(testlaterGroup, fail);
++  laterGroup.then(testLaterGroup, fail);
 +
 +  member1.then(function(data) {
 +    is(data, "member1", "member1 is member1");
@@ -494,7 +494,7 @@ new file mode 100644
 +
 +var tidyGroup;
 +
-+function testlaterGroup(data) {
++function testLaterGroup(data) {
 +  is(data[0], "member1", "member1 is member1");
 +  is(data[1], "member2", "member2 is member2");
 +  is(data[2], "member3", "member3 is member3");
