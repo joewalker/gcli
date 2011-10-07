@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent addcfd589e5a18192e776b71b577d99cb73ad31e
+# Parent af53dbfda063bc1caf98e0c286ae254758e995e6
 # User Joe Walker <jwalker@mozilla.com>
 Bug 692424 - GCLI and DOMTemplate could use a Promise implementation
 
@@ -32,43 +32,12 @@ diff --git a/browser/devtools/shared/Promise.jsm b/browser/devtools/shared/Promi
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/shared/Promise.jsm
-@@ -0,0 +1,246 @@
-+/* ***** BEGIN LICENSE BLOCK *****
-+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
-+ *
-+ * The contents of this file are subject to the Mozilla Public License Version
-+ * 1.1 (the "License"); you may not use this file except in compliance with
-+ * the License. You may obtain a copy of the License at
-+ * http://www.mozilla.org/MPL/
-+ *
-+ * Software distributed under the License is distributed on an "AS IS" basis,
-+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
-+ * for the specific language governing rights and limitations under the
-+ * License.
-+ *
-+ * The Original Code is GCLI.
-+ *
-+ * The Initial Developer of the Original Code is
-+ * The Mozilla Foundation.
-+ * Portions created by the Initial Developer are Copyright (C) 2011
-+ * the Initial Developer. All Rights Reserved.
-+ *
-+ * Contributor(s):
-+ *   Joe Walker (jwalker@mozilla.com) (original author)
-+ *
-+ * Alternatively, the contents of this file may be used under the terms of
-+ * either the GNU General Public License Version 2 or later (the "GPL"), or
-+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
-+ * in which case the provisions of the GPL or the LGPL are applicable instead
-+ * of those above. If you wish to allow use of your version of this file only
-+ * under the terms of either the GPL or the LGPL, and not to allow others to
-+ * use your version of this file under the terms of the MPL, indicate your
-+ * decision by deleting the provisions above and replace them with the notice
-+ * and other provisions required by the GPL or the LGPL. If you do not delete
-+ * the provisions above, a recipient may use your version of this file under
-+ * the terms of any one of the MPL, the GPL or the LGPL.
-+ *
-+ * ***** END LICENSE BLOCK ***** */
+@@ -0,0 +1,215 @@
++/*
++ * Copyright 2009-2011 Mozilla Foundation and contributors
++ * Licensed under the New BSD license. See LICENSE.txt or:
++ * http://opensource.org/licenses/BSD-3-Clause
++ */
 +
 +
 +var EXPORTED_SYMBOLS = [ "Promise" ];
@@ -146,7 +115,8 @@ new file mode 100644
 +  if (typeof onSuccess === 'function') {
 +    if (this._status === Promise.SUCCESS) {
 +      onSuccess.call(null, this._value);
-+    } else if (this._status === Promise.PENDING) {
++    }
++    else if (this._status === Promise.PENDING) {
 +      this._onSuccessHandlers.push(onSuccess);
 +    }
 +  }
@@ -154,7 +124,8 @@ new file mode 100644
 +  if (typeof onError === 'function') {
 +    if (this._status === Promise.ERROR) {
 +      onError.call(null, this._value);
-+    } else if (this._status === Promise.PENDING) {
++    }
++    else if (this._status === Promise.PENDING) {
 +      this._onErrorHandlers.push(onError);
 +    }
 +  }
@@ -172,7 +143,8 @@ new file mode 100644
 +  this.then(function(data) {
 +    try {
 +      chain.resolve(onSuccess(data));
-+    } catch (ex) {
++    }
++    catch (ex) {
 +      chain.reject(ex);
 +    }
 +  }, function(ex) {
@@ -203,14 +175,11 @@ new file mode 100644
 +Promise.prototype._complete = function(list, status, data, name) {
 +  // Complain if we've already been completed
 +  if (this._status != Promise.PENDING) {
-+    console.group('Promise already closed');
-+    console.error('Attempted ' + name + '() with ', data);
-+    console.error('Previous status = ', this._status,
-+        ', previous value = ', this._value);
-+    console.trace();
-+
-+    console.groupEnd();
-+    return this;
++    if (typeof 'console' !== 'undefined') {
++      console.error('Promise complete. Attempted ' + name + '() with ', data);
++      console.error('Prev status = ', this._status, ', value = ', this._value);
++    }
++    throw new Error('Promise already complete');
 +  }
 +
 +  this._status = status;
@@ -332,12 +301,12 @@ new file mode 100644
 +include $(topsrcdir)/config/rules.mk
 +
 +_BROWSER_TEST_FILES = \
-+  browser_templater_basic.js \
++  browser_promise_basic.js \
 +  head.js \
 +  $(NULL)
 +
 +_BROWSER_TEST_PAGES = \
-+  browser_templater_basic.html \
++  browser_promise_basic.html \
 +  $(NULL)
 +
 +libs:: $(_BROWSER_TEST_FILES)
@@ -345,228 +314,247 @@ new file mode 100644
 +
 +libs:: $(_BROWSER_TEST_PAGES)
 +	$(INSTALL) $(foreach f,$^,"$f") $(DEPTH)/_tests/testing/mochitest/browser/$(relativesrcdir)
+diff --git a/browser/devtools/shared/test/browser_promise_basic.html b/browser/devtools/shared/test/browser_promise_basic.html
+new file mode 100644
+--- /dev/null
++++ b/browser/devtools/shared/test/browser_promise_basic.html
+@@ -0,0 +1,12 @@
++<!doctype html>
++<!-- Any copyright is dedicated to the Public Domain.
++     http://creativecommons.org/publicdomain/zero/1.0/ -->
++
++<html>
++<head>
++  <title>Promise Tests</title>
++</head>
++<body>
++
++</body>
++</html>
+\ No newline at end of file
 diff --git a/browser/devtools/shared/test/browser_promise_basic.js b/browser/devtools/shared/test/browser_promise_basic.js
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/shared/test/browser_promise_basic.js
-@@ -0,0 +1,218 @@
+@@ -0,0 +1,219 @@
 +/* Any copyright is dedicated to the Public Domain.
 +   http://creativecommons.org/publicdomain/zero/1.0/ */
 +
-+// Tests that the DOM Template engine works properly
++// Tests that our Promise implementation works properly
 +
-+Cu.import("resource:///modules/devtools/Templater.jsm");
 +Cu.import("resource:///modules/devtools/Promise.jsm");
 +
 +function test()
 +{
 +  waitForExplicitFinish();
-+  addTab("http://example.com/browser/browser/devtools/shared/test/browser_templater_basic.html");
++  addTab("http://example.com/browser/browser/devtools/shared/test/browser_promise_basic.html");
 +  browser.addEventListener("load", tabLoaded, true);
 +}
 +
 +function tabLoaded()
 +{
 +  browser.removeEventListener("load", tabLoaded, true);
-+  info("Starting DOM Templater Tests");
-+  runTest(0);
++  info("Starting Promise Tests");
++  testBasic();
 +}
 +
-+function runTest(index) {
-+  var options = tests[index] = tests[index]();
-+  var holder = content.document.createElement('div');
-+  holder.id = options.name;
-+  var body = content.document.body;
-+  body.appendChild(holder);
-+  holder.innerHTML = options.template;
++var postResolution;
 +
-+  info('Running ' + options.name);
-+  new Templater().processNode(holder, options.data);
++function testBasic() {
++  postResolution = new Promise();
++  ok(postResolution.isPromise, "We have a promise");
++  ok(!postResolution.isComplete(), "Promise is initially incomplete");
++  ok(!postResolution.isResolved(), "Promise is initially unresolved");
++  ok(!postResolution.isRejected(), "Promise is initially unrejected");
 +
-+  if (typeof options.result == 'string') {
-+    is(holder.innerHTML, options.result, options.name);
++  // Test resolve() *after* then() in the same context
++  var reply = postResolution.then(testPostResolution, fail)
++                            .resolve("postResolution");
++  is(reply, postResolution, "return this; working ok");
++}
++
++var preResolution;
++
++function testPostResolution(data) {
++  is(data, "postResolution", "data is postResolution");
++  ok(postResolution.isComplete(), "postResolution Promise is complete");
++  ok(postResolution.isResolved(), "postResolution Promise is resolved");
++  ok(!postResolution.isRejected(), "postResolution Promise is unrejected");
++
++  try {
++    info("Expected double resolve error");
++    postResolution.resolve("double resolve");
++    ok(false, "double resolve");
 +  }
-+  else {
-+    ok(holder.innerHTML.match(options.result), options.name);
++  catch (ex) {
++    // Expected
 +  }
 +
-+  if (options.also) {
-+    options.also(options);
-+  }
++  // Test resolve() *before* then() in the same context
++  preResolution = new Promise();
++  var reply = preResolution.resolve("preResolution")
++                           .then(testPreResolution, fail);
++  is(reply, preResolution, "return this; working ok");
++}
 +
-+  function runNextTest() {
-+    index++;
-+    if (index < tests.length) {
-+      runTest(index);
-+    }
-+    else {
-+      finished();
-+    }
-+  }
++var laterResolution;
 +
-+  if (options.later) {
-+    var ais = is.bind(this);
++function testPreResolution(data) {
++  is(data, "preResolution", "data is preResolution");
++  ok(preResolution.isComplete(), "preResolution Promise is complete");
++  ok(preResolution.isResolved(), "preResolution Promise is resolved");
++  ok(!preResolution.isRejected(), "preResolution Promise is unrejected");
 +
-+    function createTester(holder, options) {
-+      return function() {
-+        ais(holder.innerHTML, options.later, options.name + ' later');
-+        runNextTest();
-+      }.bind(this);
-+    }
++  // Test resolve() *after* then() in a later context
++  laterResolution = new Promise();
++  laterResolution.then(testLaterResolution, fail);
++  executeSoon(function() {
++    laterResolution.resolve("laterResolution");
++  });
++}
 +
-+    setTimeout(createTester(holder, options), 200);
-+  }
-+  else {
-+    runNextTest();
-+  }
++var laterRejection;
++
++function testLaterResolution(data) {
++  is(data, "laterResolution", "data is laterResolution");
++  ok(laterResolution.isComplete(), "laterResolution Promise is complete");
++  ok(laterResolution.isResolved(), "laterResolution Promise is resolved");
++  ok(!laterResolution.isRejected(), "laterResolution Promise is unrejected");
++
++  // Test reject() *after* then() in a later context
++  laterRejection = new Promise().then(fail, testLaterRejection);
++  executeSoon(function() {
++    laterRejection.reject("laterRejection");
++  });
++}
++
++function testLaterRejection(data) {
++  is(data, "laterRejection", "data is laterRejection");
++  ok(laterRejection.isComplete(), "laterRejection Promise is complete");
++  ok(!laterRejection.isResolved(), "laterRejection Promise is unresolved");
++  ok(laterRejection.isRejected(), "laterRejection Promise is rejected");
++
++  // Test chaining
++  var orig = new Promise();
++  orig.chainPromise(function(data) {
++    is(data, "origData", "data is origData");
++    return data.replace(/orig/, "new");
++  }).then(function(data) {
++    is(data, "newData", "data is newData");
++    testChain();
++  });
++  orig.resolve("origData");
++}
++
++var member1;
++var member2;
++var member3;
++var laterGroup;
++
++function testChain() {
++  // Test an empty group
++  var empty1 = Promise.group();
++  ok(empty1.isComplete(), "empty1 Promise is complete");
++  ok(empty1.isResolved(), "empty1 Promise is resolved");
++  ok(!empty1.isRejected(), "empty1 Promise is unrejected");
++
++  // Test a group with no members
++  var empty2 = Promise.group([]);
++  ok(empty2.isComplete(), "empty2 Promise is complete");
++  ok(empty2.isResolved(), "empty2 Promise is resolved");
++  ok(!empty2.isRejected(), "empty2 Promise is unrejected");
++
++  // Test grouping using resolve() in a later context
++  member1 = new Promise();
++  member2 = new Promise();
++  member3 = new Promise();
++  laterGroup = Promise.group(member1, member2, member3);
++  laterGroup.then(testlaterGroup, fail);
++
++  member1.then(function(data) {
++    is(data, "member1", "member1 is member1");
++    executeSoon(function() {
++      member2.resolve("member2");
++    });
++  }, fail);
++  member2.then(function(data) {
++    is(data, "member2", "member2 is member2");
++    executeSoon(function() {
++      member3.resolve("member3");
++    });
++  }, fail);
++  member3.then(function(data) {
++    is(data, "member3", "member3 is member3");
++    // The group should now fire
++  }, fail);
++  executeSoon(function() {
++    member1.resolve("member1");
++  });
++}
++
++var tidyGroup;
++
++function testlaterGroup(data) {
++  is(data[0], "member1", "member1 is member1");
++  is(data[1], "member2", "member2 is member2");
++  is(data[2], "member3", "member3 is member3");
++  is(data.length, 3, "data.length is right");
++  ok(laterGroup.isComplete(), "laterGroup Promise is complete");
++  ok(laterGroup.isResolved(), "laterGroup Promise is resolved");
++  ok(!laterGroup.isRejected(), "laterGroup Promise is unrejected");
++
++  // Test grouping resolve() *before* then() in the same context
++  tidyGroup = Promise.group([
++    postResolution, preResolution, laterResolution,
++    member1, member2, member3, laterGroup
++  ]);
++  tidyGroup.then(testTidyGroup, fail);
++}
++
++var failGroup;
++
++function testTidyGroup(data) {
++  is(data[0], "postResolution", "postResolution is postResolution");
++  is(data[1], "preResolution", "preResolution is preResolution");
++  is(data[2], "laterResolution", "laterResolution is laterResolution");
++  is(data[3], "member1", "member1 is member1");
++  is(data[6][1], "member2", "laterGroup is laterGroup");
++  is(data.length, 7, "data.length is right");
++  ok(tidyGroup.isComplete(), "tidyGroup Promise is complete");
++  ok(tidyGroup.isResolved(), "tidyGroup Promise is resolved");
++  ok(!tidyGroup.isRejected(), "tidyGroup Promise is unrejected");
++
++  // Test grouping resolve() *before* then() in the same context
++  failGroup = Promise.group(postResolution, laterRejection);
++  failGroup.then(fail, testFailGroup);
++}
++
++function testFailGroup(data) {
++  is(data, "laterRejection", "laterRejection is laterRejection");
++
++  postResolution = undefined;
++  preResolution = undefined;
++  laterResolution = undefined;
++  member1 = undefined;
++  member2 = undefined;
++  member3 = undefined;
++  laterGroup = undefined;
++  laterRejection = undefined;
++
++  finished();
++}
++
++function fail() {
++  gBrowser.removeCurrentTab();
++  info("Failed Promise Tests");
++  ok(false, "fail called");
++  finish();
 +}
 +
 +function finished() {
 +  gBrowser.removeCurrentTab();
-+  info("Finishing DOM Templater Tests");
-+  leakHunt({ tests: tests })
-+  tests = null;
++  info("Finishing Promise Tests");
 +  finish();
-+}
-+
-+/**
-+ * Why have an array of functions that return data rather than just an array
-+ * of the data itself? Some of these tests contain calls to delayReply() which
-+ * sets up async processing using executeSoon(). Since the execution of these
-+ * tests is asynchronous, the delayed reply will probably arrive before the
-+ * test is executed, making the test be synchronous. So we wrap the data in a
-+ * function so we only set it up just before we use it.
-+ */
-+var tests = [
-+  function() { return {
-+    name: 'simpleNesting',
-+    template: '<div id="ex1">${nested.value}</div>',
-+    data: { nested:{ value:'pass 1' } },
-+    result: '<div id="ex1">pass 1</div>'
-+  };},
-+
-+  function() { return {
-+    name: 'returnDom',
-+    template: '<div id="ex2">${__element.ownerDocument.createTextNode(\'pass 2\')}</div>',
-+    data: {},
-+    result: '<div id="ex2">pass 2</div>'
-+  };},
-+
-+  function() { return {
-+    name: 'srcChange',
-+    template: '<img _src="${fred}" id="ex3">',
-+    data: { fred:'green.png' },
-+    result: /<img( id="ex3")? src="green.png"( id="ex3")?>/
-+  };},
-+
-+  function() { return {
-+    name: 'ifTrue',
-+    template: '<p if="${name !== \'jim\'}">hello ${name}</p>',
-+    data: { name: 'fred' },
-+    result: '<p>hello fred</p>'
-+  };},
-+
-+  function() { return {
-+    name: 'ifFalse',
-+    template: '<p if="${name !== \'jim\'}">hello ${name}</p>',
-+    data: { name: 'jim' },
-+    result: ''
-+  };},
-+
-+  function() { return {
-+    name: 'simpleLoop',
-+    template: '<p foreach="index in ${[ 1, 2, 3 ]}">${index}</p>',
-+    data: {},
-+    result: '<p>1</p><p>2</p><p>3</p>'
-+  };},
-+
-+  function() { return {
-+    name: 'loopElement',
-+    template: '<loop foreach="i in ${array}">${i}</loop>',
-+    data: { array: [ 1, 2, 3 ] },
-+    result: '123'
-+  };},
-+
-+  // Bug 692028: DOMTemplate memory leak with asynchronous arrays
-+  // Bug 692031: DOMTemplate async loops do not drop the loop element
-+  function() { return {
-+    name: 'asyncLoopElement',
-+    template: '<loop foreach="i in ${array}">${i}</loop>',
-+    data: { array: delayReply([1, 2, 3]) },
-+    result: '<span></span>',
-+    later: '123'
-+  };},
-+
-+  function() { return {
-+    name: 'saveElement',
-+    template: '<p save="${element}">${name}</p>',
-+    data: { name: 'pass 8' },
-+    result: '<p>pass 8</p>',
-+    also: function(options) {
-+      ok(options.data.element.innerHTML, 'pass 9', 'saveElement saved');
-+      delete options.data.element;
-+    }
-+  };},
-+
-+  function() { return {
-+    name: 'useElement',
-+    template: '<p id="pass9">${adjust(__element)}</p>',
-+    data: {
-+      adjust: function(element) {
-+        is('pass9', element.id, 'useElement adjust');
-+        return 'pass 9b'
-+      }
-+    },
-+    result: '<p id="pass9">pass 9b</p>'
-+  };},
-+
-+  function() { return {
-+    name: 'asyncInline',
-+    template: '${delayed}',
-+    data: { delayed: delayReply('inline') },
-+    result: '<span></span>',
-+    later: 'inline'
-+  };},
-+
-+  // Bug 692028: DOMTemplate memory leak with asynchronous arrays
-+  function() { return {
-+    name: 'asyncArray',
-+    template: '<p foreach="i in ${delayed}">${i}</p>',
-+    data: { delayed: delayReply([1, 2, 3]) },
-+    result: '<span></span>',
-+    later: '<p>1</p><p>2</p><p>3</p>'
-+  };},
-+
-+  function() { return {
-+    name: 'asyncMember',
-+    template: '<p foreach="i in ${delayed}">${i}</p>',
-+    data: { delayed: [delayReply(4), delayReply(5), delayReply(6)] },
-+    result: '<span></span><span></span><span></span>',
-+    later: '<p>4</p><p>5</p><p>6</p>'
-+  };},
-+
-+  // Bug 692028: DOMTemplate memory leak with asynchronous arrays
-+  function() { return {
-+    name: 'asyncBoth',
-+    template: '<p foreach="i in ${delayed}">${i}</p>',
-+    data: {
-+      delayed: delayReply([
-+        delayReply(4),
-+        delayReply(5),
-+        delayReply(6)
-+      ])
-+    },
-+    result: '<span></span>',
-+    later: '<p>4</p><p>5</p><p>6</p>'
-+  };}
-+];
-+
-+function delayReply(data) {
-+  var p = new Promise();
-+  executeSoon(function() {
-+    p.resolve(data);
-+  });
-+  return p;
 +}
 diff --git a/browser/devtools/shared/test/head.js b/browser/devtools/shared/test/head.js
 new file mode 100644

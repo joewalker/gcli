@@ -1,8 +1,25 @@
 # HG changeset patch
-# Parent 57838e888b25b4fc04524db52ac41060f6815ef5
+# Parent c9dcdf6a6c00a380188e25285db5fd01d376788c
 # User Joe Walker <jwalker@mozilla.com>
 Bug 691012 - DOMTemplate needs chrome tests
 
+diff --git a/browser/devtools/shared/test/Makefile.in b/browser/devtools/shared/test/Makefile.in
+--- a/browser/devtools/shared/test/Makefile.in
++++ b/browser/devtools/shared/test/Makefile.in
+@@ -47,11 +47,13 @@ include $(topsrcdir)/config/rules.mk
+ 
+ _BROWSER_TEST_FILES = \
+   browser_promise_basic.js \
++  browser_templater_basic.js \
+   head.js \
+   $(NULL)
+ 
+ _BROWSER_TEST_PAGES = \
+   browser_promise_basic.html \
++  browser_templater_basic.html \
+   $(NULL)
+ 
+ libs:: $(_BROWSER_TEST_FILES)
 diff --git a/browser/devtools/shared/test/browser_templater_basic.html b/browser/devtools/shared/test/browser_templater_basic.html
 new file mode 100644
 --- /dev/null
