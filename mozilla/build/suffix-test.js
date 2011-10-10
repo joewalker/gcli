@@ -19,13 +19,13 @@ function onLoad() {
 
   try {
     openConsole();
-    require("gclitest/index");
+    define.globalDomain.require("gclitest/index");
   }
   catch (ex) {
     console.error('Test Failure', ex);
   }
   finally {
     closeConsole();
-    finishTest();
+    finish();
   }
 }
