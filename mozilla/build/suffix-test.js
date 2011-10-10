@@ -16,16 +16,22 @@ function test() {
 
 function onLoad() {
   browser.removeEventListener("DOMContentLoaded", onLoad, false);
+  var failed = false;
 
   try {
     openConsole();
     define.globalDomain.require("gclitest/index");
   }
   catch (ex) {
+    failed = ex;
     console.error('Test Failure', ex);
   }
   finally {
     closeConsole();
     finish();
+  }
+
+  if (failed) {
+    throw failed;
   }
 }
