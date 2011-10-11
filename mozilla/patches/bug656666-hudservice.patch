@@ -2,7 +2,7 @@
 # User Joe Walker <jwalker@mozilla.com>
 # Date 1306500542 -3600
 # Node ID 5461e667a7350ce8040d8ad4b7a296a2a68bee53
-# Parent 27bec2457329e473abfd3bc6072a50ebd2c038ca
+# Parent 9ae2bbf829ef7b2688229650e527cfc119847eb9
 Bug 656666 - Update HudService.jsm to allow GCLI integration
 
 diff --git a/browser/app/profile/firefox.js b/browser/app/profile/firefox.js

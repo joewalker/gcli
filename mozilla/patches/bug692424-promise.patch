@@ -1,29 +1,45 @@
 # HG changeset patch
-# Parent af53dbfda063bc1caf98e0c286ae254758e995e6
+# Parent 44183fc63b795e02a4cd5d0f32dbd741c46ec7e3
 # User Joe Walker <jwalker@mozilla.com>
 Bug 692424 - GCLI and DOMTemplate could use a Promise implementation
 
 diff --git a/browser/devtools/shared/Makefile.in b/browser/devtools/shared/Makefile.in
 --- a/browser/devtools/shared/Makefile.in
 +++ b/browser/devtools/shared/Makefile.in
-@@ -21,6 +21,7 @@
+@@ -12,15 +12,17 @@
+ # for the specific language governing rights and limitations under the
+ # License.
+ #
+-# The Original Code is  HUDService code.
++# The Original Code is the Style Inspector.
+ #
+-# The Initial Developer of the Original Code is Mozilla Corporation.
+-# 
+-# Portions created by the Initial Developer are Copyright (C) 2010
++# The Initial Developer of the Original Code is
++# The Mozilla Foundation.
++#
++# Portions created by the Initial Developer are Copyright (C) 2011
+ # the Initial Developer. All Rights Reserved.
  #
  # Contributor(s):
- #     Mike Ratcliffe <mratcliffe@mozilla.com>  (Original author)
-+#     Joe Walker <jwalker@mozilla.com>
+-#     Mike Ratcliffe <mratcliffe@mozilla.com>  (Original author)
++#   Mike Ratcliffe <mratcliffe@mozilla.com> (Original author)
++#   Joe Walker <jwalker@mozilla.com>
  #
  # Alternatively, the contents of this file may be used under the terms of
  # either the GNU General Public License Version 2 or later (the "GPL"), or
-@@ -45,7 +46,7 @@ include $(DEPTH)/config/autoconf.mk
+@@ -44,12 +46,11 @@ VPATH		= @srcdir@
+ include $(DEPTH)/config/autoconf.mk
  
  ifdef ENABLE_TESTS
- ifneq (mobile,$(MOZ_BUILD_APP))
+-ifneq (mobile,$(MOZ_BUILD_APP))
 -	# DIRS += test # no tests yet
+-endif
 +	DIRS += test
  endif
- endif
  
-@@ -53,3 +54,4 @@ include $(topsrcdir)/config/rules.mk
+ include $(topsrcdir)/config/rules.mk
  
  libs::
  	$(NSINSTALL) $(srcdir)/Templater.jsm $(FINAL_TARGET)/modules/devtools
@@ -55,7 +71,7 @@ new file mode 100644
 +  // Debugging help
 +  this._id = Promise._nextId++;
 +  Promise._outstanding[this._id] = this;
-+};
++}
 +
 +/**
 + * We give promises and ID so we can track which are outstanding
@@ -63,12 +79,12 @@ new file mode 100644
 +Promise._nextId = 0;
 +
 +/**
-+ * Outstanding promises. Handy list for debugging only.
++ * Outstanding promises. Handy list for debugging only
 + */
 +Promise._outstanding = [];
 +
 +/**
-+ * Recently resolved promises. Also for debugging only.
++ * Recently resolved promises. Also for debugging only
 + */
 +Promise._recent = [];
 +
@@ -82,7 +98,7 @@ new file mode 100644
 +Promise.SUCCESS = 1;
 +
 +/**
-+ * Yeay for RTTI.
++ * Yeay for RTTI
 + */
 +Promise.prototype.isPromise = true;
 +
@@ -109,7 +125,7 @@ new file mode 100644
 +
 +/**
 + * Take the specified action of fulfillment of a promise, and (optionally)
-+ * a different action on promise rejection.
++ * a different action on promise rejection
 + */
 +Promise.prototype.then = function(onSuccess, onError) {
 +  if (typeof onSuccess === 'function') {
@@ -135,7 +151,7 @@ new file mode 100644
 +
 +/**
 + * Like then() except that rather than returning <tt>this</tt> we return
-+ * a promise which resolves when the original promise resolves.
++ * a promise which resolves when the original promise resolves
 + */
 +Promise.prototype.chainPromise = function(onSuccess) {
 +  var chain = new Promise();
@@ -169,7 +185,7 @@ new file mode 100644
 +};
 +
 +/**
-+ * Internal method to be called on resolve() or reject().
++ * Internal method to be called on resolve() or reject()
 + * @private
 + */
 +Promise.prototype._complete = function(list, status, data, name) {
@@ -193,7 +209,7 @@ new file mode 100644
 +  delete this._onErrorHandlers;
 +
 +  // Remove the given {promise} from the _outstanding list, and add it to the
-+  // _recent list, pruning more than 20 recent promises from that list.
++  // _recent list, pruning more than 20 recent promises from that list
 +  delete Promise._outstanding[this._id];
 +  // The original code includes this very useful debugging aid, however there
 +  // is concern that it will create a memory leak, so we leave it out here.
@@ -252,7 +268,7 @@ diff --git a/browser/devtools/shared/test/Makefile.in b/browser/devtools/shared/
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/shared/test/Makefile.in
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,62 @@
 +#
 +# ***** BEGIN LICENSE BLOCK *****
 +# Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -267,15 +283,16 @@ new file mode 100644
 +# for the specific language governing rights and limitations under the
 +# License.
 +#
-+# The Original Code is Style Inspector code.
++# The Original Code is GCLI.
 +#
 +# The Initial Developer of the Original Code is
-+# Mozilla Corporation.
-+# Portions created by the Initial Developer are Copyright (C) 2010
++# The Mozilla Foundation.
++#
++# Portions created by the Initial Developer are Copyright (C) 2011
 +# the Initial Developer. All Rights Reserved.
 +#
 +# Contributor(s):
-+#     Joe Walker <jwalker@mozilla.com> (Original author)
++#   Joe Walker <jwalker@mozilla.com> (Original author)
 +#
 +# Alternatively, the contents of this file may be used under the terms of
 +# either of the GNU General Public License Version 2 or later (the "GPL"),
@@ -331,12 +348,11 @@ new file mode 100644
 +
 +</body>
 +</html>
-\ No newline at end of file
 diff --git a/browser/devtools/shared/test/browser_promise_basic.js b/browser/devtools/shared/test/browser_promise_basic.js
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/shared/test/browser_promise_basic.js
-@@ -0,0 +1,219 @@
+@@ -0,0 +1,212 @@
 +/* Any copyright is dedicated to the Public Domain.
 +   http://creativecommons.org/publicdomain/zero/1.0/ */
 +
@@ -344,18 +360,11 @@ new file mode 100644
 +
 +Cu.import("resource:///modules/devtools/Promise.jsm");
 +
-+function test()
-+{
-+  waitForExplicitFinish();
-+  addTab("http://example.com/browser/browser/devtools/shared/test/browser_promise_basic.html");
-+  browser.addEventListener("load", tabLoaded, true);
-+}
-+
-+function tabLoaded()
-+{
-+  browser.removeEventListener("load", tabLoaded, true);
-+  info("Starting Promise Tests");
-+  testBasic();
++function test() {
++  addTab("about:blank", function() {
++    info("Starting Promise Tests");
++    testBasic();
++  });
 +}
 +
 +var postResolution;
@@ -560,8 +569,7 @@ diff --git a/browser/devtools/shared/test/head.js b/browser/devtools/shared/test
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/shared/test/head.js
-@@ -0,0 +1,185 @@
-+/* vim:set ts=2 sw=2 sts=2 et: */
+@@ -0,0 +1,67 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -577,12 +585,14 @@ new file mode 100644
 + *
 + * The Original Code is DevTools test code.
 + *
-+ * The Initial Developer of the Original Code is Mozilla Foundation.
++ * The Initial Developer of the Original Code is
++ * The Mozilla Foundation.
++ *
 + * Portions created by the Initial Developer are Copyright (C) 2011
 + * the Initial Developer. All Rights Reserved.
 + *
 + * Contributor(s):
-+ *  Mike Ratcliffe <mratcliffe@mozilla.com>
++ *   Joe Walker <jwalker@mozilla.com> (Original author)
 + *
 + * Alternatively, the contents of this file may be used under the terms of
 + * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -598,151 +608,32 @@ new file mode 100644
 + *
 + * ***** END LICENSE BLOCK ***** */
 +
-+Cu.import("resource:///modules/devtools/StyleInspector.jsm");
-+Cu.import("resource://gre/modules/HUDService.jsm");
++let tab;
++let browser;
 +
-+function log(aMsg)
++function addTab(aURL, aCallback)
 +{
-+  dump("*** WebConsoleTest: " + aMsg + "\n");
-+}
++  waitForExplicitFinish();
 +
-+function pprint(aObj)
-+{
-+  for (let prop in aObj) {
-+    if (typeof aObj[prop] == "function") {
-+      log("function " + prop);
-+    }
-+    else {
-+      log(prop + ": " + aObj[prop]);
-+    }
++  function onTabLoad() {
++    browser.removeEventListener("load", onTabLoad, true);
++    aCallback();
 +  }
-+}
 +
-+let tab, browser, hudId, hud, hudBox, filterBox, outputNode, cs;
-+
-+function addTab(aURL)
-+{
 +  gBrowser.selectedTab = gBrowser.addTab();
 +  content.location = aURL;
++
 +  tab = gBrowser.selectedTab;
 +  browser = gBrowser.getBrowserForTab(tab);
++
++  browser.addEventListener("load", onTabLoad, true);
 +}
 +
-+function afterAllTabsLoaded(callback, win) {
-+  win = win || window;
-+
-+  let stillToLoad = 0;
-+
-+  function onLoad() {
-+    this.removeEventListener("load", onLoad, true);
-+    stillToLoad--;
-+    if (!stillToLoad)
-+      callback();
-+  }
-+
-+  for (let a = 0; a < win.gBrowser.tabs.length; a++) {
-+    let browser = win.gBrowser.tabs[a].linkedBrowser;
-+    if (browser.contentDocument.readyState != "complete") {
-+      stillToLoad++;
-+      browser.addEventListener("load", onLoad, true);
-+    }
-+  }
-+
-+  if (!stillToLoad)
-+    callback();
-+}
-+
-+/**
-+ * Check if a log entry exists in the HUD output node.
-+ *
-+ * @param {Element} aOutputNode
-+ *        the HUD output node.
-+ * @param {string} aMatchString
-+ *        the string you want to check if it exists in the output node.
-+ * @param {string} aMsg
-+ *        the message describing the test
-+ * @param {boolean} [aOnlyVisible=false]
-+ *        find only messages that are visible, not hidden by the filter.
-+ * @param {boolean} [aFailIfFound=false]
-+ *        fail the test if the string is found in the output node.
-+ * @param {string} aClass [optional]
-+ *        find only messages with the given CSS class.
-+ */
-+function testLogEntry(aOutputNode, aMatchString, aMsg, aOnlyVisible,
-+                      aFailIfFound, aClass)
-+{
-+  let selector = ".hud-msg-node";
-+  // Skip entries that are hidden by the filter.
-+  if (aOnlyVisible) {
-+    selector += ":not(.hud-filtered-by-type)";
-+  }
-+  if (aClass) {
-+    selector += "." + aClass;
-+  }
-+
-+  let msgs = aOutputNode.querySelectorAll(selector);
-+  let found = false;
-+  for (let i = 0, n = msgs.length; i < n; i++) {
-+    let message = msgs[i].textContent.indexOf(aMatchString);
-+    if (message > -1) {
-+      found = true;
-+      break;
-+    }
-+
-+    // Search the labels too.
-+    let labels = msgs[i].querySelectorAll("label");
-+    for (let j = 0; j < labels.length; j++) {
-+      if (labels[j].getAttribute("value").indexOf(aMatchString) > -1) {
-+        found = true;
-+        break;
-+      }
-+    }
-+  }
-+
-+  is(found, !aFailIfFound, aMsg);
-+}
-+
-+/**
-+ * A convenience method to call testLogEntry().
-+ *
-+ * @param string aString
-+ *        The string to find.
-+ */
-+function findLogEntry(aString)
-+{
-+  testLogEntry(outputNode, aString, "found " + aString);
-+}
-+
-+function openConsole()
-+{
-+  HUDService.activateHUDForContext(tab);
-+}
-+
-+function closeConsole()
-+{
-+  HUDService.deactivateHUDForContext(tab);
-+}
-+
-+function finishTest()
-+{
-+  finish();
-+}
-+
-+function tearDown()
-+{
-+  try {
-+    HUDService.deactivateHUDForContext(gBrowser.selectedTab);
-+  }
-+  catch (ex) {
-+    log(ex);
-+  }
++registerCleanupFunction(function tearDown() {
 +  while (gBrowser.tabs.length > 1) {
 +    gBrowser.removeCurrentTab();
 +  }
-+  tab = browser = hudId = hud = filterBox = outputNode = cs = null;
-+}
 +
-+registerCleanupFunction(tearDown);
-+
-+waitForExplicitFinish();
-+
++  tab = undefined;
++  browser = undefined;
++});

@@ -1,12 +1,12 @@
 # HG changeset patch
-# Parent 527af64c9fc69be3eca8d86aadd88be236fa12ea
+# Parent b62ee02e113db1173963c1d8fe0edd4c193a2102
 # User Joe Walker <jwalker@mozilla.com>
 Bug 691012 - DOMTemplate needs chrome tests
 
 diff --git a/browser/devtools/shared/test/Makefile.in b/browser/devtools/shared/test/Makefile.in
 --- a/browser/devtools/shared/test/Makefile.in
 +++ b/browser/devtools/shared/test/Makefile.in
-@@ -47,11 +47,13 @@ include $(topsrcdir)/config/rules.mk
+@@ -48,11 +48,12 @@ include $(topsrcdir)/config/rules.mk
  
  _BROWSER_TEST_FILES = \
    browser_promise_basic.js \
@@ -15,11 +15,28 @@ diff --git a/browser/devtools/shared/test/Makefile.in b/browser/devtools/shared/
    $(NULL)
  
  _BROWSER_TEST_PAGES = \
-   browser_promise_basic.html \
+-  browser_promise_basic.html \
 +  browser_templater_basic.html \
    $(NULL)
  
  libs:: $(_BROWSER_TEST_FILES)
+diff --git a/browser/devtools/shared/test/browser_promise_basic.html b/browser/devtools/shared/test/browser_promise_basic.html
+deleted file mode 100644
+--- a/browser/devtools/shared/test/browser_promise_basic.html
++++ /dev/null
+@@ -1,12 +0,0 @@
+-<!doctype html>
+-<!-- Any copyright is dedicated to the Public Domain.
+-     http://creativecommons.org/publicdomain/zero/1.0/ -->
+-
+-<html>
+-<head>
+-  <title>Promise Tests</title>
+-</head>
+-<body>
+-
+-</body>
+-</html>
 diff --git a/browser/devtools/shared/test/browser_templater_basic.html b/browser/devtools/shared/test/browser_templater_basic.html
 new file mode 100644
 --- /dev/null
@@ -42,7 +59,7 @@ diff --git a/browser/devtools/shared/test/browser_templater_basic.js b/browser/d
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/shared/test/browser_templater_basic.js
-@@ -0,0 +1,216 @@
+@@ -0,0 +1,209 @@
 +/* Any copyright is dedicated to the Public Domain.
 +   http://creativecommons.org/publicdomain/zero/1.0/ */
 +
@@ -51,18 +68,11 @@ new file mode 100644
 +Cu.import("resource:///modules/devtools/Templater.jsm");
 +Cu.import("resource:///modules/devtools/Promise.jsm");
 +
-+function test()
-+{
-+  waitForExplicitFinish();
-+  addTab("http://example.com/browser/browser/devtools/shared/test/browser_templater_basic.html");
-+  browser.addEventListener("load", tabLoaded, true);
-+}
-+
-+function tabLoaded()
-+{
-+  browser.removeEventListener("load", tabLoaded, true);
-+  info("Starting DOM Templater Tests");
-+  runTest(0);
++function test() {
++  addTab("http://example.com/browser/browser/devtools/shared/test/browser_templater_basic.html", function() {
++    info("Starting DOM Templater Tests");
++    runTest(0);
++  });
 +}
 +
 +function runTest(index) {
