@@ -1,7 +1,7 @@
 
 registerCleanupFunction(function() {
   Services.prefs.clearUserPref("devtools.gcli.enable");
-
+  undefine();
   obj = undefined;
   define = undefined;
   console = undefined;
