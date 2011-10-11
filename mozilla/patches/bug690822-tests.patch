@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent d0de6c687fb4c0e07d16d85b047098714f8e1130
+# Parent 7a9eedf7aa10680b6333e254d80a4aca3d14160b
 # User Joe Walker <jwalker@mozilla.com>
 Bug 690822 - GCLI web tests should be capable of being run in the browser
 
@@ -18,7 +18,7 @@ diff --git a/browser/devtools/webconsole/test/browser/browser_gcli_web.js b/brow
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/webconsole/test/browser/browser_gcli_web.js
-@@ -0,0 +1,1401 @@
+@@ -0,0 +1,1434 @@
 +/*
 + * Copyright 2009-2011 Mozilla Foundation and contributors
 + * Licensed under the New BSD license. See LICENSE.txt or:
@@ -75,7 +75,10 @@ new file mode 100644
 + * http://opensource.org/licenses/BSD-3-Clause
 + */
 +
-+define('gclitest/index', ['require', 'exports', 'module' , 'test/examiner', 'gclitest/testTokenize', 'gclitest/testSplit', 'gclitest/testCli', 'gclitest/testHistory', 'gclitest/testRequire'], function(require, exports, module) {
++define('gclitest/index', ['require', 'exports', 'module' , 'gcli/index', 'test/examiner', 'gclitest/testTokenize', 'gclitest/testSplit', 'gclitest/testCli', 'gclitest/testHistory', 'gclitest/testRequire'], function(require, exports, module) {
++
++  // We need to make sure GCLI is initialized before we begin testing it
++  require('gcli/index');
 +
 +  var examiner = require('test/examiner');
 +
@@ -1390,9 +1393,33 @@ new file mode 100644
 +
 +});
 +
++function undefine() {
++  delete define.modules['gclitest/index'];
++  delete define.modules['test/examiner'];
++  delete define.modules['gclitest/testTokenize'];
++  delete define.modules['test/assert'];
++  delete define.modules['gclitest/testSplit'];
++  delete define.modules['gclitest/commands'];
++  delete define.modules['gclitest/testCli'];
++  delete define.modules['gclitest/testHistory'];
++  delete define.modules['gclitest/testRequire'];
++  delete define.modules['gclitest/requirable'];
++
++  delete define.globalDomain.modules['gclitest/index'];
++  delete define.globalDomain.modules['test/examiner'];
++  delete define.globalDomain.modules['gclitest/testTokenize'];
++  delete define.globalDomain.modules['test/assert'];
++  delete define.globalDomain.modules['gclitest/testSplit'];
++  delete define.globalDomain.modules['gclitest/commands'];
++  delete define.globalDomain.modules['gclitest/testCli'];
++  delete define.globalDomain.modules['gclitest/testHistory'];
++  delete define.globalDomain.modules['gclitest/testRequire'];
++  delete define.globalDomain.modules['gclitest/requirable'];
++}
++
 +registerCleanupFunction(function() {
 +  Services.prefs.clearUserPref("devtools.gcli.enable");
-+
++  undefine();
 +  obj = undefined;
 +  define = undefined;
 +  console = undefined;
@@ -1407,16 +1434,22 @@ new file mode 100644
 +
 +function onLoad() {
 +  browser.removeEventListener("DOMContentLoaded", onLoad, false);
++  var failed = false;
 +
 +  try {
 +    openConsole();
-+    require("gclitest/index");
++    define.globalDomain.require("gclitest/index");
 +  }
 +  catch (ex) {
++    failed = ex;
 +    console.error('Test Failure', ex);
 +  }
 +  finally {
 +    closeConsole();
-+    finishTest();
++    finish();
++  }
++
++  if (failed) {
++    throw failed;
 +  }
 +}
