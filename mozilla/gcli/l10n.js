@@ -10,7 +10,7 @@ Components.utils.import('resource://gre/modules/XPCOMUtils.jsm');
 Components.utils.import('resource://gre/modules/Services.jsm');
 
 XPCOMUtils.defineLazyGetter(this, 'stringBundle', function () {
-  return Services.strings.createBundle('chrome://browser/locale/gcli.properties');
+  return Services.strings.createBundle('chrome://browser/locale/devtools/gcli.properties');
 });
 
 /*
