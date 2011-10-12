@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent b62ee02e113db1173963c1d8fe0edd4c193a2102
+# Parent d58dcbebd86095eb005daf81ebef2a1ca2b7279e
 # User Joe Walker <jwalker@mozilla.com>
 Bug 691012 - DOMTemplate needs chrome tests
 
@@ -41,7 +41,7 @@ diff --git a/browser/devtools/shared/test/browser_templater_basic.html b/browser
 new file mode 100644
 --- /dev/null
 +++ b/browser/devtools/shared/test/browser_templater_basic.html
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,13 @@
 +<!doctype html>
 +<!-- Any copyright is dedicated to the Public Domain.
 +     http://creativecommons.org/publicdomain/zero/1.0/ -->
@@ -54,7 +54,7 @@ new file mode 100644
 +
 +</body>
 +</html>
-\ No newline at end of file
++
 diff --git a/browser/devtools/shared/test/browser_templater_basic.js b/browser/devtools/shared/test/browser_templater_basic.js
 new file mode 100644
 --- /dev/null

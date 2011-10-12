@@ -68,7 +68,7 @@ new file mode 100644
 +Components.utils.import("resource:///modules/gcli.jsm");
 +Components.utils.import("resource:///modules/HUDService.jsm");
 +
-+let bundleName = "chrome://browser/locale/devtools/webconsole/gclicommands.properties";
++let bundleName = "chrome://browser/locale/devtools/gclicommands.properties";
 +let stringBundle = Services.strings.createBundle(bundleName);
 +
 +let gcli = gcli._internal.require("gcli/index");
@@ -1201,10 +1201,10 @@ deleted file mode 100644
 -  // require('gclitest/recurse');
 -  // Also see the comments in the testRecursive() function
 -}
-diff --git a/browser/locales/en-US/chrome/browser/devtools/webconsole/gcli.properties b/browser/locales/en-US/chrome/browser/devtools/webconsole/gcli.properties
+diff --git a/browser/locales/en-US/chrome/browser/devtools/gcli.properties b/browser/locales/en-US/chrome/browser/devtools/gcli.properties
 new file mode 100644
 --- /dev/null
-+++ b/browser/locales/en-US/chrome/browser/devtools/webconsole/gcli.properties
++++ b/browser/locales/en-US/chrome/browser/devtools/gcli.properties
 @@ -0,0 +1,92 @@
 +# LOCALIZATION NOTE These strings are used inside the Web Console
 +# command line which is available from the Web Developer sub-menu
@@ -1298,10 +1298,10 @@ new file mode 100644
 +# displayed.
 +nodeParseNone=No matches
 +
-diff --git a/browser/locales/en-US/chrome/browser/devtools/webconsole/gclicommands.properties b/browser/locales/en-US/chrome/browser/devtools/webconsole/gclicommands.properties
+diff --git a/browser/locales/en-US/chrome/browser/devtools/gclicommands.properties b/browser/locales/en-US/chrome/browser/devtools/gclicommands.properties
 new file mode 100644
 --- /dev/null
-+++ b/browser/locales/en-US/chrome/browser/devtools/webconsole/gclicommands.properties
++++ b/browser/locales/en-US/chrome/browser/devtools/gclicommands.properties
 @@ -0,0 +1,37 @@
 +# LOCALIZATION NOTE These strings are used inside Web Console commands.
 +# The Web Console command line is available from the Web Developer sub-menu
@@ -1347,8 +1347,8 @@ diff --git a/browser/locales/jar.mn b/browser/locales/jar.mn
  *   locale/browser/browser.dtd                     (%chrome/browser/browser.dtd)
      locale/browser/baseMenuOverlay.dtd             (%chrome/browser/baseMenuOverlay.dtd)
      locale/browser/browser.properties              (%chrome/browser/browser.properties)
-+    locale/browser/devtools/webconsole/gcli.properties         (%chrome/browser/devtools/webconsole/gcli.properties)
-+    locale/browser/devtools/webconsole/gclicommands.properties (%chrome/browser/devtools/webconsole/gclicommands.properties)
++    locale/browser/devtools/gcli.properties         (%chrome/browser/devtools/gcli.properties)
++    locale/browser/devtools/gclicommands.properties (%chrome/browser/devtools/gclicommands.properties)
      locale/browser/styleinspector.properties       (%chrome/browser/styleinspector.properties)
      locale/browser/styleinspector.dtd              (%chrome/browser/styleinspector.dtd)
      locale/browser/scratchpad.properties           (%chrome/browser/scratchpad.properties)

@@ -1,0 +1,198 @@
+# HG changeset patch
+# Parent 38b9b0cd72776b65009ae8c2d9a0c667c6244444
+# User Joe Walker <jwalker@mozilla.com>
+Create a locales directory in the devtools module, move all devtools l10n strings to it
+
+diff --git a/browser/devtools/highlighter/inspector.jsm b/browser/devtools/highlighter/inspector.jsm
+--- a/browser/devtools/highlighter/inspector.jsm
++++ b/browser/devtools/highlighter/inspector.jsm
+@@ -1898,8 +1898,8 @@ InspectorProgressListener.prototype = {
+ 
+ XPCOMUtils.defineLazyGetter(InspectorUI.prototype, "strings",
+   function () {
+-    return Services.strings.
+-           createBundle("chrome://browser/locale/inspector.properties");
++    return Services.strings.createBundle(
++            "chrome://browser/locale/devtools/inspector.properties");
+   });
+ 
+ XPCOMUtils.defineLazyGetter(this, "StyleInspector", function () {
+diff --git a/browser/devtools/scratchpad/scratchpad.js b/browser/devtools/scratchpad/scratchpad.js
+--- a/browser/devtools/scratchpad/scratchpad.js
++++ b/browser/devtools/scratchpad/scratchpad.js
+@@ -63,7 +63,7 @@ Cu.import("resource:///modules/source-ed
+ const SCRATCHPAD_CONTEXT_CONTENT = 1;
+ const SCRATCHPAD_CONTEXT_BROWSER = 2;
+ const SCRATCHPAD_WINDOW_URL = "chrome://browser/content/scratchpad.xul";
+-const SCRATCHPAD_L10N = "chrome://browser/locale/scratchpad.properties";
++const SCRATCHPAD_L10N = "chrome://browser/locale/devtools/scratchpad.properties";
+ const SCRATCHPAD_WINDOW_FEATURES = "chrome,titlebar,toolbar,centerscreen,resizable,dialog=no";
+ const DEVTOOLS_CHROME_ENABLED = "devtools.chrome.enabled";
+ 
+diff --git a/browser/devtools/scratchpad/scratchpad.xul b/browser/devtools/scratchpad/scratchpad.xul
+--- a/browser/devtools/scratchpad/scratchpad.xul
++++ b/browser/devtools/scratchpad/scratchpad.xul
+@@ -40,7 +40,7 @@
+    - ***** END LICENSE BLOCK ***** -->
+ #endif
+ <!DOCTYPE window [
+-<!ENTITY % scratchpadDTD SYSTEM "chrome://browser/locale/scratchpad.dtd" >
++<!ENTITY % scratchpadDTD SYSTEM "chrome://browser/locale/devtools/scratchpad.dtd" >
+  %scratchpadDTD;
+ ]>
+ <?xml-stylesheet href="chrome://global/skin/global.css" type="text/css"?>
+diff --git a/browser/devtools/styleinspector/CssHtmlTree.jsm b/browser/devtools/styleinspector/CssHtmlTree.jsm
+--- a/browser/devtools/styleinspector/CssHtmlTree.jsm
++++ b/browser/devtools/styleinspector/CssHtmlTree.jsm
+@@ -148,7 +148,7 @@ XPCOMUtils.defineLazyGetter(CssHtmlTree,
+ });
+ 
+ XPCOMUtils.defineLazyGetter(CssHtmlTree, "_strings", function() Services.strings
+-    .createBundle("chrome://browser/locale/styleinspector.properties"));
++        .createBundle("chrome://browser/locale/devtools/styleinspector.properties"));
+ 
+ CssHtmlTree.prototype = {
+   htmlComplete: false,
+diff --git a/browser/devtools/styleinspector/CssLogic.jsm b/browser/devtools/styleinspector/CssLogic.jsm
+--- a/browser/devtools/styleinspector/CssLogic.jsm
++++ b/browser/devtools/styleinspector/CssLogic.jsm
+@@ -651,7 +651,7 @@ CssLogic.getShortNamePath = function Css
+ CssLogic.l10n = function(aName) CssLogic._strings.GetStringFromName(aName);
+ 
+ XPCOMUtils.defineLazyGetter(CssLogic, "_strings", function() Services.strings
+-          .createBundle("chrome://browser/locale/styleinspector.properties"));
++        .createBundle("chrome://browser/locale/devtools/styleinspector.properties"));
+ 
+ /**
+  * Is the given property sheet a system (user agent) stylesheet?
+diff --git a/browser/devtools/styleinspector/StyleInspector.jsm b/browser/devtools/styleinspector/StyleInspector.jsm
+--- a/browser/devtools/styleinspector/StyleInspector.jsm
++++ b/browser/devtools/styleinspector/StyleInspector.jsm
+@@ -253,7 +253,7 @@ var StyleInspector = {
+ };
+ 
+ XPCOMUtils.defineLazyGetter(this, "_strings", function() Services.strings
+-          .createBundle("chrome://browser/locale/styleinspector.properties"));
++        .createBundle("chrome://browser/locale/devtools/styleinspector.properties"));
+ 
+ XPCOMUtils.defineLazyGetter(this, "CssLogic", function() {
+   let tmp = {};
+diff --git a/browser/devtools/styleinspector/csshtmltree.xhtml b/browser/devtools/styleinspector/csshtmltree.xhtml
+--- a/browser/devtools/styleinspector/csshtmltree.xhtml
++++ b/browser/devtools/styleinspector/csshtmltree.xhtml
+@@ -1,7 +1,7 @@
+ <!DOCTYPE html [
+   <!ENTITY % htmlDTD PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "DTD/xhtml1-strict.dtd">
+   %htmlDTD;
+-  <!ENTITY % inspectorDTD SYSTEM "chrome://browser/locale/styleinspector.dtd">
++  <!ENTITY % inspectorDTD SYSTEM "chrome://browser/locale/devtools/styleinspector.dtd">
+   %inspectorDTD;
+   <!ELEMENT loop ANY>
+   <!ATTLIST li foreach CDATA #IMPLIED>
+diff --git a/browser/devtools/webconsole/AutocompletePopup.jsm b/browser/devtools/webconsole/AutocompletePopup.jsm
+--- a/browser/devtools/webconsole/AutocompletePopup.jsm
++++ b/browser/devtools/webconsole/AutocompletePopup.jsm
+@@ -42,7 +42,7 @@ const Cu = Components.utils;
+ const XUL_NS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
+ const XHTML_NS = "http://www.w3.org/1999/xhtml";
+ 
+-const HUD_STRINGS_URI = "chrome://global/locale/headsUpDisplay.properties";
++const HUD_STRINGS_URI = "chrome://browser/locale/devtools/headsUpDisplay.properties";
+ 
+ 
+ Cu.import("resource://gre/modules/Services.jsm");
+diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webconsole/HUDService.jsm
+--- a/browser/devtools/webconsole/HUDService.jsm
++++ b/browser/devtools/webconsole/HUDService.jsm
+@@ -135,7 +135,7 @@ function LogFactory(aMessagePrefix)
+ 
+ let log = LogFactory("*** HUDService:");
+ 
+-const HUD_STRINGS_URI = "chrome://global/locale/headsUpDisplay.properties";
++const HUD_STRINGS_URI = "chrome://browser/locale/devtools/headsUpDisplay.properties";
+ 
+ XPCOMUtils.defineLazyGetter(this, "stringBundle", function () {
+   return Services.strings.createBundle(HUD_STRINGS_URI);
+diff --git a/browser/devtools/webconsole/NetworkPanel.xhtml b/browser/devtools/webconsole/NetworkPanel.xhtml
+--- a/browser/devtools/webconsole/NetworkPanel.xhtml
++++ b/browser/devtools/webconsole/NetworkPanel.xhtml
+@@ -2,7 +2,7 @@
+ 
+ <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+   "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd" [
+-<!ENTITY % webConsoleDTD SYSTEM "chrome://global/locale/webConsole.dtd" >
++<!ENTITY % webConsoleDTD SYSTEM "chrome://browser/locale/devtools/webConsole.dtd" >
+ %webConsoleDTD;
+ ]>
+ 
+diff --git a/toolkit/locales/en-US/chrome/global/headsUpDisplay.properties b/browser/locales/en-US/chrome/browser/devtools/headsUpDisplay.properties
+rename from toolkit/locales/en-US/chrome/global/headsUpDisplay.properties
+rename to browser/locales/en-US/chrome/browser/devtools/headsUpDisplay.properties
+diff --git a/browser/locales/en-US/chrome/browser/inspector.properties b/browser/locales/en-US/chrome/browser/devtools/inspector.properties
+rename from browser/locales/en-US/chrome/browser/inspector.properties
+rename to browser/locales/en-US/chrome/browser/devtools/inspector.properties
+diff --git a/browser/locales/en-US/chrome/browser/scratchpad.dtd b/browser/locales/en-US/chrome/browser/devtools/scratchpad.dtd
+rename from browser/locales/en-US/chrome/browser/scratchpad.dtd
+rename to browser/locales/en-US/chrome/browser/devtools/scratchpad.dtd
+diff --git a/browser/locales/en-US/chrome/browser/scratchpad.properties b/browser/locales/en-US/chrome/browser/devtools/scratchpad.properties
+rename from browser/locales/en-US/chrome/browser/scratchpad.properties
+rename to browser/locales/en-US/chrome/browser/devtools/scratchpad.properties
+diff --git a/browser/locales/en-US/chrome/browser/styleinspector.dtd b/browser/locales/en-US/chrome/browser/devtools/styleinspector.dtd
+rename from browser/locales/en-US/chrome/browser/styleinspector.dtd
+rename to browser/locales/en-US/chrome/browser/devtools/styleinspector.dtd
+diff --git a/browser/locales/en-US/chrome/browser/styleinspector.properties b/browser/locales/en-US/chrome/browser/devtools/styleinspector.properties
+rename from browser/locales/en-US/chrome/browser/styleinspector.properties
+rename to browser/locales/en-US/chrome/browser/devtools/styleinspector.properties
+diff --git a/toolkit/locales/en-US/chrome/global/webConsole.dtd b/browser/locales/en-US/chrome/browser/devtools/webConsole.dtd
+rename from toolkit/locales/en-US/chrome/global/webConsole.dtd
+rename to browser/locales/en-US/chrome/browser/devtools/webConsole.dtd
+diff --git a/browser/locales/jar.mn b/browser/locales/jar.mn
+--- a/browser/locales/jar.mn
++++ b/browser/locales/jar.mn
+@@ -14,13 +14,15 @@
+ *   locale/browser/browser.dtd                     (%chrome/browser/browser.dtd)
+     locale/browser/baseMenuOverlay.dtd             (%chrome/browser/baseMenuOverlay.dtd)
+     locale/browser/browser.properties              (%chrome/browser/browser.properties)
+-    locale/browser/devtools/gcli.properties         (%chrome/browser/devtools/gcli.properties)
+-    locale/browser/devtools/gclicommands.properties (%chrome/browser/devtools/gclicommands.properties)
+-    locale/browser/styleinspector.properties       (%chrome/browser/styleinspector.properties)
+-    locale/browser/styleinspector.dtd              (%chrome/browser/styleinspector.dtd)
+-    locale/browser/scratchpad.properties           (%chrome/browser/scratchpad.properties)
+-    locale/browser/scratchpad.dtd                  (%chrome/browser/scratchpad.dtd)
+-    locale/browser/inspector.properties            (%chrome/browser/inspector.properties)
++    locale/browser/devtools/gcli.properties           (%chrome/browser/devtools/gcli.properties)
++    locale/browser/devtools/gclicommands.properties   (%chrome/browser/devtools/gclicommands.properties)
++    locale/browser/devtools/headsUpDisplay.properties (%chrome/browser/devtools/headsUpDisplay.properties)
++    locale/browser/devtools/inspector.properties      (%chrome/browser/devtools/inspector.properties)
++    locale/browser/devtools/scratchpad.properties     (%chrome/browser/devtools/scratchpad.properties)
++    locale/browser/devtools/scratchpad.dtd            (%chrome/browser/devtools/scratchpad.dtd)
++    locale/browser/devtools/styleinspector.properties (%chrome/browser/devtools/styleinspector.properties)
++    locale/browser/devtools/styleinspector.dtd        (%chrome/browser/devtools/styleinspector.dtd)
++    locale/browser/devtools/webConsole.dtd            (%chrome/browser/devtools/webConsole.dtd)
+     locale/browser/openLocation.dtd                (%chrome/browser/openLocation.dtd)
+     locale/browser/openLocation.properties         (%chrome/browser/openLocation.properties)
+ *   locale/browser/pageInfo.dtd                    (%chrome/browser/pageInfo.dtd)
+diff --git a/mobile/chrome/content/content.js b/mobile/chrome/content/content.js
+--- a/mobile/chrome/content/content.js
++++ b/mobile/chrome/content/content.js
+@@ -1216,7 +1216,7 @@ var ConsoleAPIObserver = {
+       consoleMsg.init(joinedArguments, null, null, 0, 0, flag, "content javascript");
+       Services.console.logMessage(consoleMsg);
+     } else if (aMessage.level == "trace") {
+-      let bundle = Services.strings.createBundle("chrome://global/locale/headsUpDisplay.properties");
++      let bundle = Services.strings.createBundle("chrome://browser/locale/devtools/headsUpDisplay.properties");
+       let args = aMessage.arguments;
+       let filename = this.abbreviateSourceURL(args[0].filename);
+       let functionName = args[0].functionName || bundle.GetStringFromName("stacktrace.anonymousFunction");
+diff --git a/toolkit/locales/jar.mn b/toolkit/locales/jar.mn
+--- a/toolkit/locales/jar.mn
++++ b/toolkit/locales/jar.mn
+@@ -36,8 +36,6 @@
+ + locale/@AB_CD@/global/finddialog.dtd                  (%chrome/global/finddialog.dtd)
+ + locale/@AB_CD@/global/finddialog.properties           (%chrome/global/finddialog.properties)
+   locale/@AB_CD@/global/globalKeys.dtd                  (%chrome/global/globalKeys.dtd)
+-+ locale/@AB_CD@/global/headsUpDisplay.properties       (%chrome/global/headsUpDisplay.properties)
+-+ locale/@AB_CD@/global/webConsole.dtd                  (%chrome/global/webConsole.dtd)
+ + locale/@AB_CD@/global/intl.css                        (%chrome/global/intl.css)
+ + locale/@AB_CD@/global/intl.properties                 (%chrome/global/intl.properties)
+ + locale/@AB_CD@/global/keys.properties                 (%chrome/global/keys.properties)
