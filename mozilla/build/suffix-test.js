@@ -1,7 +1,7 @@
 
 registerCleanupFunction(function() {
   Services.prefs.clearUserPref("devtools.gcli.enable");
-
+  undefine();
   obj = undefined;
   define = undefined;
   console = undefined;
@@ -16,16 +16,22 @@ function test() {
 
 function onLoad() {
   browser.removeEventListener("DOMContentLoaded", onLoad, false);
+  var failed = false;
 
   try {
     openConsole();
-    require("gclitest/index");
+    define.globalDomain.require("gclitest/index");
   }
   catch (ex) {
+    failed = ex;
     console.error('Test Failure', ex);
   }
   finally {
     closeConsole();
-    finishTest();
+    finish();
+  }
+
+  if (failed) {
+    throw failed;
   }
 }

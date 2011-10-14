@@ -118,7 +118,7 @@ function buildFirefox(destDir) {
   var winCssDir = '/browser/themes/winstripe/browser/devtools';
   var pinCssDir = '/browser/themes/pinstripe/browser/devtools';
   var gnomeCssDir = '/browser/themes/gnomestripe/browser/devtools';
-  var propsDir = '/browser/locales/en-US/chrome/browser';
+  var propsDir = '/browser/locales/en-US/chrome/browser/devtools/webconsole';
   var testDir = '/browser/devtools/webconsole/test/browser';
 
   if (destDir) {
@@ -176,17 +176,27 @@ function buildFirefox(destDir) {
 
   // Package the test files
   project.assumeAllFilesLoaded();
+  var sources = copy.createDataObject();
   copy({
     source: [
-      'mozilla/build/prefix-test.js',
       copy.source.commonjs({
         project: project,
         // This list of dependencies should be the same as in gclitest/index.js
         require: [ 'gclitest/index' ]
-      }),
-      'mozilla/build/suffix-test.js'
+      })
     ],
     filter: copy.filter.moduleDefines,
+    dest: sources
+  });
+  // This has to be done in 2 steps because createUndefineFunction uses
+  // project.currentFiles which is populated by using the project as a source
+  copy({
+    source: [
+      'mozilla/build/prefix-test.js',
+      sources,
+      createUndefineFunction(project),
+      'mozilla/build/suffix-test.js'
+    ],
     dest: (destDir ? destDir + testDir : 'built/ff') + '/browser_gcli_web.js'
   });
 
@@ -289,10 +299,10 @@ function tweakI18nStrings(data) {
   return '# LOCALIZATION NOTE These strings are used inside the Web Console\n' +
          '# command line which is available from the Web Developer sub-menu\n' +
          '# -> \'Web Console\'.\n' +
-         '# The correct localization of this file might be to keep it in' +
-         '# English, or another language commonly spoken among web developers.' +
-         '# You want to make that choice consistent across the developer tools.' +
-         '# A good criteria is the language in which you\'d find the best' +
+         '# The correct localization of this file might be to keep it in\n' +
+         '# English, or another language commonly spoken among web developers.\n' +
+         '# You want to make that choice consistent across the developer tools.\n' +
+         '# A good criteria is the language in which you\'d find the best\n' +
          '# documentation on web development on the web.\n' +
          '\n' + data;
 }
@@ -314,6 +324,27 @@ function wordWrap(input, length) {
  */
 function removeNonMozPrefixes(data) {
   return data.replace(/\n?\s*[-a-z]*:\s*-(webkit|op|ie)[-a-z]*\s*;[ \t]*/g, '');
+}
+
+/**
+ * A function to create an undefine function that undoes the effect of defining
+ * all the modules in the given project. This is useful in firefox tests that
+ * need to undo all the changes they make to avoid memleak detection tests
+ * @param project The commonjs the we're aggregating together.
+ */
+function createUndefineFunction(project) {
+  // This is slightly evil because it digs into the guts of a project
+  var modules = Object.keys(project.currentFiles);
+  var undefine = '\nfunction undefine() {\n';
+  modules.forEach(function(module) {
+    undefine += '  delete define.modules[\'' + module + '\'];\n';
+  });
+  undefine += '\n';
+  modules.forEach(function(module) {
+    undefine += '  delete define.globalDomain.modules[\'' + module + '\'];\n';
+  });
+  undefine += '}\n';
+  return { value: undefine };
 }
 
 // Now everything is defined properly, start working
