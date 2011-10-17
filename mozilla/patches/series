@@ -2,4 +2,3 @@ projectfiles.patch
 bug694313-themejar.patch
 bug687851-localesdir.patch
 bug671406-commands.patch
-bug659885-debugger.patch #+debugger
