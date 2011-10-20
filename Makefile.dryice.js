@@ -182,7 +182,7 @@ function buildFirefox(destDir) {
       copy.source.commonjs({
         project: project,
         // This list of dependencies should be the same as in gclitest/index.js
-        require: [ 'gclitest/index' ]
+        require: [ 'gclitest/suite' ]
       })
     ],
     filter: copy.filter.moduleDefines,
