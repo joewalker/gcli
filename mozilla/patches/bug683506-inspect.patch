@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent 0b4f6948f56cce71f0f83e98d19cb8de551ff468
+# Parent fba8726d0643bea92ab95484d04776e77a038ea4
 # User Joe Walker <jwalker@mozilla.com>
 Bug 683506 - GCLI needs an 'inspect' command
 
@@ -32,6 +32,327 @@ diff --git a/browser/devtools/webconsole/GcliCommands.jsm b/browser/devtools/web
 +    InspectorUI.openInspectorUI(args.node);
 +  }
 +});
+diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webconsole/HUDService.jsm
+--- a/browser/devtools/webconsole/HUDService.jsm
++++ b/browser/devtools/webconsole/HUDService.jsm
+@@ -130,19 +130,21 @@ function LogFactory(aMessagePrefix)
+ /**
+  * Load the various Command JSMs.
+  * Should be called when the console first opens.
+- * 
+- * @returns an object containing the EXPORTED_SYMBOLS from all the command
+- * modules. In general there is no reason when JSMs need to export symbols
+- * except when they need the host environment to inform them of things like the
+- * current window/document/etc.
++ *
++ * @return An object containing the EXPORTED_SYMBOLS from all the command
++ * modules. In general there is no reason why JSMs should need to export
++ * symbols except when they need the host environment to inform them of things
++ * like the current window/document/etc, and this can generally be handled
++ * using context.environment.hudId.
+  */
+-function loadCommands() {
+-  var cmdObj = {};
+-
+-  Cu.import("resource:///modules/GcliCommands.jsm", cmdObj);
+-
+-  return cmdObj;
+-}
++XPCOMUtils.defineLazyGetter(this, "CommandExports", function () {
++  let commandExports = {};
++
++  Cu.import("resource:///modules/GcliCommands.jsm", commandExports);
++
++  return commandExports;
++});
++
+ 
+ let log = LogFactory("*** HUDService:");
+ 
+@@ -6891,11 +6893,6 @@ catch (ex) {
+ ///////////////////////////////////////////////////////////////////////////
+ 
+ /**
+- * Some commands need customization - this is how we get at them.
+- */
+-let cmdObj = undefined;
+-
+-/**
+  * GcliTerm
+  *
+  * Initialize GCLI by creating a set of startup options from the available
+@@ -6946,9 +6943,8 @@ function GcliTerm(aContentWindow, aHudId
+   gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
+   gcli._internal.createView(this.opts);
+ 
+-  if (!cmdObj) {
+-    cmdObj = loadCommands();
+-  }
++  // Ensure the commands are all loaded
++  let localCommandExports = CommandExports;
+ }
+ 
+ GcliTerm.prototype = {
+@@ -6973,7 +6969,6 @@ GcliTerm.prototype = {
+    */
+   destroy: function Gcli_destroy()
+   {
+-    GcliCommands.unsetDocument();
+     gcli._internal.removeView(this.opts);
+     gcli._internal.commandOutputManager.removeListener(this.onCommandOutput, this);
+ 
+diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
+--- a/browser/devtools/webconsole/gcli.jsm
++++ b/browser/devtools/webconsole/gcli.jsm
+@@ -3478,9 +3478,10 @@ exports.JavascriptType = JavascriptType;
+  * http://opensource.org/licenses/BSD-3-Clause
+  */
+ 
+-define('gcli/types/node', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types'], function(require, exports, module) {
+-
+-
++define('gcli/types/node', ['require', 'exports', 'module' , 'gcli/host', 'gcli/l10n', 'gcli/types'], function(require, exports, module) {
++
++
++var host = require('gcli/host');
+ var l10n = require('gcli/l10n');
+ var types = require('gcli/types');
+ var Type = require('gcli/types').Type;
+@@ -3562,13 +3563,13 @@ NodeType.prototype.parse = function(arg)
+     var node = nodes.item(0);
+     node.__gcliQuery = arg.text;
+ 
+-    flashNode(node, 'green');
++    host.flashNode(node, 'green');
+ 
+     return new Conversion(node, arg, Status.VALID, '');
+   }
+ 
+   Array.prototype.forEach.call(nodes, function(n) {
+-    flashNode(n, 'red');
++    host.flashNode(n, 'red');
+   });
+ 
+   return new Conversion(null, arg, Status.ERROR,
+@@ -3578,11 +3579,21 @@ NodeType.prototype.parse = function(arg)
+ NodeType.prototype.name = 'node';
+ 
+ 
++});
++/*
++ * Copyright 2009-2011 Mozilla Foundation and contributors
++ * Licensed under the New BSD license. See LICENSE.txt or:
++ * http://opensource.org/licenses/BSD-3-Clause
++ */
++
++define('gcli/host', ['require', 'exports', 'module' ], function(require, exports, module) {
++
++
+ /**
+  * Helper to turn a node background it's complementary color for 1 second.
+  * There is likely a better way to do this, but this will do for now.
+  */
+-function flashNode(node, color) {
++exports.flashNode = function(node, color) {
+   if (!node.__gcliHighlighting) {
+     node.__gcliHighlighting = true;
+     var original = node.style.background;
+@@ -3592,7 +3603,7 @@ function flashNode(node, color) {
+       delete node.__gcliHighlighting;
+     }, 1000);
+   }
+-}
++};
+ 
+ 
+ });
+diff --git a/browser/devtools/webconsole/test/browser/Makefile.in b/browser/devtools/webconsole/test/browser/Makefile.in
+--- a/browser/devtools/webconsole/test/browser/Makefile.in
++++ b/browser/devtools/webconsole/test/browser/Makefile.in
+@@ -145,8 +145,9 @@ _BROWSER_TEST_FILES = \
+ 	browser_webconsole_bug_659907_console_dir.js \
+ 	browser_webconsole_bug_678816.js \
+ 	browser_webconsole_bug_664131_console_group.js \
++	browser_gcli_inspect.js \
++	browser_gcli_integrate.js \
+ 	browser_gcli_require.js \
+-	browser_gcli_integrate.js \
+ 	browser_gcli_web.js \
+ 	head.js \
+ 	$(NULL)
+@@ -218,6 +219,7 @@ _BROWSER_TEST_PAGES = \
+ 	test-bug-646025-console-file-location.html \
+ 	test-bug-678816-content.js \
+ 	test-file-location.js \
++	browser_gcli_inspect.html \
+ 	$(NULL)
+ 
+ libs:: $(_BROWSER_TEST_FILES)
+diff --git a/browser/devtools/webconsole/test/browser/browser_gcli_inspect.html b/browser/devtools/webconsole/test/browser/browser_gcli_inspect.html
+new file mode 100644
+--- /dev/null
++++ b/browser/devtools/webconsole/test/browser/browser_gcli_inspect.html
+@@ -0,0 +1,25 @@
++<!doctype html>
++<html lang="en">
++<head>
++  <meta charset="utf-8">
++  <title>GCLI inspect command test</title>
++</head>
++<body>
++
++  <!-- This is a list of 0 h1 elements -->
++
++  <!-- This is a list of 1 div elements -->
++  <div>Hello, I'm a div</div>
++
++  <!-- This is a list of 2 span elements -->
++  <span>Hello, I'm a span</span>
++  <span>And me</span>
++
++  <!-- This is a collection of various things that match only once -->
++  <p class="someclass">.someclass</p>
++  <p id="someid">#someid</p>
++  <button disabled>button[disabled]</button>
++  <p><strong>p&gt;strong</strong></p>
++
++</body>
++</html>
+diff --git a/browser/devtools/webconsole/test/browser/browser_gcli_inspect.js b/browser/devtools/webconsole/test/browser/browser_gcli_inspect.js
+new file mode 100644
+--- /dev/null
++++ b/browser/devtools/webconsole/test/browser/browser_gcli_inspect.js
+@@ -0,0 +1,92 @@
++/* Any copyright is dedicated to the Public Domain.
++ * http://creativecommons.org/publicdomain/zero/1.0/ */
++
++// For more information on GCLI see:
++// - https://github.com/mozilla/gcli/blob/master/docs/index.md
++// - https://wiki.mozilla.org/DevTools/Features/GCLI
++
++// Tests that the inspect command works as it should
++
++Components.utils.import("resource:///modules/gcli.jsm");
++
++registerCleanupFunction(function() {
++  gcliterm = undefined;
++  requisition = undefined;
++
++  Services.prefs.clearUserPref("devtools.gcli.enable");
++});
++
++function test() {
++  Services.prefs.setBoolPref("devtools.gcli.enable", true);
++  addTab("http://example.com/browser/browser/devtools/webconsole/test/browser/browser_gcli_inspect.html");
++  browser.addEventListener("DOMContentLoaded", onLoad, false);
++}
++
++let gcliterm;
++let requisition;
++
++function onLoad() {
++  browser.removeEventListener("DOMContentLoaded", onLoad, false);
++
++  try {
++    openConsole();
++
++    let hud = HUDService.getHudByWindow(content);
++    gcliterm = hud.gcliterm;
++    requisition = gcliterm.opts.requisition;
++
++    testSetup();
++    testCreateCommands();
++  }
++  catch (ex) {
++    gcli._internal.console.error('Test Failure', ex);
++  }
++  finally {
++    closeConsole();
++    finishTest();
++  }
++}
++
++function testSetup() {
++  ok(gcliterm, "We have a GCLI term");
++  ok(requisition, "We have a Requisition");
++}
++
++function testCreateCommands() {
++  type("inspec");
++  is(gcliterm.completeNode.textContent, " inspect", "Completion for \"inspec\"");
++  is(requisition.getStatus().toString(), "ERROR", "inspec is ERROR");
++
++  type("inspect");
++  is(requisition.getStatus().toString(), "ERROR", "inspect is ERROR");
++
++  type("inspect h1");
++  is(requisition.getStatus().toString(), "ERROR", "inspect h1 is ERROR");
++
++  type("inspect span");
++  is(requisition.getStatus().toString(), "ERROR", "inspect span is ERROR");
++
++  type("inspect div");
++  is(requisition.getStatus().toString(), "VALID", "inspect div is VALID");
++
++  type("inspect .someclass");
++  is(requisition.getStatus().toString(), "VALID", "inspect .someclass is VALID");
++
++  type("inspect #someid");
++  is(requisition.getStatus().toString(), "VALID", "inspect #someid is VALID");
++
++  type("inspect button[disabled]");
++  is(requisition.getStatus().toString(), "VALID", "inspect button[disabled] is VALID");
++
++  type("inspect p>strong");
++  is(requisition.getStatus().toString(), "VALID", "inspect p>strong is VALID");
++
++  type("inspect :root");
++  is(requisition.getStatus().toString(), "VALID", "inspect :root is VALID");
++}
++
++function type(command) {
++  gcliterm.inputNode.value = command.slice(0, -1);
++  gcliterm.inputNode.focus();
++  EventUtils.synthesizeKey(command.slice(-1), {});
++}
+diff --git a/browser/devtools/webconsole/test/browser/browser_gcli_web.js b/browser/devtools/webconsole/test/browser/browser_gcli_web.js
+--- a/browser/devtools/webconsole/test/browser/browser_gcli_web.js
++++ b/browser/devtools/webconsole/test/browser/browser_gcli_web.js
+@@ -54,7 +54,7 @@ var Node = Components.interfaces.nsIDOMN
+  * http://opensource.org/licenses/BSD-3-Clause
+  */
+ 
+-define('gclitest/index', ['require', 'exports', 'module' , 'gcli/index', 'test/examiner', 'gclitest/testTokenize', 'gclitest/testSplit', 'gclitest/testCli', 'gclitest/testHistory', 'gclitest/testRequire'], function(require, exports, module) {
++define('gclitest/suite', ['require', 'exports', 'module' , 'gcli/index', 'test/examiner', 'gclitest/testTokenize', 'gclitest/testSplit', 'gclitest/testCli', 'gclitest/testHistory', 'gclitest/testRequire'], function(require, exports, module) {
+ 
+   // We need to make sure GCLI is initialized before we begin testing it
+   require('gcli/index');
+@@ -65,7 +65,6 @@ define('gclitest/index', ['require', 'ex
+   examiner.addSuite('gclitest/testSplit', require('gclitest/testSplit'));
+   examiner.addSuite('gclitest/testCli', require('gclitest/testCli'));
+   examiner.addSuite('gclitest/testHistory', require('gclitest/testHistory'));
+-
+   examiner.addSuite('gclitest/testRequire', require('gclitest/testRequire'));
+ 
+   examiner.run();
+@@ -1373,7 +1372,7 @@ define('gclitest/requirable', ['require'
+ });
+ 
+ function undefine() {
+-  delete define.modules['gclitest/index'];
++  delete define.modules['gclitest/suite'];
+   delete define.modules['test/examiner'];
+   delete define.modules['gclitest/testTokenize'];
+   delete define.modules['test/assert'];
+@@ -1384,7 +1383,7 @@ function undefine() {
+   delete define.modules['gclitest/testRequire'];
+   delete define.modules['gclitest/requirable'];
+ 
+-  delete define.globalDomain.modules['gclitest/index'];
++  delete define.globalDomain.modules['gclitest/suite'];
+   delete define.globalDomain.modules['test/examiner'];
+   delete define.globalDomain.modules['gclitest/testTokenize'];
+   delete define.globalDomain.modules['test/assert'];
 diff --git a/browser/locales/en-US/chrome/browser/devtools/gclicommands.properties b/browser/locales/en-US/chrome/browser/devtools/gclicommands.properties
 --- a/browser/locales/en-US/chrome/browser/devtools/gclicommands.properties
 +++ b/browser/locales/en-US/chrome/browser/devtools/gclicommands.properties
