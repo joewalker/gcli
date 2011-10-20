@@ -1,4 +1,6 @@
 projectfiles.patch
 bug694313-themejar.patch
+bug693265-api-1.patch
+bug683506-inspect.patch
 bug687851-localesdir.patch
 bug671406-commands.patch
