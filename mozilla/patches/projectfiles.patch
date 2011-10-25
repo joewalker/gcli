@@ -1,6 +1,8 @@
 # HG changeset patch
-# Parent 635b5bbe68b4901288cea3203088a1bfcfe9d22b
 # User Joe Walker <jwalker@mozilla.com>
+# Date 1319108676 -3600
+# Node ID 951f21b460372ca3ec2312fb02a90d8f19dce2df
+# Parent  e60d3779a3b83c67a748244fd925a0269a13d612
 Internal project files. Don't commit
 
 diff --git a/.hgignore b/.hgignore

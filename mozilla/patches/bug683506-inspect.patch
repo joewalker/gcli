@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent fba8726d0643bea92ab95484d04776e77a038ea4
+# Parent 9f42e6ce7a773068d0d23283db08c56c40054d03
 # User Joe Walker <jwalker@mozilla.com>
 Bug 683506 - GCLI needs an 'inspect' command
 
@@ -32,75 +32,6 @@ diff --git a/browser/devtools/webconsole/GcliCommands.jsm b/browser/devtools/web
 +    InspectorUI.openInspectorUI(args.node);
 +  }
 +});
-diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webconsole/HUDService.jsm
---- a/browser/devtools/webconsole/HUDService.jsm
-+++ b/browser/devtools/webconsole/HUDService.jsm
-@@ -130,19 +130,21 @@ function LogFactory(aMessagePrefix)
- /**
-  * Load the various Command JSMs.
-  * Should be called when the console first opens.
-- * 
-- * @returns an object containing the EXPORTED_SYMBOLS from all the command
-- * modules. In general there is no reason when JSMs need to export symbols
-- * except when they need the host environment to inform them of things like the
-- * current window/document/etc.
-+ *
-+ * @return An object containing the EXPORTED_SYMBOLS from all the command
-+ * modules. In general there is no reason why JSMs should need to export
-+ * symbols except when they need the host environment to inform them of things
-+ * like the current window/document/etc, and this can generally be handled
-+ * using context.environment.hudId.
-  */
--function loadCommands() {
--  var cmdObj = {};
--
--  Cu.import("resource:///modules/GcliCommands.jsm", cmdObj);
--
--  return cmdObj;
--}
-+XPCOMUtils.defineLazyGetter(this, "CommandExports", function () {
-+  let commandExports = {};
-+
-+  Cu.import("resource:///modules/GcliCommands.jsm", commandExports);
-+
-+  return commandExports;
-+});
-+
- 
- let log = LogFactory("*** HUDService:");
- 
-@@ -6891,11 +6893,6 @@ catch (ex) {
- ///////////////////////////////////////////////////////////////////////////
- 
- /**
-- * Some commands need customization - this is how we get at them.
-- */
--let cmdObj = undefined;
--
--/**
-  * GcliTerm
-  *
-  * Initialize GCLI by creating a set of startup options from the available
-@@ -6946,9 +6943,8 @@ function GcliTerm(aContentWindow, aHudId
-   gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
-   gcli._internal.createView(this.opts);
- 
--  if (!cmdObj) {
--    cmdObj = loadCommands();
--  }
-+  // Ensure the commands are all loaded
-+  let localCommandExports = CommandExports;
- }
- 
- GcliTerm.prototype = {
-@@ -6973,7 +6969,6 @@ GcliTerm.prototype = {
-    */
-   destroy: function Gcli_destroy()
-   {
--    GcliCommands.unsetDocument();
-     gcli._internal.removeView(this.opts);
-     gcli._internal.commandOutputManager.removeListener(this.onCommandOutput, this);
- 
 diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
 --- a/browser/devtools/webconsole/gcli.jsm
 +++ b/browser/devtools/webconsole/gcli.jsm
