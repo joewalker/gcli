@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent 310f542dd5c3144a416970ca1c233142467ceba2
+# Parent c6cc01ad58fa523e33fe834ee83f753b5abae646
 # User Joe Walker <jwalker@mozilla.com>
 Bug 693265 - Carefully review the exposed GCLI API
 
@@ -156,7 +156,7 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +/**
 + * Load the various Command JSMs.
 + * Should be called when the console first opens.
-+ * 
++ *
 + * @returns an object containing the EXPORTED_SYMBOLS from all the command
 + * modules. In general there is no reason when JSMs need to export symbols
 + * except when they need the host environment to inform them of things like the
@@ -197,6 +197,14 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
  }
  
  GcliTerm.prototype = {
+@@ -6954,7 +6973,6 @@ GcliTerm.prototype = {
+    */
+   destroy: function Gcli_destroy()
+   {
+-    GcliCommands.unsetDocument();
+     gcli._internal.removeView(this.opts);
+     gcli._internal.commandOutputManager.removeListener(this.onCommandOutput, this);
+ 
 diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
 --- a/browser/devtools/webconsole/gcli.jsm
 +++ b/browser/devtools/webconsole/gcli.jsm
