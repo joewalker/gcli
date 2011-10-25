@@ -6,7 +6,7 @@ Bug 683506 - GCLI needs an 'inspect' command
 diff --git a/browser/devtools/webconsole/GcliCommands.jsm b/browser/devtools/webconsole/GcliCommands.jsm
 --- a/browser/devtools/webconsole/GcliCommands.jsm
 +++ b/browser/devtools/webconsole/GcliCommands.jsm
-@@ -117,3 +117,25 @@ gcli.addCommand({
+@@ -117,3 +117,24 @@ gcli.addCommand({
    }
  });
  
@@ -28,8 +28,7 @@ diff --git a/browser/devtools/webconsole/GcliCommands.jsm b/browser/devtools/web
 +  ],
 +  exec: function Command_inspect(args, context) {
 +    let hud = HUDService.getHudReferenceById(context.environment.hudId);
-+    let InspectorUI = hud.gcliterm.document.defaultView.InspectorUI;
-+    InspectorUI.openInspectorUI(args.node);
++    hud.chromeWindow.InspectorUI.openInspectorUI(args.node);
 +  }
 +});
 diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
