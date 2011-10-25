@@ -36,8 +36,8 @@
   overflow-y: auto;
   max-width: 220px;
   overflow-x: hidden;
-  margin: 0px 10px;
-  border-top: 0px !important;
+  margin: 0 10px;
+  border-top: 0 !important;
   border-bottom-right-radius: 5px;
   border-bottom-left-radius: 5px;
   font: -webkit-small-control;
