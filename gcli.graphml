@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml
+    xmlns="http://graphml.graphdrawing.org/xmlns/graphml"
+    xmlns:y="http://www.yworks.com/xml/graphml"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns/graphml http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd"
+    >
+  <key id="d0" for="node" yfiles.type="nodegraphics"/>
+  <key id="d1" for="edge" yfiles.type="edgegraphics"/>
+  <graph id="commonjs" edgedefault="undirected">
+    <node id="gcli/index">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/index</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/canon">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/canon</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/util">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/util</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/l10n">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/l10n</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/types">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/types</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/argument">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/argument</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/types/basic">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/types/basic</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/nls/strings">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/nls/strings</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/types/javascript">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/types/javascript</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/types/node">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/types/node</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/cli">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/cli</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/promise">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/promise</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/command_output_view">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/command_output_view</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/domtemplate">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/domtemplate</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/ui/command_output_view.css">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/ui/command_output_view.css</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/ui/command_output_view.html">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/ui/command_output_view.html</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/popup">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/popup</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/inputter">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/inputter</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/history">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/history</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/ui/inputter.css">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/ui/inputter.css</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/hinter">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/hinter</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/arg_fetch">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/arg_fetch</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/field">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/field</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/menu">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/menu</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/ui/menu.css">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/ui/menu.css</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/ui/menu.html">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/ui/menu.html</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/ui/arg_fetch.css">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/ui/arg_fetch.css</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/ui/arg_fetch.html">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/ui/arg_fetch.html</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/ui/hinter.css">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/ui/hinter.css</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/focus">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/focus</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="demo/index">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">demo/index</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="demo/commands/basic">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">demo/commands/basic</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="demo/commands/bugs">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">demo/commands/bugs</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="demo/commands/demo">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">demo/commands/demo</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="demo/commands/experimental">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">demo/commands/experimental</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="demo/commands/help">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">demo/commands/help</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/index">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/index</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="test/examiner">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">test/examiner</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/testTokenize">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testTokenize</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="test/assert">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">test/assert</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/testSplit">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testSplit</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/commands">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/commands</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/testCli">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testCli</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/testHistory">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testHistory</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/testRequire">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testRequire</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/requirable">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/requirable</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <edge source="gcli/index" target="gcli/canon"/>
+    <edge source="gcli/index" target="gcli/nls/strings"/>
+    <edge source="gcli/index" target="gcli/l10n"/>
+    <edge source="gcli/index" target="gcli/types/basic"/>
+    <edge source="gcli/index" target="gcli/types/javascript"/>
+    <edge source="gcli/index" target="gcli/types/node"/>
+    <edge source="gcli/index" target="gcli/cli"/>
+    <edge source="gcli/index" target="gcli/ui/command_output_view"/>
+    <edge source="gcli/index" target="gcli/ui/popup"/>
+    <edge source="gcli/index" target="gcli/ui/inputter"/>
+    <edge source="gcli/index" target="gcli/ui/hinter"/>
+    <edge source="gcli/index" target="gcli/ui/focus"/>
+    <edge source="gcli/index" target="gcli/ui/arg_fetch"/>
+    <edge source="gcli/index" target="gcli/ui/menu"/>
+    <edge source="gcli/index" target="gcli/ui/domtemplate"/>
+    <edge source="gcli/canon" target="gcli/util"/>
+    <edge source="gcli/canon" target="gcli/l10n"/>
+    <edge source="gcli/canon" target="gcli/types"/>
+    <edge source="gcli/canon" target="gcli/types/basic"/>
+    <edge source="gcli/types" target="gcli/argument"/>
+    <edge source="gcli/types/basic" target="gcli/l10n"/>
+    <edge source="gcli/types/basic" target="gcli/types"/>
+    <edge source="gcli/types/basic" target="gcli/argument"/>
+    <edge source="gcli/types/javascript" target="gcli/l10n"/>
+    <edge source="gcli/types/javascript" target="gcli/types"/>
+    <edge source="gcli/types/node" target="gcli/l10n"/>
+    <edge source="gcli/types/node" target="gcli/types"/>
+    <edge source="gcli/cli" target="gcli/util"/>
+    <edge source="gcli/cli" target="gcli/canon"/>
+    <edge source="gcli/cli" target="gcli/promise"/>
+    <edge source="gcli/cli" target="gcli/types"/>
+    <edge source="gcli/cli" target="gcli/types/basic"/>
+    <edge source="gcli/cli" target="gcli/argument"/>
+    <edge source="gcli/ui/command_output_view" target="gcli/util"/>
+    <edge source="gcli/ui/command_output_view" target="gcli/canon"/>
+    <edge source="gcli/ui/command_output_view" target="gcli/ui/domtemplate"/>
+    <edge source="gcli/ui/command_output_view" target="text!gcli/ui/command_output_view.css"/>
+    <edge source="gcli/ui/command_output_view" target="text!gcli/ui/command_output_view.html"/>
+    <edge source="gcli/ui/popup" target="gcli/util"/>
+    <edge source="gcli/ui/inputter" target="gcli/util"/>
+    <edge source="gcli/ui/inputter" target="gcli/types"/>
+    <edge source="gcli/ui/inputter" target="gcli/history"/>
+    <edge source="gcli/ui/inputter" target="text!gcli/ui/inputter.css"/>
+    <edge source="gcli/ui/hinter" target="gcli/util"/>
+    <edge source="gcli/ui/hinter" target="gcli/ui/arg_fetch"/>
+    <edge source="gcli/ui/hinter" target="gcli/ui/menu"/>
+    <edge source="gcli/ui/hinter" target="text!gcli/ui/hinter.css"/>
+    <edge source="gcli/ui/arg_fetch" target="gcli/util"/>
+    <edge source="gcli/ui/arg_fetch" target="gcli/types"/>
+    <edge source="gcli/ui/arg_fetch" target="gcli/ui/field"/>
+    <edge source="gcli/ui/arg_fetch" target="gcli/ui/domtemplate"/>
+    <edge source="gcli/ui/arg_fetch" target="text!gcli/ui/arg_fetch.css"/>
+    <edge source="gcli/ui/arg_fetch" target="text!gcli/ui/arg_fetch.html"/>
+    <edge source="gcli/ui/field" target="gcli/util"/>
+    <edge source="gcli/ui/field" target="gcli/l10n"/>
+    <edge source="gcli/ui/field" target="gcli/argument"/>
+    <edge source="gcli/ui/field" target="gcli/types"/>
+    <edge source="gcli/ui/field" target="gcli/types/basic"/>
+    <edge source="gcli/ui/field" target="gcli/types/javascript"/>
+    <edge source="gcli/ui/field" target="gcli/ui/menu"/>
+    <edge source="gcli/ui/menu" target="gcli/util"/>
+    <edge source="gcli/ui/menu" target="gcli/types"/>
+    <edge source="gcli/ui/menu" target="gcli/argument"/>
+    <edge source="gcli/ui/menu" target="gcli/canon"/>
+    <edge source="gcli/ui/menu" target="gcli/ui/domtemplate"/>
+    <edge source="gcli/ui/menu" target="text!gcli/ui/menu.css"/>
+    <edge source="gcli/ui/menu" target="text!gcli/ui/menu.html"/>
+    <edge source="gcli/ui/focus" target="gcli/util"/>
+    <edge source="demo/index" target="gcli/index"/>
+    <edge source="demo/index" target="demo/commands/basic"/>
+    <edge source="demo/index" target="demo/commands/bugs"/>
+    <edge source="demo/index" target="demo/commands/demo"/>
+    <edge source="demo/index" target="demo/commands/experimental"/>
+    <edge source="demo/index" target="demo/commands/help"/>
+    <edge source="demo/commands/basic" target="gcli/index"/>
+    <edge source="demo/commands/bugs" target="gcli/index"/>
+    <edge source="demo/commands/bugs" target="gcli/util"/>
+    <edge source="demo/commands/demo" target="gcli/index"/>
+    <edge source="demo/commands/experimental" target="gcli/canon"/>
+    <edge source="demo/commands/experimental" target="gcli/types"/>
+    <edge source="demo/commands/help" target="gcli/canon"/>
+    <edge source="gclitest/index" target="gcli/index"/>
+    <edge source="gclitest/index" target="test/examiner"/>
+    <edge source="gclitest/index" target="gclitest/testTokenize"/>
+    <edge source="gclitest/index" target="gclitest/testSplit"/>
+    <edge source="gclitest/index" target="gclitest/testCli"/>
+    <edge source="gclitest/index" target="gclitest/testHistory"/>
+    <edge source="gclitest/index" target="gclitest/testRequire"/>
+    <edge source="gclitest/testTokenize" target="test/assert"/>
+    <edge source="gclitest/testTokenize" target="gcli/cli"/>
+    <edge source="gclitest/testTokenize" target="gcli/argument"/>
+    <edge source="test/assert" target="test/examiner"/>
+    <edge source="gclitest/testSplit" target="test/assert"/>
+    <edge source="gclitest/testSplit" target="gclitest/commands"/>
+    <edge source="gclitest/testSplit" target="gcli/cli"/>
+    <edge source="gclitest/commands" target="gcli/canon"/>
+    <edge source="gclitest/commands" target="gcli/types/basic"/>
+    <edge source="gclitest/commands" target="gcli/types"/>
+    <edge source="gclitest/testCli" target="gcli/cli"/>
+    <edge source="gclitest/testCli" target="gcli/types"/>
+    <edge source="gclitest/testCli" target="gclitest/commands"/>
+    <edge source="gclitest/testCli" target="test/assert"/>
+    <edge source="gclitest/testHistory" target="test/assert"/>
+    <edge source="gclitest/testHistory" target="gcli/history"/>
+    <edge source="gclitest/testRequire" target="test/assert"/>
+    <edge source="gclitest/testRequire" target="gclitest/requirable"/>
+  </graph>
+</graphml>
