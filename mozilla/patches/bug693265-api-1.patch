@@ -1,0 +1,496 @@
+# HG changeset patch
+# Parent 951f21b460372ca3ec2312fb02a90d8f19dce2df
+# User Joe Walker <jwalker@mozilla.com>
+Bug 693265 - Carefully review the exposed GCLI API
+
+diff --git a/browser/devtools/webconsole/GcliCommands.jsm b/browser/devtools/webconsole/GcliCommands.jsm
+--- a/browser/devtools/webconsole/GcliCommands.jsm
++++ b/browser/devtools/webconsole/GcliCommands.jsm
+@@ -38,82 +38,21 @@
+ 
+ let EXPORTED_SYMBOLS = [ "GcliCommands" ];
+ 
+-Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
+-Components.utils.import("resource://gre/modules/Services.jsm");
+ Components.utils.import("resource:///modules/gcli.jsm");
+ Components.utils.import("resource:///modules/HUDService.jsm");
+ 
+-let bundleName = "chrome://browser/locale/devtools/gclicommands.properties";
+-let stringBundle = Services.strings.createBundle(bundleName);
+-
+-let gcli = gcli._internal.require("gcli/index");
+-let canon = gcli._internal.require("gcli/canon");
+-
+-
+-let document;
+-
+-/**
+- * The exported API
+- */
+-let GcliCommands = {
+-  /**
+-   * Allow HUDService to inform us of the document against which we work
+-   */
+-  setDocument: function GcliCommands_setDocument(aDocument) {
+-    document = aDocument;
+-  },
+-
+-  /**
+-   * Undo the effects of GcliCommands.setDocument()
+-   */
+-  unsetDocument: function GcliCommands_unsetDocument() {
+-    document = undefined;
+-  }
+-};
+-
+-
+-/**
+- * Lookup a string in the GCLI string bundle
+- * @param aName The name to lookup
+- * @return The looked up name
+- */
+-function lookup(aName)
+-{
+-  try {
+-    return stringBundle.GetStringFromName(aName);
+-  } catch (ex) {
+-    throw new Error("Failure in lookup('" + aName + "')");
+-  }
+-};
+-
+-/**
+- * Lookup a string in the GCLI string bundle
+- * @param aName The name to lookup
+- * @param aSwaps An array of swaps. See stringBundle.formatStringFromName
+- * @return The looked up name
+- */
+-function lookupFormat(aName, aSwaps)
+-{
+-  try {
+-    return stringBundle.formatStringFromName(aName, aSwaps, aSwaps.length);
+-  } catch (ex) {
+-    Services.console.logStringMessage("Failure in lookupFormat('" + aName + "')");
+-    throw new Error("Failure in lookupFormat('" + aName + "')");
+-  }
+-}
+-
+ 
+ /**
+  * 'echo' command
+  */
+ gcli.addCommand({
+   name: "echo",
+-  description: lookup("echoDesc"),
++  description: gcli.lookup("echoDesc"),
+   params: [
+     {
+       name: "message",
+       type: "string",
+-      description: lookup("echoMessageDesc")
++      description: gcli.lookup("echoMessageDesc")
+     }
+   ],
+   returnType: "string",
+@@ -123,17 +62,19 @@ gcli.addCommand({
+ });
+ 
+ 
++let canon = gcli._internal.require("gcli/canon");
++
+ /**
+  * 'help' command
+  */
+ gcli.addCommand({
+   name: "help",
+   returnType: "html",
+-  description: lookup("helpDesc"),
++  description: gcli.lookup("helpDesc"),
+   exec: function Command_help(args, context) {
+     let output = [];
+ 
+-    output.push("<strong>" + lookup("helpAvailable") + ":</strong><br/>");
++    output.push("<strong>" + gcli.lookup("helpAvailable") + ":</strong><br/>");
+ 
+     let commandNames = canon.getCommandNames();
+     commandNames.sort();
+@@ -160,8 +101,8 @@ gcli.addCommand({
+  */
+ gcli.addCommand({
+   name: "console",
+-  description: lookup("consoleDesc"),
+-  manual: lookup("consoleManual")
++  description: gcli.lookup("consoleDesc"),
++  manual: gcli.lookup("consoleManual")
+ });
+ 
+ /**
+@@ -169,7 +110,7 @@ gcli.addCommand({
+  */
+ gcli.addCommand({
+   name: "console clear",
+-  description: lookup("consoleclearDesc"),
++  description: gcli.lookup("consoleclearDesc"),
+   exec: function(args, context) {
+     let hud = HUDService.getHudReferenceById(context.environment.hudId);
+     hud.gcliterm.clearOutput();
+diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webconsole/HUDService.jsm
+--- a/browser/devtools/webconsole/HUDService.jsm
++++ b/browser/devtools/webconsole/HUDService.jsm
+@@ -79,12 +79,6 @@ XPCOMUtils.defineLazyGetter(this, "gcli"
+   return obj.gcli;
+ });
+ 
+-XPCOMUtils.defineLazyGetter(this, "GcliCommands", function () {
+-  var obj = {};
+-  Cu.import("resource:///modules/GcliCommands.jsm", obj);
+-  return obj.GcliCommands;
+-});
+-
+ XPCOMUtils.defineLazyGetter(this, "StyleInspector", function () {
+   var obj = {};
+   Cu.import("resource:///modules/devtools/StyleInspector.jsm", obj);
+@@ -133,6 +127,23 @@ function LogFactory(aMessagePrefix)
+   return log;
+ }
+ 
++/**
++ * Load the various Command JSMs.
++ * Should be called when the console first opens.
++ *
++ * @return an object containing the EXPORTED_SYMBOLS from all the command
++ * modules. In general there is no reason when JSMs need to export symbols
++ * except when they need the host environment to inform them of things like the
++ * current window/document/etc.
++ */
++function loadCommands() {
++  let commandExports = {};
++
++  Cu.import("resource:///modules/GcliCommands.jsm", commandExports);
++
++  return commandExports;
++}
++
+ let log = LogFactory("*** HUDService:");
+ 
+ const HUD_STRINGS_URI = "chrome://global/locale/headsUpDisplay.properties";
+@@ -6883,6 +6894,11 @@ catch (ex) {
+ ///////////////////////////////////////////////////////////////////////////
+ 
+ /**
++ * Some commands need customization - this is how we get at them.
++ */
++let commandExports = undefined;
++
++/**
+  * GcliTerm
+  *
+  * Initialize GCLI by creating a set of startup options from the available
+@@ -6932,7 +6948,10 @@ function GcliTerm(aContentWindow, aHudId
+ 
+   gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
+   gcli._internal.createView(this.opts);
+-  GcliCommands.setDocument(aContentWindow.document);
++
++  if (!commandExports) {
++    commandExports = loadCommands();
++  }
+ }
+ 
+ GcliTerm.prototype = {
+@@ -6957,7 +6976,6 @@ GcliTerm.prototype = {
+    */
+   destroy: function Gcli_destroy()
+   {
+-    GcliCommands.unsetDocument();
+     gcli._internal.removeView(this.opts);
+     gcli._internal.commandOutputManager.removeListener(this.onCommandOutput, this);
+ 
+diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
+--- a/browser/devtools/webconsole/gcli.jsm
++++ b/browser/devtools/webconsole/gcli.jsm
+@@ -630,11 +630,52 @@ var require = define.globalDomain.requir
+  * http://opensource.org/licenses/BSD-3-Clause
+  */
+ 
++var mozl10n = {};
++
++(function(aMozl10n) {
++  var temp = {};
++  Components.utils.import("resource://gre/modules/Services.jsm", temp);
++  var stringBundle = temp.Services.strings.createBundle(
++          "chrome://browser/locale/devtools/gclicommands.properties");
++
++  /**
++   * Lookup a string in the GCLI string bundle
++   * @param name The name to lookup
++   * @return The looked up name
++   */
++  aMozl10n.lookup = function(name) {
++    try {
++      return stringBundle.GetStringFromName(name);
++    }
++    catch (ex) {
++      throw new Error("Failure in lookup('" + name + "')");
++    }
++  };
++
++  /**
++   * Lookup a string in the GCLI string bundle
++   * @param name The name to lookup
++   * @param swaps An array of swaps. See stringBundle.formatStringFromName
++   * @return The looked up name
++   */
++  aMozl10n.lookupFormat = function(name, swaps) {
++    try {
++      return stringBundle.formatStringFromName(name, swaps, swaps.length);
++    }
++    catch (ex) {
++      throw new Error("Failure in lookupFormat('" + name + "')");
++    }
++  };
++
++})(mozl10n);
++
+ define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types/basic', 'gcli/types/javascript', 'gcli/types/node', 'gcli/cli', 'gcli/ui/inputter', 'gcli/ui/arg_fetch', 'gcli/ui/menu', 'gcli/ui/focus'], function(require, exports, module) {
+ 
+   // The API for use by command authors
+   exports.addCommand = require('gcli/canon').addCommand;
+   exports.removeCommand = require('gcli/canon').removeCommand;
++  exports.lookup = mozl10n.lookup;
++  exports.lookupFormat = mozl10n.lookupFormat;
+ 
+   // Internal startup process. Not exported
+   require('gcli/types/basic').startup();
+@@ -4197,16 +4238,17 @@ Requisition.prototype._onCommandAssignme
+ /**
+  * Assignments have an order, so we need to store them in an array.
+  * But we also need named access ...
++ * @return The found assignment, or undefined, if no match was found
+  */
+ Requisition.prototype.getAssignment = function(nameOrNumber) {
+   var name = (typeof nameOrNumber === 'string') ?
+     nameOrNumber :
+     Object.keys(this._assignments)[nameOrNumber];
+-  return this._assignments[name];
++  return this._assignments[name] || undefined;
+ },
+ 
+ /**
+- * Where parameter name == assignment names - they are the same.
++ * Where parameter name == assignment names - they are the same
+  */
+ Requisition.prototype.getParameterNames = function() {
+   return Object.keys(this._assignments);
+@@ -5041,210 +5083,8 @@ ExecutionContext.prototype.createPromise
+ 
+ define('gcli/promise', ['require', 'exports', 'module' ], function(require, exports, module) {
+ 
+-
+-/**
+- * Create an unfulfilled promise
+- * @constructor
+- */
+-function Promise() {
+-  this._status = Promise.PENDING;
+-  this._value = undefined;
+-  this._onSuccessHandlers = [];
+-  this._onErrorHandlers = [];
+-
+-  // Debugging help
+-  this._id = Promise._nextId++;
+-  Promise._outstanding[this._id] = this;
+-};
+-
+-/**
+- * We give promises and ID so we can track which are outstanding
+- */
+-Promise._nextId = 0;
+-
+-/**
+- * Outstanding promises. Handy list for debugging only.
+- */
+-Promise._outstanding = [];
+-
+-/**
+- * Recently resolved promises. Also for debugging only.
+- */
+-Promise._recent = [];
+-
+-/**
+- * A promise can be in one of 2 states.
+- * The ERROR and SUCCESS states are terminal, the PENDING state is the only
+- * start state.
+- */
+-Promise.ERROR = -1;
+-Promise.PENDING = 0;
+-Promise.SUCCESS = 1;
+-
+-/**
+- * Yeay for RTTI.
+- */
+-Promise.prototype.isPromise = true;
+-
+-/**
+- * Have we either been resolve()ed or reject()ed?
+- */
+-Promise.prototype.isComplete = function() {
+-  return this._status != Promise.PENDING;
+-};
+-
+-/**
+- * Have we resolve()ed?
+- */
+-Promise.prototype.isResolved = function() {
+-  return this._status == Promise.SUCCESS;
+-};
+-
+-/**
+- * Have we reject()ed?
+- */
+-Promise.prototype.isRejected = function() {
+-  return this._status == Promise.ERROR;
+-};
+-
+-/**
+- * Take the specified action of fulfillment of a promise, and (optionally)
+- * a different action on promise rejection.
+- */
+-Promise.prototype.then = function(onSuccess, onError) {
+-  if (typeof onSuccess === 'function') {
+-    if (this._status === Promise.SUCCESS) {
+-      onSuccess.call(null, this._value);
+-    } else if (this._status === Promise.PENDING) {
+-      this._onSuccessHandlers.push(onSuccess);
+-    }
+-  }
+-
+-  if (typeof onError === 'function') {
+-    if (this._status === Promise.ERROR) {
+-      onError.call(null, this._value);
+-    } else if (this._status === Promise.PENDING) {
+-      this._onErrorHandlers.push(onError);
+-    }
+-  }
+-
+-  return this;
+-};
+-
+-/**
+- * Like then() except that rather than returning <tt>this</tt> we return
+- * a promise which resolves when the original promise resolves.
+- */
+-Promise.prototype.chainPromise = function(onSuccess) {
+-  var chain = new Promise();
+-  chain._chainedFrom = this;
+-  this.then(function(data) {
+-    try {
+-      chain.resolve(onSuccess(data));
+-    } catch (ex) {
+-      chain.reject(ex);
+-    }
+-  }, function(ex) {
+-    chain.reject(ex);
+-  });
+-  return chain;
+-};
+-
+-/**
+- * Supply the fulfillment of a promise
+- */
+-Promise.prototype.resolve = function(data) {
+-  return this._complete(this._onSuccessHandlers, Promise.SUCCESS, data, 'resolve');
+-};
+-
+-/**
+- * Renege on a promise
+- */
+-Promise.prototype.reject = function(data) {
+-  return this._complete(this._onErrorHandlers, Promise.ERROR, data, 'reject');
+-};
+-
+-/**
+- * Internal method to be called on resolve() or reject().
+- * @private
+- */
+-Promise.prototype._complete = function(list, status, data, name) {
+-  // Complain if we've already been completed
+-  if (this._status != Promise.PENDING) {
+-    console.group('Promise already closed');
+-    console.error('Attempted ' + name + '() with ', data);
+-    console.error('Previous status = ', this._status,
+-        ', previous value = ', this._value);
+-    console.trace();
+-
+-    console.groupEnd();
+-    return this;
+-  }
+-
+-  this._status = status;
+-  this._value = data;
+-
+-  // Call all the handlers, and then delete them
+-  list.forEach(function(handler) {
+-    handler.call(null, this._value);
+-  }, this);
+-  delete this._onSuccessHandlers;
+-  delete this._onErrorHandlers;
+-
+-  // Remove the given {promise} from the _outstanding list, and add it to the
+-  // _recent list, pruning more than 20 recent promises from that list.
+-  delete Promise._outstanding[this._id];
+-  Promise._recent.push(this);
+-  while (Promise._recent.length > 20) {
+-    Promise._recent.shift();
+-  }
+-
+-  return this;
+-};
+-
+-/**
+- * Takes an array of promises and returns a promise that that is fulfilled once
+- * all the promises in the array are fulfilled
+- * @param promiseList The array of promises
+- * @return the promise that is fulfilled when all the array is fulfilled
+- */
+-Promise.group = function(promiseList) {
+-  if (!(promiseList instanceof Array)) {
+-    promiseList = Array.prototype.slice.call(arguments);
+-  }
+-
+-  // If the original array has nothing in it, return now to avoid waiting
+-  if (promiseList.length === 0) {
+-    return new Promise().resolve([]);
+-  }
+-
+-  var groupPromise = new Promise();
+-  var results = [];
+-  var fulfilled = 0;
+-
+-  var onSuccessFactory = function(index) {
+-    return function(data) {
+-      results[index] = data;
+-      fulfilled++;
+-      // If the group has already failed, silently drop extra results
+-      if (groupPromise._status !== Promise.ERROR) {
+-        if (fulfilled === promiseList.length) {
+-          groupPromise.resolve(results);
+-        }
+-      }
+-    };
+-  };
+-
+-  promiseList.forEach(function(promise, index) {
+-    var onSuccess = onSuccessFactory(index);
+-    var onError = groupPromise.reject.bind(groupPromise);
+-    promise.then(onSuccess, onError);
+-  });
+-
+-  return groupPromise;
+-};
+-
+-exports.Promise = Promise;
++  Components.utils.import("resource:///modules/devtools/Promise.jsm");
++  exports.Promise = Promise;
+ 
+ });
+ /*

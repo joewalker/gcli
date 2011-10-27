@@ -118,7 +118,7 @@ function buildFirefox(destDir) {
   var winCssDir = '/browser/themes/winstripe/browser/devtools';
   var pinCssDir = '/browser/themes/pinstripe/browser/devtools';
   var gnomeCssDir = '/browser/themes/gnomestripe/browser/devtools';
-  var propsDir = '/browser/locales/en-US/chrome/browser/devtools/webconsole';
+  var propsDir = '/browser/locales/en-US/chrome/browser/devtools';
   var testDir = '/browser/devtools/webconsole/test/browser';
 
   if (destDir) {
@@ -182,7 +182,7 @@ function buildFirefox(destDir) {
       copy.source.commonjs({
         project: project,
         // This list of dependencies should be the same as in gclitest/index.js
-        require: [ 'gclitest/index' ]
+        require: [ 'gclitest/suite' ]
       })
     ],
     filter: copy.filter.moduleDefines,
