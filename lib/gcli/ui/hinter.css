@@ -9,6 +9,11 @@
   margin-right: 10px;
   display: inline-block;
   overflow: hidden;
+
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  maxWidth: 300px;
 }
 
 .gcliHints {
