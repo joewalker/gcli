@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent 310f542dd5c3144a416970ca1c233142467ceba2
+# Parent 951f21b460372ca3ec2312fb02a90d8f19dce2df
 # User Joe Walker <jwalker@mozilla.com>
 Bug 693265 - Carefully review the exposed GCLI API
 
@@ -156,47 +156,55 @@ diff --git a/browser/devtools/webconsole/HUDService.jsm b/browser/devtools/webco
 +/**
 + * Load the various Command JSMs.
 + * Should be called when the console first opens.
-+ * 
-+ * @returns an object containing the EXPORTED_SYMBOLS from all the command
++ *
++ * @return an object containing the EXPORTED_SYMBOLS from all the command
 + * modules. In general there is no reason when JSMs need to export symbols
 + * except when they need the host environment to inform them of things like the
 + * current window/document/etc.
 + */
 +function loadCommands() {
-+  var cmdObj = {};
++  let commandExports = {};
 +
-+  Cu.import("resource:///modules/GcliCommands.jsm", cmdObj);
++  Cu.import("resource:///modules/GcliCommands.jsm", commandExports);
 +
-+  return cmdObj;
++  return commandExports;
 +}
 +
  let log = LogFactory("*** HUDService:");
  
  const HUD_STRINGS_URI = "chrome://global/locale/headsUpDisplay.properties";
-@@ -6880,6 +6891,11 @@ catch (ex) {
+@@ -6883,6 +6894,11 @@ catch (ex) {
  ///////////////////////////////////////////////////////////////////////////
  
  /**
 + * Some commands need customization - this is how we get at them.
 + */
-+let cmdObj = undefined;
++let commandExports = undefined;
 +
 +/**
   * GcliTerm
   *
   * Initialize GCLI by creating a set of startup options from the available
-@@ -6929,7 +6945,10 @@ function GcliTerm(aContentWindow, aHudId
+@@ -6932,7 +6948,10 @@ function GcliTerm(aContentWindow, aHudId
  
    gcli._internal.commandOutputManager.addListener(this.onCommandOutput, this);
    gcli._internal.createView(this.opts);
 -  GcliCommands.setDocument(aContentWindow.document);
 +
-+  if (!cmdObj) {
-+    cmdObj = loadCommands();
++  if (!commandExports) {
++    commandExports = loadCommands();
 +  }
  }
  
  GcliTerm.prototype = {
+@@ -6957,7 +6976,6 @@ GcliTerm.prototype = {
+    */
+   destroy: function Gcli_destroy()
+   {
+-    GcliCommands.unsetDocument();
+     gcli._internal.removeView(this.opts);
+     gcli._internal.commandOutputManager.removeListener(this.onCommandOutput, this);
+ 
 diff --git a/browser/devtools/webconsole/gcli.jsm b/browser/devtools/webconsole/gcli.jsm
 --- a/browser/devtools/webconsole/gcli.jsm
 +++ b/browser/devtools/webconsole/gcli.jsm
