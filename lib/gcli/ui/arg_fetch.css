@@ -38,3 +38,7 @@
 .gcliParams {
   width: 100%;
 }
+
+.gcliCliEle {
+  margin: 10px;
+}
