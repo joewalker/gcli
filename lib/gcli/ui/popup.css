@@ -1,25 +1,34 @@
 
+#gcliOutput {
+  display: box; display: -moz-box; display: -webkit-box;
+  box-orient: horizontal; -moz-box-orient: horizontal; -webkit-box-orient: horizontal;
+}
+
+#gcliOutput.gcliOutAutoHide {
+  z-index: 999;
+}
+
 .gcliHintParent {
+  box-flex: 0; -moz-box-flex: 0; -webkit-box-flex: 0;
+
+  display: box; display: -moz-box; display: -webkit-box;
+  box-orient: vertical; -moz-box-orient: vertical; -webkit-box-orient: vertical;
+  box-pack: end; -moz-box-pack: end; -webkit-box-pack: end;
+
+  width: 300px;
+}
+
+.gcliHints {
   color: #000;
   background: rgba(250, 250, 250, 0.8);
   border: 1px solid #AAA;
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
-  margin-left: 10px;
-  margin-right: 10px;
-  display: inline-block;
-  overflow: hidden;
-
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  maxWidth: 300px;
-}
-
-.gcliHints {
+  border-bottom: 0;
+  margin: 10px 10px 0 10px;
   overflow: auto;
-  padding: 10px;
-  display: inline-block;
+
+  max-height: 100px;
 }
 
 .gcliHints ul {
@@ -27,18 +36,13 @@
   padding: 0 15px;
 }
 
-#gcliOutput.gcliOutAutoHide {
-  z-index: 999;
-}
-
 .gcliCommandOutput {
-  overflow: auto;
-  top: 0;
-  height: 100%;
+  box-flex: 1; -moz-box-flex: 1; -webkit-box-flex: 1;
 
-  position: absolute;
-  bottom: 0;
-  left: 320px;
-  right: 0;
+  display: box; display: -moz-box; display: -webkit-box;
+  box-orient: vertical; -moz-box-orient: vertical; -webkit-box-orient: vertical;
+  box-pack: end; -moz-box-pack: end; -webkit-box-pack: end;
+
+  overflow: auto;
 }
 
