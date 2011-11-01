@@ -7,11 +7,11 @@
 }
 
 .gcliOption:hover {
-  background-color: rgb(230, 230, 230);
+  background-color: #eee;
 }
 
 .gcliOptionName {
-  padding-right: 5px;
+  padding: 0 2px 0 10px;
 }
 
 .gcliOptionDesc {
@@ -22,7 +22,7 @@
 .gcliMenuError {
   overflow: hidden;
   white-space: nowrap;
-  padding: 8px 2px 2px 2px;
+  padding: 8px 2px 2px 10px;
   font-size: 80%;
   color: red;
 }
@@ -41,4 +41,10 @@
   border-bottom-right-radius: 5px;
   border-bottom-left-radius: 5px;
   font: -webkit-small-control;
+}
+
+#gcliOptTempl {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 10px 0 10px 0;
 }

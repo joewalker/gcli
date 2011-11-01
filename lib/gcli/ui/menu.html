@@ -1,12 +1,11 @@
 
 <table id="gcliOptTempl" aria-live="polite">
   <tr class="gcliOption" foreach="item in ${items}" onclick="${onItemClick}"
-      title="${item.manual || ''}">
-    ${__element.item = item; ''}
+      title="${__element.item = item, (item.manual || '')}">
     <td class="gcliOptionName">${item.name}</td>
     <td class="gcliOptionDesc">${item.description}</td>
   </tr>
-  <tr class="gcliMenuError" if="${error}">
-    <td colspan="2">${error}</td>
+  <tr if="${error}">
+    <td class="gcliMenuError" colspan="2">${error}</td>
   </tr>
 </table>
