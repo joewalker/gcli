@@ -6,29 +6,20 @@
   <meta name="author" content="Joe Walker">
   <title>GCLI: Graphical Command Line</title>
   <style type="text/css" media="screen">
-    html, body {
-      width: 100%; height: 100%;
-      margin: 0; overflow: hidden;
-    }
     body {
-      display: box; display: -moz-box; display: -webkit-box;
-      box-orient: vertical; -moz-box-orient: vertical; -webkit-box-orient: vertical;
-
+      width: 100%; height: 100%; overflow: hidden;
       font-family: Calibri, Verdana, sans-serif;
     }
     #gcliOutput {
-      box-flex: 1; -moz-box-flex: 1; -webkit-box-flex: 1;
-      width: 100%;
+      position: absolute; top: 0; bottom: 30px; left: 0; right: 0;
     }
     #gcliInput {
-      box-flex: 0; -moz-box-flex: 0; -webkit-box-flex: 0;
+      position: absolute; height: 27px; bottom: 0; left: 0; right: 0;
       width: 100%;
-
       border: 1px solid #999;
       font-size: 110%;
       font-family: Consolas, Inconsolata, "Courier New", monospace;
-    }
-  </style>
+    }  </style>
 </head>
 
 <body>
