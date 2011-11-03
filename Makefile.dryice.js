@@ -205,15 +205,13 @@ function buildFirefox(destDir) {
   copy({
     source: [
       'mozilla/build/license-block.txt',
-      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */' },
+      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */\n' },
       'mozilla/gcli/ui/gcliterm.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/arg_fetch.css */' },
+      { value: '\n/* From: $GCLI/lib/gcli/ui/arg_fetch.css */\n' },
       'lib/gcli/ui/arg_fetch.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/hinter.css */' },
-      'lib/gcli/ui/hinter.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */' },
+      { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */\n' },
       'lib/gcli/ui/menu.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */' },
+      { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */\n' },
       'lib/gcli/ui/inputter.css'
     ],
     filter: removeNonMozPrefixes,
@@ -296,15 +294,16 @@ function tweakI18nStrings(data) {
     return lines + name + '=' + value + '\n\n';
   });
 
-  return '# LOCALIZATION NOTE These strings are used inside the Web Console\n' +
-         '# command line which is available from the Web Developer sub-menu\n' +
-         '# -> \'Web Console\'.\n' +
-         '# The correct localization of this file might be to keep it in\n' +
-         '# English, or another language commonly spoken among web developers.\n' +
-         '# You want to make that choice consistent across the developer tools.\n' +
-         '# A good criteria is the language in which you\'d find the best\n' +
-         '# documentation on web development on the web.\n' +
-         '\n' + data;
+  return '' +
+    '# LOCALIZATION NOTE These strings are used inside the Web Console\n' +
+    '# command line which is available from the Web Developer sub-menu\n' +
+    '# -> \'Web Console\'.\n' +
+    '# The correct localization of this file might be to keep it in\n' +
+    '# English, or another language commonly spoken among web developers.\n' +
+    '# You want to make that choice consistent across the developer tools.\n' +
+    '# A good criteria is the language in which you\'d find the best\n' +
+    '# documentation on web development on the web.\n' +
+    '\n' + data;
 }
 
 /**
@@ -320,10 +319,12 @@ function wordWrap(input, length) {
 
 /**
  * Hack to remove the '-vendorprefix' definitions. This currently works to
- * remove -webkit, -ie and -op from CSS values (but not CSS properties).
+ * remove -webkit, -ie and -op from CSS values and properties.
  */
 function removeNonMozPrefixes(data) {
-  return data.replace(/\n?\s*[-a-z]*:\s*-(webkit|op|ie)[-a-z]*\s*;[ \t]*/g, '');
+  return data
+      .replace(/\n?\s*[-a-z]*:\s*-(webkit|op|ie)[-a-z]*\s*;[ \t]*/g, '')
+      .replace(/\n?\s*-(webkit|op|ie)[-a-z]*:\s*[-a-z]*\s*;[ \t]*/g, '');
 }
 
 /**

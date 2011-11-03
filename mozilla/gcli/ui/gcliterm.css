@@ -1,4 +1,6 @@
 
+/* Bug 678152 calls for UX review which will fix the color names */
+
 .gcliterm-input-node,
 .gcliterm-complete-node {
   border: none;
@@ -7,12 +9,28 @@
   vertical-align: middle;
   background-color: transparent;
   font: 12px Consolas, "Lucida Console", monospace;
-  padding: 2px 0 0 16px;
+  /* The language of a console is not en_US or any other common language */
+  /* (i.e we don't attempt to translate 'console.log(x)') */
+  direction: ltr;
+}
+
+.gcliterm-input-node {
+  padding-top: 2px;
+  padding-bottom: 0;
+  padding-start: 16px;
+  -moz-padding-start: 16px;
+  padding-end: 0;
+  -moz-padding-end: 0;
 }
 
 .gcliterm-complete-node {
   color: #FFF;
-  padding: 4px 4px 2px 21px;
+  padding-top: 4px;
+  padding-bottom: 2px;
+  padding-start: 21px;
+  -moz-padding-start: 21px;
+  padding-end: 4px;
+  -moz-padding-end: 4px;
 }
 
 .gcliVALID {
@@ -40,20 +58,19 @@
 
 .gcliterm-hint-node {
   color: #000;
-  background: rgba(250, 250, 250, 0.8);
   border: 1px solid #AAA;
-  border-bottom: 0px !important;
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
-  margin-left: 10px;
-  margin-right: 10px;
-  display: inline-block;
-  overflow: auto;
-  padding: 10px;
+  border-bottom: 1px solid #FFF;
+  margin-bottom: -1px;
+  width: 100%;
 }
 
 .gcliterm-hint-parent {
+  border-top: 1px solid #AAA;
   border-bottom: 1px solid #AAA;
+  width: 300px;
+  padding: 10px 10px 0;
 }
 
 .gcliCmdHelpRight {

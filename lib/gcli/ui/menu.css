@@ -1,4 +1,8 @@
 
+.gcliMenu {
+  width: 100%;
+}
+
 .gcliOption {
   overflow: hidden;
   white-space: nowrap;
@@ -11,7 +15,14 @@
 }
 
 .gcliOptionName {
-  padding-right: 5px;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-start: 10px;
+  -moz-padding-start: 10px;
+  -webkit-padding-start: 10px;
+  padding-end: 2px;
+  -moz-padding-end: 2px;
+  -webkit-padding-end: 2px;
 }
 
 .gcliOptionDesc {
@@ -22,23 +33,33 @@
 .gcliMenuError {
   overflow: hidden;
   white-space: nowrap;
-  padding: 8px 2px 2px 2px;
+  padding-top: 8px;
+  padding-bottom: 2px;
+  padding-start: 10px;
+  -moz-padding-start: 10px;
+  padding-start: 10px;
+  -webkit-padding-end: 2px;
+  -moz-padding-end: 2px;
+  -webkit-padding-end: 2px;
   font-size: 80%;
   color: red;
 }
 
 .gcliMenuField {
-  background-color: white;
-  color: black;
   border: 1px solid #aaa;
-  padding: 2px;
-  max-height: 300px;
-  overflow-y: auto;
-  max-width: 220px;
-  overflow-x: hidden;
-  margin: 0px 10px;
-  border-top: 0px !important;
+  border-top: 0;
   border-bottom-right-radius: 5px;
   border-bottom-left-radius: 5px;
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin: 0 3px;
+  padding: 0;
   font: -webkit-small-control;
+}
+
+#gcliOptTempl {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 10px 0;
 }
