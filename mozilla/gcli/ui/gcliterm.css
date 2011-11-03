@@ -1,4 +1,6 @@
 
+/* Bug 678152 calls for UX review which will fix the color names */
+
 .gcliterm-input-node,
 .gcliterm-complete-node {
   border: none;
