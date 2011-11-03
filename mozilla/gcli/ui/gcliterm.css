@@ -8,6 +8,9 @@
   background-color: transparent;
   font-family: Consolas, "Lucida Console", monospace;
   font-size: 12px;
+  /* The language of a console is not en_US or any other common language */
+  /* (i.e we don't attempt to translate 'console.log(x)') */
+  direction: ltr;
 }
 
 .gcliterm-input-node {
