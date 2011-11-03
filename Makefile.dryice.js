@@ -205,15 +205,13 @@ function buildFirefox(destDir) {
   copy({
     source: [
       'mozilla/build/license-block.txt',
-      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */' },
+      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */\n' },
       'mozilla/gcli/ui/gcliterm.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/arg_fetch.css */' },
+      { value: '\n/* From: $GCLI/lib/gcli/ui/arg_fetch.css */\n' },
       'lib/gcli/ui/arg_fetch.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/popup.css */' },
-      'lib/gcli/ui/popup.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */' },
+      { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */\n' },
       'lib/gcli/ui/menu.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */' },
+      { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */\n' },
       'lib/gcli/ui/inputter.css'
     ],
     filter: removeNonMozPrefixes,
