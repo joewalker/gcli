@@ -11,7 +11,7 @@
 }
 
 .gcliOption:hover {
-  background-color: #eee;
+  background-color: rgb(230, 230, 230);
 }
 
 .gcliOptionName {
@@ -28,7 +28,6 @@
 .gcliOptionDesc {
   font-size: 80%;
   color: #999;
-  text-overflow: ellipsis;
 }
 
 .gcliMenuError {
@@ -47,18 +46,15 @@
 }
 
 .gcliMenuField {
-  background-color: white;
-  color: black;
   border: 1px solid #aaa;
-  padding: 0;
-  max-height: 300px;
-  overflow-y: auto;
-  max-width: 220px;
-  overflow-x: hidden;
-  margin: 0 5px;
-  border-top: 0 !important;
+  border-top: 0;
   border-bottom-right-radius: 5px;
   border-bottom-left-radius: 5px;
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin: 0 3px;
+  padding: 0;
   font: -webkit-small-control;
 }
 

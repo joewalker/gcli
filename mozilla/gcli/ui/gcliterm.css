@@ -8,8 +8,7 @@
   height: 100%;
   vertical-align: middle;
   background-color: transparent;
-  font-family: Consolas, "Lucida Console", monospace;
-  font-size: 12px;
+  font: 12px Consolas, "Lucida Console", monospace;
   /* The language of a console is not en_US or any other common language */
   /* (i.e we don't attempt to translate 'console.log(x)') */
   direction: ltr;

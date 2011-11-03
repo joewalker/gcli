@@ -30,7 +30,3 @@
 .gcliCloseBrace {
   color: #999;
 }
-
-#gcliInput:focus {
-  outline: none;
-}
