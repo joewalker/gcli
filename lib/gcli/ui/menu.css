@@ -28,6 +28,7 @@
 .gcliOptionDesc {
   font-size: 80%;
   color: #999;
+  text-overflow: ellipsis;
 }
 
 .gcliMenuError {
