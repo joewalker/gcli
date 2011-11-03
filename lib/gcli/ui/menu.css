@@ -1,4 +1,8 @@
 
+.gcliMenu {
+  width: 100%;
+}
+
 .gcliOption {
   overflow: hidden;
   white-space: nowrap;
@@ -11,7 +15,14 @@
 }
 
 .gcliOptionName {
-  padding: 0 2px 0 10px;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-start: 10px;
+  -moz-padding-start: 10px;
+  -webkit-padding-start: 10px;
+  padding-end: 2px;
+  -moz-padding-end: 2px;
+  -webkit-padding-end: 2px;
 }
 
 .gcliOptionDesc {
@@ -22,7 +33,14 @@
 .gcliMenuError {
   overflow: hidden;
   white-space: nowrap;
-  padding: 8px 2px 2px 10px;
+  padding-top: 8px;
+  padding-bottom: 2px;
+  padding-start: 10px;
+  -moz-padding-start: 10px;
+  padding-start: 10px;
+  -webkit-padding-end: 2px;
+  -moz-padding-end: 2px;
+  -webkit-padding-end: 2px;
   font-size: 80%;
   color: red;
 }
@@ -31,12 +49,12 @@
   background-color: white;
   color: black;
   border: 1px solid #aaa;
-  padding: 2px;
+  padding: 0;
   max-height: 300px;
   overflow-y: auto;
   max-width: 220px;
   overflow-x: hidden;
-  margin: 0 10px;
+  margin: 0 5px;
   border-top: 0 !important;
   border-bottom-right-radius: 5px;
   border-bottom-left-radius: 5px;
@@ -46,5 +64,5 @@
 #gcliOptTempl {
   border-collapse: collapse;
   width: 100%;
-  margin: 10px 0 10px 0;
+  margin: 10px 0;
 }

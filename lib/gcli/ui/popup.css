@@ -10,10 +10,10 @@
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
   border-bottom: 0;
-  margin: 10px 10px 0;
+  margin: 10px 10px -1px;
   overflow-y: auto;
   overflow-x: hidden;
-
+  z-index: 99;
   position: absolute;
   max-height: 100%;
   width: 280px;
@@ -29,6 +29,5 @@
 .gcliCommandOutput {
   height: 100%;
   margin-left: 300px;
-
   overflow: auto;
 }

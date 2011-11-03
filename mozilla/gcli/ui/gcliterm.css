@@ -7,12 +7,25 @@
   vertical-align: middle;
   background-color: transparent;
   font: 12px Consolas, "Lucida Console", monospace;
-  padding: 2px 0 0 16px;
+}
+
+.gcliterm-input-node {
+  padding-top: 2px;
+  padding-bottom: 0;
+  padding-start: 16px;
+  -moz-padding-start: 16px;
+  padding-end: 0;
+  -moz-padding-end: 0;
 }
 
 .gcliterm-complete-node {
   color: #FFF;
-  padding: 4px 4px 2px 21px;
+  padding-top: 4px;
+  padding-bottom: 2px;
+  padding-start: 21px;
+  -moz-padding-start: 21px;
+  padding-end: 4px;
+  -moz-padding-end: 4px;
 }
 
 .gcliVALID {
@@ -33,6 +46,11 @@
   color: #999;
 }
 
+.gcliHints ul {
+  margin: 0;
+  padding: 0 15px;
+}
+
 .gcliterm-stack-node {
   background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
   width: 100%;
@@ -45,15 +63,14 @@
   border-bottom: 0 !important;
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
-  margin-left: 10px;
-  margin-right: 10px;
-  display: inline-block;
-  overflow: auto;
-  padding: 10px;
+  margin-bottom: -1px;
+  width: 100%;
 }
 
 .gcliterm-hint-parent {
   border-bottom: 1px solid #AAA;
+  width: 300px;
+  padding: 10px 10px 0;
 }
 
 .gcliCmdHelpRight {
