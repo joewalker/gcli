@@ -51,11 +51,6 @@
   color: #999;
 }
 
-.gcliHints ul {
-  margin: 0;
-  padding: 0 15px;
-}
-
 .gcliterm-stack-node {
   background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
   width: 100%;
