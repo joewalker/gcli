@@ -117,8 +117,11 @@ define(function(require, exports, module) {
         opts.menu = new CommandMenu(opts.chromeDocument, opts.requisition);
         opts.hintElement.appendChild(opts.menu.element);
 
-        opts.argFetcherClass = 'gcliterm-argfetcher';
-        opts.argFetcher = new ArgFetcher(opts);
+        opts.argFetcher = new ArgFetcher({
+          document: opts.contentDocument,
+          requisition: opts.requisition,
+          argFetcherClass: 'gcliterm-argfetcher'
+        });
         opts.hintElement.appendChild(opts.argFetcher.element);
       }
     },
