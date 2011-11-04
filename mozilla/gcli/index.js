@@ -117,7 +117,7 @@ define(function(require, exports, module) {
         opts.menu = new CommandMenu(opts.chromeDocument, opts.requisition);
         opts.hintElement.appendChild(opts.menu.element);
 
-        opts.argFetcher = new ArgFetcher(opts.chromeDocument, opts.requisition);
+        opts.argFetcher = new ArgFetcher(opts);
         opts.hintElement.appendChild(opts.argFetcher.element);
       }
     },
