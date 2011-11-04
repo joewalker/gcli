@@ -319,12 +319,12 @@ function wordWrap(input, length) {
 
 /**
  * Hack to remove the '-vendorprefix' definitions. This currently works to
- * remove -webkit, -ie and -op from CSS values and properties.
+ * remove -webkit, -ms and -op from CSS values and properties.
  */
 function removeNonMozPrefixes(data) {
   return data
-      .replace(/\n?\s*[-a-z]*:\s*-(webkit|op|ie)[-a-z]*\s*;[ \t]*/g, '')
-      .replace(/\n?\s*-(webkit|op|ie)[-a-z]*:\s*[-a-z]*\s*;[ \t]*/g, '');
+      .replace(/\n?\s*[-a-z]*:\s*-(webkit|op|ms)[-a-z]*\s*;[ \t]*/g, '')
+      .replace(/\n?\s*-(webkit|op|ms)[-a-z]*:\s*[^;]*\s*;[ \t]*/g, '');
 }
 
 /**
