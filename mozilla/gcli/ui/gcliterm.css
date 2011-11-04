@@ -17,9 +17,7 @@
 .gcliterm-input-node {
   padding-top: 2px;
   padding-bottom: 0;
-  padding-start: 16px;
   -moz-padding-start: 16px;
-  padding-end: 0;
   -moz-padding-end: 0;
 }
 
@@ -27,9 +25,7 @@
   color: #FFF;
   padding-top: 4px;
   padding-bottom: 2px;
-  padding-start: 21px;
   -moz-padding-start: 21px;
-  padding-end: 4px;
   -moz-padding-end: 4px;
 }
 

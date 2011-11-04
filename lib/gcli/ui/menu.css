@@ -17,10 +17,8 @@
 .gcliOptionName {
   padding-top: 0;
   padding-bottom: 0;
-  padding-start: 10px;
   -moz-padding-start: 10px;
   -webkit-padding-start: 10px;
-  padding-end: 2px;
   -moz-padding-end: 2px;
   -webkit-padding-end: 2px;
 }
@@ -35,10 +33,8 @@
   white-space: nowrap;
   padding-top: 8px;
   padding-bottom: 2px;
-  padding-start: 10px;
   -moz-padding-start: 10px;
-  padding-start: 10px;
-  -webkit-padding-end: 2px;
+  -webkit-padding-start: 10px;
   -moz-padding-end: 2px;
   -webkit-padding-end: 2px;
   font-size: 80%;
