@@ -52,6 +52,11 @@
   width: 100%;
 }
 
+.gcliterm-argfetcher {
+  display: -moz-box;
+  -moz-box-flex: 1;
+}
+
 .gcliterm-hint-node {
   color: #000;
   border: 1px solid #AAA;

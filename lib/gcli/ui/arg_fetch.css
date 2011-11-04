@@ -1,4 +1,10 @@
 
+.gcliArgFetcher {
+  width: 100%;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+}
+
 .gcliCmdDesc {
   font-weight: bold;
   text-align: center;
@@ -40,14 +46,6 @@
   width: 100%;
   box-sizing: border-box;
   -moz-box-sizing: border-box;
-}
-
-.gcliCliEle {
-  width: 100%;
-  box-sizing: border-box;
-  -moz-box-sizing: border-box;
-  display: -moz-box;
-  -moz-box-flex: 1;
 }
 
 .gcliField {
