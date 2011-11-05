@@ -1,0 +1,13 @@
+
+.gcliterm-complete-node {
+  padding-top: 6px !important;
+}
+
+.gcliterm-hint-node {
+  border-color: #E0E0E0;
+}
+
+.gcliterm-hint-parent {
+  border-top-color: #E0E0E0;
+  border-bottom-color: #E0E0E0;
+}

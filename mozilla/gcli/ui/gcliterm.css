@@ -64,7 +64,9 @@
   border-top-left-radius: 5px;
   border-bottom: 1px solid #FFF;
   margin-bottom: -1px;
-  width: 100%;
+
+  display: -moz-box;
+  -moz-box-flex: 1;
 }
 
 .gcliterm-hint-parent {
