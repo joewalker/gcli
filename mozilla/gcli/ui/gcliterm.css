@@ -58,7 +58,10 @@
 }
 
 .gcliterm-hint-node {
+  border-top: 1px solid threedshadow;
   border-bottom: 1px solid #FFF;
+  border-left: 1px solid threedshadow;
+  border-right: 1px solid threedshadow;
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
   margin-bottom: -1px;
@@ -67,6 +70,8 @@
 .gcliterm-hint-parent {
   width: 300px;
   padding: 10px 10px 0;
+  border-top: 1px solid threedshadow;
+  border-bottom: 1px solid threedshadow;
 }
 
 .gcliCmdHelpRight {

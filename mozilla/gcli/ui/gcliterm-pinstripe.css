@@ -1,15 +1,4 @@
 
-.gcliterm-hint-node {
-  border-top: 1px solid #E0E0E0;
-  border-left: 1px solid #E0E0E0;
-  border-right: 1px solid #E0E0E0;
-}
-
-.gcliterm-hint-parent {
-  border-top: 1px solid #E0E0E0;
-  border-bottom: 1px solid #E0E0E0;
-}
-
 .gcliterm-complete-node {
   padding-top: 6px !important;
 }
