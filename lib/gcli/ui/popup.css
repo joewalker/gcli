@@ -3,7 +3,7 @@
   z-index: 999;
 }
 
-.gcliHintParent {
+.gcliHints {
   border: 1px solid #AAA;
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
@@ -17,11 +17,6 @@
   width: 280px;
   left: 0;
   bottom: 0;
-}
-
-.gcliHints ul {
-  margin: 0;
-  padding: 0 15px;
 }
 
 .gcliCommandOutput {
