@@ -114,7 +114,11 @@ define(function(require, exports, module) {
       }
 
       if (opts.hintElement) {
-        opts.menu = new CommandMenu(opts.chromeDocument, opts.requisition);
+        opts.menu = new CommandMenu({
+          document: opts.contentDocument,
+          requisition: opts.requisition,
+          menuClass: 'gcliterm-menu'
+        });
         opts.hintElement.appendChild(opts.menu.element);
 
         opts.argFetcher = new ArgFetcher({
