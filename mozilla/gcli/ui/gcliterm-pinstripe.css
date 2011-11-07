@@ -1,14 +1,15 @@
 
-.gcliterm-complete-node {
-  padding-top: 6px !important;
-}
-
 .gcliterm-hint-node {
-  border-color: #E0E0E0;
-  border-bottom: 1px solid #FFF;
+  border-top: 1px solid #E0E0E0;
+  border-left: 1px solid #E0E0E0;
+  border-right: 1px solid #E0E0E0;
 }
 
 .gcliterm-hint-parent {
-  border-top-color: #E0E0E0;
-  border-bottom-color: #E0E0E0;
+  border-top: 1px solid #E0E0E0;
+  border-bottom: 1px solid #E0E0E0;
+}
+
+.gcliterm-complete-node {
+  padding-top: 6px !important;
 }

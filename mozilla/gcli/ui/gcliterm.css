@@ -58,17 +58,13 @@
 }
 
 .gcliterm-hint-node {
-  color: #000;
-  border: 1px solid #AAA;
+  border-bottom: 1px solid #FFF;
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
-  border-bottom: 1px solid #FFF;
   margin-bottom: -1px;
 }
 
 .gcliterm-hint-parent {
-  border-top: 1px solid #AAA;
-  border-bottom: 1px solid #AAA;
   width: 300px;
   padding: 10px 10px 0;
 }
