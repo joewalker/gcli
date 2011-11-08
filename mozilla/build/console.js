@@ -182,7 +182,11 @@ var console = {};
       return type + fmt(json, 50, 0);
     }
 
-    var str = aThing.toString(); //.replace(/\s+/g, " ");
+    if (typeof aThing == "function") {
+      return fmt(aThing.toString().replace(/\s+/g, " "), 80, 0);
+    }
+
+    var str = aThing.toString();
     return fmt(str, 80, 0);
   }
 
