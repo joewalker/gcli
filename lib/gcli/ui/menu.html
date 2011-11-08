@@ -1,7 +1,8 @@
 
 <table id="gcliOptTempl" aria-live="polite">
-  <tr class="gcliOption" foreach="item in ${items}" onclick="${onItemClick}"
-      title="${__element.item = item, (item.manual || '')}">
+  <tr class="gcliOption" foreach="item in ${items}"
+      onclick="${onItemClick}"
+      title="${__element.currentItem = item; (item.manual || '')}">
     <td class="gcliOptionName">${item.name}</td>
     <td class="gcliOptionDesc">${item.description}</td>
   </tr>
