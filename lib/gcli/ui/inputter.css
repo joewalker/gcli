@@ -1,32 +1,29 @@
 
-.gcliCompletion {
+.gcli-in-complete {
   position: absolute;
   z-index: -1000;
   border: 1px transparent solid;
   padding: 1px 1px 1px 2px;
-}
-
-.gcliCompletion {
   color: #DDD;
 }
 
-.gcliINCOMPLETE {
+.gcli-in-incomplete {
   border-bottom: 2px dotted #999;
 }
 
-.gcliERROR {
+.gcli-in-error {
   border-bottom: 2px dotted #F00;
 }
 
-.gcliPrompt {
+.gcli-in-ontab {
+  color: #999;
+}
+
+.gcli-in-closebrace {
+  color: #999;
+}
+
+.gcli-prompt {
   color: #66F;
   font-weight: bold;
-}
-
-.gcliCompl {
-  color: #999;
-}
-
-.gcliCloseBrace {
-  color: #999;
 }

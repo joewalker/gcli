@@ -228,14 +228,14 @@ There are 3 basic steps in using GCLI in your system.
    See the section below on creating custom builds.
 
 2. Having imported GCLI, we need to tell it where to display. The simplest
-   method is to include an input element with the id of ``gcliInput``.
+   method is to include an input element with the id of ``gcli-input``.
 
-        <input id="gcliInput" type="text"/>
+        <input id="gcli-input" type="text"/>
 
    Optionally, if you want the output to be always visible or under your
    control, you can include an output element as follows:
 
-        <div id="gcliOutput"></div>
+        <div id="gcli-display"></div>
 
    If this element is not present, GCLI will create its own output element and
    show it above or below the input element whenever the command line has
@@ -1079,9 +1079,9 @@ The components are:
   making sure that it stays in sync with the Requisition.
 - ``Completer`` updates a div that is located behind the input field and used
   to display completion advice and hint highlights. It is stored in inputter.js.
-- ``Popup`` is responsible for containing the popup hints that are displayed
-  above the command line. Typically Popup contains a Hinter and a RequestsView
-  although these are not both required. Popup itself is optional, and isn't
+- ``Display`` is responsible for containing the popup hints that are displayed
+  above the command line. Typically Display contains a Hinter and a RequestsView
+  although these are not both required. Display itself is optional, and isn't
   planned for use in the first release of GCLI in Firefox.
 - ``Hinter`` Is used to display input hints. It shows either a Menu or an
   ArgFetch component depending on the state of the Requisition

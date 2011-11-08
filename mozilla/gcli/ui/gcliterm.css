@@ -29,21 +29,21 @@
   -moz-padding-end: 4px;
 }
 
-.gcliVALID {
+.gcli-in-valid {
   border-bottom: none;
 }
 
-.gcliINCOMPLETE {
+.gcli-in-incomplete {
   color: #DDD;
   border-bottom: 1px dotted #999;
 }
 
-.gcliERROR {
+.gcli-in-error {
   color: #DDD;
   border-bottom: 1px dotted #F00;
 }
 
-.gcliCompl {
+.gcli-in-ontab {
   color: #999;
 }
 
@@ -74,7 +74,7 @@
   border-bottom: 1px solid threedshadow;
 }
 
-.gcliCmdHelpRight {
+.gcli-help-right {
   text-align: right;
 }
 

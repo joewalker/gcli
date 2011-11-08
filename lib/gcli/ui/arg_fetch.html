@@ -3,35 +3,34 @@
 Template for an Assignment.
 Evaluated each time the commandAssignment changes
 -->
-<div id="gcliReqTempl" aria-live="polite">
+<div class="gcli-af-template" aria-live="polite">
   <div>
-    <div class="gcliCmdDesc">
+    <div class="gcli-af-cmddesc">
       ${requisition.commandAssignment.getValue().description}
     </div>
-    <table class="gcliParams">
-      <tbody class="gcliAssignment"
-          foreach="assignment in ${requisition.getAssignments()}">
+    <table class="gcli-af-params">
+      <tbody foreach="assignment in ${requisition.getAssignments()}">
         <!-- Parameter -->
-        <tr class="gcliGroupRow">
-          <td class="gcliParamName">
+        <tr>
+          <td class="gcli-af-paramname">
             <label for="gcliForm${assignment.param.name}">
               ${assignment.param.description ? assignment.param.description + ':' : ''}
             </label>
           </td>
-          <td class="gcliParamInput">${getInputFor(assignment)}</td>
+          <td>${getInputFor(assignment)}</td>
           <td>
-            <span class="gcliRequired" if="${assignment.param.isDataRequired()}">*</span>
+            <span class="gcli-af-required" if="${assignment.param.isDataRequired()}">*</span>
           </td>
         </tr>
-        <tr class="gcliGroupRow">
-          <td class="gcliParamError" colspan="2">
+        <tr>
+          <td class="gcli-af-error" colspan="2">
             ${linkMessageElement(assignment, __element)}
           </td>
         </tr>
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="3" class="gcliParamSubmit">
+          <td colspan="3" class="gcli-af-submit">
             <input type="submit" value="Cancel" onclick="${onFormCancel}"/>
             <input type="submit" value="OK" onclick="${onFormOk}" save="${okElement}"/>
           </td>

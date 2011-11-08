@@ -1,5 +1,5 @@
 
-.gcliRowIn {
+.gcli-row-in {
   margin-top: 5px;
   margin-right: 5px;
   color: #333;
@@ -11,58 +11,78 @@
   -webkit-border-radius: 4px;
 }
 
-.gcliRowIn > img {
+.gcli-row-in > img {
   cursor: pointer;
 }
 
-.gcliHover {
+.gcli-row-hover {
   display: none;
   float: right;
   padding: 2px 2px 0 2px;
 }
 
-.gcliRowIn:hover > .gcliHover {
+.gcli-row-in:hover > .gcli-row-hover {
   display: inline;
 }
 
-.gcliRowIn:hover > .gcliHover.gcliHidden {
+.gcli-row-in:hover > .gcli-row-hover.gcli-row-hidden {
   display: none;
 }
 
-.gcliOutTyped {
+.gcli-row-in-typed {
   color: #000;
   font-family: consolas, courier, monospace;
 }
 
-.gcliRowOutput {
+.gcli-row-prompt {
+  font-family: consolas, courier, monospace;
+  color: #00F;
+  font-weight: bold;
+  font-size: 120%;
+  padding-left: 2px;
+}
+
+.gcli-row-prompt.gcli-row-complete {
+  color: #060;
+}
+
+.gcli-row-prompt.gcli-row-error {
+  color: #F00;
+}
+
+.gcli-row-duration {
+  font-size: 80%;
+}
+
+.gcli-row-out {
   padding-left: 10px;
   line-height: 1.2em;
   font-size: 95%;
 }
 
-.gcliRowOutput strong,
-.gcliRowOutput b,
-.gcliRowOutput th,
-.gcliRowOutput h1,
-.gcliRowOutput h2,
-.gcliRowOutput h3 {
+.gcli-row-out strong,
+.gcli-row-out b,
+.gcli-row-out th,
+.gcli-row-out h1,
+.gcli-row-out h2,
+.gcli-row-out h3 {
   color: #000;
 }
 
-.gcliRowOutput a {
+.gcli-row-out a {
   font-weight: bold;
   color: #666;
   text-decoration: none;
 }
 
-.gcliRowOutput a:hover {
+.gcli-row-out a:hover {
   text-decoration: underline;
   cursor: pointer;
 }
 
-.gcliRowOutput input[type=password],
-.gcliRowOutput input[type=text],
-.gcliRowOutput textarea {
+.gcli-row-out input[type=password],
+.gcli-row-out input[type=text],
+.gcli-row-out textarea {
   color: #000;
   font-size: 120%;
   background: transparent;
@@ -72,33 +92,13 @@
   -webkit-border-radius: 5px;
 }
 
-.gcliRowOutput table,
-.gcliRowOutput td,
-.gcliRowOutput th {
+.gcli-row-out table,
+.gcli-row-out td,
+.gcli-row-out th {
   border: 0;
   padding: 0 2px;
 }
 
-.gcliRowOutput .right {
+.gcli-row-out .right {
   text-align: right;
-}
-
-.gcliGt {
-  font-family: consolas, courier, monospace;
-  color: #00F;
-  font-weight: bold;
-  font-size: 120%;
-  padding-left: 2px;
-}
-
-.gcliGt.gcliComplete {
-  color: #060;
-}
-
-.gcliGt.gcliError {
-  color: #F00;
-}
-
-.gcliDuration {
-  font-size: 80%;
 }

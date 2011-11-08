@@ -1,21 +1,21 @@
 
-<div class="gcliRow">
+<div class="gcli-row">
   <!-- The div for the input (i.e. what was typed) -->
-  <div class="gcliRowIn" save="${elems.rowin}" aria-live="assertive"
+  <div class="gcli-row-in" save="${elems.rowin}" aria-live="assertive"
       onclick="${copyToInput}" ondblclick="${execute}">
 
     <!-- What the user actually typed -->
-    <span save="${elems.prompt}" class="gcliGt ${elems.error ? 'gcliError' : ''} ${elems.completed ? 'gcliCompleted' : ''}">&#x00BB;</span>
-    <span class="gcliOutTyped">${outputData.typed}</span>
+    <span save="${elems.prompt}" class="gcli-row-prompt ${elems.error ? 'gcli-row-error' : ''} ${elems.completed ? 'gcli-row-complete' : ''}">&#x00BB;</span>
+    <span class="gcli-row-in-typed">${outputData.typed}</span>
 
     <!-- The extra details that appear on hover -->
-    <span class="gcliDuration gcliHover" save="${elems.duration}"></span>
+    <span class="gcli-row-duration gcli-row-hover" save="${elems.duration}"></span>
     <!--
-    <img class="gcliHover" onclick="${hideOutput}" save="${elems.hide}"
+    <img class="gcli-row-hover" onclick="${hideOutput}" save="${elems.hide}"
         alt="Hide command output" _src="${imageUrl('images/minus.png')}"/>
-    <img class="gcliHover gcliHidden" onclick="${showOutput}" save="${elems.show}"
+    <img class="gcli-row-hover gcli-row-hidden" onclick="${showOutput}" save="${elems.show}"
         alt="Show command output" _src="${imageUrl('images/plus.png')}"/>
-    <img class="gcliHover" onclick="${remove}"
+    <img class="gcli-row-hover" onclick="${remove}"
         alt="Remove this command from the history"
         _src="${imageUrl('images/closer.png')}"/>
     -->
@@ -23,7 +23,7 @@
   </div>
 
   <!-- The div for the command output -->
-  <div class="gcliRowOut" save="${elems.rowout}" aria-live="assertive">
-    <div class="gcliRowOutput" save="${elems.output}"></div>
+  <div aria-live="assertive" save="${elems.rowout}">
+    <div class="gcli-row-out" save="${elems.output}"></div>
   </div>
 </div>
