@@ -1,6 +1,7 @@
 
 .gcliMenu {
   width: 100%;
+  overflow: hidden;
 }
 
 .gcliOption {
@@ -47,8 +48,6 @@
   border-bottom-right-radius: 5px;
   border-bottom-left-radius: 5px;
   max-height: 300px;
-  overflow-y: auto;
-  overflow-x: hidden;
   margin: 0 3px;
   padding: 0;
   font: -webkit-small-control;
