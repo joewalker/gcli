@@ -82,3 +82,7 @@
   display: -moz-box;
   -moz-box-flex: 1;
 }
+
+.gcliterm-hint-nospace {
+  display: none;
+}
