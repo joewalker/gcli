@@ -99,8 +99,11 @@ Popup.prototype.resizer = function() {
     if (isMenuVisible) {
       this.menu.setMaxHeight(parentHeight);
 
-      // There has to be a better way of working out if the menu needs
-      // scroll bars, but this seems to be the best (albeit fragile) way
+      // Magic numbers. We have 2 options - lots of complex dom math to derive
+      // the height of a menu item (19 pixels) and the vertical padding
+      // (22 pixels), or we could just hard-code. The former is *slightly* more
+      // resilient to refactoring (but still breaks with dom structure changes),
+      // the latter is simpler, faster and easier.
       var idealMenuHeight = (19 * this.menu.items.length) + 22;
 
       if (idealMenuHeight > parentHeight) {
