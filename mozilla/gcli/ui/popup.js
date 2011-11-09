@@ -95,7 +95,7 @@ Popup.prototype.resizer = function() {
   else {
     this.hintElement.classList.remove('gcliterm-hint-nospace');
 
-    var isMenuVisible = this.menu.element.style.display === 'block';
+    var isMenuVisible = this.menu.element.style.display !== 'none';
     if (isMenuVisible) {
       this.menu.setMaxHeight(parentHeight);
 
