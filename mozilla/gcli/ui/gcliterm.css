@@ -9,9 +9,6 @@
   vertical-align: middle;
   background-color: transparent;
   font: 12px Consolas, "Lucida Console", monospace;
-  /* The language of a console is not en_US or any other common language */
-  /* (i.e we don't attempt to translate 'console.log(x)') */
-  direction: ltr;
 }
 
 .gcliterm-input-node {
@@ -85,4 +82,31 @@
 
 .gcliterm-hint-nospace {
   display: none;
+}
+
+/*
+ * The language of a console is not en_US or any other common language
+ * (i.e we don't attempt to translate 'console.log(x)')
+ * So we fix .gcliterm-input-node/.gcliterm-complete-node elements to be ltr.
+ * As a result we also want the hints to pop up on the left (above the prompt)
+ */
+.gcliterm-input-node,
+.gcliterm-complete-node,
+.gcliterm-display {
+  direction: ltr;
+}
+
+/*
+ * We want the stuff under .gcliterm-display to obey normal direction rules
+ * so we need to swap back when the document is in rtl mode.
+ * The selectors below are faster, but equivalent to:
+ * .gcliterm-display > *:-moz-locale-dir(rtl) {
+ *   direction: rtl;
+ * }
+ * In non-performance critical situations the above is preferred due to it's
+ * greater resilience to refactoring
+ */
+.gcliterm-hint-parent:-moz-locale-dir(rtl),
+.hud-output-node:-moz-locale-dir(rtl) {
+  direction: rtl;
 }
