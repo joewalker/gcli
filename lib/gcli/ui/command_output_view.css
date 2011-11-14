@@ -7,8 +7,6 @@
   padding: 3px 8px 1px 1px;
   border: 1px solid #aaa;
   border-radius: 4px;
-  -moz-border-radius: 4px;
-  -webkit-border-radius: 4px;
 }
 
 .gcli-row-in > img {
@@ -88,8 +86,6 @@
   background: transparent;
   padding: 3px;
   border-radius: 5px;
-  -moz-border-radius: 5px;
-  -webkit-border-radius: 5px;
 }
 
 .gcli-row-out table,
