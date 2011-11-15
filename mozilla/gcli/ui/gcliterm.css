@@ -25,24 +25,6 @@
   -moz-padding-end: 4px;
 }
 
-.gcli-in-valid {
-  border-bottom: none;
-}
-
-.gcli-in-incomplete {
-  color: #DDD;
-  border-bottom: 1px dotted #999;
-}
-
-.gcli-in-error {
-  color: #DDD;
-  border-bottom: 1px dotted #F00;
-}
-
-.gcli-in-ontab {
-  color: #999;
-}
-
 .gcliterm-stack-node {
   background: url("chrome://global/skin/icons/commandline.png") 4px center no-repeat;
   width: 100%;
