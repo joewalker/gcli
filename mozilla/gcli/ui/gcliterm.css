@@ -73,6 +73,12 @@
 .gcliterm-menu {
   display: -moz-box;
   -moz-box-flex: 1;
+  border-bottom-color: white;
+}
+
+.gcliterm-hint-scroll {
+  overflow-y: scroll;
+  border-bottom-color: threedshadow;
 }
 
 .gcliterm-hint-nospace {

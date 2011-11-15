@@ -112,14 +112,11 @@ Display.prototype.resizer = function() {
       // Magic numbers: 19 = height of a menu item, 22 = total vertical padding
       // of container
       var idealMenuHeight = (19 * this.menu.items.length) + 22;
-
       if (idealMenuHeight > parentHeight) {
-        this.hintElement.style.overflowY = 'scroll';
-        this.hintElement.style.borderBottomColor = 'threedshadow';
+        this.hintElement.classList.add('gcliterm-hint-scroll');
       }
       else {
-        this.hintElement.style.overflowY = null;
-        this.hintElement.style.borderBottomColor = 'white';
+        this.hintElement.classList.remove('gcliterm-hint-scroll');
       }
     }
     else {
