@@ -1,4 +1,9 @@
 
+.gcliterm-input-node,
+.gcliterm-complete-node {
+  font: 11px Menlo, Monaco, monospace;
+}
+
 .gcliterm-complete-node {
   padding-top: 6px !important;
 }
