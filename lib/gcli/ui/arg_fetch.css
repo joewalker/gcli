@@ -42,3 +42,7 @@
 .gcli-field {
   width: 100%;
 }
+
+.gcli-field-javascript {
+  margin-bottom: 0;
+}
