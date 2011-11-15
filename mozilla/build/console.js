@@ -186,7 +186,7 @@ var console = {};
       return fmt(aThing.toString().replace(/\s+/g, " "), 80, 0);
     }
 
-    var str = aThing.toString();
+    var str = aThing.toString().replace(/\n/g, "|");
     return fmt(str, 80, 0);
   }
 
