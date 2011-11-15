@@ -27,7 +27,8 @@
 .gcli-af-required {
   font-size: 90%;
   color: #f66;
-  padding-left: 5px;
+  -moz-padding-start: 5px;
+  -webkit-padding-start: 5px;
 }
 
 .gcli-af-error {
