@@ -67,6 +67,13 @@
   display: none;
 }
 
+.gcliterm-msg-body {
+  margin-top: 0;
+  margin-bottom: 3px;
+  -moz-margin-start: 3px;
+  -moz-margin-end: 6px;
+}
+
 /*
  * The language of a console is not en_US or any other common language
  * (i.e we don't attempt to translate 'console.log(x)')
