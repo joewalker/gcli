@@ -1,53 +1,44 @@
 
-.gcliArgFetcher {
+.gcli-argfetch {
   width: 100%;
   box-sizing: border-box;
   -moz-box-sizing: border-box;
 }
 
-.gcliCmdDesc {
+.gcli-af-cmddesc {
   font-weight: bold;
   text-align: center;
   margin-bottom: 5px;
   padding: 3px 10px 0;
 }
 
-.gcliParamGroup {
-  font-weight: bold;
-}
-
-.gcliParamName {
-  text-align: right;
-  font-size: 90%;
-}
-
-.gcliParamError {
-  font-size: 80%;
-  color: #900;
-}
-
-.gcliParamSubmit {
-  text-align: right;
-}
-
-.gcliGroupSymbol {
-  font-size: 90%;
-  color: #666;
-}
-
-.gcliRequired {
-  font-size: 90%;
-  color: #f66;
-  padding-left: 5px;
-}
-
-.gcliParams {
+.gcli-af-params {
   padding: 0 10px;
   width: 100%;
   box-sizing: border-box;
   -moz-box-sizing: border-box;
 }
 
-.gcliField {
+.gcli-af-paramname {
+  text-align: right;
+  font-size: 90%;
+}
+
+.gcli-af-required {
+  font-size: 90%;
+  color: #f66;
+  padding-left: 5px;
+}
+
+.gcli-af-error {
+  font-size: 80%;
+  color: #900;
+}
+
+.gcli-af-submit {
+  text-align: right;
+}
+
+.gcli-field {
   width: 100%;
 }

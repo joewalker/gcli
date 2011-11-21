@@ -1,9 +1,9 @@
 
-#gcliOutput.gcliOutAutoHide {
+#gcli-display.gcli-display-autohide {
   z-index: 999;
 }
 
-.gcliHints {
+.gcli-display-hint {
   border: 1px solid #AAA;
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
@@ -19,7 +19,7 @@
   bottom: 0;
 }
 
-.gcliCommandOutput {
+.gcli-display-output {
   height: 100%;
   margin-left: 300px;
   overflow: auto;

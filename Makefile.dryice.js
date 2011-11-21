@@ -346,8 +346,8 @@ function wordWrap(input, length) {
  */
 function removeNonMozPrefixes(data) {
   return data
-      .replace(/\n?\s*[-a-z]*:\s*-(webkit|op|ms)[-a-z]*\s*;[ \t]*/g, '')
-      .replace(/\n?\s*-(webkit|op|ms)[-a-z]*:\s*[^;]*\s*;[ \t]*/g, '');
+      .replace(/\n?\s*[-a-z]*:\s*-(webkit|op|ms)-[-a-z]*\s*;[ \t]*/g, '')
+      .replace(/\n?\s*-(webkit|op|ms)-[-a-z]*:\s*[^;]*\s*;[ \t]*/g, '');
 }
 
 /**

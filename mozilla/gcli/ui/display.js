@@ -12,10 +12,10 @@ var CommandMenu = require('gcli/ui/menu').CommandMenu;
 var FocusManager = require('gcli/ui/focus').FocusManager;
 
 /**
- * Popup is responsible for generating the UI for GCLI, this implementation
+ * Display is responsible for generating the UI for GCLI, this implementation
  * is a special case for use inside Firefox
  */
-function Popup(options) {
+function Display(options) {
   this.hintElement = options.hintElement;
   this.gcliTerm = options.gcliTerm;
   this.consoleWrap = options.consoleWrap;
@@ -60,7 +60,7 @@ function Popup(options) {
 /**
  * Avoid memory leaks
  */
-Popup.prototype.destroy = function() {
+Display.prototype.destroy = function() {
   this.chromeWindow.removeEventListener('resize', this.resizer, false);
   delete this.resizer;
   delete this.chromeWindow;
@@ -85,7 +85,7 @@ Popup.prototype.destroy = function() {
 /**
  * Called on chrome window resize, or on divider slide
  */
-Popup.prototype.resizer = function() {
+Display.prototype.resizer = function() {
   var parentRect = this.consoleWrap.getBoundingClientRect();
   var parentHeight = parentRect.bottom - parentRect.top - 64;
 
@@ -124,6 +124,6 @@ Popup.prototype.resizer = function() {
   }
 };
 
-exports.Popup = Popup;
+exports.Display = Display;
 
 });
