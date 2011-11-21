@@ -1,10 +1,15 @@
 
+.gcliArgFetcher {
+  width: 100%;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+}
+
 .gcliCmdDesc {
   font-weight: bold;
   text-align: center;
   margin-bottom: 5px;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 3px;
+  padding: 3px 10px 0;
 }
 
 .gcliParamGroup {
@@ -31,10 +36,18 @@
 }
 
 .gcliRequired {
-  font-size: 80%;
-  color: #666;
+  font-size: 90%;
+  color: #f66;
+  padding-left: 5px;
 }
 
 .gcliParams {
+  padding: 0 10px;
+  width: 100%;
+  box-sizing: border-box;
+  -moz-box-sizing: border-box;
+}
+
+.gcliField {
   width: 100%;
 }

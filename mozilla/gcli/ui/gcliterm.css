@@ -1,4 +1,6 @@
 
+/* Bug 678152 calls for UX review which will fix the color names */
+
 .gcliterm-input-node,
 .gcliterm-complete-node {
   border: none;
@@ -7,12 +9,21 @@
   vertical-align: middle;
   background-color: transparent;
   font: 12px Consolas, "Lucida Console", monospace;
-  padding: 2px 0 0 16px;
+}
+
+.gcliterm-input-node {
+  padding-top: 2px;
+  padding-bottom: 0;
+  -moz-padding-start: 16px;
+  -moz-padding-end: 0;
 }
 
 .gcliterm-complete-node {
   color: #FFF;
-  padding: 4px 4px 2px 21px;
+  padding-top: 4px;
+  padding-bottom: 2px;
+  -moz-padding-start: 21px;
+  -moz-padding-end: 4px;
 }
 
 .gcliVALID {
@@ -38,24 +49,64 @@
   width: 100%;
 }
 
+.gcliterm-argfetcher {
+  display: -moz-box;
+  -moz-box-flex: 1;
+}
+
 .gcliterm-hint-node {
-  color: #000;
-  background: rgba(250, 250, 250, 0.8);
-  border: 1px solid #AAA;
-  border-bottom: 0px !important;
+  border-top: 1px solid threedshadow;
+  border-bottom: 1px solid #FFF;
+  border-left: 1px solid threedshadow;
+  border-right: 1px solid threedshadow;
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
-  margin-left: 10px;
-  margin-right: 10px;
-  display: inline-block;
-  overflow: auto;
-  padding: 10px;
+  margin-bottom: -1px;
 }
 
 .gcliterm-hint-parent {
-  border-bottom: 1px solid #AAA;
+  width: 300px;
+  padding: 10px 10px 0;
+  border-top: 1px solid threedshadow;
+  border-bottom: 1px solid threedshadow;
 }
 
 .gcliCmdHelpRight {
   text-align: right;
+}
+
+.gcliterm-menu {
+  display: -moz-box;
+  -moz-box-flex: 1;
+}
+
+.gcliterm-hint-nospace {
+  display: none;
+}
+
+/*
+ * The language of a console is not en_US or any other common language
+ * (i.e we don't attempt to translate 'console.log(x)')
+ * So we fix .gcliterm-input-node/.gcliterm-complete-node elements to be ltr.
+ * As a result we also want the hints to pop up on the left (above the prompt)
+ */
+.gcliterm-input-node,
+.gcliterm-complete-node,
+.gcliterm-display {
+  direction: ltr;
+}
+
+/*
+ * We want the stuff under .gcliterm-display to obey normal direction rules
+ * so we need to swap back when the document is in rtl mode.
+ * The selectors below are faster, but equivalent to:
+ * .gcliterm-display > *:-moz-locale-dir(rtl) {
+ *   direction: rtl;
+ * }
+ * In non-performance critical situations the above is preferred due to it's
+ * greater resilience to refactoring
+ */
+.gcliterm-hint-parent:-moz-locale-dir(rtl),
+.hud-output-node:-moz-locale-dir(rtl) {
+  direction: rtl;
 }

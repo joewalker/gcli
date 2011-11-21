@@ -58,12 +58,9 @@ define(function(require, exports, module) {
   require('gcli/cli').startup();
 
   var Requisition = require('gcli/cli').Requisition;
-  var cli = require('gcli/cli');
-  var Inputter = require('gcli/ui/inputter').Inputter;
-  var ArgFetcher = require('gcli/ui/arg_fetch').ArgFetcher;
-  var CommandMenu = require('gcli/ui/menu').CommandMenu;
-  var FocusManager = require('gcli/ui/focus').FocusManager;
+  var Popup = require('gcli/ui/popup').Popup;
 
+  var cli = require('gcli/cli');
   var jstype = require('gcli/types/javascript');
   var nodetype = require('gcli/types/node');
 
@@ -91,59 +88,30 @@ define(function(require, exports, module) {
      * - inputBackgroundElement: GCLITerm.inputStack
      */
     createView: function(opts) {
-      opts.autoHide = true;
-      opts.requisition = new Requisition(opts.environment, opts.chromeDocument);
-      opts.completionPrompt = '';
-
       jstype.setGlobalObject(opts.jsEnvironment.globalObject);
       nodetype.setDocument(opts.contentDocument);
       cli.setEvalFunction(opts.jsEnvironment.evalFunction);
 
-      // Create a FocusManager for the various parts to register with
-      if (!opts.focusManager) {
-        opts.debug = true;
-        opts.focusManager = new FocusManager({ document: opts.chromeDocument });
+      if (opts.requisition == null) {
+        opts.requisition = new Requisition(opts.environment, opts.chromeDocument);
       }
 
-      opts.inputter = new Inputter(opts);
-      opts.inputter.update();
-      if (opts.gcliTerm) {
-        opts.focusManager.onFocus.add(opts.gcliTerm.show, opts.gcliTerm);
-        opts.focusManager.onBlur.add(opts.gcliTerm.hide, opts.gcliTerm);
-        opts.focusManager.addMonitoredElement(opts.gcliTerm.hintNode, 'gcliTerm');
-      }
-
-      if (opts.hintElement) {
-        opts.menu = new CommandMenu(opts.chromeDocument, opts.requisition);
-        opts.hintElement.appendChild(opts.menu.element);
-
-        opts.argFetcher = new ArgFetcher(opts.chromeDocument, opts.requisition);
-        opts.hintElement.appendChild(opts.argFetcher.element);
-
-        opts.menu.onCommandChange();
-      }
+      opts.popup = new Popup(opts);
     },
 
     /**
      * Undo the effects of createView() to prevent memory leaks
      */
     removeView: function(opts) {
-      opts.hintElement.removeChild(opts.menu.element);
-      opts.menu.destroy();
-      opts.hintElement.removeChild(opts.argFetcher.element);
-      opts.argFetcher.destroy();
+      opts.popup.destroy();
+      delete opts.popup;
 
-      opts.inputter.destroy();
-      opts.focusManager.removeMonitoredElement(opts.gcliTerm.hintNode, 'gcliTerm');
-      opts.focusManager.onFocus.remove(opts.gcliTerm.show, opts.gcliTerm);
-      opts.focusManager.onBlur.remove(opts.gcliTerm.hide, opts.gcliTerm);
-      opts.focusManager.destroy();
+      opts.requisition.destroy();
+      delete opts.requisition;
 
       cli.unsetEvalFunction();
       nodetype.unsetDocument();
       jstype.unsetGlobalObject();
-
-      opts.requisition.destroy();
     },
 
     commandOutputManager: require('gcli/canon').commandOutputManager

@@ -1,17 +1,12 @@
 
-<!--
-Template for the beginnings of a command menu.
-This will work with things other than a command - many things are a set of
-things with a name and description.
-In the command context it is evaluated once for every keypress in the cli
-when a command has not been entered.
--->
-<div id="gcliOptTempl" aria-live="polite">
-  <div class="gcliOption" foreach="item in ${items}" onclick="${onItemClick}"
-      title="${item.manual || ''}">
-    ${__element.item = item; ''}
-    <span class="gcliOptionName">${item.name}</span>
-    <span class="gcliOptionDesc">${item.description}</span>
-  </div>
-  <div class="gcliMenuError" if="${error}">${error}</div>
-</div>
+<table id="gcliOptTempl" aria-live="polite">
+  <tr class="gcliOption" foreach="item in ${items}"
+      onclick="${onItemClick}"
+      title="${__element.currentItem = item; (item.manual || '')}">
+    <td class="gcliOptionName">${item.name}</td>
+    <td class="gcliOptionDesc">${item.description}</td>
+  </tr>
+  <tr if="${error}">
+    <td class="gcliMenuError" colspan="2">${error}</td>
+  </tr>
+</table>

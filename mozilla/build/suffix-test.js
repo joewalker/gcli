@@ -25,6 +25,7 @@ function onLoad() {
   catch (ex) {
     failed = ex;
     console.error('Test Failure', ex);
+    ok(false, '' + ex);
   }
   finally {
     closeConsole();

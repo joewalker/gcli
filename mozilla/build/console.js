@@ -182,7 +182,11 @@ var console = {};
       return type + fmt(json, 50, 0);
     }
 
-    var str = aThing.toString(); //.replace(/\s+/g, " ");
+    if (typeof aThing == "function") {
+      return fmt(aThing.toString().replace(/\s+/g, " "), 80, 0);
+    }
+
+    var str = aThing.toString();
     return fmt(str, 80, 0);
   }
 
@@ -239,10 +243,23 @@ var console = {};
           }, this);
         }
         else {
-          reply += type + " (enumerated with for-in)\n";
-          var prop;
-          for (prop in aThing) {
-            reply += logProperty(prop, aThing[prop]);
+          reply += type + "\n";
+          var root = aThing;
+          var logged = [];
+          while (root != null) {
+            var properties = Object.keys(root);
+            properties.sort();
+            properties.forEach(function(property) {
+              if (!(property in logged)) {
+                logged[property] = property;
+                reply += logProperty(property, aThing[property]);
+              }
+            });
+
+            root = Object.getPrototypeOf(root);
+            if (root != null) {
+              reply += '  - prototype ' + getCtorName(root) + '\n';
+            }
           }
         }
       }
