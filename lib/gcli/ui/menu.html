@@ -1,8 +1,7 @@
 
 <table class="gcli-menu-template" aria-live="polite">
   <tr class="gcli-menu-option" foreach="item in ${items}"
-      onclick="${onItemClick}"
-      title="${__element.currentItem = item; (item.manual || '')}">
+      onclick="${onItemClick}" title="${item.manual || ''}">
     <td class="gcli-menu-name">${item.name}</td>
     <td class="gcli-menu-desc">${item.description}</td>
   </tr>
