@@ -1,6 +1,6 @@
 
 .gcli-help-name {
-  text-align: right;
+  text-align: end;
 }
 
 .gcli-help-arrow {
@@ -9,11 +9,10 @@
 }
 
 .gcli-help-synopsis {
-  font-family: Consolas, Inconsolata, "Courier New", monospace;
+  font-family: monospace;
   font-weight: normal;
   padding: 0 3px;
   margin: 0 10px;
-
   border: 1px solid #999;
   border-radius: 3px;
   color: #666;

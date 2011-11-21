@@ -74,6 +74,25 @@
   -moz-margin-end: 6px;
 }
 
+/* Extract from display.css, we only want these 2 rules */
+
+.gcli-out-shortcut {
+  border: 1px solid #999;
+  border-radius: 3px;
+  padding: 0 4px;
+  margin: 0 4px;
+  font-size: 70%;
+  color: #666;
+  cursor: pointer;
+  vertical-align: bottom;
+}
+
+.gcli-out-shortcut:before {
+  color: #66F;
+  content: '\bb';
+  padding: 0 2px;
+}
+
 /*
  * The language of a console is not en_US or any other common language
  * (i.e we don't attempt to translate 'console.log(x)')
