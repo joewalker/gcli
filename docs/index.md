@@ -21,12 +21,10 @@ something that is both easy to use and learn as well as fast and powerful.
 
 ## Status
 
-GCLI is not a secret, however it is unreleased, not blogged about (except in
-previous incarnations). Feel free to poke around and help but don't view it
-as a finished or released project.
-
-The command line parser is mostly complete. The UI is kind of working, but
-lacking polish. There are very few implemented commands.
+Most parts of GCLI are usable, although like any project there are incomplete
+sections. We don't currently release special version numbers, or alternatively
+we release on a daily basis using the day as a version number. The master
+branch is generally stable and should pass all unit tests.
 
 Major hurdles to be overcome:
 
@@ -46,17 +44,17 @@ GCLI was born as part of the
 [discussed at the time](http://j.mp/bespin-cli). The command line component
 survived the rename of Bepsin to Skywriter and the merger with Ace, got a name
 of it's own (Cockpit) which didn't last long before the project was named GCLI.
-It is not known how long it will stay being called GCLI.
+It is now being used in the Firefox's web console where it doesn't have a
+separate identity but it's still called GCLI outside of Firefox. It is not
+known how long it will stay being called GCLI.
 
 
 ## Environments
 
 GCLI is designed to work in a number of environments:
 
-1. As a component of Firefox developer tools. As such it should be capable of
-   replacing the WebConsole command line, the Firebug command line and
-   providing the ability for extensions to Firefox developer tools without
-   interface clutter.
+1. As a component of Firefox developer tools. As such it replaces the web
+   console command line.
 2. As an adjunct to Ace and possible component for Cloud9.
 3. As a plugin to any web-page wishing to provide its own set of commands.
 4. As part of a standalone web browser extension with it's own set of commands.
@@ -88,16 +86,10 @@ Other sources of GCLI documentation:
 - Other Documentation
   - [Embedding docs](https://github.com/mozilla/gcli/blob/master/docs/index.md)
   - [Status page](http://mozilla.github.com/devtools/2011/status.html#gcli)
+- [The Design of GCLI][design.md]
 
 
-## User Guide
-
-GCLI prides itself on being easy to use, plus people don't read user guides,
-therefore it seems pointless having a long users guide and self defeating to
-write one.
-
-
-### Accessibility
+## Accessibility
 
 GCLI uses ARIA roles to guide a screen-reader as to the important sections to
 voice. We welcome feedback on how these roles are implemented, either by
@@ -143,26 +135,21 @@ GCLI should not attempt to:
 
 There are 3 basic steps in using GCLI in your system.
 
-1. Import a script. Pre-built scripts are available in the ``build``
-   directory. Just place the following wherever you place your script files.
+1. Import a GCLI JavaScript file.
+   For serious use of GCLI you are likely to be creating a custom build (see
+   below) however if you just want to have a quick play, you can use
+   ``gcli-uncompressed.js`` from [the gh-pages branch of GCLI]
+   (https://github.com/mozilla/gcli/tree/gh-pages)
+   Just place the following wherever you place your script files.
 
-        <script src="path/to/gcli.js" type="text/javascript"></script>
-
-   See the section below on creating custom builds.
+        <script src="path/to/gcli-uncompressed.js" type="text/javascript"></script>
 
 2. Having imported GCLI, we need to tell it where to display. The simplest
-   method is to include an input element with the id of ``gcli-input``.
+   method is to include an elements with the id of ``gcli-input`` and
+   ``gcli-display``.
 
         <input id="gcli-input" type="text"/>
-
-   Optionally, if you want the output to be always visible or under your
-   control, you can include an output element as follows:
-
         <div id="gcli-display"></div>
-
-   If this element is not present, GCLI will create its own output element and
-   show it above or below the input element whenever the command line has
-   keyboard focus.
 
 3. Tell GCLI what commands to make available. See the sections on Writing
    Commands, Writing Types and Writing Fields for more information.
@@ -178,8 +165,7 @@ There are 3 basic steps in using GCLI in your system.
 
    Both the startup() and createView() commands take ``options`` objects which
    allow customization. At the current time the documentation of these object
-   is left to the source. GCLITerm in HUDService and index.html in GCLI itself
-   are probably the best places to begin looking.
+   is left to the source.
 
 
 ### Creating Custom Builds
@@ -189,6 +175,5 @@ If dryice is installed (``npm install dryice``) then you can create a built
 version of GCLI simply using ``node Makefile.dryice.js``. GCLI comes with a
 custom module loader to replace RequireJS for built applications.
 
-The build will be outputted in the ``built`` directory. The directory will be
+The build will be output to the ``built`` directory. The directory will be
 created if it doesn't exist.
-
