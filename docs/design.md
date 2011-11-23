@@ -1,5 +1,35 @@
 
-## Design Changes
+# The Design of GCLI
+
+## Design Goals
+
+GCLI should be:
+
+- primarily for technical users.
+- as fast as a traditional CLI. It should be possible to put your head down,
+  and look at the keyboard and use GCLI 'blind' at full speed without making
+  mistakes.
+- mousable with similar gestures to a GUI. It should be possible to hide the
+  input area and use GCLI in a similar way to a GUI.
+- principled about the way it encourages people to build commands. There is
+  benefit from unifying the underlying concepts.
+- automatically helpful.
+
+GCLI should not attempt to:
+
+- convert existing GUI users to a CLI.
+- use natural language input. The locale for the input is gcli-GCLI. We use
+  the ``command-name <list of options>`` for all input.
+- gain a touch based interface. Whilst it's possible (even probable) that touch
+  can provide further benefits to command line users, that can wait while we
+  catch up with 1985.
+- slavishly follow the syntax of existing commands, predictability is more
+  important.
+- be a programming language. Shell scripts are mini programming languages but
+  we have JavaScript sat just next door. It's better to integrate than compete.
+
+
+## Design Challenges
 
 What has changed since 1970 that might cause us to make changes to the design
 of the command line?
