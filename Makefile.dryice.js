@@ -153,11 +153,13 @@ function buildFirefox(destDir) {
     ignores: [
       'text!gcli/ui/inputter.css',
       'text!gcli/ui/menu.css',
-      'text!gcli/ui/arg_fetch.css'
+      'text!gcli/ui/arg_fetch.css',
+      'text!gcli/ui/display.css',
+      'text!gcli/ui/command_output_view.css'
     ]
   });
 
-  // Package the JavaScript
+  // Package the gcli.jsm
   copy({
     source: [
       'mozilla/build/prefix-gcli.jsm',
@@ -172,6 +174,22 @@ function buildFirefox(destDir) {
     ],
     filter: copy.filter.moduleDefines,
     dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gcli.jsm'
+  });
+
+  // Package the gclichrome.jsm
+  project.assumeAllFilesLoaded();
+  copy({
+    source: [
+      'mozilla/build/prefix-gclichrome.jsm',
+      copy.source.commonjs({
+        project: project,
+        // This list should be the same as suffix-gclichrome.jsm
+        require: [ 'gcli/gclichrome' ]
+      }),
+      'mozilla/build/suffix-gclichrome.jsm'
+    ],
+    filter: copy.filter.moduleDefines,
+    dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gclichrome.jsm'
   });
 
   // Package the test files
@@ -251,6 +269,19 @@ function buildFirefox(destDir) {
     ],
     filter: removeNonMozPrefixes,
     dest: (destDir ? destDir + gnomeCssDir : 'built/ff') + '/gcli.css'
+  });
+  copy({
+    source: [
+      'mozilla/build/license-block.txt',
+      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gclichrome.css */\n' },
+      'mozilla/gcli/ui/gclichrome.css',
+      { value: '\n/* From: $GCLI/lib/gcli/ui/display.css */\n' },
+      'lib/gcli/ui/display.css',
+      { value: '\n/* From: $GCLI/lib/gcli/ui/command_output_view.css */\n' },
+      'lib/gcli/ui/command_output_view.css'
+    ],
+    filter: removeNonMozPrefixes,
+    dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gclichrome.css'
   });
 
   // Package the i18n strings
