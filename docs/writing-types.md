@@ -1,5 +1,5 @@
 
-## Writing Types
+# Writing Types
 
 Commands are a fundamental building block because they are what the users
 directly interacts with, however they are built on ``Type``s. There are a
@@ -80,7 +80,7 @@ places in GCLI where the UI will be able to provide better help to users if
 your values include these properties.
 
 
-## Writing Fields
+# Writing Fields
 
 Fields are visual representations of types. For simple types like string it is
 enough to use ``<input type=...>``, however more complex types we may wish to
