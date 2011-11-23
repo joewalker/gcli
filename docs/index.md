@@ -73,6 +73,8 @@ In order to support these environments GCLI will need to:
 
 Other sources of GCLI documentation:
 
+- [Writing Commands](writing-commands.md)
+- [The Design of GCLI](design.md)
 - Source
   - The source for use alongside Ace or in web pages is in the [Github
     repository for GCLI](https://github.com/mozilla/gcli/)
@@ -86,7 +88,6 @@ Other sources of GCLI documentation:
 - Other Documentation
   - [Embedding docs](https://github.com/mozilla/gcli/blob/master/docs/index.md)
   - [Status page](http://mozilla.github.com/devtools/2011/status.html#gcli)
-- [The Design of GCLI][design.md]
 
 
 ## Accessibility

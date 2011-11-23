@@ -1,7 +1,11 @@
 
-## Writing Commands
+# Writing Commands
 
-3 principles for writing commands:
+## Basics
+
+GCLI has opinions about how commands should be written, and it encourages you
+to do The Right Thing. The options are based on helping users convert their
+intentions to commands and commands to what's actually going to happen.
 
 - Related commands should be sub-commands of a parent command. One of the goals
   of GCLI is to support a large number of commands without things becoming
@@ -34,14 +38,14 @@
   this could be very confusing if the addition of a single letter late on in
   the command line radically alters the action of the command.
 
-- Avoid breaking. We try to avoid the user having to start again with a command
+- Avoid errors. We try to avoid the user having to start again with a command
   due to some problem. The majority of problems are simple typos which we can
   catch using command metadata, but there are 2 things command authors can do
   to prevent breakage.
 
   - Where possible avoid the need to validate command line parameters in the
-    exec function. This can be done by good parameter design (see do exactly
-    and only one thing)
+    exec function. This can be done by good parameter design (see 'do exactly
+    and only one thing' above)
 
   - If there is an obvious fix for an unpredictable problem, offer the
     solution in the command output. So rather than use request.error (see
@@ -52,7 +56,7 @@ Currently these concepts are not enforced at a code level, but they could be in
 the future.
 
 
-### How commands work:
+## How commands work
 
 This is how to create a basic ``greet`` command:
 
@@ -74,16 +78,41 @@ This is how to create a basic ``greet`` command:
 
 This command is used as follows:
 
-    > greet Joe
+    » greet Joe
     Hello, Joe
 
-First, a brief point of terminology - a function has ``parameters``, and when
-you call a function, you pass ``arguments`` to it.
+A brief point of terminology - a function has 'parameters', and when you call
+a function, you pass 'arguments' to it.
 
 
-### Internationalization (i18n)
+## Internationalization (i18n)
 
-There are several ways that GCLI commands can be localized. The first is to
+There are several ways that GCLI commands can be localized. The best method
+depends on what context you are writing your command for.
+
+### Firefox Embedding
+
+GCLI supports Mozilla style localization. To add a command that will only ever
+be used embedded in Firefox, this is the way to go. Your strings should be
+stored in ``browser/locales/en-US/chrome/browser/devtools/gclicommands.properties``,
+And you should access them using ``gcli.lookup(...)`` or ``gcli.lookupFormat()``
+
+For examples of existing commands, take a look in
+``browser/devtools/webconsole/GcliCommands.jsm``, which contains most of the
+current GCLI commands. If you will be adding a number of new commands, then
+consider starting a new JSM.
+
+Your command will then look something like this:
+
+    gcli.addCommand({
+      name: 'greet',
+      description: gcli.lookup("greetDesc")
+      ...
+    });
+
+### Web Commands
+
+There are 2 ways to provide translated strings for web use. The first is to
 supply the translated strings in the description:
 
     gcli.addCommand({
@@ -98,8 +127,7 @@ supply the translated strings in the description:
       ...
     });
 
-This method is useful when creating a command for use with GCLI embedded in a
-web page. It has the benefit of being compact and simple, however it has the
+This method has the benefit of being compact and simple, however it has the
 significant drawback of being wasteful of memory and bandwidth to transmit and
 store a significant number of strings, the majority of which will never be
 used. Each description should contain at least a 'root' entry which is the
@@ -118,12 +146,16 @@ For web usage, the central store of localized strings is
 ``lib/gcli/nls/strings.js``. Other string files can be added using the
 ``l10n.registerStringsSource(...)`` function.
 
+This method can be used both in Firefox and on the Web (see the help command
+for an example). However this method has the drawback that it will not work
+with DryIce built files until we fix bug 683844.
 
-### Default argument values
 
-This command requires the entry of the ``name`` parameter, so no type checking
-is required. This parameter can be made optional with the addition of a
-defaultValue to the parameter:
+## Default argument values
+
+The ``greet`` command requires the entry of the ``name`` parameter. This
+parameter can be made optional with the addition of a ``defaultValue`` to the
+parameter:
 
     gcli.addCommand({
       name: 'greet',
@@ -144,11 +176,11 @@ defaultValue to the parameter:
 
 Now we can also use the ``greet`` command as follows:
 
-    > greet
+    » greet
     Hello, World!
 
 
-### Positional vs. named arguments
+## Positional vs. named arguments
 
 Arguments can be entered either positionally or as named arguments. Generally
 users will prefer to type the positional version, however the named alternative
@@ -156,56 +188,26 @@ can be more self documenting.
 
 For example, we can also invoke the greet command as follows:
 
-    > greet --name Joe
+    » greet --name Joe
     Hello, Joe
 
 
-### Parameter groups
+## Short argument names
 
-Parameters can be grouped into sections. This primarily allows us to generate
-mousable user-interfaces where similar parameters are presented to the user in
-groups.
+Originally GCLI automatically assigned shortened parameter names, so these 2
+commands were equivalent:
 
-    gcli.addCommand({
-      name: 'greet',
-      params: [
-        { name: 'name', type: 'string', description: 'The name to greet' },
-        {
-          group: 'Advanced Options',
-          params: [
-            { name: 'repeat', type: 'number', defaultValue: 1 },
-            { name: 'debug', type: 'boolean' }
-          ]
-        }
-      ],
-      ...,
-      exec: function(args, context) {
-        var output = '';
-        if (args.debug) output += 'About to send greeting';
-        for (var i = 0; i < args.repeat; i++) {
-          output += "Hello, " + args.name;
-        }
-        if (args.debug) output += 'Done!';
-        return output;
-      }
-    });
+    » greet Joe -r 2 -d
+    » greet Joe --repeat 2 --debug
 
-This could be used as follows:
-
-    > greet Joe --repeat 2 --debug
-    About to send greeting
-    Hello, Joe
-    Hello, Joe
-    Done!
-
-Parameter groups must come after non-grouped parameters because non-grouped
-parameters can be assigned positionally, so their index is important. We don't
-want 'holes' in the order caused by parameter groups.
+There are a number of problems with this approach, so we have removed automatic
+shortening feature. We plan to add in proper short argument name support soon,
+using the ``short`` property to specify a single character shortcut.
 
 
-### Parameter types
+## Parameter types
 
-This example uses types other than 'string'. Initially the available types are
+Initially the available types are:
 
 - string
 - boolean
@@ -214,7 +216,8 @@ This example uses types other than 'string'. Initially the available types are
 - selection
 - deferred
 
-This list can be extended. See section below on types for more information.
+This list can be extended. See [Writing Types](writing-types.md) on types for
+more information.
 
 Named parameters can be specified anywhere on the command line (after the
 command itself) however positional parameters must be in sequential order.
@@ -228,53 +231,7 @@ parameters, which always have a default value of ``false``.
 There is currently no way to make parameters mutually exclusive.
 
 
-### Short argument names
-
-GCLI automatically assigns shortened parameter names:
-
-    > greet Joe -r 2 -d
-
-Short parameter names use a single dash rather than a double dash. It is
-planned to allow the short version of parameter names to be customized, and
-to enable argument merging which will allow use of ``greet Joe -dr 2``.
-
-
-### Array types
-
-Parameters can have a type of ``array``. For example:
-
-    gcli.addCommand({
-      name: 'greet',
-      params: [
-        {
-          name: 'names',
-          type: { name: 'array', subtype: 'string' },
-          description: 'The names to greet',
-          defaultValue: [ 'World!' ]
-        }
-      ],
-      ...
-      exec: function(args, context) {
-        return "Hello, " + args.names.join(', ') + '.';
-      }
-    });
-
-This would be used as follows:
-
-    > greet Fred Jim Shiela
-    Hello, Fred, Jim, Shiela.
-
-Or using named arguments:
-
-    > greet --names Fred --names Jim --names Shiela
-    Hello, Fred, Jim, Shiela.
-
-There can only be one ungrouped parameter with an array type, and it must be
-at the end of the list of parameters (i.e. just before any parameter groups).
-This avoids confusion as to which parameter an argument should be assigned.
-
-
-### Selection types
+## Selection types
 
 Parameters can have a type of ``selection``. For example:
 
@@ -317,7 +274,7 @@ Under the covers the boolean type is implemented as a Selection with a
     lookup: { 'true': true, 'false': false }
 
 
-### Number types
+## Number types
 
 Number types are mostly self explanatory, they have one special property which
 is the ability to specify upper and lower bounds for the number:
@@ -340,13 +297,13 @@ properties are used by the command line when up and down are pressed and in
 the input type of a dialog generated from this command.
 
 
-### Deferred types
+## Deferred types
 
 Deferred types are needed when the type of some parameter depends on the type
 of another parameter. For example:
 
-    > set height 100
-    > set name "Joe Walker"
+    » set height 100
+    » set name "Joe Walker"
 
 We can achieve this as follows:
 
@@ -372,7 +329,42 @@ Several details are left out of this example, like how the defer function knows
 what the current setting is. See the ``pref`` command in Ace for an example.
 
 
-### Sub-commands
+## Array types
+
+Parameters can have a type of ``array``. For example:
+
+    gcli.addCommand({
+      name: 'greet',
+      params: [
+        {
+          name: 'names',
+          type: { name: 'array', subtype: 'string' },
+          description: 'The names to greet',
+          defaultValue: [ 'World!' ]
+        }
+      ],
+      ...
+      exec: function(args, context) {
+        return "Hello, " + args.names.join(', ') + '.';
+      }
+    });
+
+This would be used as follows:
+
+    » greet Fred Jim Shiela
+    Hello, Fred, Jim, Shiela.
+
+Or using named arguments:
+
+    » greet --names Fred --names Jim --names Shiela
+    Hello, Fred, Jim, Shiela.
+
+There can only be one ungrouped parameter with an array type, and it must be
+at the end of the list of parameters (i.e. just before any parameter groups).
+This avoids confusion as to which parameter an argument should be assigned.
+
+
+## Sub-commands
 
 It is common for commands to be groups into those with similar functionality.
 Examples include virtually all VCS commands, ``apt-get``, etc. There are many
@@ -400,7 +392,50 @@ exec function:
     });
 
 
-### Command metadata
+## Parameter groups
+
+Parameters can be grouped into sections. This primarily allows us to generate
+mousable user-interfaces where similar parameters are presented to the user in
+groups.
+
+    gcli.addCommand({
+      name: 'greet',
+      params: [
+        { name: 'name', type: 'string', description: 'The name to greet' },
+        {
+          group: 'Advanced Options',
+          params: [
+            { name: 'repeat', type: 'number', defaultValue: 1 },
+            { name: 'debug', type: 'boolean' }
+          ]
+        }
+      ],
+      ...,
+      exec: function(args, context) {
+        var output = '';
+        if (args.debug) output += 'About to send greeting';
+        for (var i = 0; i < args.repeat; i++) {
+          output += "Hello, " + args.name;
+        }
+        if (args.debug) output += 'Done!';
+        return output;
+      }
+    });
+
+This could be used as follows:
+
+    » greet Joe --repeat 2 --debug
+    About to send greeting
+    Hello, Joe
+    Hello, Joe
+    Done!
+
+Parameter groups must come after non-grouped parameters because non-grouped
+parameters can be assigned positionally, so their index is important. We don't
+want 'holes' in the order caused by parameter groups.
+
+
+## Command metadata
 
 Each command should have the following properties:
 
@@ -450,7 +485,7 @@ Optionally each parameter can have these properties:
   characters.
 
 
-### The Command Function (exec)
+## The Command Function (exec)
 
 The parameters to the exec function are designed to be useful when you have a
 large number of parameters, and to give direct access to the environment (if
@@ -501,7 +536,7 @@ provides a way to create DOM nodes.
 ``createPromise()`` allows commands to execute asynchronously.
 
 
-### Returning data
+## Returning data
 
 The command meta-data specifies the type of data returned by the command using
 the ``returnValue`` setting.
@@ -585,7 +620,7 @@ message property (or the toString() value if there is no message property).
 doing this).
 
 
-### Specifying Types
+## Specifying Types
 
 Types are generally specified by a simple string, e.g. ``'string'``. For most
 types this is enough detail. There are a number of exceptions:
