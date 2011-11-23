@@ -75,10 +75,13 @@ Other sources of GCLI documentation:
 
 - [Writing Commands](writing-commands.md)
 - [Writing Types](writing-types.md)
+- [Developing GCLI](developing-gcli.md)
 - [The Design of GCLI](design.md)
 - Source
-  - The source for use alongside Ace or in web pages is in the [Github
-    repository for GCLI](https://github.com/mozilla/gcli/)
+  - The most up-to-date source is Joe Walker's [Github repository for GCLI]
+    (https://github.com/joewalker/gcli/).
+  - When a feature is 'done' it's merged into the [Mozilla clone]
+    (https://github.com/mozilla/gcli/).
   - The source for the Firefox embedding springs from [this HG/MQ patch queue]
     (http://j.mp/gcli-mq) (which is partly derived form the Git repo) from
     which it flows into [the Mozilla devtools repo]

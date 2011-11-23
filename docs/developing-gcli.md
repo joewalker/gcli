@@ -1,4 +1,6 @@
 
+# Developing GCLI
+
 ## About the code
 
 The majority of the GCLI source is stored in the ``lib`` directory.
@@ -21,7 +23,7 @@ The source in the ``lib`` directory is split into 4 sections:
 GCLI is split into a UI portion and a Model/Controller portion.
 
 
-### The GCLI Model
+## The GCLI Model
 
 The heart of GCLI is a ``Requisition``, which is an AST for the input. A
 ``Requisition`` is a command that we'd like to execute, and we're filling out
@@ -42,7 +44,7 @@ There are special assignments called ``CommandAssignment`` which the
 to be assigned to.
 
 
-### The GCLI UI
+## The GCLI UI
 
 There are several components of the GCLI UI. Each can have a script portion,
 some template HTML and a CSS file. The template HTML is processed by
@@ -76,7 +78,7 @@ ArgFetch displays a number of Fields. There are fields for most of the Types
 discussed earlier. See 'Writing Fields' above for more information.
 
 
-### Assumed Environment
+## Assumed Environment
 
 There are differences between the environment provided by a browser and the
 environment in a JSM in Firefox. We attempt to make this environment as
@@ -110,7 +112,7 @@ browser-like as possible.
   [https://bugzilla.mozilla.org/show_bug.cgi?id=668488])
 
 
-### Testing
+## Testing
 
 GCLI contains 3 test suites:
 
@@ -126,7 +128,7 @@ GCLI contains 3 test suites:
 - Selenium tests for testing UI interaction are included in ``selenium-tests``.
 
 
-### Coding Conventions
+## Coding Conventions
 
 The coding conventions for the GCLI project come from the Bespin/Skywriter and
 Ace projects. They are roughly [Crockford]
@@ -176,7 +178,7 @@ We may have markers in the code as follows:
   to help us keep track of bugs and the code that is affected.
 
 
-### Startup
+## Startup
 
 Internally GCLI modules have ``startup()``/``shutdown()`` functions which are
 called on module init from the top level ``index.js`` of that 'package'.
@@ -189,9 +191,8 @@ dynamic registration/de-registration. It is not known if this feature will be
 useful in the future. So it has not been entirely removed, it may be at some
 future date.
 
-### Running the tests
 
-#### Unit tests
+## Running the Unit Tests
 
 Start the GCLI static server:
 
@@ -200,17 +201,3 @@ Start the GCLI static server:
 
 Now point your browser to [http://localhost:9999/][]. When the page loads, you
 should see the command line; enter the ``test`` command to run the unit tests.
-
-#### Web-page integration tests
-
-Install the [Selenium IDE Firefox addon](http://seleniumhq.org/download/) and
-once it is installed, start the GCLI static server:
-
-    cd path/to/gcli
-    python static.py
-
-Now open [http://localhost:9999/][] in your browser. Open the Selenium IDE
-(Tools > Selenium IDE). Now open GCLI's Selenium test suite (File > Open >
-path/to/gcli/selenium-tests/selenium-tests.html). Run the test suite via the
-menu (Actions > Play entire test suite) or via pressing the little button with a
-play symbol and some lines in the background.
