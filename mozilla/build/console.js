@@ -5,6 +5,7 @@
  * resorting to hardcoded numbers
  */
 var Node = Components.interfaces.nsIDOMNode;
+var HTMLElement = Components.interfaces.nsIDOMHTMLElement;
 
 
 Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");

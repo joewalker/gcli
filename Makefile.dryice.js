@@ -181,6 +181,7 @@ function buildFirefox(destDir) {
   copy({
     source: [
       'mozilla/build/prefix-gclichrome.jsm',
+      'mozilla/build/console.js',
       copy.source.commonjs({
         project: project,
         // This list should be the same as suffix-gclichrome.jsm
