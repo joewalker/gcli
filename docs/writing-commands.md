@@ -12,30 +12,19 @@ intentions to commands and commands to what's actually going to happen.
   many people wanting to implement the ``add`` command. This style of
   writing commands has become common place in Unix as the number of commands
   has gone up.
-
   We plan to support some type of 'focus' concept to allow a parent command
   to become a default, promoting its sub-commands above others.
 
 - Each command should do exactly and only one thing. An example of a Unix
-  command that breaks this principle is the ``tar`` command.
+  command that breaks this principle is the ``tar`` command
 
         $ tar -zcf foo.tar.gz .
-        // Creates an archive of the current directory into foo.tar.gz
-
         $ tar -zxf foo.tar.gz .
-        // Extracts foo.tar.gz into the current directory
-
   These 2 commands do exactly opposite things. Many a file has died as a result
   of a x/c typo. In GCLI this would be better expressed:
 
         $ tar create foo.tar.gz -z .
-        // and
         $ tar extract foo.tar.gz -z .
-
-  A potential future feature is a 'what is this command going to do' summary:
-  something along the lines of the comments after the ``tar`` commands above
-  this could be very confusing if the addition of a single letter late on in
-  the command line radically alters the action of the command.
 
 - Avoid errors. We try to avoid the user having to start again with a command
   due to some problem. The majority of problems are simple typos which we can
@@ -126,11 +115,11 @@ supply the translated strings in the description:
       ...
     });
 
-This method has the benefit of being compact and simple, however it has the
-significant drawback of being wasteful of memory and bandwidth to transmit and
-store a significant number of strings, the majority of which will never be
-used. Each description should contain at least a 'root' entry which is the
-default if no better match is found.
+Each description should contain at least a 'root' entry which is the
+default if no better match is found. This method has the benefit of being
+compact and simple, however it has the significant drawback of being wasteful
+of memory and bandwidth to transmit and store a significant number of strings,
+the majority of which will never be used.
 
 More efficient is to supply a lookup key and ask GCLI to lookup the key from an
 appropriate localized strings file:
