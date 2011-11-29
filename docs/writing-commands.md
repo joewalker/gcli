@@ -1,10 +1,9 @@
-
 # Writing Commands
 
 ## Basics
 
 GCLI has opinions about how commands should be written, and it encourages you
-to do The Right Thing. The options are based on helping users convert their
+to do The Right Thing. The opinions are based on helping users convert their
 intentions to commands and commands to what's actually going to happen.
 
 - Related commands should be sub-commands of a parent command. One of the goals
