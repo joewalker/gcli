@@ -4,7 +4,7 @@
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-var copy = require('dryice').copy;
+var copy = require('./scripts/dryice').copy;
 var path = require('path');
 var fs = require('fs');
 
