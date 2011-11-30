@@ -3,11 +3,11 @@
 
 ## GCLI is a Graphical Command Line Interpreter.
 
-GCLI is born of the belief that character based command lines were designed for
-computers that are quite different from today's computers. They were
-resource-limited, disconnected systems with slow multi-tasking and poor
-displays. The design of the Unix CLI made sense in 1970, but over 40 years on,
-considering the pace of change, there are many improvements we can make.
+GCLI is a command line for modern computers. When command lines were invented,
+computers were resource-limited, disconnected systems with slow multi-tasking
+and poor displays. The design of the Unix CLI made sense in 1970, but over 40
+years on, considering the pace of change, there are many improvements we can
+make.
 
 CLIs generally suffer from poor discoverability; It's hard when faced with a
 blank command line to work out what to do. As a result the majority of programs
@@ -18,6 +18,11 @@ a skilled user they are faster, and have a wider range of available options.
 GCLI attempts to get the best of the GUI world and the CLI world to produce
 something that is both easy to use and learn as well as fast and powerful.
 
+GCLI has a type system to help ensure that users are inputting valid commands
+and to enable us to provide sensible context sensitive help. GCLI provides
+deep integration with JavaScript rather than being an alternative (like Coffee
+Script).
+
 
 ## Status
 
@@ -25,16 +30,6 @@ Most parts of GCLI are usable, although like any project there are incomplete
 sections. We don't currently release special version numbers, or alternatively
 we release on a daily basis using the day as a version number. The master
 branch is generally stable and should pass all unit tests.
-
-Major hurdles to be overcome:
-
-- Security review. Is it OK to run user commands with Chrome privileges in
-  Firefox? If not, how should it be done?
-- Accessibility review. Is the completion node system workable?
-- Localization. The UI can be configured to have no pop-up help, which should
-  alleviate the immediate need for localization since there are no strings in
-  the input area itself.
-  Once we add in help system back in, it will need localization.
 
 
 ## History
@@ -83,12 +78,11 @@ Other sources of GCLI documentation:
   - When a feature is 'done' it's merged into the [Mozilla clone]
     (https://github.com/mozilla/gcli/).
   - The source for the Firefox embedding springs from [this HG/MQ patch queue]
-    (http://j.mp/gcli-mq) (which is partly derived form the Git repo) from
-    which it flows into [the Mozilla devtools repo]
-    (https://hg.mozilla.org/projects/devtools/) and then on into the Mozilla
-    central ocean.
-- [Demo of GCLI](https://people.mozilla.com/~jwalker/gcli/build/) with an
-  arbitrary set of demo commands
+    (http://j.mp/gcli-mq) (which is partly derived from the Git repo) from
+    which it flows into [Mozilla Central]
+    (https://hg.mozilla.org/mozilla-central/file/tip/browser/devtools/webconsole).
+- [Demo of GCLI](http://mozilla.github.com/gcli/) with an arbitrary set of demo
+  commands
 - Other Documentation
   - [Embedding docs](https://github.com/mozilla/gcli/blob/master/docs/index.md)
   - [Status page](http://mozilla.github.com/devtools/2011/status.html#gcli)
@@ -98,7 +92,7 @@ Other sources of GCLI documentation:
 
 GCLI uses ARIA roles to guide a screen-reader as to the important sections to
 voice. We welcome feedback on how these roles are implemented, either by
-[raising a bug](https://github.com/joewalker/gcli/issues) or by [posting to the
+[raising a bug](http://j.mp/gcli-bug) or by [posting to the
 Webby-CLI mailing list](https://groups.google.com/forum/#!forum/webby-cli).
 
 The command line uses TAB as a method of completing current input, this
