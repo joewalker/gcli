@@ -27,3 +27,4 @@ mozilla/patches/guards
 
 # Manually installed node packages should be ignored
 /node_modules/
+/.externalToolBuilders
