@@ -262,7 +262,7 @@ function buildFirefox(destDir) {
 
   // Package the i18n strings
   copy({
-    source: 'lib/gcli/nls/strings.js',
+    source: [ 'lib/gcli/nls/strings.js', 'lib/gcli/commands/strings.js' ],
     filter: tweakI18nStrings,
     dest: (destDir ? destDir + propsDir : 'built/ff') + '/gcli.properties'
   });
