@@ -2,7 +2,7 @@
 <h3>${command.name}</h3>
 
 <h4 class="gcli-help-header">
-  Synopsis:
+  ${l10n.helpManSynopsis}:
   <span class="gcli-help-synopsis" onclick="${onclick}">
     <span class="gcli-help-command">${command.name}</span>
     <span foreach="param in ${command.params}">
@@ -11,16 +11,16 @@
   </span>
 </h4>
 
-<h4 class="gcli-help-header">Description:</h4>
+<h4 class="gcli-help-header">${l10n.helpManDescription}:</h4>
 
 <p class="gcli-help-description">
   ${command.manual || command.description}
 </p>
 
-<h4 class="gcli-help-header">Parameters:</h4>
+<h4 class="gcli-help-header">${l10n.helpManParameters}:</h4>
 
 <ul class="gcli-help-parameter">
-  <li if="${command.params.length === 0}">None</li>
+  <li if="${command.params.length === 0}">${l10n.helpManNone}</li>
   <li foreach="param in ${command.params}">
     <tt>${param.name}</tt> ${getTypeDescription(param)}
     <br/>
