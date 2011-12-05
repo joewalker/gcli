@@ -262,7 +262,7 @@ function buildFirefox(destDir) {
 
   // Package the i18n strings
   copy({
-    source: [ 'lib/gcli/nls/strings.js', 'lib/gcli/commands/strings.js' ],
+    source: [ 'lib/gcli/nls/strings.js', 'mozilla/gcli/commands/strings.js' ],
     filter: tweakI18nStrings,
     dest: (destDir ? destDir + propsDir : 'built/ff') + '/gcli.properties'
   });
@@ -289,7 +289,7 @@ function tweakIndex(data) {
  * this.
  * See lib/gcli/nls/strings.js for an example
  */
-var outline = /root: {([^}]*)}/;
+var outline = /root: {([^}]*)}/g;
 
 /**
  * Regex to match a set of single line comments followed by a name:value
@@ -304,15 +304,20 @@ var singleString = /((\s*\/\/.*\n)+)\s*([A-z.]+):\s*'(.*)',?\n/g;
  */
 function tweakI18nStrings(data) {
   // Rip off the CommonJS header/footer
-  var results = outline.exec(data);
-  if (!results) {
+  var output = '';
+  data.replace(outline, function(m, inner) {
+    console.log(arguments);
+    // Remove the trailing spaces
+    output += inner.replace(/ *$/, '');
+  });
+
+  if (output === '') {
     console.error('Mismatch in lib/gcli/nls/strings.js');
     process.exit(1);
   }
-  // Remove the trailing spaces
-  var data = results[1].replace(/ *$/, '');
+
   // Convert each of the string definitions
-  data = data.replace(singleString, function(m, note, x, name, value) {
+  output = output.replace(singleString, function(m, note, x, name, value) {
     note = note.replace(/\n? *\/\/ */g, ' ')
                .replace(/^ /, '')
                .replace(/\n$/, '');
@@ -333,7 +338,7 @@ function tweakI18nStrings(data) {
     '# You want to make that choice consistent across the developer tools.\n' +
     '# A good criteria is the language in which you\'d find the best\n' +
     '# documentation on web development on the web.\n' +
-    '\n' + data;
+    '\n' + output;
 }
 
 /**
