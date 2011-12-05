@@ -86,9 +86,19 @@ Display.prototype.destroy = function() {
  * Called on chrome window resize, or on divider slide
  */
 Display.prototype.resizer = function() {
+  // Note on magic numbers: There are several magic numbers in this function.
+  // We have 2 options - lots of complex dom math to derive the numbers or hard
+  // code them. The former is *slightly* more resilient to refactoring (but
+  // still breaks with dom structure changes), the latter is simpler, faster
+  // and easier. For now we're hard coding, but will probably accept patches to
+  // the latter technically better way of doing things.
+
   var parentRect = this.consoleWrap.getBoundingClientRect();
+  // Magic number: 64 is the size of the toolbar above the output area
   var parentHeight = parentRect.bottom - parentRect.top - 64;
 
+  // Magic number: 100 is the size at which we decide the hints are too small
+  // to be useful, so we hide them
   if (parentHeight < 100) {
     this.hintElement.classList.add('gcliterm-hint-nospace');
   }
@@ -99,20 +109,14 @@ Display.prototype.resizer = function() {
     if (isMenuVisible) {
       this.menu.setMaxHeight(parentHeight);
 
-      // Magic numbers. We have 2 options - lots of complex dom math to derive
-      // the height of a menu item (19 pixels) and the vertical padding
-      // (22 pixels), or we could just hard-code. The former is *slightly* more
-      // resilient to refactoring (but still breaks with dom structure changes),
-      // the latter is simpler, faster and easier.
+      // Magic numbers: 19 = height of a menu item, 22 = total vertical padding
+      // of container
       var idealMenuHeight = (19 * this.menu.items.length) + 22;
-
       if (idealMenuHeight > parentHeight) {
-        this.hintElement.style.overflowY = 'scroll';
-        this.hintElement.style.borderBottomColor = 'threedshadow';
+        this.hintElement.classList.add('gcliterm-hint-scroll');
       }
       else {
-        this.hintElement.style.overflowY = null;
-        this.hintElement.style.borderBottomColor = 'white';
+        this.hintElement.classList.remove('gcliterm-hint-scroll');
       }
     }
     else {
