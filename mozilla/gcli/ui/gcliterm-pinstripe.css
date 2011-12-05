@@ -2,3 +2,7 @@
 .gcliterm-complete-node {
   padding-top: 6px !important;
 }
+
+.gcli-out-shortcut {
+  font-family: Menlo, Monaco, monospace;
+}

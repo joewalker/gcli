@@ -115,9 +115,9 @@ function buildFirefox(destDir) {
   }
 
   var jsmDir = '/browser/devtools/webconsole';
-  var winCssDir = '/browser/themes/winstripe/browser/devtools';
-  var pinCssDir = '/browser/themes/pinstripe/browser/devtools';
-  var gnomeCssDir = '/browser/themes/gnomestripe/browser/devtools';
+  var winCssDir = '/browser/themes/winstripe/devtools';
+  var pinCssDir = '/browser/themes/pinstripe/devtools';
+  var gnomeCssDir = '/browser/themes/gnomestripe/devtools';
   var propsDir = '/browser/locales/en-US/chrome/browser/devtools';
   var testDir = '/browser/devtools/webconsole/test/browser';
 
@@ -153,7 +153,8 @@ function buildFirefox(destDir) {
     ignores: [
       'text!gcli/ui/inputter.css',
       'text!gcli/ui/menu.css',
-      'text!gcli/ui/arg_fetch.css'
+      'text!gcli/ui/arg_fetch.css',
+      'text!gcli/commands/help.css'
     ]
   });
 
@@ -213,7 +214,9 @@ function buildFirefox(destDir) {
       { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */\n' },
       'lib/gcli/ui/menu.css',
       { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */\n' },
-      'lib/gcli/ui/inputter.css'
+      'lib/gcli/ui/inputter.css',
+      { value: '\n/* From: $GCLI/lib/gcli/commands/help.css */\n' },
+      'lib/gcli/commands/help.css'
     ],
     filter: removeNonMozPrefixes,
     dest: (destDir ? destDir + winCssDir : 'built/ff') + '/gcli.css'
@@ -230,7 +233,9 @@ function buildFirefox(destDir) {
       { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */\n' },
       'lib/gcli/ui/menu.css',
       { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */\n' },
-      'lib/gcli/ui/inputter.css'
+      'lib/gcli/ui/inputter.css',
+      { value: '\n/* From: $GCLI/lib/gcli/commands/help.css */\n' },
+      'lib/gcli/commands/help.css'
     ],
     filter: removeNonMozPrefixes,
     dest: (destDir ? destDir + pinCssDir : 'built/ff') + '/gcli.css'
@@ -247,7 +252,9 @@ function buildFirefox(destDir) {
       { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */\n' },
       'lib/gcli/ui/menu.css',
       { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */\n' },
-      'lib/gcli/ui/inputter.css'
+      'lib/gcli/ui/inputter.css',
+      { value: '\n/* From: $GCLI/lib/gcli/commands/help.css */\n' },
+      'lib/gcli/commands/help.css'
     ],
     filter: removeNonMozPrefixes,
     dest: (destDir ? destDir + gnomeCssDir : 'built/ff') + '/gcli.css'

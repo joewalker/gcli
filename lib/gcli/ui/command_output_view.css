@@ -1,14 +1,11 @@
 
 .gcli-row-in {
-  margin-top: 5px;
-  margin-right: 5px;
+  margin: 5px;
   color: #333;
   background-color: #EEE;
   padding: 3px 8px 1px 1px;
   border: 1px solid #aaa;
   border-radius: 4px;
-  -moz-border-radius: 4px;
-  -webkit-border-radius: 4px;
 }
 
 .gcli-row-in > img {
@@ -18,7 +15,7 @@
 .gcli-row-hover {
   display: none;
   float: right;
-  padding: 2px 2px 0 2px;
+  padding: 2px 2px 0;
 }
 
 .gcli-row-in:hover > .gcli-row-hover {
@@ -58,6 +55,7 @@
   padding-left: 10px;
   line-height: 1.2em;
   font-size: 95%;
+  margin-bottom: 20px;
 }
 
 .gcli-row-out strong,
@@ -88,8 +86,6 @@
   background: transparent;
   padding: 3px;
   border-radius: 5px;
-  -moz-border-radius: 5px;
-  -webkit-border-radius: 5px;
 }
 
 .gcli-row-out table,
@@ -97,8 +93,4 @@
 .gcli-row-out th {
   border: 0;
   padding: 0 2px;
-}
-
-.gcli-row-out .right {
-  text-align: right;
 }

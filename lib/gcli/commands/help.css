@@ -1,0 +1,40 @@
+
+.gcli-help-name {
+  text-align: end;
+}
+
+.gcli-help-arrow {
+  font-size: 70%;
+  color: #AAA;
+}
+
+.gcli-help-synopsis {
+  font-family: monospace;
+  font-weight: normal;
+  padding: 0 3px;
+  margin: 0 10px;
+  border: 1px solid #999;
+  border-radius: 3px;
+  color: #666;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.gcli-help-synopsis:before {
+  color: #66F;
+  content: '\bb';
+}
+
+.gcli-help-description {
+  margin: 0 20px;
+  padding: 0;
+}
+
+.gcli-help-parameter {
+  margin: 0 30px;
+  padding: 0;
+}
+
+.gcli-help-header {
+  margin: 10px 0 6px;
+}

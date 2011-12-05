@@ -24,3 +24,21 @@
   margin-left: 300px;
   overflow: auto;
 }
+
+.gcli-out-shortcut {
+  border: 1px solid #999;
+  border-radius: 3px;
+  padding: 0 4px;
+  margin: 0 4px;
+  font-size: 70%;
+  font-family: Consolas, Inconsolata, "Courier New", monospace;
+  color: #666;
+  cursor: pointer;
+  vertical-align: bottom;
+}
+
+.gcli-out-shortcut:before {
+  color: #66F;
+  content: '\bb';
+  padding: 0 2px;
+}

@@ -71,10 +71,6 @@
   border-bottom: 1px solid threedshadow;
 }
 
-.gcli-help-right {
-  text-align: right;
-}
-
 .gcliterm-menu {
   display: -moz-box;
   -moz-box-flex: 1;
@@ -82,6 +78,32 @@
 
 .gcliterm-hint-nospace {
   display: none;
+}
+
+.gcliterm-msg-body {
+  margin-top: 0;
+  margin-bottom: 3px;
+  -moz-margin-start: 3px;
+  -moz-margin-end: 6px;
+}
+
+/* Extract from display.css, we only want these 2 rules */
+
+.gcli-out-shortcut {
+  border: 1px solid #999;
+  border-radius: 3px;
+  padding: 0 4px;
+  margin: 0 4px;
+  font-size: 70%;
+  color: #666;
+  cursor: pointer;
+  vertical-align: bottom;
+}
+
+.gcli-out-shortcut:before {
+  color: #66F;
+  content: '\bb';
+  padding: 0 2px;
 }
 
 /*
