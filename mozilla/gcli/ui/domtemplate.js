@@ -6,7 +6,8 @@
 
 define(function(require, exports, module) {
 
-  Components.utils.import("resource:///modules/devtools/Templater.jsm");
-  exports.Templater = Templater;
+  var obj = {};
+  Components.utils.import('resource:///modules/devtools/Templater.jsm', obj);
+  exports.template = obj.template;
 
 });
