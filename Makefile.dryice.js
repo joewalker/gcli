@@ -4,7 +4,7 @@
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-var copy = require('dryice').copy;
+var copy = require('./scripts/dryice').copy;
 var path = require('path');
 var fs = require('fs');
 
@@ -21,6 +21,9 @@ function main() {
   }
   else if (args[2] === 'firefox') {
     buildFirefox(args[3]);
+  }
+  else if (args[2] === 'test') {
+    test();
   }
   else {
     console.error('Error: Unknown target: \'' + args[2] + '\'');
@@ -376,6 +379,35 @@ function createUndefineFunction(project) {
   });
   undefine += '}\n';
   return { value: undefine };
+}
+
+/**
+ * Run the test suite inside node
+ */
+function test() {
+  var requirejs = require('./scripts/r.js');
+
+  requirejs.config({
+    nodeRequire: require,
+    paths: { 'text': 'scripts/text', 'i18n': 'scripts/i18n' },
+    packagePaths: {
+      'lib': [
+        { name: 'gcli', main: 'index', lib: '.' },
+        { name: 'test', main: 'index', lib: '.' },
+        { name: 'gclitest', main: 'index', lib: '.' },
+        { name: 'demo', main: 'index', lib: '.' }
+      ]
+    }
+  });
+
+  // A minimum fake dom to get us through the JS tests
+  var document = { title: 'Fake DOM' };
+  requirejs('gcli/types/javascript').setGlobalObject({
+    window: { document: document },
+    document: document
+  });
+
+  requirejs('gclitest/suite');
 }
 
 // Now everything is defined properly, start working
