@@ -12,10 +12,10 @@ var CommandMenu = require('gcli/ui/menu').CommandMenu;
 var FocusManager = require('gcli/ui/focus').FocusManager;
 
 /**
- * Display is responsible for generating the UI for GCLI, this implementation
+ * Console is responsible for generating the UI for GCLI, this implementation
  * is a special case for use inside Firefox
  */
-function Display(options) {
+function Console(options) {
   this.hintElement = options.hintElement;
   this.gcliTerm = options.gcliTerm;
   this.consoleWrap = options.consoleWrap;
@@ -60,7 +60,7 @@ function Display(options) {
 /**
  * Avoid memory leaks
  */
-Display.prototype.destroy = function() {
+Console.prototype.destroy = function() {
   this.chromeWindow.removeEventListener('resize', this.resizer, false);
   delete this.resizer;
   delete this.chromeWindow;
@@ -85,7 +85,7 @@ Display.prototype.destroy = function() {
 /**
  * Called on chrome window resize, or on divider slide
  */
-Display.prototype.resizer = function() {
+Console.prototype.resizer = function() {
   // Bug 705109: There are several numbers hard-coded in this function.
   // This is simpler than calculating them, but error-prone when the UI setup,
   // the styling or display settings change.
@@ -125,6 +125,6 @@ Display.prototype.resizer = function() {
   }
 };
 
-exports.Display = Display;
+exports.Console = Console;
 
 });

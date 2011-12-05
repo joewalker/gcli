@@ -59,7 +59,7 @@ define(function(require, exports, module) {
   require('gcli/commands/help').startup();
 
   var Requisition = require('gcli/cli').Requisition;
-  var Display = require('gcli/ui/display').Display;
+  var Console = require('gcli/ui/console').Console;
 
   var cli = require('gcli/cli');
   var jstype = require('gcli/types/javascript');
@@ -97,15 +97,15 @@ define(function(require, exports, module) {
         opts.requisition = new Requisition(opts.environment, opts.chromeDocument);
       }
 
-      opts.display = new Display(opts);
+      opts.console = new Console(opts);
     },
 
     /**
      * Undo the effects of createView() to prevent memory leaks
      */
     removeView: function(opts) {
-      opts.display.destroy();
-      delete opts.display;
+      opts.console.destroy();
+      delete opts.console;
 
       opts.requisition.destroy();
       delete opts.requisition;
