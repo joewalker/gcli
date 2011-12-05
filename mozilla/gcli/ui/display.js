@@ -86,12 +86,9 @@ Display.prototype.destroy = function() {
  * Called on chrome window resize, or on divider slide
  */
 Display.prototype.resizer = function() {
-  // Note on magic numbers: There are several magic numbers in this function.
-  // We have 2 options - lots of complex dom math to derive the numbers or hard
-  // code them. The former is *slightly* more resilient to refactoring (but
-  // still breaks with dom structure changes), the latter is simpler, faster
-  // and easier. For now we're hard coding, but will probably accept patches to
-  // the latter technically better way of doing things.
+  // Bug 705109: There are several numbers hard-coded in this function.
+  // This is simpler than calculating them, but error-prone when the UI setup,
+  // the styling or display settings change.
 
   var parentRect = this.consoleWrap.getBoundingClientRect();
   // Magic number: 64 is the size of the toolbar above the output area
