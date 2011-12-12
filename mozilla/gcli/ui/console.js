@@ -123,6 +123,57 @@ Console.prototype.resizer = function() {
       this.hintElement.style.borderBottomColor = 'white';
     }
   }
+
+  // We also try to make the max-width of any GCLI elements so they don't
+  // extend outside the scroll area.
+  var doc = this.hintElement.ownerDocument;
+
+  var outputNode = this.hintElement.parentNode.parentNode.children[1];
+  var outputs = outputNode.getElementsByClassName('gcliterm-msg-body');
+  var listItems = outputNode.getElementsByClassName('hud-msg-node');
+
+  // This is an top-side estimate. We could try to calculate it, maybe using
+  // something along these lines http://www.alexandre-gomes.com/?p=115 However
+  // experience has shown this to be hard to get to work reliably
+  // Also we don't need to be precise. If we use a number that is too big then
+  // the only down-side is too great a right margin
+  var scrollbarWidth = 20;
+
+  if (listItems.length > 0) {
+    var parentWidth = outputNode.getBoundingClientRect().width - scrollbarWidth;
+    var otherWidth;
+    var body;
+
+    for (var i = 0; i < listItems.length; ++i) {
+      var listItem = listItems[i];
+      // a.k.a 'var otherWidth = 132'
+      otherWidth = 0;
+      body = null;
+
+      for (var j = 0; j < listItem.children.length; j++) {
+        var child = listItem.children[j];
+
+        if (child.classList.contains('gcliterm-msg-body')) {
+          body = child.children[0];
+        }
+        else {
+          otherWidth += child.getBoundingClientRect().width;
+        }
+
+        var styles = doc.defaultView.getComputedStyle(child, null);
+        otherWidth += parseInt(styles.borderLeftWidth, 10) +
+                      parseInt(styles.borderRightWidth, 10) +
+                      parseInt(styles.paddingLeft, 10) +
+                      parseInt(styles.paddingRight, 10) +
+                      parseInt(styles.marginLeft, 10) +
+                      parseInt(styles.marginRight, 10);
+      }
+
+      if (body) {
+        body.style.width = (parentWidth - otherWidth) + 'px';
+      }
+    }
+  }
 };
 
 exports.Console = Console;
