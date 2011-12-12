@@ -28,7 +28,7 @@ function Console(options) {
   this.focusManager.addMonitoredElement(this.gcliTerm.hintNode, 'gcliTerm');
 
   this.inputter = new Inputter({
-    document: options.contentDocument,
+    document: options.chromeDocument,
     requisition: options.requisition,
     inputElement: options.inputElement,
     completeElement: options.completeElement,
@@ -38,14 +38,14 @@ function Console(options) {
   });
 
   this.menu = new CommandMenu({
-    document: options.contentDocument,
+    document: options.chromeDocument,
     requisition: options.requisition,
     menuClass: 'gcliterm-menu'
   });
   this.hintElement.appendChild(this.menu.element);
 
   this.argFetcher = new ArgFetcher({
-    document: options.contentDocument,
+    document: options.chromeDocument,
     requisition: options.requisition,
     argFetcherClass: 'gcliterm-argfetcher'
   });
