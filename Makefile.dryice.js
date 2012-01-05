@@ -4,7 +4,7 @@
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-var copy = require('./scripts/dryice').copy;
+var copy = require('dryice').copy;
 var path = require('path');
 var fs = require('fs');
 
@@ -40,21 +40,18 @@ function main() {
 function buildStandard() {
   console.log('Building standard outputs to built/gcli[-uncompressed].js');
 
-  if (!path.existsSync(gcliHome + '/built')) {
-    fs.mkdirSync(gcliHome + '/built', 0755);
-  }
-
+  copy.mkdirSync(gcliHome + '/built', 0755);
   var project = copy.createCommonJsProject({
     roots: [ gcliHome + '/lib' ]
   });
   var sources = copy.createDataObject();
 
   copy({
-    source: copy.source.commonjs({
+    source: {
       project: project,
       // This list of dependencies should be the same as in index.html
       require: [ 'gcli/index', 'demo/index', 'gclitest/index' ]
-    }),
+    },
     filter: copy.filter.moduleDefines,
     dest: sources
   });
@@ -109,12 +106,7 @@ function buildFirefox(destDir) {
   console.log('Building Firefox outputs to ' + (destDir || 'built/ff') + '.\n');
 
   if (!destDir) {
-    if (!path.existsSync(gcliHome + '/built')) {
-      fs.mkdirSync(gcliHome + '/built', 0755);
-    }
-    if (!path.existsSync(gcliHome + '/built/ff')) {
-      fs.mkdirSync(gcliHome + '/built/ff', 0755);
-    }
+    copy.mkdirSync(gcliHome + '/built/ff', 0755);
   }
 
   var jsmDir = '/browser/devtools/webconsole';
@@ -152,14 +144,15 @@ function buildFirefox(destDir) {
   }
 
   var project = copy.createCommonJsProject({
-    roots: [ gcliHome + '/mozilla', gcliHome + '/lib' ],
-    ignores: [
-      'text!gcli/ui/inputter.css',
-      'text!gcli/ui/menu.css',
-      'text!gcli/ui/arg_fetch.css',
-      'text!gcli/commands/help.css'
-    ]
+    roots: [ gcliHome + '/mozilla', gcliHome + '/lib' ]
   });
+
+  var ignoreFilter = createIgnoreFilter([
+    'gcli/ui/inputter.css',
+    'gcli/ui/menu.css',
+    'gcli/ui/arg_fetch.css',
+    'gcli/commands/help.css'
+  ]);
 
   // Package the JavaScript
   copy({
@@ -167,14 +160,11 @@ function buildFirefox(destDir) {
       'mozilla/build/prefix-gcli.jsm',
       'mozilla/build/console.js',
       copy.getMiniRequire(),
-      copy.source.commonjs({
-        project: project,
-        // This list of dependencies should be the same as in suffix-gcli.jsm
-        require: [ 'gcli/index' ]
-      }),
+      // This list of dependencies should be the same as in suffix-gcli.jsm
+      { project: project, require: [ 'gcli/index' ] },
       'mozilla/build/suffix-gcli.jsm'
     ],
-    filter: copy.filter.moduleDefines,
+    filter: [ ignoreFilter, copy.filter.moduleDefines ],
     dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gcli.jsm'
   });
 
@@ -182,13 +172,8 @@ function buildFirefox(destDir) {
   project.assumeAllFilesLoaded();
   var sources = copy.createDataObject();
   copy({
-    source: [
-      copy.source.commonjs({
-        project: project,
-        // This list of dependencies should be the same as in gclitest/index.js
-        require: [ 'gclitest/suite' ]
-      })
-    ],
+    // This list of dependencies should be the same as in gclitest/index.js
+    source: { project: project, require: [ 'gclitest/suite' ] },
     filter: copy.filter.moduleDefines,
     dest: sources
   });
@@ -269,9 +254,24 @@ function buildFirefox(destDir) {
     filter: tweakI18nStrings,
     dest: (destDir ? destDir + propsDir : 'built/ff') + '/gcli.properties'
   });
-
-  console.log(project.report());
 }
+
+/**
+ * 
+ */
+function createIgnoreFilter(ignoredModules) {
+  var filter = function(data, location) {
+    function checkIgnored(ignoredModule) {
+      return location.path === ignoredModule;
+    }
+    if (location != null && ignoredModules.some(checkIgnored)) {
+      return '';
+    }
+    return data;
+  };
+  filter.onRead = true;
+  return filter;
+};
 
 /**
  * Filter index.html to:
@@ -309,7 +309,6 @@ function tweakI18nStrings(data) {
   // Rip off the CommonJS header/footer
   var output = '';
   data.replace(outline, function(m, inner) {
-    console.log(arguments);
     // Remove the trailing spaces
     output += inner.replace(/ *$/, '');
   });
@@ -373,7 +372,7 @@ function removeNonMozPrefixes(data) {
  */
 function createUndefineFunction(project) {
   // This is slightly evil because it digs into the guts of a project
-  var modules = Object.keys(project.currentFiles);
+  var modules = Object.keys(project.currentModules);
   var undefine = '\nfunction undefine() {\n';
   modules.forEach(function(module) {
     undefine += '  delete define.modules[\'' + module + '\'];\n';
