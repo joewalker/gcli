@@ -257,7 +257,8 @@ function buildFirefox(destDir) {
 }
 
 /**
- * 
+ * Sometimes we want to exclude modules from the output.
+ * This replaces the contents of a named set of modules with an empty string.
  */
 function createIgnoreFilter(ignoredModules) {
   var filter = function(data, location) {
