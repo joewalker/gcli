@@ -71,7 +71,7 @@ function buildStandard() {
   if (project.getDependencyGraphML) {
     copy({
       source: { value:project.getDependencyGraphML() },
-      dest: 'built/gcli.graphml',
+      dest: 'built/gcli.graphml'
     });
   }
 
@@ -271,7 +271,7 @@ function createIgnoreFilter(ignoredModules) {
   };
   filter.onRead = true;
   return filter;
-};
+}
 
 /**
  * Filter index.html to:
