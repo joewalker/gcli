@@ -24,6 +24,7 @@ mozilla/patches/guards
 /.settings/
 /.settings.xml
 /.settings.xml.old
+/.idea/
 
 # Manually installed node packages should be ignored
 /node_modules/
