@@ -34,7 +34,8 @@ function Console(options) {
     completeElement: options.completeElement,
     completionPrompt: '',
     backgroundElement: options.backgroundElement,
-    focusManager: this.focusManager
+    focusManager: this.focusManager,
+    scratchpad: options.scratchpad
   });
 
   this.menu = new CommandMenu({
