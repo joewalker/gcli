@@ -114,7 +114,7 @@ function buildFirefox(destDir) {
   var pinCssDir = '/browser/themes/pinstripe/devtools';
   var gnomeCssDir = '/browser/themes/gnomestripe/devtools';
   var propsDir = '/browser/locales/en-US/chrome/browser/devtools';
-  var testDir = '/browser/devtools/webconsole/test/browser';
+  var testDir = '/browser/devtools/webconsole/test';
 
   if (destDir) {
     var fail = false;
