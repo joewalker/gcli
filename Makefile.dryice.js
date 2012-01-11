@@ -413,14 +413,7 @@ function test() {
     features: {
       QuerySelector: true
     },
-    done: function(errors, window) {
-      var gclitest = requirejs('gclitest/index');
-      gclitest.run({
-        window: window,
-        isNode: true,
-        detailedResultLog: true
-      });
-    }
+    done: requirejs('gclitest/nodeIndex').run
   });
 }
 
