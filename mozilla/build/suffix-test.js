@@ -20,7 +20,9 @@ function onLoad() {
 
   try {
     openConsole();
-    define.globalDomain.require("gclitest/index");
+
+    var gclitest = define.globalDomain.require("gclitest/index");
+    gclitest.run();
   }
   catch (ex) {
     failed = ex;

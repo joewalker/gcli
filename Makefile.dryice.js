@@ -172,8 +172,8 @@ function buildFirefox(destDir) {
   project.assumeAllFilesLoaded();
   var sources = copy.createDataObject();
   copy({
-    // This list of dependencies should be the same as in gclitest/index.js
-    source: { project: project, require: [ 'gclitest/suite' ] },
+    // This list of dependencies should be the same as in suffix-test.js
+    source: { project: project, require: [ 'gclitest/index' ] },
     filter: copy.filter.moduleDefines,
     dest: sources
   });
@@ -405,14 +405,8 @@ function test() {
     }
   });
 
-  // A minimum fake dom to get us through the JS tests
-  var document = { title: 'Fake DOM' };
-  requirejs('gcli/types/javascript').setGlobalObject({
-    window: { document: document },
-    document: document
-  });
-
-  requirejs('gclitest/suite');
+  var gclitest = requirejs('gclitest/index');
+  gclitest.run({ useFakeDom: true, detailedResultLog: true });
 }
 
 // Now everything is defined properly, start working
