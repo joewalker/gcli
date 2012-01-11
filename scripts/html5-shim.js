@@ -28,18 +28,15 @@ if (typeof document !== 'undefined' && !('classList' in document.createElement('
       return classList.indexOf(token);
     }
 
-    function updateClassName(classList) {
-      elem.className = classList.toString();
-    }
-
     function ClassList(elem) {
       var trimmedClasses = elem.className.trim();
       var classes = trimmedClasses ? trimmedClasses.split(/\s+/) : [];
-      var i = 0;
-      var len = classes.length;
-      for (; i < len; i++) {
+      for (var i = 0; i < classes.length; i++) {
          this.push(classes[i]);
       }
+      this._updateClassName = function() {
+        elem.className = this.toString();
+      };
     }
 
     ClassList.prototype = [];
@@ -57,7 +54,7 @@ if (typeof document !== 'undefined' && !('classList' in document.createElement('
       token += '';
       if (checkTokenAndGetIndex(this, token) === -1) {
         this.push(token);
-        updateClassName(this);
+        this._updateClassName();
       }
     };
 
@@ -66,7 +63,7 @@ if (typeof document !== 'undefined' && !('classList' in document.createElement('
       var index = checkTokenAndGetIndex(this, token);
       if (index !== -1) {
         this.splice(index, 1);
-        updateClassName(this);
+        this._updateClassName();
       }
     };
 

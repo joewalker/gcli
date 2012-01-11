@@ -405,14 +405,22 @@ function test() {
     }
   });
 
-  var index = fs.readFileSync(gcliHome + '/index.html');
-  var document = require('jsdom').jsdom(index, null, {});
-
-  var gclitest = requirejs('gclitest/index');
-  gclitest.run({
-    window: window,
-    isNode: true,
-    detailedResultLog: true
+  require('jsdom').jsdom.env({
+    html: fs.readFileSync(gcliHome + '/index.html').toString(),
+    src: [
+      fs.readFileSync(gcliHome + '/scripts/html5-shim.js').toString()
+    ],
+    features: {
+      QuerySelector: true
+    },
+    done: function(errors, window) {
+      var gclitest = requirejs('gclitest/index');
+      gclitest.run({
+        window: window,
+        isNode: true,
+        detailedResultLog: true
+      });
+    }
   });
 }
 
