@@ -409,7 +409,11 @@ function test() {
   var document = require('jsdom').jsdom(index, null, {});
 
   var gclitest = requirejs('gclitest/index');
-  gclitest.run({ window: document.createWindow(), detailedResultLog: true });
+  gclitest.run({
+    window: window,
+    isNode: true,
+    detailedResultLog: true
+  });
 }
 
 // Now everything is defined properly, start working
