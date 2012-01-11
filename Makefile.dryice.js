@@ -405,8 +405,11 @@ function test() {
     }
   });
 
+  var index = fs.readFileSync(gcliHome + '/index.html');
+  var document = require('jsdom').jsdom(index, null, {});
+
   var gclitest = requirejs('gclitest/index');
-  gclitest.run({ useFakeWindow: true, detailedResultLog: true });
+  gclitest.run({ window: document.createWindow(), detailedResultLog: true });
 }
 
 // Now everything is defined properly, start working
