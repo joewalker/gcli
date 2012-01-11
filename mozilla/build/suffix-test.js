@@ -21,8 +21,14 @@ function onLoad() {
   try {
     openConsole();
 
+    var gcliterm = HUDService.getHudByWindow(content).gcliterm;
+
     var gclitest = define.globalDomain.require("gclitest/index");
-    gclitest.run();
+    gclitest.run({
+      window: gcliterm.document.defaultView,
+      inputter: gcliterm.opts.console.inputter,
+      requisition: gcliterm.opts.requistion
+    });
   }
   catch (ex) {
     failed = ex;
