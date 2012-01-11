@@ -406,7 +406,7 @@ function test() {
   });
 
   var gclitest = requirejs('gclitest/index');
-  gclitest.run({ useFakeDom: true, detailedResultLog: true });
+  gclitest.run({ useFakeWindow: true, detailedResultLog: true });
 }
 
 // Now everything is defined properly, start working

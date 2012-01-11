@@ -47,7 +47,7 @@
     // This list should be the same as the browser part of Makefile.dryice.js
     var deps = [ 'gcli/index', 'gclitest/index', 'demo/index' ];
     require(deps, function(gcli, gclitest) {
-      gclitest.run({ useFakeDom: true });
+      gclitest.run({ useFakeWindow: true });
       gcli.createView();
     });
   </script>
