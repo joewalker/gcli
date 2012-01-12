@@ -1,7 +1,6 @@
 
 .gcli-argfetch {
   width: 100%;
-  box-sizing: border-box;
   -moz-box-sizing: border-box;
 }
 
@@ -15,7 +14,6 @@
 .gcli-af-params {
   padding: 0 10px;
   width: 100%;
-  box-sizing: border-box;
   -moz-box-sizing: border-box;
 }
 
@@ -27,7 +25,8 @@
 .gcli-af-required {
   font-size: 90%;
   color: #f66;
-  padding-left: 5px;
+  -moz-padding-start: 5px;
+  -webkit-padding-start: 5px;
 }
 
 .gcli-af-error {
@@ -41,4 +40,8 @@
 
 .gcli-field {
   width: 100%;
+}
+
+.gcli-field-javascript {
+  margin-bottom: 0;
 }

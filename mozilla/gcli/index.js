@@ -56,6 +56,7 @@ define(function(require, exports, module) {
   require('gcli/types/javascript').startup();
   require('gcli/types/node').startup();
   require('gcli/cli').startup();
+  require('gcli/commands/help').startup();
 
   var Requisition = require('gcli/cli').Requisition;
   var Console = require('gcli/ui/console').Console;

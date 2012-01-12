@@ -19,7 +19,8 @@
       border: 1px solid #999;
       font-size: 110%;
       font-family: Consolas, Inconsolata, "Courier New", monospace;
-    }  </style>
+    }
+  </style>
 </head>
 
 <body>
@@ -44,8 +45,9 @@
     });
 
     // This list should be the same as the browser part of Makefile.dryice.js
-    var deps = [ 'gcli/index', 'demo/index', 'gclitest/index' ];
-    require(deps, function(gcli) {
+    var deps = [ 'gcli/index', 'gclitest/index', 'demo/index' ];
+    require(deps, function(gcli, gclitest) {
+      gclitest.run({ useFakeWindow: true });
       gcli.createView();
     });
   </script>

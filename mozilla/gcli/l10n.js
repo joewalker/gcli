@@ -48,6 +48,13 @@ exports.lookup = function(key) {
   }
 };
 
+/** @see propertyLookup in lib/gcli/l10n.js */
+exports.propertyLookup = Proxy.create({
+  get: function(rcvr, name) {
+    return exports.lookup(name);
+  }
+});
+
 /** @see lookupFormat in lib/gcli/l10n.js */
 exports.lookupFormat = function(key, swaps) {
   try {
