@@ -144,6 +144,15 @@ var console = {};
    *        The constructor name
    */
   function getCtorName(aObj) {
+    if (aObj.constructor) {
+      var matches = aObj.constructor.toString().match(/^function ([^(]*)\(/);
+      if (matches) {
+        // i.e. the first matched group, which is the constructor function name
+        return matches[1];
+      }
+    }
+    // If that fails, use Objects toString which sometimes gives something
+    // better than 'Object', and at least defaults to Object if nothing better
     return Object.prototype.toString.call(aObj).slice(8, -1);
   }
 
