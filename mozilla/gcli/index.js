@@ -65,6 +65,7 @@ define(function(require, exports, module) {
   var cli = require('gcli/cli');
   var jstype = require('gcli/types/javascript');
   var nodetype = require('gcli/types/node');
+  var resource = require('gcli/types/resource');
 
   /**
    * API for use by HUDService only.
@@ -114,6 +115,7 @@ define(function(require, exports, module) {
       cli.unsetEvalFunction();
       nodetype.unsetDocument();
       jstype.unsetGlobalObject();
+      resource.clearResourceCache();
     },
 
     commandOutputManager: require('gcli/canon').commandOutputManager
