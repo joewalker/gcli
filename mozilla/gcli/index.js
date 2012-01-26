@@ -55,6 +55,7 @@ define(function(require, exports, module) {
   require('gcli/types/basic').startup();
   require('gcli/types/javascript').startup();
   require('gcli/types/node').startup();
+  require('gcli/types/resource').startup();
   require('gcli/cli').startup();
   require('gcli/commands/help').startup();
 
