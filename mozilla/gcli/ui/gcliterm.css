@@ -74,6 +74,10 @@
   -moz-margin-end: 6px;
 }
 
+.gcliterm-li-plain {
+  list-style-image: none;
+}
+
 /* Extract from display.css, we only want these 2 rules */
 
 .gcli-out-shortcut {

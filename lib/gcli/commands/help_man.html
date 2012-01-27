@@ -20,8 +20,8 @@
 <h4 class="gcli-help-header">${l10n.helpManParameters}:</h4>
 
 <ul class="gcli-help-parameter">
-  <li if="${command.params.length === 0}">${l10n.helpManNone}</li>
-  <li foreach="param in ${command.params}">
+  <li if="${command.params.length === 0}" class="gcliterm-li-plain">${l10n.helpManNone}</li>
+  <li foreach="param in ${command.params}" class="gcliterm-li-plain">
     <tt>${param.name}</tt> ${getTypeDescription(param)}
     <br/>
     ${param.manual || param.description}
