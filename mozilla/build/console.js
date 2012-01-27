@@ -144,12 +144,8 @@ var console = {};
    *        The constructor name
    */
   function getCtorName(aObj) {
-    if (aObj.constructor) {
-      var matches = aObj.constructor.toString().match(/^function ([^(]*)\(/);
-      if (matches) {
-        // i.e. the first matched group, which is the constructor function name
-        return matches[1];
-      }
+    if (aObj.constructor && aObj.constructor.name) {
+      return aObj.constructor.name;
     }
     // If that fails, use Objects toString which sometimes gives something
     // better than 'Object', and at least defaults to Object if nothing better
