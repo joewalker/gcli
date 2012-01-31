@@ -101,6 +101,20 @@ define(function(require, exports, module) {
     },
 
     /**
+     * Called when the page to which we're attached changes
+     */
+    reattachConsole: function(opts) {
+      jstype.setGlobalObject(opts.jsEnvironment.globalObject);
+      nodetype.setDocument(opts.contentDocument);
+      cli.setEvalFunction(opts.jsEnvironment.evalFunction);
+
+      opts.requisition.environment = opts.environment;
+      opts.requisition.document = opts.chromeDocument;
+
+      opts.console.reattachConsole(opts);
+    },
+
+    /**
      * Undo the effects of createView() to prevent memory leaks
      */
     removeView: function(opts) {
