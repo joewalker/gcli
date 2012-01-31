@@ -145,6 +145,11 @@ var console = {};
    *        The constructor name
    */
   function getCtorName(aObj) {
+    if (aObj.constructor && aObj.constructor.name) {
+      return aObj.constructor.name;
+    }
+    // If that fails, use Objects toString which sometimes gives something
+    // better than 'Object', and at least defaults to Object if nothing better
     return Object.prototype.toString.call(aObj).slice(8, -1);
   }
 
