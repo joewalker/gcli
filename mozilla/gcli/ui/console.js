@@ -7,7 +7,7 @@
 define(function(require, exports, module) {
 
 var Inputter = require('gcli/ui/inputter').Inputter;
-var ArgFetcher = require('gcli/ui/arg_fetch').ArgFetcher;
+var Tooltip = require('gcli/ui/tooltip').Tooltip;
 var CommandMenu = require('gcli/ui/menu').CommandMenu;
 var FocusManager = require('gcli/ui/focus').FocusManager;
 
@@ -45,12 +45,12 @@ function Console(options) {
   });
   this.hintElement.appendChild(this.menu.element);
 
-  this.argFetcher = new ArgFetcher({
+  this.tooltip = new Tooltip({
     document: options.chromeDocument,
     requisition: options.requisition,
-    argFetcherClass: 'gcliterm-argfetcher'
+    tooltipClass: 'gcliterm-tooltip'
   });
-  this.hintElement.appendChild(this.argFetcher.element);
+  this.hintElement.appendChild(this.tooltip.element);
 
   this.chromeWindow = options.chromeDocument.defaultView;
   this.resizer = this.resizer.bind(this);
@@ -69,8 +69,8 @@ Console.prototype.destroy = function() {
 
   this.hintElement.removeChild(this.menu.element);
   this.menu.destroy();
-  this.hintElement.removeChild(this.argFetcher.element);
-  this.argFetcher.destroy();
+  this.hintElement.removeChild(this.tooltip.element);
+  this.tooltip.destroy();
 
   this.inputter.destroy();
 
@@ -118,8 +118,6 @@ Console.prototype.resizer = function() {
       }
     }
     else {
-      this.argFetcher.setMaxHeight(parentHeight);
-
       this.hintElement.style.overflowY = null;
       this.hintElement.style.borderBottomColor = 'white';
     }
