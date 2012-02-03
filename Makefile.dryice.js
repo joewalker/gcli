@@ -25,6 +25,9 @@ function main() {
   else if (args[2] === 'test') {
     test();
   }
+  else if (args[2] === 'serve') {
+    serve();
+  }
   else {
     console.log('Targets:');
     console.log('> node Makefile.dryice.js standard');
@@ -33,6 +36,8 @@ function main() {
     console.log('  # Builds GCLI for firefox to ./built/mozilla or [directory]');
     console.log('> node Makefile.dryice.js test');
     console.log('  # Run GCLI tests using jsdom');
+    console.log('> node Makefile.dryice.js serve');
+    console.log('  # Serve . to http://localhost:9999 for chrome');
     process.exit(1);
   }
 }
@@ -423,6 +428,19 @@ function test() {
     },
     done: requirejs('gclitest/nodeIndex').run
   });
+}
+
+/**
+ * Serve '.' to http://localhost:9999/
+ */
+function serve() {
+  var connect = require('connect');
+
+  var logger = connect.logger();
+  var static = connect.static(gcliHome, { maxAge: 0 });
+
+  console.log('Serving GCLI to http://localhost:9999/');
+  connect(logger, static).listen(9999);
 }
 
 // Now everything is defined properly, start working
