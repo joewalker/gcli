@@ -16,7 +16,7 @@ var gcliHome = __dirname;
  */
 function main() {
   var args = process.argv;
-  if (args.length < 3 || args[2] === 'standard') {
+  if (args[2] === 'standard') {
     buildStandard();
   }
   else if (args[2] === 'firefox') {
