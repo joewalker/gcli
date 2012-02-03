@@ -26,7 +26,13 @@ function main() {
     test();
   }
   else {
-    console.error('Error: Unknown target: \'' + args[2] + '\'');
+    console.log('Targets:');
+    console.log('> node Makefile.dryice.js standard');
+    console.log('  # Builds GCLI for the web to ./built');
+    console.log('> node Makefile.dryice.js firefox [directory]');
+    console.log('  # Builds GCLI for firefox to ./built/mozilla or [directory]');
+    console.log('> node Makefile.dryice.js test');
+    console.log('  # Run GCLI tests using jsdom');
     process.exit(1);
   }
 }
