@@ -396,6 +396,8 @@ function createUndefineFunction(project) {
  * Run the test suite inside node
  */
 function test() {
+  // It's tempting to use RequireJS from npm, however that would break
+  // running GCLI in Firefox just by opening index.html
   var requirejs = require('./scripts/r.js');
 
   requirejs.config({
