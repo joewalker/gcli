@@ -117,7 +117,6 @@ define(function(require, exports, module) {
       nodetype.unsetDocument();
       jstype.unsetGlobalObject();
       resource.unsetDocument();
-      resource.clearResourceCache();
     },
 
     commandOutputManager: require('gcli/canon').commandOutputManager
