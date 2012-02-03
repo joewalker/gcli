@@ -19,7 +19,7 @@
  *
  * This test file is generated using a level 25 wizard spell cast on the
  * test files that run in the browser as part of GCLI's test suite.
- * For details of how to cast the spell, see GCLI's Makefile.dryice.js
+ * For details of how to cast the spell, see GCLI's node-main.js
  *
  * For more information on GCLI see:
  * - https://github.com/mozilla/gcli/blob/master/docs/index.md

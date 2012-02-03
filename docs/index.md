@@ -142,9 +142,9 @@ There are 3 basic steps in using GCLI in your system.
 ### Creating Custom Builds
 
 GCLI uses [DryIce](https://github.com/mozilla/dryice) to create custom builds.
-If dryice is installed (``npm install dryice``) then you can create a built
-version of GCLI simply using ``node Makefile.dryice.js``. GCLI comes with a
-custom module loader to replace RequireJS for built applications.
+If dryice is installed (``npm install .``) then you can create a built
+version of GCLI simply using ``node node-main.js``. DryIce supplies a custom
+module loader to replace RequireJS for built applications.
 
 The build will be output to the ``built`` directory. The directory will be
 created if it doesn't exist.

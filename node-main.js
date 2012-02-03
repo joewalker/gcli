@@ -30,13 +30,13 @@ function main() {
   }
   else {
     console.log('Targets:');
-    console.log('> node Makefile.dryice.js standard');
+    console.log('> node node-main.js standard');
     console.log('  # Builds GCLI for the web to ./built');
-    console.log('> node Makefile.dryice.js firefox [directory]');
+    console.log('> node node-main.js firefox [directory]');
     console.log('  # Builds GCLI for firefox to ./built/mozilla or [directory]');
-    console.log('> node Makefile.dryice.js test');
+    console.log('> node node-main.js test');
     console.log('  # Run GCLI tests using jsdom');
-    console.log('> node Makefile.dryice.js serve');
+    console.log('> node node-main.js serve');
     console.log('  # Serve . to http://localhost:9999 for chrome');
     process.exit(1);
   }
