@@ -59,6 +59,21 @@ function Console(options) {
 }
 
 /**
+ * Called when the page to which we're attached changes
+ */
+Console.prototype.reattachConsole = function(options) {
+  this.chromeWindow.removeEventListener('resize', this.resizer, false);
+  this.chromeWindow = options.chromeDocument.defaultView;
+  this.chromeWindow.addEventListener('resize', this.resizer, false);
+
+  this.focusManager.document = options.chromeDocument;
+  this.inputter.document = options.chromeDocument;
+  this.inputter.completer.document = options.chromeDocument;
+  this.menu.document = options.chromeDocument;
+  this.argFetcher.document = options.chromeDocument;
+};
+
+/**
  * Avoid memory leaks
  */
 Console.prototype.destroy = function() {

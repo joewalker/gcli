@@ -36,7 +36,7 @@
  * - A build of GCLI itself, packaged using dryice
  * - suffix-gcli.jsm - code to require the gcli object for EXPORTED_SYMBOLS.
  *
- * See Makefile.dryice.js for more details of this build.
+ * See node-main.js for more details of this build.
  * For more details on dryice, see the https://github.com/mozilla/dryice
  *
  *******************************************************************************
