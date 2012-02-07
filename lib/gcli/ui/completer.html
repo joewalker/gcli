@@ -1,0 +1,13 @@
+
+<div>
+  <span class="gcli-prompt">${completionPrompt} </span>
+  <loop foreach="member in ${statusMarkup}">
+    <span class="${member.className}">${member.string}</span>
+  </loop>
+  <span class="gcli-in-ontab">${tabText}</span>
+  <span foreach="param in ${emptyParameters}">
+    [<span title="${param.description}">${param.name}</span>]
+  </span>
+  <span class="gcli-in-closebrace" if="${unclosedJs}">}</span>
+  <div class="gcli-in-scratchlink" if="${scratchLink}">${scratchLink}</div>
+</div>

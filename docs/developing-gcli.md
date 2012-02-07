@@ -58,7 +58,8 @@ The components are:
 - ``Inputter`` controls the input field, processing special keyboard events and
   making sure that it stays in sync with the Requisition.
 - ``Completer`` updates a div that is located behind the input field and used
-  to display completion advice and hint highlights. It is stored in inputter.js.
+  to display completion advice and hint highlights. It is stored in
+  completer.js.
 - ``Display`` is responsible for containing the popup hints that are displayed
   above the command line. Typically Display contains a Hinter and a RequestsView
   although these are not both required. Display itself is optional, and isn't

@@ -55,6 +55,7 @@ define(function(require, exports, module) {
   require('gcli/types/basic').startup();
   require('gcli/types/javascript').startup();
   require('gcli/types/node').startup();
+  require('gcli/types/resource').startup();
   require('gcli/cli').startup();
   require('gcli/commands/help').startup();
 
@@ -64,6 +65,7 @@ define(function(require, exports, module) {
   var cli = require('gcli/cli');
   var jstype = require('gcli/types/javascript');
   var nodetype = require('gcli/types/node');
+  var resource = require('gcli/types/resource');
 
   /**
    * API for use by HUDService only.
@@ -92,12 +94,27 @@ define(function(require, exports, module) {
       jstype.setGlobalObject(opts.jsEnvironment.globalObject);
       nodetype.setDocument(opts.contentDocument);
       cli.setEvalFunction(opts.jsEnvironment.evalFunction);
+      resource.setDocument(opts.contentDocument);
 
       if (opts.requisition == null) {
         opts.requisition = new Requisition(opts.environment, opts.chromeDocument);
       }
 
       opts.console = new Console(opts);
+    },
+
+    /**
+     * Called when the page to which we're attached changes
+     */
+    reattachConsole: function(opts) {
+      jstype.setGlobalObject(opts.jsEnvironment.globalObject);
+      nodetype.setDocument(opts.contentDocument);
+      cli.setEvalFunction(opts.jsEnvironment.evalFunction);
+
+      opts.requisition.environment = opts.environment;
+      opts.requisition.document = opts.chromeDocument;
+
+      opts.console.reattachConsole(opts);
     },
 
     /**
@@ -113,6 +130,8 @@ define(function(require, exports, module) {
       cli.unsetEvalFunction();
       nodetype.unsetDocument();
       jstype.unsetGlobalObject();
+      resource.unsetDocument();
+      resource.clearResourceCache();
     },
 
     commandOutputManager: require('gcli/canon').commandOutputManager
