@@ -30,7 +30,7 @@
   width: 100%;
 }
 
-.gcliterm-argfetcher {
+.gcliterm-tooltip {
   display: -moz-box;
   -moz-box-flex: 1;
 }

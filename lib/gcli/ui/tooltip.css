@@ -1,0 +1,19 @@
+
+.gcli-tooltip {
+  width: 100%;
+  -moz-box-sizing: border-box;
+  padding: 5px 10px;
+}
+
+.gcli-tt-error {
+  font-size: 80%;
+  color: #900;
+}
+
+.gcli-field {
+  width: 100%;
+}
+
+.gcli-field-javascript {
+  margin-bottom: 0;
+}
