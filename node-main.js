@@ -16,7 +16,7 @@ var gcliHome = __dirname;
  */
 function main() {
   var args = process.argv;
-  if (args.length < 3 || args[2] === 'standard') {
+  if (args[2] === 'standard') {
     buildStandard();
   }
   else if (args[2] === 'firefox') {
@@ -25,8 +25,19 @@ function main() {
   else if (args[2] === 'test') {
     test();
   }
+  else if (args[2] === 'serve') {
+    serve();
+  }
   else {
-    console.error('Error: Unknown target: \'' + args[2] + '\'');
+    console.log('Targets:');
+    console.log('> node node-main.js standard');
+    console.log('  # Builds GCLI for the web to ./built');
+    console.log('> node node-main.js firefox [directory]');
+    console.log('  # Builds GCLI for firefox to ./built/mozilla or [directory]');
+    console.log('> node node-main.js test');
+    console.log('  # Run GCLI tests using jsdom');
+    console.log('> node node-main.js serve');
+    console.log('  # Serve . to http://localhost:9999 for chrome');
     process.exit(1);
   }
 }
@@ -390,6 +401,8 @@ function createUndefineFunction(project) {
  * Run the test suite inside node
  */
 function test() {
+  // It's tempting to use RequireJS from npm, however that would break
+  // running GCLI in Firefox just by opening index.html
   var requirejs = require('./scripts/r.js');
 
   requirejs.config({
@@ -415,6 +428,19 @@ function test() {
     },
     done: requirejs('gclitest/nodeIndex').run
   });
+}
+
+/**
+ * Serve '.' to http://localhost:9999/
+ */
+function serve() {
+  var connect = require('connect');
+
+  var logger = connect.logger();
+  var static = connect.static(gcliHome, { maxAge: 0 });
+
+  console.log('Serving GCLI to http://localhost:9999/');
+  connect(logger, static).listen(9999);
 }
 
 // Now everything is defined properly, start working

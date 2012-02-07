@@ -8,7 +8,8 @@
   },
   "dependencies": {
     "dryice": ">= 0.4.1",
-    "jsdom": ">= 0.2.10"
+    "jsdom": ">= 0.2.10",
+    "connect": ">= 1.8.5"
   },
   "author": "Joe Walker <jwalker@mozilla.com>",
   "main": "lib/gcli",

@@ -44,7 +44,7 @@
       }
     });
 
-    // This list should be the same as the browser part of Makefile.dryice.js
+    // This list should be the same as the browser part of node-main.js
     var deps = [ 'gcli/index', 'gclitest/index', 'demo/index' ];
     require(deps, function(gcli, gclitest) {
       gclitest.run({ useFakeWindow: true });
