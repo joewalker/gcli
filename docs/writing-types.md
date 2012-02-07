@@ -49,27 +49,11 @@ All types must inherit from Type and have the following methods:
      */
     name: 'example',
 
-    /**
-     * If there is some concept of a higher value, return it,
-     * otherwise return undefined. Type has this definition so this does not
-     * need to be repeated.
-     */
-    increment: function(value) { return undefined; },
-
-    /**
-     * If there is some concept of a lower value, return it,
-     * otherwise return undefined. Type has this definition so this does not
-     * need to be repeated.
-     */
-    decrement: function(value) { return undefined; },
-
-    /**
-     * There is interesting information (like predictions) in a conversion of
-     * nothing, the output of this can sometimes be customized. Type has this
-     * definition so this does not need to be repeated.
-     * @return Conversion
-     */
-    getDefault: function() { return this.parse(''); }
+In addition, defining the following functions can be helpful, although Type
+contains default implementations:
+* increment(value)
+* decrement(value)
+* getDefault()
 
 Type, Conversion and Status are all declared by canon.js.
 
