@@ -1,0 +1,21 @@
+<div>
+  <div class="gcli-pref-list-filter">
+    Filter:
+    <input save="${input}" onKeyUp="${onFilterChange}" value="${search}"/>
+  </div>
+  <table class="gcli-pref-list-table">
+    <colgroup>
+      <col class="gcli-pref-list-name"/>
+      <col class="gcli-pref-list-value"/>
+    </colgroup>
+    <tr>
+      <th>Name</th>
+      <th>Value</th>
+      <th>Action</th>
+    </tr>
+  </table>
+  <div class="gcli-pref-list-scroller">
+    <table class="gcli-pref-list-table" save="${table}">
+    </table>
+  </div>
+</div>
