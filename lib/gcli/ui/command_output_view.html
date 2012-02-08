@@ -5,7 +5,7 @@
       onclick="${copyToInput}" ondblclick="${execute}">
 
     <!-- What the user actually typed -->
-    <span save="${elems.prompt}" class="gcli-row-prompt ${elems.error ? 'gcli-row-error' : ''} ${elems.completed ? 'gcli-row-complete' : ''}">&#x00BB;</span>
+    <span save="${elems.prompt}" class="gcli-row-prompt ${elems.error ? 'gcli-row-error' : ''} ${elems.completed ? 'gcli-row-complete' : ''}">${prompt}</span>
     <span class="gcli-row-in-typed">${outputData.canonical}</span>
 
     <!-- The extra details that appear on hover -->

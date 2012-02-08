@@ -3,7 +3,7 @@
   margin: 5px;
   color: #333;
   background-color: #EEE;
-  padding: 3px 8px 1px 1px;
+  padding: 3px 4px 1px;
   border: 1px solid #aaa;
   border-radius: 4px;
 }
@@ -36,7 +36,6 @@
   color: #00F;
   font-weight: bold;
   font-size: 120%;
-  padding-left: 2px;
 }
 
 .gcli-row-prompt.gcli-row-complete {
