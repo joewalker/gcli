@@ -53,6 +53,7 @@ define(function(require, exports, module) {
 
   // Internal startup process. Not exported
   require('gcli/types/basic').startup();
+  require('gcli/types/command').startup();
   require('gcli/types/javascript').startup();
   require('gcli/types/node').startup();
   require('gcli/types/resource').startup();
