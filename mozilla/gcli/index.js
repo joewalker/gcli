@@ -56,10 +56,15 @@ define(function(require, exports, module) {
   require('gcli/types/javascript').startup();
   require('gcli/types/node').startup();
   require('gcli/types/resource').startup();
+  require('gcli/types/setting').startup();
   require('gcli/types/selection').startup();
 
+  require('gcli/settings').startup();
   require('gcli/cli').startup();
+  require('gcli/ui/intro').startup();
+
   require('gcli/commands/help').startup();
+  require('gcli/commands/pref').startup();
 
   var Requisition = require('gcli/cli').Requisition;
   var Console = require('gcli/ui/console').Console;
