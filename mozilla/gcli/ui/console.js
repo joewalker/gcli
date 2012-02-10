@@ -55,7 +55,7 @@ function Console(options) {
   this.chromeWindow = options.chromeDocument.defaultView;
   this.resizer = this.resizer.bind(this);
   this.chromeWindow.addEventListener('resize', this.resizer, false);
-  this.requisition.commandChange.add(this.resizer, this);
+  this.requisition.onCommandChange.add(this.resizer, this);
 }
 
 /**
