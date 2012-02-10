@@ -92,14 +92,14 @@ This is an example of a very simple new password field type:
       this.onChange = function() {
           this.input.value = this.assignment.arg.text;
       };
-      this.assignment.assignmentChange.add(this.onChange, this);
+      this.assignment.onAssignmentChange.add(this.onChange, this);
 
       return this.input;
     };
 
     PasswordField.prototype.destroy = function() {
       this.input.removeEventListener('keyup', this.onKeyup, false);
-      this.assignment.assignmentChange.remove(this.onChange, this);
+      this.assignment.onAssignmentChange.remove(this.onChange, this);
     };
 
     PasswordField.claim = function(type) {
