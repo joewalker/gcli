@@ -570,9 +570,9 @@ display.
 
     { returnType: "html" }
     ...
-    return util.dom.createElement(context.document, 'div');
+    return util.createElement(context.document, 'div');
 
-``util.dom.createElement`` is a utility to ensure use of the XHTML namespace in XUL
+``util.createElement`` is a utility to ensure use of the XHTML namespace in XUL
 and other XML documents. In an HTML document it's functionally equivalent to
 ``context.document.createElement('div')``. If your command is likely to be used
 in Firefox or another XML environment, you should use it. You can import it
