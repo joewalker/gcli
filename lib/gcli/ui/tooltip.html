@@ -1,8 +1,6 @@
 
 <div aria-live="polite">
-  <div class="gcli-tt-description">
-    ${assignment.param.description}
-  </div>
-  <div>${field.element}</div>
-  <div class="gcli-tt-error" save="${message}">${assignment.conversion.message}</div>
+  <div class="gcli-tt-description" save="${descriptionEle}">${description}</div>
+  ${field.element}
+  <div class="gcli-tt-error" save="${errorEle}">${assignment.conversion.message}</div>
 </div>
