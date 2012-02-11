@@ -7,8 +7,8 @@
 define(function(require, exports, module) {
 
 var Inputter = require('gcli/ui/inputter').Inputter;
+var Completer = require('gcli/ui/completer').Completer;
 var Tooltip = require('gcli/ui/tooltip').Tooltip;
-var CommandMenu = require('gcli/ui/menu').CommandMenu;
 var FocusManager = require('gcli/ui/focus').FocusManager;
 
 /**
@@ -31,19 +31,19 @@ function Console(options) {
     document: options.chromeDocument,
     requisition: options.requisition,
     inputElement: options.inputElement,
-    completeElement: options.completeElement,
-    completionPrompt: '',
-    backgroundElement: options.backgroundElement,
     focusManager: this.focusManager,
     scratchpad: options.scratchpad
   });
 
-  this.menu = new CommandMenu({
+  this.completer = new Completer({
     document: options.chromeDocument,
     requisition: options.requisition,
-    menuClass: 'gcliterm-menu'
+    scratchpad: options.scratchpad,
+    inputter: options.inputter,
+    completeElement: options.completeElement,
+    backgroundElement: options.backgroundElement,
+    completionPrompt: ''
   });
-  this.hintElement.appendChild(this.menu.element);
 
   this.tooltip = new Tooltip({
     document: options.chromeDocument,
@@ -69,7 +69,6 @@ Console.prototype.reattachConsole = function(options) {
   this.focusManager.document = options.chromeDocument;
   this.inputter.document = options.chromeDocument;
   this.inputter.completer.document = options.chromeDocument;
-  this.menu.document = options.chromeDocument;
   this.argFetcher.document = options.chromeDocument;
 };
 
@@ -82,8 +81,6 @@ Console.prototype.destroy = function() {
   delete this.chromeWindow;
   delete this.consoleWrap;
 
-  this.hintElement.removeChild(this.menu.element);
-  this.menu.destroy();
   this.hintElement.removeChild(this.tooltip.element);
   this.tooltip.destroy();
 
@@ -117,25 +114,8 @@ Console.prototype.resizer = function() {
   }
   else {
     this.hintElement.classList.remove('gcliterm-hint-nospace');
-
-    var isMenuVisible = this.menu.element.style.display !== 'none';
-    if (isMenuVisible) {
-      this.menu.setMaxHeight(parentHeight);
-
-      // Magic numbers: 19 = height of a menu item, 22 = total vertical padding
-      // of container
-      var idealMenuHeight = (19 * this.menu.items.length) + 22;
-      if (idealMenuHeight > parentHeight) {
-        this.hintElement.classList.add('gcliterm-hint-scroll');
-      }
-      else {
-        this.hintElement.classList.remove('gcliterm-hint-scroll');
-      }
-    }
-    else {
-      this.hintElement.style.overflowY = null;
-      this.hintElement.style.borderBottomColor = 'white';
-    }
+    this.hintElement.style.overflowY = null;
+    this.hintElement.style.borderBottomColor = 'white';
   }
 
   // We also try to make the max-width of any GCLI elements so they don't
