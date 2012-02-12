@@ -160,7 +160,7 @@ function buildFirefox(destDir) {
 
   var ignoreFilter = createIgnoreFilter([
     'gcli/ui/inputter.css',
-    'gcli/ui/menu.css',
+    'gcli/ui/field/menu.css',
     'gcli/ui/arg_fetch.css',
     'gcli/commands/help.css'
   ]);
@@ -210,8 +210,8 @@ function buildFirefox(destDir) {
       'mozilla/gcli/ui/gcliterm-winstripe.css',
       { value: '\n/* From: $GCLI/lib/gcli/ui/arg_fetch.css */\n' },
       'lib/gcli/ui/arg_fetch.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */\n' },
-      'lib/gcli/ui/menu.css',
+      { value: '\n/* From: $GCLI/lib/gcli/ui/fields/menu.css */\n' },
+      'lib/gcli/ui/fields/menu.css',
       { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */\n' },
       'lib/gcli/ui/inputter.css',
       { value: '\n/* From: $GCLI/lib/gcli/commands/help.css */\n' },
@@ -229,8 +229,8 @@ function buildFirefox(destDir) {
       'mozilla/gcli/ui/gcliterm-pinstripe.css',
       { value: '\n/* From: $GCLI/lib/gcli/ui/arg_fetch.css */\n' },
       'lib/gcli/ui/arg_fetch.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */\n' },
-      'lib/gcli/ui/menu.css',
+      { value: '\n/* From: $GCLI/lib/gcli/ui/fields/menu.css */\n' },
+      'lib/gcli/ui/fields/menu.css',
       { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */\n' },
       'lib/gcli/ui/inputter.css',
       { value: '\n/* From: $GCLI/lib/gcli/commands/help.css */\n' },
@@ -248,8 +248,8 @@ function buildFirefox(destDir) {
       'mozilla/gcli/ui/gcliterm-gnomestripe.css',
       { value: '\n/* From: $GCLI/lib/gcli/ui/arg_fetch.css */\n' },
       'lib/gcli/ui/arg_fetch.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/menu.css */\n' },
-      'lib/gcli/ui/menu.css',
+      { value: '\n/* From: $GCLI/lib/gcli/ui/fields/menu.css */\n' },
+      'lib/gcli/ui/fields/menu.css',
       { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */\n' },
       'lib/gcli/ui/inputter.css',
       { value: '\n/* From: $GCLI/lib/gcli/commands/help.css */\n' },
