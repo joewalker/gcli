@@ -57,3 +57,7 @@
   font-size: 80%;
   color: red;
 }
+
+.gcli-menu-highlight {
+  background-color: rgb(230, 230, 230);
+}
