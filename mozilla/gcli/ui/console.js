@@ -27,7 +27,7 @@ function Console(options) {
   this.focusManager.onBlur.add(this.gcliTerm.hide, this.gcliTerm);
   this.focusManager.addMonitoredElement(this.gcliTerm.hintNode, 'gcliTerm');
 
-  this.inputter = new Inputter({
+  this.inputter = options.inputter = new Inputter({
     document: options.chromeDocument,
     requisition: options.requisition,
     inputElement: options.inputElement,
@@ -35,7 +35,7 @@ function Console(options) {
     scratchpad: options.scratchpad
   });
 
-  this.completer = new Completer({
+  this.completer = options.completer = new Completer({
     document: options.chromeDocument,
     requisition: options.requisition,
     scratchpad: options.scratchpad,
@@ -45,9 +45,10 @@ function Console(options) {
     completionPrompt: ''
   });
 
-  this.tooltip = new Tooltip({
+  this.tooltip = options.tooltip = new Tooltip({
     document: options.chromeDocument,
     requisition: options.requisition,
+    inputter: options.inputter,
     tooltipClass: 'gcliterm-tooltip'
   });
   this.hintElement.appendChild(this.tooltip.element);
@@ -55,7 +56,7 @@ function Console(options) {
   this.chromeWindow = options.chromeDocument.defaultView;
   this.resizer = this.resizer.bind(this);
   this.chromeWindow.addEventListener('resize', this.resizer, false);
-  this.requisition.onInputChange.add(this.resizer, this);
+  this.requisition.onTextChange.add(this.resizer, this);
 }
 
 /**
