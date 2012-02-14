@@ -1,8 +1,6 @@
 
-.gcli-tooltip {
-  width: 100%;
-  -moz-box-sizing: border-box;
-  padding: 5px 10px;
+.gcli-tt-description {
+  padding: 5px 10px 0;
 }
 
 .gcli-tt-error {
