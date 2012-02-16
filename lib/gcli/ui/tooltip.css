@@ -6,6 +6,7 @@
 .gcli-tt-error {
   font-size: 80%;
   color: #900;
+  padding: 0 10px;
 }
 
 .gcli-field {
