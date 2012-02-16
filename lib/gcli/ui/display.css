@@ -1,27 +1,6 @@
 
-#gcli-display.gcli-display-autohide {
-  z-index: 999;
-}
-
-.gcli-display-hint {
-  border: 1px solid #AAA;
-  border-top-right-radius: 5px;
-  border-top-left-radius: 5px;
-  border-bottom: 2px solid #fff;
-  margin: 10px 10px -1px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  z-index: 99;
-  position: absolute;
-  max-height: 100%;
-  width: 280px;
-  left: 0;
-  bottom: 0;
-}
-
 .gcli-display-output {
   height: 100%;
-  margin-left: 300px;
   overflow: auto;
 }
 
