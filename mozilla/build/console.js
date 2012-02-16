@@ -1,11 +1,11 @@
 
 
 /**
- * Expose a Node object. This allows us to use the Node constants without
- * resorting to hardcoded numbers
+ * Expose Node/HTMLElement objects. This allows us to use the Node constants
+ * without resorting to hardcoded numbers
  */
 var Node = Components.interfaces.nsIDOMNode;
-
+var HTMLElement = Components.interfaces.nsIDOMElement;
 
 Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
 
