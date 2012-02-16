@@ -6,6 +6,17 @@
 
 define(function(require, exports, module) {
 
+var imports = {};
+
+Components.utils.import("resource://gre/modules/XPCOMUtils.jsm", imports);
+
+imports.XPCOMUtils.defineLazyGetter(imports, "prefBranch", function () {
+  var prefService = Components.classes["@mozilla.org/preferences-service;1"]
+          .getService(Components.interfaces.nsIPrefService);
+  return prefService.getBranch(null)
+          .QueryInterface(Components.interfaces.nsIPrefBranch2);
+});
+
 /**
  * No setup required because settings are pre-loaded with Mozilla,
  * but match API with main settings.js
@@ -29,14 +40,14 @@ function Setting(name) {
  */
 Object.defineProperty(Setting.prototype, 'type', {
   get: function() {
-    switch (prefBranch.getPrefType(this.name)) {
-      case prefBranch.PREF_BOOL:
+    switch (imports.prefBranch.getPrefType(this.name)) {
+      case imports.prefBranch.PREF_BOOL:
         return "boolean";
 
-      case prefBranch.PREF_INT:
+      case imports.prefBranch.PREF_INT:
         return "number";
 
-      case prefBranch.PREF_STRING:
+      case imports.prefBranch.PREF_STRING:
         return "string";
 
       default:
@@ -52,20 +63,20 @@ Object.defineProperty(Setting.prototype, 'type', {
 Object.defineProperty(Setting.prototype, 'value', {
   get: function() {
     try {
-      switch (prefBranch.getPrefType(this.name)) {
-        case prefBranch.PREF_BOOL:
-          return prefBranch.getBoolPref(this.name).toString();
+      switch (imports.prefBranch.getPrefType(this.name)) {
+        case imports.prefBranch.PREF_BOOL:
+          return imports.prefBranch.getBoolPref(this.name).toString();
 
-        case prefBranch.PREF_INT:
-          return prefBranch.getIntPref(this.name).toString();
+        case imports.prefBranch.PREF_INT:
+          return imports.prefBranch.getIntPref(this.name).toString();
 
-        case prefBranch.PREF_STRING:
-          var value = prefBranch.getComplexValue(this.name,
+        case imports.prefBranch.PREF_STRING:
+          var value = imports.prefBranch.getComplexValue(this.name,
                   Components.interfaces.nsISupportsString).data;
           // Try in case it's a localized string (will throw an exception if not)
           var isL10n = /^chrome:\/\/.+\/locale\/.+\.properties/.test(value);
           if (!this.changed && isL10n) {
-            value = prefBranch.getComplexValue(this.name,
+            value = imports.prefBranch.getComplexValue(this.name,
                     Components.interfaces.nsIPrefLocalizedString).data;
           }
           return value;
@@ -87,7 +98,7 @@ Object.defineProperty(Setting.prototype, 'value', {
  */
 exports.getAll = function(filter) {
   var all = [];
-  prefBranch.getChildList("").forEach(function(name) {
+  imports.prefBranch.getChildList("").forEach(function(name) {
     if (filter == null || name.indexOf(filter) !== -1) {
       all.push(new Setting(name));
     }
