@@ -11,11 +11,11 @@
   table-layout: fixed;
 }
 
-.gcli-pref-list-table > tr > th {
+.gcli-pref-list-table tr > th {
   text-align: left;
 }
 
-.gcli-pref-list-table > tr > td {
+.gcli-pref-list-table tr > td {
   text-overflow: elipsis;
   word-wrap: break-word;
 }
@@ -24,6 +24,10 @@
   width: 70%;
 }
 
-.gcli-pref-list-value {
-  width: 20%;
+.gcli-pref-list-command {
+  display: none;
+}
+
+.gcli-pref-list-row:hover .gcli-pref-list-command {
+  display: inline-block;
 }
