@@ -97,7 +97,10 @@ define(function(require, exports, module) {
       resource.setDocument(opts.contentDocument);
 
       if (opts.requisition == null) {
-        opts.requisition = new Requisition(opts.environment, opts.chromeDocument);
+        opts.requisition = new Requisition({
+          environment: opts.environment,
+          document: opts.chromeDocument
+        });
       }
 
       opts.console = new Console(opts);
