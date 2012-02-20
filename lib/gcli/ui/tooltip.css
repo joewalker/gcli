@@ -1,5 +1,8 @@
 
 .gcli-tooltip {
+  -moz-transition-property: opacity;
+  -moz-transition-duration: 0.5s;
+
   border: 1px solid #AAA;
   border-top-right-radius: 5px;
   border-top-left-radius: 5px;
@@ -15,6 +18,10 @@
   bottom: 0;
   opacity: 0.95;
   background: #fff;
+}
+
+.gcli-tooltip.gcli-tt-hide {
+  opacity: 0;
 }
 
 .gcli-tt-description {

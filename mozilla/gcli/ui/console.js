@@ -23,8 +23,7 @@ function Console(options) {
 
   // Create a FocusManager for the various parts to register with
   this.focusManager = new FocusManager({ document: options.chromeDocument });
-  this.focusManager.onFocus.add(this.gcliTerm.show, this.gcliTerm);
-  this.focusManager.onBlur.add(this.gcliTerm.hide, this.gcliTerm);
+  this.focusManager.onVisibilityChange.add(this.gcliTerm.onVisibilityChange, this.gcliTerm);
   this.focusManager.addMonitoredElement(this.gcliTerm.hintNode, 'gcliTerm');
 
   this.inputter = options.inputter = new Inputter({
@@ -88,8 +87,7 @@ Console.prototype.destroy = function() {
   this.inputter.destroy();
 
   this.focusManager.removeMonitoredElement(this.gcliTerm.hintNode, 'gcliTerm');
-  this.focusManager.onFocus.remove(this.gcliTerm.show, this.gcliTerm);
-  this.focusManager.onBlur.remove(this.gcliTerm.hide, this.gcliTerm);
+  this.focusManager.onVisibilityChange.remove(this.gcliTerm.onVisibilityChange, this.gcliTerm);
   this.focusManager.destroy();
 
   delete this.gcliTerm;
