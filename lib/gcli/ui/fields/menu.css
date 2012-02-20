@@ -54,3 +54,7 @@
 .gcli-menu-highlight {
   background-color: rgb(230, 230, 230);
 }
+
+.gcli-menu-typed {
+  color: #FF6600;
+}
