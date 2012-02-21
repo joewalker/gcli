@@ -45,10 +45,13 @@
     });
 
     // This list should be the same as the browser part of node-main.js
+    var start = new Date().getTime();
     var deps = [ 'gcli/index', 'gclitest/index', 'demo/index' ];
     require(deps, function(gcli, gclitest) {
       gclitest.run({ useFakeWindow: true });
       gcli.createView({ useTooltip: true });
+
+      console.log('Startup time (inc tests): ' + (new Date().getTime() - start)/1000 + 's');
     });
   </script>
 
