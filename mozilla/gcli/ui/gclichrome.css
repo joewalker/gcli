@@ -1,0 +1,12 @@
+
+#gclichrome-win {
+  background-color: white;
+  overflow: hidden;
+  font-family: Calibri, Verdana, sans-serif;
+}
+
+#gcli-input {
+  border: 1px solid #999;
+  font-size: 110%;
+  font-family: Consolas, Inconsolata, "Courier New", monospace;
+}
