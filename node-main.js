@@ -469,17 +469,44 @@ function test() {
   });
 }
 
+var connect = require('connect');
+var util  = require('util');
+var childProcess = require('child_process');
+
 /**
  * Serve '.' to http://localhost:9999/
  */
 function serve() {
-  var connect = require('connect');
-
   var logger = connect.logger();
-  var static = connect.static(gcliHome, { maxAge: 0 });
+  var files = connect.static(gcliHome, { maxAge: 0 });
+  /*
+  var parser = connect.bodyParser();
+  var router = connect.router(function(app) {
+    app.post('/exec/', execApp);
+    app.get('/test/', testApp);
+  });
+  */
 
   console.log('Serving GCLI to http://localhost:9999/');
-  connect(logger, static).listen(9999);
+  connect(logger, files/*, parser, router*/).listen(9999);
+}
+
+function execApp(request, response, next) {
+  var cmd = request.body.cmd;
+  var args = request.body.args;
+  var options = { cwd: request.body.cwd, env: request.body.env };
+  childProcess.execFile(cmd, args, options, function(error, stdout, stderr) {
+    var status = error ? 500 : 200;
+    response.writeHead(status, {
+      'Content-Length': stdout.toString().length,
+      'Content-Type': 'text/plain'
+    });
+    response.end(stdout);
+  });
+}
+
+function testApp(req, res, next) {
+  res.end('hello world\n');
 }
 
 // Now everything is defined properly, start working
