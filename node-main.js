@@ -184,8 +184,8 @@ function buildFirefox(destDir) {
   // Copy gclichrome.xul
   // Perhaps not the best way, but it does keep everything self-contained
   copy({
-    source: 'mozilla/build/gclichrome.xul',
-    dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gclichrome.xul'
+    source: 'mozilla/build/gclichrome.html',
+    dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gclichrome.html'
   });
 
   // Package the gclichrome.jsm
