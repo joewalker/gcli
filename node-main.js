@@ -479,16 +479,14 @@ var childProcess = require('child_process');
 function serve() {
   var logger = connect.logger();
   var files = connect.static(gcliHome, { maxAge: 0 });
-  /*
   var parser = connect.bodyParser();
   var router = connect.router(function(app) {
     app.post('/exec/', execApp);
     app.get('/test/', testApp);
   });
-  */
 
   console.log('Serving GCLI to http://localhost:9999/');
-  connect(logger, files/*, parser, router*/).listen(9999);
+  connect(logger, files, parser, router).listen(9999);
 }
 
 function execApp(request, response, next) {
