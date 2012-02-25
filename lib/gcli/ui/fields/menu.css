@@ -2,6 +2,7 @@
 .gcli-menu {
   width: 100%;
   overflow: hidden;
+  font-size: 90%;
 }
 
 .gcli-menu-field {
@@ -26,17 +27,17 @@
 }
 
 .gcli-menu-option:hover {
-  background-color: rgb(230, 230, 230);
+  background-image: url(/lib/gcli/ui/images/background-noise-toolbar.png);
+  background-color: hsl(210,11%,20%);
 }
 
 .gcli-menu-name {
-  padding: 0 3px;
+  padding: 2px 3px;
   -moz-padding-start: 8px;
   -webkit-padding-start: 8px;
 }
 
 .gcli-menu-desc {
-  font-size: 80%;
   color: #999;
   padding: 0 3px;
   -moz-padding-end: 8px;
@@ -52,7 +53,8 @@
 }
 
 .gcli-menu-highlight {
-  background-color: rgb(230, 230, 230);
+  background-image: url(/lib/gcli/ui/images/background-noise-toolbar.png);
+  background-color: hsl(210,11%,18%);
 }
 
 .gcli-menu-typed {

@@ -2,22 +2,37 @@
 .gcli-display-output {
   height: 100%;
   overflow: auto;
+  font-family: Calibri, Verdana, sans-serif;
+
+  background-image: url(/lib/gcli/ui/images/background-noise-toolbar.png);
+  background-color: hsl(210,11%,27%);
+  color: #fff;
+}
+
+.gcli-display-hint {
+  padding-bottom: 5px;
+}
+
+.gcli-display-output h1,
+.gcli-display-output h2,
+.gcli-display-output h3 {
+  color: #fff;
 }
 
 .gcli-out-shortcut {
   border: 1px solid #999;
   border-radius: 3px;
-  padding: 0 4px;
+  padding: 1px 4px 0;
   margin: 0 4px;
   font-size: 70%;
   font-family: Consolas, Inconsolata, "Courier New", monospace;
   color: #666;
   cursor: pointer;
   vertical-align: bottom;
+  white-space: pre;
 }
 
 .gcli-out-shortcut:before {
   color: #66F;
   content: '\bb';
-  padding: 0 2px;
 }
