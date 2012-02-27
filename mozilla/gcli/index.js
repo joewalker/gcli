@@ -70,13 +70,7 @@ define(function(require, exports, module) {
   require('gcli/commands/help').startup();
   require('gcli/commands/pref').startup();
 
-  var Requisition = require('gcli/cli').Requisition;
   var Console = require('gcli/ui/console').Console;
-
-  var cli = require('gcli/cli');
-  var jstype = require('gcli/types/javascript');
-  var nodetype = require('gcli/types/node');
-  var resource = require('gcli/types/resource');
 
   /**
    * API for use by HUDService only.
@@ -97,53 +91,11 @@ define(function(require, exports, module) {
      * - jsEnvironment.evalFunction: 'eval' in a sandbox
      * - inputElement: GCLITerm.inputNode
      * - completeElement: GCLITerm.completeNode
-     * - gcliTerm: GCLITerm
      * - hintElement: GCLITerm.hintNode
      * - inputBackgroundElement: GCLITerm.inputStack
      */
-    createView: function(opts) {
-      jstype.setGlobalObject(opts.jsEnvironment.globalObject);
-      nodetype.setDocument(opts.contentDocument);
-      cli.setEvalFunction(opts.jsEnvironment.evalFunction);
-      resource.setDocument(opts.contentDocument);
-
-      if (opts.requisition == null) {
-        opts.requisition = new Requisition(opts.environment, opts.chromeDocument);
-      }
-
-      opts.console = new Console(opts);
-    },
-
-    /**
-     * Called when the page to which we're attached changes
-     */
-    reattachConsole: function(opts) {
-      jstype.setGlobalObject(opts.jsEnvironment.globalObject);
-      nodetype.setDocument(opts.contentDocument);
-      cli.setEvalFunction(opts.jsEnvironment.evalFunction);
-
-      opts.requisition.environment = opts.environment;
-      opts.requisition.document = opts.chromeDocument;
-
-      opts.console.reattachConsole(opts);
-    },
-
-    /**
-     * Undo the effects of createView() to prevent memory leaks
-     */
-    removeView: function(opts) {
-      opts.console.destroy();
-      delete opts.console;
-
-      opts.requisition.destroy();
-      delete opts.requisition;
-
-      cli.unsetEvalFunction();
-      nodetype.unsetDocument();
-      jstype.unsetGlobalObject();
-      resource.unsetDocument();
-    },
-
-    commandOutputManager: require('gcli/canon').commandOutputManager
+    createConsole: function(opts) {
+      return new Console(opts);
+    }
   };
 });

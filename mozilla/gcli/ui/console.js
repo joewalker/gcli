@@ -10,88 +10,159 @@ var Inputter = require('gcli/ui/inputter').Inputter;
 var Completer = require('gcli/ui/completer').Completer;
 var Tooltip = require('gcli/ui/tooltip').Tooltip;
 var FocusManager = require('gcli/ui/focus').FocusManager;
+var CommandOutputListView = require('gcli/ui/command_output_view').CommandOutputListView;
+
+var Requisition = require('gcli/cli').Requisition;
+
+var cli = require('gcli/cli');
+var jstype = require('gcli/types/javascript');
+var nodetype = require('gcli/types/node');
+var resource = require('gcli/types/resource');
+
+var commandOutputManager = require('gcli/canon').commandOutputManager;
+
+/**
+ * Handy utility to inject the content document (i.e. for the viewed page,
+ * not for chrome) into the various components.
+ */
+function setContentDocument(document) {
+  if (document) {
+    // TODO: this unwrapping smells
+    // jstype.setGlobalObject(unwrap(document.defaultView));
+    nodetype.setDocument(document);
+    resource.setDocument(document);
+  }
+  else {
+    resource.unsetDocument();
+    nodetype.unsetDocument();
+    jstype.unsetGlobalObject();
+  }
+}
 
 /**
  * Console is responsible for generating the UI for GCLI, this implementation
  * is a special case for use inside Firefox
+ * @param options A configuration object containing the following:
+ * - contentDocument (optional)
+ * - chromeDocument
+ * - hintElement
+ * - inputElement
+ * - completeElement
+ * - backgroundElement
+ * - consoleWrap (optional)
+ * - eval (optional)
+ * - environment
+ * - scratchpad (optional)
  */
 function Console(options) {
-  this.hintElement = options.hintElement;
-  this.gcliTerm = options.gcliTerm;
-  this.consoleWrap = options.consoleWrap;
-  this.requisition = options.requisition;
+console.debug(options);
+  if (options.eval) {
+    cli.setEvalFunction(options.eval);
+  }
+  setContentDocument(options.contentDocument);
+
+  this.onCommandOutput = commandOutputManager;
+
+  this.requisition = new Requisition(options.environment, options.outputDocument);
 
   // Create a FocusManager for the various parts to register with
-  this.focusManager = new FocusManager({ document: options.chromeDocument });
-  this.focusManager.onVisibilityChange.add(this.gcliTerm.onVisibilityChange, this.gcliTerm);
-  this.focusManager.addMonitoredElement(this.gcliTerm.hintNode, 'gcliTerm');
+  this.focusManager = new FocusManager(options, {
+    // TODO: can we kill chromeDocument here?
+    document: options.chromeDocument
+  });
+  this.focusManager.addMonitoredElement(options.hintElement, 'gcliTerm');
+  this.onVisibilityChange = this.focusManager.onVisibilityChange;
 
-  this.inputter = options.inputter = new Inputter({
-    document: options.chromeDocument,
-    requisition: options.requisition,
-    inputElement: options.inputElement,
+  this.inputter = new Inputter(options, {
+    requisition: this.requisition,
     focusManager: this.focusManager,
-    scratchpad: options.scratchpad
+    element: options.inputElement
   });
 
-  this.completer = options.completer = new Completer({
-    document: options.chromeDocument,
-    requisition: options.requisition,
-    scratchpad: options.scratchpad,
-    inputter: options.inputter,
-    completeElement: options.completeElement,
-    backgroundElement: options.backgroundElement,
-    completionPrompt: ''
+  options.completionPrompt = '';
+  this.completer = new Completer(options, {
+    requisition: this.requisition,
+    inputter: this.inputter,
+    element: options.completeElement,
+    backgroundElement: options.backgroundElement
   });
 
-  this.tooltip = options.tooltip = new Tooltip({
-    document: options.chromeDocument,
-    requisition: options.requisition,
-    inputter: options.inputter,
-    tooltipClass: 'gcliterm-tooltip'
+  options.tooltipClass = 'gcliterm-tooltip';
+  this.tooltip = new Tooltip(options, {
+    document: options.hintDocument,
+    requisition: this.requisition,
+    focusManager: this.focusManager,
+    inputter: this.inputter,
+    element: options.hintElement
   });
-  this.hintElement.appendChild(this.tooltip.element);
 
-  this.chromeWindow = options.chromeDocument.defaultView;
-  this.resizer = this.resizer.bind(this);
-  this.chromeWindow.addEventListener('resize', this.resizer, false);
-  this.requisition.onTextChange.add(this.resizer, this);
+  this.outputList = new CommandOutputListView(options, {
+    document: options.hintDocument,
+    requisition: this.requisition,
+    inputter: this.inputter,
+    element: options.outputElement
+  });
+
+  if (options.consoleWrap) {
+    this.consoleWrap = options.consoleWrap;
+    var win = options.consoleWrap.ownerDocument.defaultView;
+    this.resizer = this.resizer.bind(this);
+
+    win.addEventListener('resize', this.resizer, false);
+    this.requisition.onTextChange.add(this.resizer, this);
+  }
 }
 
 /**
  * Called when the page to which we're attached changes
+ * @params options Object with the following properties:
+ * - contentDocument: Points to the page that we should now work against
+ * - environment: A replacement environment for Requisition use
  */
-Console.prototype.reattachConsole = function(options) {
-  this.chromeWindow.removeEventListener('resize', this.resizer, false);
-  this.chromeWindow = options.chromeDocument.defaultView;
-  this.chromeWindow.addEventListener('resize', this.resizer, false);
-
-  this.focusManager.document = options.chromeDocument;
-  this.inputter.document = options.chromeDocument;
-  this.inputter.completer.document = options.chromeDocument;
-  this.argFetcher.document = options.chromeDocument;
+Console.prototype.reattach = function(options) {
+  setContentDocument(options.contentDocument);
+  this.requisition.environment = options.environment;
 };
 
 /**
  * Avoid memory leaks
  */
 Console.prototype.destroy = function() {
-  this.chromeWindow.removeEventListener('resize', this.resizer, false);
-  delete this.resizer;
-  delete this.chromeWindow;
-  delete this.consoleWrap;
+  if (this.consoleWrap) {
+    var win = options.consoleWrap.ownerDocument.defaultView;
+
+    this.requisition.onTextChange.remove(this.resizer, this);
+    win.removeEventListener('resize', this.resizer, false);
+
+    delete this.consoleWrap;
+    delete this.resizer;
+  }
 
   this.hintElement.removeChild(this.tooltip.element);
-  this.tooltip.destroy();
 
+  this.tooltip.destroy();
+  this.completer.destroy();
   this.inputter.destroy();
 
-  this.focusManager.removeMonitoredElement(this.gcliTerm.hintNode, 'gcliTerm');
-  this.focusManager.onVisibilityChange.remove(this.gcliTerm.onVisibilityChange, this.gcliTerm);
+  this.focusManager.removeMonitoredElement(this.hintElement, 'gcliTerm');
   this.focusManager.destroy();
+  this.requisition.destroy();
+  this.outputList.destroy();
 
-  delete this.gcliTerm;
+  delete this.outputList;
+  delete this.tooltip;
+  delete this.completer;
+  delete this.inputter;
+
+  delete this.onCommandOutput;
+  delete this.onVisibilityChange;
+
+  delete this.focusManager;
   delete this.hintElement;
+  delete this.requisition;
+
+  setContentDocument(null);
+  cli.unsetEvalFunction();
 };
 
 /**
