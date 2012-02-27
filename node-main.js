@@ -164,7 +164,7 @@ function buildFirefox(destDir) {
     'gcli/ui/arg_fetch.css',
     'gcli/commands/help.css',
     'gcli/ui/display.css',
-    'gcli/ui/command_output_view.css'
+    'gcli/ui/output_view.css'
   ]);
 
   // Package the JavaScript
@@ -291,8 +291,8 @@ function buildFirefox(destDir) {
       'mozilla/gcli/ui/gclichrome.css',
       { value: '\n/* From: $GCLI/lib/gcli/ui/display.css */\n' },
       'lib/gcli/ui/display.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/command_output_view.css */\n' },
-      'lib/gcli/ui/command_output_view.css'
+      { value: '\n/* From: $GCLI/lib/gcli/ui/output_view.css */\n' },
+      'lib/gcli/ui/output_view.css'
     ],
     filter: removeNonMozPrefixes,
     dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gclichrome.css'

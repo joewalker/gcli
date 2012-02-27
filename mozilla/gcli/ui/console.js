@@ -10,7 +10,7 @@ var Inputter = require('gcli/ui/inputter').Inputter;
 var Completer = require('gcli/ui/completer').Completer;
 var Tooltip = require('gcli/ui/tooltip').Tooltip;
 var FocusManager = require('gcli/ui/focus').FocusManager;
-var CommandOutputListView = require('gcli/ui/command_output_view').CommandOutputListView;
+var OutputSingle = require('gcli/ui/output_single').OutputSingle;
 
 var Requisition = require('gcli/cli').Requisition;
 
@@ -96,7 +96,7 @@ console.debug(options);
     element: options.hintElement
   });
 
-  this.outputList = new CommandOutputListView(options, {
+  this.outputList = new OutputSingle(options, {
     document: options.hintDocument,
     requisition: this.requisition,
     inputter: this.inputter,
