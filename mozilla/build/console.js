@@ -173,7 +173,7 @@ var console = {};
 
     if (typeof aThing == "object") {
       var type = getCtorName(aThing);
-      if (type == "XULElement") {
+      if (aThing instanceof Node && aThing.tagName) {
         return debugElement(aThing);
       }
       type = (type == "Object" ? "" : type + " ");
@@ -237,8 +237,8 @@ var console = {};
         reply += "  " + aThing.message + "\n";
         reply += logProperty("stack", aThing.stack);
       }
-      else if (type == "XULElement") {
-        reply += "  " + debugElement(aThing) + " (XUL)\n";
+      else if (aThing instanceof Node && aThing.tagName) {
+        reply += "  " + debugElement(aThing) + "\n";
       }
       else {
         var keys = Object.getOwnPropertyNames(aThing);
