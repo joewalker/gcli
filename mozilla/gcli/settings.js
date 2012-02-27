@@ -8,14 +8,17 @@ define(function(require, exports, module) {
 
 var imports = {};
 
-Components.utils.import("resource://gre/modules/XPCOMUtils.jsm", imports);
+Components.utils.import('resource://gre/modules/XPCOMUtils.jsm', imports);
 
-imports.XPCOMUtils.defineLazyGetter(imports, "prefBranch", function () {
-  var prefService = Components.classes["@mozilla.org/preferences-service;1"]
+imports.XPCOMUtils.defineLazyGetter(imports, 'prefBranch', function() {
+  var prefService = Components.classes['@mozilla.org/preferences-service;1']
           .getService(Components.interfaces.nsIPrefService);
   return prefService.getBranch(null)
           .QueryInterface(Components.interfaces.nsIPrefBranch2);
 });
+
+var util = require('gcli/util');
+var types = require('gcli/types');
 
 /**
  * No setup required because settings are pre-loaded with Mozilla,
@@ -31,8 +34,19 @@ exports.shutdown = function() {
  * A class to wrap up the properties of a preference.
  * @see toolkit/components/viewconfig/content/config.js
  */
-function Setting(name) {
-  this.name = name;
+function Setting(prefSpec) {
+  this.name = prefSpec.name;
+
+  if (prefSpec.ignoreTypeDifference !== true && prefSpec.type) {
+    if (this.type.name !== prefSpec.type) {
+      throw new Error('Locally declared type (' + prefSpec.type + ') != ' +
+          'Mozilla declared type (' + this.type.name + ') for ' + this.name);
+    }
+  }
+
+  this.description = prefSpec.description;
+
+  this.onChange = util.createEvent('Setting.onChange');
 }
 
 /**
@@ -42,16 +56,16 @@ Object.defineProperty(Setting.prototype, 'type', {
   get: function() {
     switch (imports.prefBranch.getPrefType(this.name)) {
       case imports.prefBranch.PREF_BOOL:
-        return "boolean";
+        return types.getType('boolean');
 
       case imports.prefBranch.PREF_INT:
-        return "number";
+        return types.getType('number');
 
       case imports.prefBranch.PREF_STRING:
-        return "string";
+        return types.getType('string');
 
       default:
-        return "invalid";
+        throw new Error('Unknown type for ' + this.name);
     }
   },
   enumerable: true
@@ -82,7 +96,7 @@ Object.defineProperty(Setting.prototype, 'value', {
           return value;
 
         default:
-          return "invalid";
+          throw new Error('Invalid value for ' + this.name);
       }
     } catch (ex) {
       // Also catch obscure cases in which you can't tell in advance
@@ -98,7 +112,7 @@ Object.defineProperty(Setting.prototype, 'value', {
  */
 exports.getAll = function(filter) {
   var all = [];
-  imports.prefBranch.getChildList("").forEach(function(name) {
+  imports.prefBranch.getChildList('').forEach(function(name) {
     if (filter == null || name.indexOf(filter) !== -1) {
       all.push(new Setting(name));
     }
@@ -113,12 +127,14 @@ exports.getAll = function(filter) {
  * Add a new setting. A no-op in this case
  */
 exports.addSetting = function(prefSpec) {
+  return new Setting(prefSpec);
 };
 
 /**
  * Remove a setting. A no-op in this case
  */
 exports.removeSetting = function(nameOrSpec) {
+  conosle.error('Ignoring removeSetting', nameOrSpec);
 };
 
 
