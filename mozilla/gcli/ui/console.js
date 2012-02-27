@@ -61,9 +61,10 @@ console.debug(options);
   }
   setContentDocument(options.contentDocument);
 
-  this.onCommandOutput = commandOutputManager;
+  this.onOutput = commandOutputManager.onOutput;
 
-  this.requisition = new Requisition(options.environment, options.outputDocument);
+  var outputDocument = options.outputElement.ownerDocument;
+  this.requisition = new Requisition(options.environment, outputDocument);
 
   // Create a FocusManager for the various parts to register with
   this.focusManager = new FocusManager(options, {
@@ -79,7 +80,6 @@ console.debug(options);
     element: options.inputElement
   });
 
-  options.completionPrompt = '';
   this.completer = new Completer(options, {
     requisition: this.requisition,
     inputter: this.inputter,
@@ -87,9 +87,7 @@ console.debug(options);
     backgroundElement: options.backgroundElement
   });
 
-  options.tooltipClass = 'gcliterm-tooltip';
   this.tooltip = new Tooltip(options, {
-    document: options.hintDocument,
     requisition: this.requisition,
     focusManager: this.focusManager,
     inputter: this.inputter,
@@ -97,7 +95,6 @@ console.debug(options);
   });
 
   this.outputList = new OutputSingle(options, {
-    document: options.hintDocument,
     requisition: this.requisition,
     inputter: this.inputter,
     element: options.outputElement
