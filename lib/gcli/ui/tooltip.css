@@ -1,28 +1,27 @@
 
 .gcli-tooltip {
-  -moz-transition-property: opacity;
-  -moz-transition-duration: 0.5s;
+  -moz-transition-property: opacity, height;
+  -moz-transition-duration: 0.5s, 2s;
 
-  box-shadow: 0 0 10px 10px hsla(210,11%,18%,.5), 0 1px 0 0 hsla(210, 16%, 76%, .2) inset;
-  border: 1px solid hsl(210,11%,18%);
-  border-radius: 5px;
+  box-shadow: 0 0 10px 1px #ddd;
+  border: 1px solid #999;
+  border-radius: 3px;
   margin: 10px;
   overflow-y: auto;
   overflow-x: hidden;
   z-index: 2;
   position: absolute;
   max-height: 100%;
-  /* max-width: 280px; */
+  max-width: 350px;
   left: 0;
   bottom: 0;
-  background: #fff;
-
-  background-image: url(/lib/gcli/ui/images/background-noise-toolbar.png), -moz-linear-gradient(top, hsl(210,11%,30%), hsl(210,11%,22%));
-  color: #fff;
+  font-family: Segoe UI, Helvetica Neue, Verdana, Arial, sans-serif;
+  background: hsla(0, 100%, 100%, 0.95);
 }
 
 .gcli-tooltip.gcli-tt-hide {
   opacity: 0;
+  height: 0;
 }
 
 .gcli-tt-description {

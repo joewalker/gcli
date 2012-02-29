@@ -1,12 +1,9 @@
 
 .gcli-display-output {
   height: 100%;
-  overflow: auto;
-  font-family: Calibri, Verdana, sans-serif;
-
-  background-image: url(/lib/gcli/ui/images/background-noise-toolbar.png);
-  background-color: hsl(210,11%,27%);
-  color: #fff;
+  overflow-x: hidden;
+  overflow-y: auto;
+  font-family: Segoe UI, Helvetica Neue, Verdana, Arial, sans-serif;
 }
 
 .gcli-display-hint {
@@ -16,7 +13,7 @@
 .gcli-display-output h1,
 .gcli-display-output h2,
 .gcli-display-output h3 {
-  color: #fff;
+  color: #000;
 }
 
 .gcli-out-shortcut {

@@ -181,13 +181,6 @@ function buildFirefox(destDir) {
     dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gcli.jsm'
   });
 
-  // Copy gclichrome.xul
-  // Perhaps not the best way, but it does keep everything self-contained
-  copy({
-    source: 'mozilla/build/gclichrome.html',
-    dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gclichrome.html'
-  });
-
   // Package the gclichrome.jsm
   project.assumeAllFilesLoaded();
   copy({
@@ -224,78 +217,6 @@ function buildFirefox(destDir) {
       'mozilla/build/suffix-test.js'
     ],
     dest: (destDir ? destDir + testDir : 'built/ff') + '/browser_gcli_web.js'
-  });
-
-  // Package the CSS
-  copy({
-    source: [
-      'mozilla/build/license-block.txt',
-      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */\n' },
-      'mozilla/gcli/ui/gcliterm.css',
-      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gcliterm-winstripe.css */\n' },
-      'mozilla/gcli/ui/gcliterm-winstripe.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/arg_fetch.css */\n' },
-      'lib/gcli/ui/arg_fetch.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/fields/menu.css */\n' },
-      'lib/gcli/ui/fields/menu.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */\n' },
-      'lib/gcli/ui/inputter.css',
-      { value: '\n/* From: $GCLI/lib/gcli/commands/help.css */\n' },
-      'lib/gcli/commands/help.css'
-    ],
-    filter: removeNonMozPrefixes,
-    dest: (destDir ? destDir + winCssDir : 'built/ff') + '/gcli.css'
-  });
-  copy({
-    source: [
-      'mozilla/build/license-block.txt',
-      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */\n' },
-      'mozilla/gcli/ui/gcliterm.css',
-      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gcliterm-pinstripe.css */\n' },
-      'mozilla/gcli/ui/gcliterm-pinstripe.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/arg_fetch.css */\n' },
-      'lib/gcli/ui/arg_fetch.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/fields/menu.css */\n' },
-      'lib/gcli/ui/fields/menu.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */\n' },
-      'lib/gcli/ui/inputter.css',
-      { value: '\n/* From: $GCLI/lib/gcli/commands/help.css */\n' },
-      'lib/gcli/commands/help.css'
-    ],
-    filter: removeNonMozPrefixes,
-    dest: (destDir ? destDir + pinCssDir : 'built/ff') + '/gcli.css'
-  });
-  copy({
-    source: [
-      'mozilla/build/license-block.txt',
-      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gcliterm.css */\n' },
-      'mozilla/gcli/ui/gcliterm.css',
-      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gcliterm-gnomestripe.css */\n' },
-      'mozilla/gcli/ui/gcliterm-gnomestripe.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/arg_fetch.css */\n' },
-      'lib/gcli/ui/arg_fetch.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/fields/menu.css */\n' },
-      'lib/gcli/ui/fields/menu.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/inputter.css */\n' },
-      'lib/gcli/ui/inputter.css',
-      { value: '\n/* From: $GCLI/lib/gcli/commands/help.css */\n' },
-      'lib/gcli/commands/help.css'
-    ],
-    filter: removeNonMozPrefixes,
-    dest: (destDir ? destDir + gnomeCssDir : 'built/ff') + '/gcli.css'
-  });
-  copy({
-    source: [
-      'mozilla/build/license-block.txt',
-      { value: '\n/* From: $GCLI/mozilla/gcli/ui/gclichrome.css */\n' },
-      'mozilla/gcli/ui/gclichrome.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/display.css */\n' },
-      'lib/gcli/ui/display.css',
-      { value: '\n/* From: $GCLI/lib/gcli/ui/output_view.css */\n' },
-      'lib/gcli/ui/output_view.css'
-    ],
-    filter: removeNonMozPrefixes,
-    dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gclichrome.css'
   });
 
   // Package the i18n strings
@@ -403,16 +324,6 @@ function wordWrap(input, length) {
   return input.match(wrapper).slice(0, -1).map(function(s) {
     return s.replace(/ $/, '');
   });
-}
-
-/**
- * Hack to remove the '-vendorprefix' definitions. This currently works to
- * remove -webkit, -ms and -op from CSS values and properties.
- */
-function removeNonMozPrefixes(data) {
-  return data
-      .replace(/\n?\s*[-a-z]*:\s*-(webkit|op|ms)-[-a-z]*\s*;[ \t]*/g, '')
-      .replace(/\n?\s*-(webkit|op|ms)-[-a-z]*:\s*[^;]*\s*;[ \t]*/g, '');
 }
 
 /**

@@ -2,22 +2,19 @@
 .gcli-in-complete {
   position: absolute;
   z-index: -1000;
-  border: 1px transparent solid;
   padding: 1px 1px 1px 2px;
   color: transparent;
 
   -moz-appearance: none;
   padding: 0 3px;
-  box-shadow: 0 1px 0 0 hsla(210, 16%, 76%, .2) inset;
-  background-image: url(/lib/gcli/ui/images/background-noise-toolbar.png), -moz-linear-gradient(top, hsl(210,11%,36%), hsl(210,11%,18%));
-  background-image: url(/lib/gcli/ui/images/background-noise-toolbar.png), -webkit-linear-gradient(top, hsl(210,11%,36%), hsl(210,11%,18%));
 }
 
 .gcli-in-input {
-  color: hsl(210,30%,85%);
-  border-top: 1px solid hsla(210, 19%, 63%, .5);
+  color: #000;
   border: 0;
-
+  box-shadow: 0 0 10px 1px #ddd;
+  border-top: 1px solid #999;
+  padding: 0;
   font-size: 110%;
   font-family: Consolas, Inconsolata, "Courier New", monospace;
 }
@@ -31,19 +28,19 @@
 }
 
 .gcli-in-ontab {
-  color: hsl(210,11%,12%);
+  color: hsl(200,40%,70%);
 }
 
 .gcli-in-todo {
-  color: hsl(210,11%,36%);
+  color: hsl(48,28%,76%);
 }
 
 .gcli-in-closebrace {
-  color: #999;
+  color: hsl(0,0%,80%);
 }
 
 .gcli-prompt {
-  color: #FF6600;
+  color: hsl(25,78%,50%);
   font-weight: bold;
 }
 
