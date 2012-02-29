@@ -1,10 +1,16 @@
 
+.gcli-in-complete,
+.gcli-in-input {
+  font-size: 110%;
+  font-family: Consolas, Inconsolata, "Courier New", monospace;
+  font-weight: normal;
+  font-style: normal;
+}
+
 .gcli-in-complete {
   position: absolute;
   z-index: -1000;
-  padding: 1px 1px 1px 2px;
   color: transparent;
-
   -moz-appearance: none;
   padding: 0 3px;
 }
@@ -15,8 +21,7 @@
   box-shadow: 0 0 10px 1px #ddd;
   border-top: 1px solid #999;
   padding: 0;
-  font-size: 110%;
-  font-family: Consolas, Inconsolata, "Courier New", monospace;
+  background-color: transparent;
 }
 
 .gcli-in-incomplete {
