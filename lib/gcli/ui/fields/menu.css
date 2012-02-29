@@ -52,9 +52,10 @@
   color: red;
 }
 
-.gcli-menu-highlight {
-  background-image: url(/lib/gcli/ui/images/background-noise-toolbar.png);
-  background-color: hsl(210,11%,18%);
+.gcli-menu-highlight,
+.gcli-menu-highlight.gcli-menu-option:hover {
+  background-image: -moz-linear-gradient(top, #eee, #b8b8b8);
+  background-color: #c8c8c8;
 }
 
 .gcli-menu-typed {

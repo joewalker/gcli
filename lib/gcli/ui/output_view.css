@@ -3,7 +3,7 @@
   margin: 10px 5px 0;
   padding: 3px 4px 1px;
   border-radius: 3px;
-  border: 1px solid #999;
+  border: 1px solid #aaa;
 }
 
 .gcli-row-in > img {
@@ -22,6 +22,10 @@
 
 .gcli-row-in:hover > .gcli-row-hover.gcli-row-hidden {
   display: none;
+}
+
+.gcli-row-duration {
+  color: #666;
 }
 
 .gcli-row-in-typed,
@@ -81,11 +85,11 @@
 .gcli-row-out input[type=password],
 .gcli-row-out input[type=text],
 .gcli-row-out textarea {
-  color: #FFF;
   font-size: 120%;
   background: transparent;
   padding: 3px;
-  border-radius: 5px;
+  border-radius: 3px;
+  border: 1px solid #bbb;
 }
 
 .gcli-row-out table,
