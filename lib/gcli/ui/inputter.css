@@ -15,6 +15,17 @@
   padding: 0 3px;
 }
 
+.gcli-prompt {
+  position: absolute;
+  z-index: -1001;
+  padding: 0 1px;
+  margin-top: -2px;
+  color: hsl(25,78%,50%);
+  font-size: 180%;
+  font-family: Consolas, Inconsolata, "Courier New", monospace;
+  font-weight: bold;
+}
+
 .gcli-in-input {
   color: #000;
   border: 0;
@@ -42,11 +53,6 @@
 
 .gcli-in-closebrace {
   color: hsl(0,0%,80%);
-}
-
-.gcli-prompt {
-  color: hsl(25,78%,50%);
-  font-weight: bold;
 }
 
 .gcli-in-scratchlink {

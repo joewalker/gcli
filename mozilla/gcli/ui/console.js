@@ -83,8 +83,8 @@ console.debug(options);
   this.completer = new Completer(options, {
     requisition: this.requisition,
     inputter: this.inputter,
-    element: options.completeElement,
-    backgroundElement: options.backgroundElement
+    backgroundElement: options.backgroundElement,
+    element: options.completeElement
   });
 
   this.tooltip = new Tooltip(options, {
