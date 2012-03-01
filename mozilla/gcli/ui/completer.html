@@ -4,6 +4,6 @@
     <label class="${member.className}">${member.string}</label>
   </loop>
   <label class="gcli-in-ontab">${tabText}</label>
-  <label class="gcli-in-todo" foreach="param in ${emptyParameters}"> [<label title="${param.description}">${param.name}</label>]</label>
+  <label class="gcli-in-todo" foreach="param in ${emptyParameters}"> [<label title="${param.description}" class="gcli-in-param">${param.name}</label>]</label>
   <label class="gcli-in-closebrace" if="${unclosedJs}">}</label>
 </description>

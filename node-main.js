@@ -158,15 +158,6 @@ function buildFirefox(destDir) {
     roots: [ gcliHome + '/mozilla', gcliHome + '/lib' ]
   });
 
-  var ignoreFilter = createIgnoreFilter([
-    'gcli/ui/inputter.css',
-    'gcli/ui/field/menu.css',
-    'gcli/ui/arg_fetch.css',
-    'gcli/commands/help.css',
-    'gcli/ui/display.css',
-    'gcli/ui/output_view.css'
-  ]);
-
   // Package the JavaScript
   copy({
     source: [
@@ -177,7 +168,7 @@ function buildFirefox(destDir) {
       { project: project, require: [ 'gcli/index' ] },
       'mozilla/build/suffix-gcli.jsm'
     ],
-    filter: [ ignoreFilter, copy.filter.moduleDefines ],
+    filter: [ createIgnoreFilter(), copy.filter.moduleDefines ],
     dest: (destDir ? destDir + jsmDir : 'built/ff') + '/gcli.jsm'
   });
 
@@ -228,18 +219,12 @@ function buildFirefox(destDir) {
 }
 
 /**
- * Sometimes we want to exclude modules from the output.
- * This replaces the contents of a named set of modules with an empty string.
+ * Sometimes we want to exclude CSS modules from the output.
+ * This replaces the contents of any file named '*.css' with an empty string.
  */
-function createIgnoreFilter(ignoredModules) {
+function createIgnoreFilter() {
   var filter = function(data, location) {
-    function checkIgnored(ignoredModule) {
-      return location.path === ignoredModule;
-    }
-    if (location != null && ignoredModules.some(checkIgnored)) {
-      return '';
-    }
-    return data;
+    return location != null && /\.css$/.test(location.path) ? '' : data;
   };
   filter.onRead = true;
   return filter;
