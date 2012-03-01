@@ -20,31 +20,53 @@ imports.XPCOMUtils.defineLazyGetter(imports, 'prefBranch', function() {
 var util = require('gcli/util');
 var types = require('gcli/types');
 
+var allSettings = [];
+
 /**
  * No setup required because settings are pre-loaded with Mozilla,
  * but match API with main settings.js
  */
 exports.startup = function() {
+  imports.prefBranch.getChildList('').forEach(function(name) {
+    allSettings.push(new Setting(name));
+  }.bind(this));
+  allSettings.sort(function(s1, s2) {
+    return s1.name.localeCompare(s2.name);
+  }.bind(this));
 };
 
 exports.shutdown = function() {
+  allSettings = [];
 };
+
+/**
+ *
+ */
+var DEVTOOLS_PREFIX = 'devtools.gcli.';
 
 /**
  * A class to wrap up the properties of a preference.
  * @see toolkit/components/viewconfig/content/config.js
  */
 function Setting(prefSpec) {
-  this.name = prefSpec.name;
-
-  if (prefSpec.ignoreTypeDifference !== true && prefSpec.type) {
-    if (this.type.name !== prefSpec.type) {
-      throw new Error('Locally declared type (' + prefSpec.type + ') != ' +
-          'Mozilla declared type (' + this.type.name + ') for ' + this.name);
-    }
+  if (typeof prefSpec === 'string') {
+    // We're coming from getAll() i.e. a full listing of prefs
+    this.name = prefSpec;
+    this.description = '';
   }
+  else {
+    // A specific addition by GCLI
+    this.name = DEVTOOLS_PREFIX + prefSpec.name;
 
-  this.description = prefSpec.description;
+    if (prefSpec.ignoreTypeDifference !== true && prefSpec.type) {
+      if (this.type.name !== prefSpec.type) {
+        throw new Error('Locally declared type (' + prefSpec.type + ') != ' +
+            'Mozilla declared type (' + this.type.name + ') for ' + this.name);
+      }
+    }
+
+    this.description = prefSpec.description;
+  }
 
   this.onChange = util.createEvent('Setting.onChange');
 }
@@ -111,30 +133,31 @@ Object.defineProperty(Setting.prototype, 'value', {
  * 'static' function to get an array containing all known Settings
  */
 exports.getAll = function(filter) {
-  var all = [];
-  imports.prefBranch.getChildList('').forEach(function(name) {
-    if (filter == null || name.indexOf(filter) !== -1) {
-      all.push(new Setting(name));
-    }
-  }.bind(this));
-  all.sort(function(s1, s2) {
-    return s1.name.localeCompare(s2.name);
-  }.bind(this));
-  return all;
+  if (filter == null) {
+    return allSettings;
+  }
+  return allSettings.filter(function(setting) {
+    return setting.name.indexOf(filter) !== -1;
+  });
 };
 
 /**
- * Add a new setting. A no-op in this case
+ * Add a new setting.
  */
 exports.addSetting = function(prefSpec) {
-  return new Setting(prefSpec);
+  var setting = new Setting(prefSpec);
+  for (var i = 0; i < allSettings.length; i++) {
+    if (allSettings[i].name === setting.name) {
+      allSettings[i] = setting;
+    }
+  }
+  return setting;
 };
 
 /**
  * Remove a setting. A no-op in this case
  */
 exports.removeSetting = function(nameOrSpec) {
-  conosle.error('Ignoring removeSetting', nameOrSpec);
 };
 
 
