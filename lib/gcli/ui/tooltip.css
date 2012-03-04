@@ -2,11 +2,6 @@
 .gcli-tooltip {
   -moz-transition-property: opacity, height;
   -moz-transition-duration: 0.5s, 2s;
-
-  box-shadow: 0 0 10px 1px #ddd;
-  border: 1px solid #999;
-  border-radius: 3px;
-  margin: 10px;
   overflow-y: auto;
   overflow-x: hidden;
   z-index: 2;
@@ -16,7 +11,7 @@
   left: 0;
   bottom: 0;
   font-family: Segoe UI, Helvetica Neue, Verdana, Arial, sans-serif;
-  background: hsla(0, 100%, 100%, 0.95);
+  margin-bottom: -3px;
 }
 
 .gcli-tooltip.gcli-tt-hide {
@@ -41,4 +36,22 @@
 
 .gcli-field-javascript {
   margin-bottom: 0;
+}
+
+.gcli-display-hint {
+  box-shadow: 0 0 10px 1px #ddd;
+  border: 1px solid #999;
+  border-radius: 3px;
+  margin: 10px 10px 0;
+  background: hsla(0, 100%, 100%, 0.95);
+}
+
+.gcli-display-connector {
+  height: 10px;
+  margin-top: -1px;
+  margin-left: 20px;
+  width: 20px;
+  background: white;
+  border-left: 1px solid #999;
+  border-right: 1px solid #999;
 }
