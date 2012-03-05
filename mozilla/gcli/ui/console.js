@@ -55,7 +55,6 @@ function setContentDocument(document) {
  * - scratchpad (optional)
  */
 function Console(options) {
-console.debug(options);
   if (options.eval) {
     cli.setEvalFunction(options.eval);
   }
