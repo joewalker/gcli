@@ -377,6 +377,7 @@ function serve() {
   var parser = connect.bodyParser();
   var router = connect.router(function(app) {
     app.post('/exec/', execApp);
+    app.post('/func/', execFunction);
   });
 
   console.log('Serving GCLI to http://localhost:9999/');
@@ -399,6 +400,93 @@ function execApp(request, response, next) {
     response.end(stdout);
   });
 }
+
+/**
+ * Express middleware to execute a JS function
+ */
+function execFunction(request, response, next) {
+  var func = request.body.func;
+  var args = request.body.args;
+  try {
+    var reply = exported[func].apply(exported, args);
+    var data = reply == null ? '' : JSON.stringify(reply);
+    response.writeHead(200, {
+      'Content-Length': data.length,
+      'Content-Type': 'text/plain'
+    });
+    response.end(data);
+  }
+  catch (ex) {
+    var reply = JSON.stringify(ex);
+    response.writeHead(500, {
+      'Content-Length': reply.length,
+      'Content-Type': 'text/plain'
+    });
+    response.end(reply);
+  }
+}
+
+/**
+ * A list of functions that can be called by execFunction
+ */
+var exported = {
+};
+
+/**
+ * A way to redirect output sent to the console
+ * @param action A command to execute. The return value from this function will
+ * be discarded. Any scope/params should be used via bind().
+ * @return An array of console messages, each as an object containing the
+ * following properties:
+ * - dest: One of 'log', 'info', 'warn', 'error'
+ * - args: The arguments to the call, to be logged
+ * Any exception will be added as the final entry, containing the following:
+ * - dest: 'exception'
+ * - args.message: The exception error message
+ * - args.type: constructor name of the exception
+ */
+function redirectConsole(action) {
+  var messages = [];
+  redirectConsole.start(messages);
+  try {
+    action();
+    redirectConsole.end();
+  }
+  catch (ex) {
+    redirectConsole.end();
+    messages.push({
+      dest: 'exception',
+      args: { message: ex.message, type: ex.constructor.name }
+    });
+    console.error(ex);
+  }
+
+  return messages.map(function(message) {
+    return message.args.join(',');
+  }).join('\n');
+}
+
+/**
+ * Mutate 'console' for redirectConsole()
+ */
+redirectConsole.start = function(messages) {
+  [ 'log', 'info', 'warn', 'error' ].forEach(function(name) {
+    console['_' + name] = console[name];
+    console[name] = function() {
+      messages.push({
+        dest: name,
+        args: Array.prototype.slice.call(arguments)
+      });
+    };
+  });
+};
+
+/**
+ * Restore 'console' for redirectConsole()
+ */
+redirectConsole.end = function() {
+  console.log = console.oldlog;
+};
 
 // Now everything is defined properly, start working
 main();
