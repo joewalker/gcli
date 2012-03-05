@@ -42,7 +42,6 @@ function main() {
   }
 }
 
-
 /**
  * There are 2 important ways to build GCLI.
  * The first is for use within a normal web page.
@@ -373,18 +372,20 @@ var childProcess = require('child_process');
  * Serve '.' to http://localhost:9999/
  */
 function serve() {
-  var logger = connect.logger();
+  var logger = connect.logger('dev');
   var files = connect.static(gcliHome, { maxAge: 0 });
   var parser = connect.bodyParser();
   var router = connect.router(function(app) {
     app.post('/exec/', execApp);
-    app.get('/test/', testApp);
   });
 
   console.log('Serving GCLI to http://localhost:9999/');
-  connect(logger, files, parser, router).listen(9999);
+  connect(logger, files, parser, router).listen(9999, 'localhost');
 }
 
+/**
+ * Express middleware to execute an OS level command
+ */
 function execApp(request, response, next) {
   var cmd = request.body.cmd;
   var args = request.body.args;
@@ -397,10 +398,6 @@ function execApp(request, response, next) {
     });
     response.end(stdout);
   });
-}
-
-function testApp(req, res, next) {
-  res.end('hello world\n');
 }
 
 // Now everything is defined properly, start working
