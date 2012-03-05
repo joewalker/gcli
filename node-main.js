@@ -430,6 +430,14 @@ function execFunction(request, response, next) {
  * A list of functions that can be called by execFunction
  */
 var exported = {
+  build: function(type) {
+    if (type === 'standard') {
+      return redirectConsole(buildStandard);
+    }
+    else if (type === 'firefox') {
+      return redirectConsole(buildFirefox);
+    }
+  }
 };
 
 /**
