@@ -98,3 +98,12 @@
   border: 0;
   padding: 0 2px;
 }
+
+.gcli-row-out .gcli-row-terminal {
+  border-radius: 3px;
+  border: 1px solid #ddd;
+  height: 200px;
+  width: 620px;
+  font-size: 80%;
+  font-family: Consolas, Inconsolata, "Courier New", monospace;
+}
