@@ -9,7 +9,8 @@
   "dependencies": {
     "dryice": ">= 0.4.1",
     "jsdom": ">= 0.2.10",
-    "connect": ">= 1.8.5"
+    "express": ">= 2.5.8",
+    "socket.io": ">= 0.9.1"
   },
   "author": "Joe Walker <jwalker@mozilla.com>",
   "main": "lib/gcli",

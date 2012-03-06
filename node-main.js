@@ -364,24 +364,33 @@ function test() {
   });
 }
 
-var connect = require('connect');
+var express = require('express');
 var util  = require('util');
 var childProcess = require('child_process');
+var io = require('socket.io');
 
 /**
  * Serve '.' to http://localhost:9999/
  */
 function serve() {
-  var logger = connect.logger('dev');
-  var files = connect.static(gcliHome, { maxAge: 0 });
-  var parser = connect.bodyParser();
-  var router = connect.router(function(app) {
-    app.post('/exec/', execApp);
-    app.post('/func/', execFunction);
+  var server = express.createServer();
+  server.use(express.logger('dev'));
+  server.use(express.bodyParser());
+  // server.use(express.cookieParser('secret'));
+  // server.use(express.session({secret: 'secret', key: 'express.sid'}));
+  server.use('/exec/', execApp);
+  server.use('/func/', execFunction);
+  server.use(express.static(gcliHome, { maxAge: 0 }));
+
+  io.listen(server).sockets.on('connection', function (socket) {
+    socket.emit('news', { hello: 'world' });
+    socket.on('my other event', function (data) {
+      console.log(data);
+    });
   });
 
   console.log('Serving GCLI to http://localhost:9999/');
-  connect(logger, files, parser, router).listen(9999, 'localhost');
+  server.listen(9999, 'localhost');
 }
 
 /**
@@ -393,11 +402,12 @@ function execApp(request, response, next) {
   var options = { cwd: request.body.cwd, env: request.body.env };
   childProcess.execFile(cmd, args, options, function(error, stdout, stderr) {
     var status = error ? 500 : 200;
+    var output = error ? error.message : stdout.toString();
     response.writeHead(status, {
-      'Content-Length': stdout.toString().length,
+      'Content-Length': output.length,
       'Content-Type': 'text/plain'
     });
-    response.end(stdout);
+    response.end(output);
   });
 }
 
@@ -436,6 +446,27 @@ var exported = {
     }
     else if (type === 'firefox') {
       return redirectConsole(buildFirefox);
+    }
+    else if (type === 'main') {
+      var firefoxHome = gcliHome + '/../devtools';
+      [
+        firefoxHome + '/obj/browser/themes',
+        firefoxHome + '/obj/browser/devtools',
+        firefoxHome + '/obj/browser/app',
+        firefoxHome + '/obj/browser/base'
+      ].forEach(function(dir) {
+        var cmd = 'python';
+        var options = { cwd: firefoxHome };
+        var args = [ '-OO', 'build/pymake/make.py', '-C', dir ];
+        childProcess.execFile(cmd, args, options, function(error, stdout, stderr) {
+          var status = error ? 500 : 200;
+          response.writeHead(status, {
+            'Content-Length': stdout.toString().length,
+            'Content-Type': 'text/plain'
+          });
+          response.end(stdout);
+        });
+      });
     }
   }
 };
