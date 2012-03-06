@@ -19,9 +19,8 @@
   position: absolute;
   z-index: -1001;
   padding: 0 1px;
-  margin-top: -2px;
   color: hsl(25,78%,50%);
-  font-size: 180%;
+  font-size: 150%;
   font-family: Consolas, Inconsolata, "Courier New", monospace;
   font-weight: bold;
 }
