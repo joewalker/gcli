@@ -1,5 +1,5 @@
 
-.gcli-tooltip {
+.gcli-panel {
   -moz-transition-property: opacity, height;
   -moz-transition-duration: 0.5s, 2s;
   overflow-y: auto;
@@ -14,9 +14,19 @@
   margin-bottom: -3px;
 }
 
-.gcli-tooltip.gcli-tt-hide {
+.gcli-panel.gcli-panel-hide {
   opacity: 0;
   height: 0;
+}
+
+.gcli-panel-connector {
+  height: 10px;
+  margin-top: -1px;
+  margin-left: 20px;
+  width: 20px;
+  background: white;
+  border-left: 1px solid #999;
+  border-right: 1px solid #999;
 }
 
 .gcli-tt-description {
@@ -38,20 +48,11 @@
   margin-bottom: 0;
 }
 
-.gcli-display-hint {
+.gcli-tt {
   box-shadow: 0 0 10px 1px #ddd;
   border: 1px solid #999;
   border-radius: 3px;
   margin: 10px 10px 0;
   background: hsla(0, 100%, 100%, 0.95);
-}
-
-.gcli-display-connector {
-  height: 10px;
-  margin-top: -1px;
-  margin-left: 20px;
-  width: 20px;
-  background: white;
-  border-left: 1px solid #999;
-  border-right: 1px solid #999;
+  padding-bottom: 5px;
 }

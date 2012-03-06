@@ -1,35 +1,7 @@
 
-.gcli-display-output {
+.gcli-output {
   height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
   font-family: Segoe UI, Helvetica Neue, Verdana, Arial, sans-serif;
-}
-
-.gcli-display-hint {
-  padding-bottom: 5px;
-}
-
-.gcli-display-output h1,
-.gcli-display-output h2,
-.gcli-display-output h3 {
-  color: #000;
-}
-
-.gcli-out-shortcut {
-  border: 1px solid #999;
-  border-radius: 3px;
-  padding: 1px 4px 0;
-  margin: 0 4px;
-  font-size: 70%;
-  font-family: Consolas, Inconsolata, "Courier New", monospace;
-  color: #666;
-  cursor: pointer;
-  vertical-align: bottom;
-  white-space: pre;
-}
-
-.gcli-out-shortcut:before {
-  color: #66F;
-  content: '\bb';
 }
