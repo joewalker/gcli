@@ -1,0 +1,22 @@
+
+<div>## ${command.name}
+
+# ${l10n.helpManSynopsis}: ${command.name} <loop foreach="param in ${command.params}">${param.defaultValue !== undefined ? '[' + param.name + ']' : param.name} </loop>
+
+# ${l10n.helpManDescription}:
+
+${command.manual || command.description}
+
+<span if="${command.exec}"># ${l10n.helpManParameters}:
+
+<span if="${command.params.length === 0}">${l10n.helpManNone}</span><loop foreach="param in ${command.params}">* ${param.name}: ${getTypeDescription(param)}
+  ${param.manual || param.description}
+</loop>
+</span>
+
+<span if="${!command.exec}"># ${l10n.subCommands}:
+
+<span if="${subcommands.length === 0}">${l10n.subcommandsNone}</span>
+<loop foreach="subcommand in ${subcommands}">* ${subcommand.name}: ${subcommand.description}
+</loop>
+</div>
