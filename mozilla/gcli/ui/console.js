@@ -10,7 +10,6 @@ var Inputter = require('gcli/ui/inputter').Inputter;
 var Completer = require('gcli/ui/completer').Completer;
 var Tooltip = require('gcli/ui/tooltip').Tooltip;
 var FocusManager = require('gcli/ui/focus').FocusManager;
-var OutputSingle = require('gcli/ui/output_single').OutputSingle;
 
 var Requisition = require('gcli/cli').Requisition;
 
@@ -49,6 +48,7 @@ function setContentDocument(document) {
  * - inputElement
  * - completeElement
  * - backgroundElement
+ * - outputDocument
  * - consoleWrap (optional)
  * - eval (optional)
  * - environment
@@ -91,12 +91,6 @@ function Console(options) {
     focusManager: this.focusManager,
     inputter: this.inputter,
     element: options.hintElement
-  });
-
-  this.outputList = new OutputSingle(options, {
-    requisition: this.requisition,
-    inputter: this.inputter,
-    element: options.outputElement
   });
 
   if (options.consoleWrap) {
