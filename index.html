@@ -44,7 +44,7 @@
     var deps = [ 'gcli/index', 'gclitest/index', 'demo/index' ];
     require(deps, function(gcli, gclitest) {
       gclitest.run({ useFakeWindow: true });
-      gcli.createView({ useTooltip: true });
+      gcli.createDisplay();
     });
   </script>
 
