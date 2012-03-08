@@ -8,37 +8,47 @@
   <style type="text/css" media="screen">
     body {
       width: 100%; height: 100%; overflow: hidden;
-      font-family: Calibri, Verdana, sans-serif;
     }
-    #gcliOutput {
+    #gcli-display {
       position: absolute; top: 0; bottom: 30px; left: 0; right: 0;
     }
-    #gcliInput {
+    #gcli-input {
       position: absolute; height: 27px; bottom: 0; left: 0; right: 0;
-      border: 1px solid #999;
-      font-size: 110%;
       width: 100%;
-      font-family: Consolas, Inconsolata, Courier New, monospace;
     }
   </style>
 </head>
 
 <body>
 
-  <div id="gcliOutput">
-  </div>
+  <div id="gcli-display"></div>
 
-  <input id="gcliInput" type="text" autofocus/>
+  <input id="gcli-input" type="text" autofocus/>
 
   <script type="text/javascript" src="es5-shim.js"></script>
   <script type="text/javascript" src="gcli-uncompressed.js"></script>
   <script type="text/javascript">
-    // This list should be the same as the browser part of Makefile.dryice.js
-    var deps = [ 'gcli/index', 'demo/index', 'gclitest/index' ];
-    require(deps, function(gcli) {
-      gcli.createView();
+    // This list should be the same as the browser part of gcli.js
+    var start = new Date().getTime();
+    var deps = [ 'gcli/index', 'gclitest/index', 'demo/index' ];
+    require(deps, function(gcli, gclitest) {
+      gclitest.run({ useFakeWindow: true });
+      gcli.createView({ useTooltip: true });
+
+      console.log('Startup time (inc tests): ' + (new Date().getTime() - start)/1000 + 's');
     });
   </script>
+
+  <!--
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    var socket = io.connect('http://localhost');
+    socket.on('news', function(data) {
+      console.log(data);
+      socket.emit('my other event', { my: 'data' });
+    });
+  </script>
+  -->
 
 </body>
 </html>
