@@ -20,6 +20,7 @@ intentions to commands and commands to what's actually going to happen.
 
         $ tar -zcf foo.tar.gz .
         $ tar -zxf foo.tar.gz .
+
   These 2 commands do exactly opposite things. Many a file has died as a result
   of a x/c typo. In GCLI this would be better expressed:
 
@@ -69,8 +70,8 @@ This command is used as follows:
     » greet Joe
     Hello, Joe
 
-A brief point of terminology - a function has 'parameters', and when you call
-a function, you pass 'arguments' to it.
+Terminology that isn't always obvious: a function has 'parameters', and when
+you call a function, you pass 'arguments' to it.
 
 
 ## Internationalization (i18n)
@@ -502,9 +503,11 @@ display as ``args.message``.
 The ``context`` object has the following signature:
 
     {
-      environment: /* object passed in options.environment to createView() */
-      document: /* object passed in options.document to createView() */
-      createPromise: function() { ... }
+      environment: ...,   // environment object passed to createDisplay()
+      exec: ...,          // function to execute a command
+      update: ...,        // function to alter the text of the input area
+      createView: ...,    // function to help creating rich output
+      createPromise: ..., // function to create a Promise
     }
 
 The ``environment`` object is opaque to GCLI. It can be used for providing
@@ -515,7 +518,7 @@ An example use for ``environment`` would be a page with several tabs, each
 containing an editor with a command line. Commands executed in those editors
 should apply to the relevant editor.
 The ``environment`` object is passed to GCLI at startup (probably in the
-``createView()`` function).
+``createDisplay()`` function).
 
 The ``document`` object is also passed to GCLI at startup. In some environments
 (e.g. embedded in Firefox) there is no global ``document``. This object
