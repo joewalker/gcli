@@ -113,7 +113,7 @@
   border-radius: 3px;
   padding: 1px 4px 0;
   margin: 0 4px;
-  font-size: 70%;
+  font-size: 80%;
   font-family: Consolas, Inconsolata, "Courier New", monospace;
   color: #666;
   cursor: pointer;
@@ -122,6 +122,8 @@
 }
 
 .gcli-out-shortcut:before {
-  color: #66F;
-  content: '\bb';
+  color: hsl(25,78%,50%);
+  font-weight: bold;
+  content: '\bb ';
+  padding-right: 2px;
 }

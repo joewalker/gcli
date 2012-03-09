@@ -1,11 +1,14 @@
 
-<div>
-  <p>GCLI is an experiment to create a highly usable command line for developers.</p>
+<div save="${hider}">
+  <p>
+  GCLI is an experiment to create a highly usable <strong>graphical command
+  line</strong> for developers. It's not a JavaScript
+  <a href="https://en.wikipedia.org/wiki/Read–eval–print_loop">REPL</a>, so
+  it focuses on speed of input over JavaScript syntax and a rich display over
+  monospace output.</p>
 
-  <p>The input is commands, not JavaScript (i.e it's a command line not a
-  <a href="https://en.wikipedia.org/wiki/Read–eval–print_loop">REPL</a>;
-  It focuses on speed of input rather than using JavaScript syntax and rich
-  hints and output over monospace text.</p>
+  <p>Type <span class="gcli-out-shortcut">help</span> for a list of commands,
+  or press <code>F1/Escape</code> to show/hide command hints.</p>
 
-  <button onclick="${onGotIt}" save="${button}">Got it!</button>
+  <button onclick="${onGotIt}" if="${showHideButton}">Got it!</button>
 </div>
