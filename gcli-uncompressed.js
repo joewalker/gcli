@@ -191,9 +191,14 @@ define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types
   /**
    * Create a basic UI for GCLI on the web
    */
-  exports.createView = function(options) {
-    return display.createView(options || {});
+  exports.createDisplay = function(options) {
+    return display.createDisplay(options || {});
   };
+
+  /**
+   * @deprecated Use createDisplay
+   */
+  exports.createView = exports.createDisplay;
 });
 /*
  * Copyright 2009-2011 Mozilla Foundation and contributors
@@ -711,12 +716,12 @@ exports.removeWhitespace = function(elem, deep) {
   var i = 0;
   while (i < elem.childNodes.length) {
     var child = elem.childNodes.item(i);
-    if (child.nodeType === Node.TEXT_NODE &&
+    if (child.nodeType === 3 /*Node.TEXT_NODE*/ &&
         isAllWhitespace.test(child.textContent)) {
       elem.removeChild(child);
     }
     else {
-      if (deep && child.nodeType === Node.ELEMENT_NODE) {
+      if (deep && child.nodeType === 1 /*Node.ELEMENT_NODE*/) {
         exports.removeWhitespace(child, deep);
       }
       i++;
@@ -5068,11 +5073,12 @@ exports.removeSetting = function(nameOrSpec) {
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/types/basic', 'gcli/argument'], function(require, exports, module) {
+define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/ui/view', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/types/basic', 'gcli/argument'], function(require, exports, module) {
 
 
 var util = require('gcli/util');
 var l10n = require('gcli/l10n');
+var view = require('gcli/ui/view');
 
 var canon = require('gcli/canon');
 var Promise = require('gcli/promise').Promise;
@@ -6590,351 +6596,13 @@ exports.createExecutionContext = function(requisition) {
     update: requisition.update.bind(requisition),
     document: requisition.document,
     environment: requisition.environment,
+    createView: view.createView,
     createPromise: function() {
       return new Promise();
     }
   };
 };
 
-
-});
-/*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
- */
-
-define('gcli/promise', ['require', 'exports', 'module' ], function(require, exports, module) {
-
-
-/**
- * Create an unfulfilled promise
- * @constructor
- */
-function Promise() {
-  this._status = Promise.PENDING;
-  this._value = undefined;
-  this._onSuccessHandlers = [];
-  this._onErrorHandlers = [];
-
-  // Debugging help
-  this._id = Promise._nextId++;
-  Promise._outstanding[this._id] = this;
-}
-
-/**
- * We give promises and ID so we can track which are outstanding
- */
-Promise._nextId = 0;
-
-/**
- * Outstanding promises. Handy list for debugging only
- */
-Promise._outstanding = [];
-
-/**
- * Recently resolved promises. Also for debugging only
- */
-Promise._recent = [];
-
-/**
- * A promise can be in one of 2 states.
- * The ERROR and SUCCESS states are terminal, the PENDING state is the only
- * start state.
- */
-Promise.ERROR = -1;
-Promise.PENDING = 0;
-Promise.SUCCESS = 1;
-
-/**
- * Yeay for RTTI
- */
-Promise.prototype.isPromise = true;
-
-/**
- * Have we either been resolve()ed or reject()ed?
- */
-Promise.prototype.isComplete = function() {
-  return this._status != Promise.PENDING;
-};
-
-/**
- * Have we resolve()ed?
- */
-Promise.prototype.isResolved = function() {
-  return this._status == Promise.SUCCESS;
-};
-
-/**
- * Have we reject()ed?
- */
-Promise.prototype.isRejected = function() {
-  return this._status == Promise.ERROR;
-};
-
-/**
- * Take the specified action of fulfillment of a promise, and (optionally)
- * a different action on promise rejection
- */
-Promise.prototype.then = function(onSuccess, onError) {
-  if (typeof onSuccess === 'function') {
-    if (this._status === Promise.SUCCESS) {
-      onSuccess.call(null, this._value);
-    }
-    else if (this._status === Promise.PENDING) {
-      this._onSuccessHandlers.push(onSuccess);
-    }
-  }
-
-  if (typeof onError === 'function') {
-    if (this._status === Promise.ERROR) {
-      onError.call(null, this._value);
-    }
-    else if (this._status === Promise.PENDING) {
-      this._onErrorHandlers.push(onError);
-    }
-  }
-
-  return this;
-};
-
-/**
- * Like then() except that rather than returning <tt>this</tt> we return
- * a promise which resolves when the original promise resolves
- */
-Promise.prototype.chainPromise = function(onSuccess) {
-  var chain = new Promise();
-  chain._chainedFrom = this;
-  this.then(function(data) {
-    try {
-      chain.resolve(onSuccess(data));
-    }
-    catch (ex) {
-      chain.reject(ex);
-    }
-  }, function(ex) {
-    chain.reject(ex);
-  });
-  return chain;
-};
-
-/**
- * Supply the fulfillment of a promise
- */
-Promise.prototype.resolve = function(data) {
-  return this._complete(this._onSuccessHandlers,
-                        Promise.SUCCESS, data, 'resolve');
-};
-
-/**
- * Renege on a promise
- */
-Promise.prototype.reject = function(data) {
-  return this._complete(this._onErrorHandlers, Promise.ERROR, data, 'reject');
-};
-
-/**
- * Internal method to be called on resolve() or reject()
- */
-Promise.prototype._complete = function(list, status, data, name) {
-  // Complain if we've already been completed
-  if (this._status != Promise.PENDING) {
-    Promise._error('Promise complete. Attempted ' + name + '() with ', data);
-    Promise._error('Prev status = ', this._status, ', value = ', this._value);
-    throw new Error('Promise already complete');
-  }
-  else if (list.length == 0 && status == Promise.ERROR) {
-    // Complain if a rejection is ignored
-    // (this is the equivalent of an empty catch-all clause)
-    Promise._error("Promise rejection ignored and silently dropped");
-    Promise._error(data);
-    var frame;
-    if (data.stack) {
-      // This is an exception or an exception-like value
-      Promise._error("Printing original stack");
-      for (frame = data.stack; frame; frame = frame.caller) {
-        Promise._error(frame);
-      }
-    }
-    else if (data.fileName && data.lineNumber) {
-      Promise._error("Error originating at " + data.fileName + ", line "
-           + data.lineNumber);
-    }
-    else if (typeof Components !== "undefined") {
-      try {
-        if (Components.stack) {
-          Promise._error("Original stack not available. Printing current stack");
-          for (frame = Components.stack; frame; frame = frame.caller) {
-            Promise._error(frame);
-          }
-        }
-      }
-      catch (ex) {
-        // Ignore failure to read Components.stack
-      }
-    }
-  }
-
-  Promise._setTimeout(function() {
-    this._status = status;
-    this._value = data;
-
-    // Call all the handlers, and then delete them
-    list.forEach(function(handler) {
-      handler.call(null, this._value);
-    }, this);
-    delete this._onSuccessHandlers;
-    delete this._onErrorHandlers;
-
-    // Remove the given {promise} from the _outstanding list, and add it to the
-    // _recent list, pruning more than 20 recent promises from that list
-    delete Promise._outstanding[this._id];
-    // The web version of this code includes this very useful debugging aid,
-    // however there is concern that it will create a memory leak, so we leave it
-    // out when embedded in Mozilla.
-    //*
-    Promise._recent.push(this);
-    while (Promise._recent.length > 20) {
-      Promise._recent.shift();
-    }
-    //*/
-  }.bind(this), 1);
-
-  return this;
-};
-
-/**
- * Minimal debugging.
- */
-Promise.prototype.toString = function() {
-  return "[Promise " + this._id + "]";
-};
-
-/**
- * Takes an array of promises and returns a promise that that is fulfilled once
- * all the promises in the array are fulfilled
- * @param promiseList The array of promises
- * @return the promise that is fulfilled when all the array is fulfilled
- */
-Promise.group = function(promiseList) {
-  if (!Array.isArray(promiseList)) {
-    promiseList = Array.prototype.slice.call(arguments);
-  }
-
-  // If the original array has nothing in it, return now to avoid waiting
-  if (promiseList.length === 0) {
-    return new Promise().resolve([]);
-  }
-
-  var groupPromise = new Promise();
-  var results = [];
-  var fulfilled = 0;
-
-  var onSuccessFactory = function(index) {
-    return function(data) {
-      results[index] = data;
-      fulfilled++;
-      // If the group has already failed, silently drop extra results
-      if (groupPromise._status !== Promise.ERROR) {
-        if (fulfilled === promiseList.length) {
-          groupPromise.resolve(results);
-        }
-      }
-    };
-  };
-
-  promiseList.forEach(function(promise, index) {
-    var onSuccess = onSuccessFactory(index);
-    var onError = groupPromise.reject.bind(groupPromise);
-    promise.then(onSuccess, onError);
-  });
-
-  return groupPromise;
-};
-
-/**
- * Executes a code snippet or a function after specified delay.
- * @param callback is the function you want to execute after the delay.
- * @param delay is the number of milliseconds that the function call should
- * be delayed by. Note that the actual delay may be longer, see Notes below.
- * @return the ID of the timeout
- */
-Promise._setTimeout = function(callback, delay) {
-  return window.setTimeout(callback, delay);
-};
-
-/**
- * This implementation of promise also runs in a browser.
- * Promise._error allows us to redirect error messages to the console with
- * minimal changes.
- */
-Promise._error = console.warn.bind(console);
-
-
-exports.Promise = Promise;
-
-});
-/*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
- */
-
-define('gcli/ui/intro', ['require', 'exports', 'module' , 'gcli/settings', 'gcli/l10n', 'gcli/util', 'gcli/ui/view', 'text!gcli/ui/intro.html'], function(require, exports, module) {
-
-  var settings = require('gcli/settings');
-  var l10n = require('gcli/l10n');
-  var util = require('gcli/util');
-  var view = require('gcli/ui/view');
-
-  /**
-   * Record if the user has clicked on 'Got It!'
-   */
-  var hideIntroSettingSpec = {
-    name: 'hideIntro',
-    type: 'boolean',
-    description: l10n.lookup('hideIntroDesc')
-  };
-  var hideIntro;
-
-  /**
-   * Register (and unregister) the hide-intro setting
-   */
-  exports.startup = function() {
-    hideIntro = settings.addSetting(hideIntroSettingSpec);
-  };
-
-  exports.shutdown = function() {
-    settings.removeSetting(hideIntroSettingSpec);
-    hideIntro = undefined;
-  };
-
-  /**
-   * Called when the UI is ready to add a welcome message to the output
-   */
-  exports.maybeShowIntro = function(commandOutputManager) {
-    if (hideIntro.value) {
-      return;
-    }
-
-    var output = view.createView({
-      html: require('text!gcli/ui/intro.html'),
-      data: {
-        onGotIt: function(ev) {
-          hideIntro.value = true;
-          this.button.style.display = 'none';
-        }
-      }
-    });
-
-    commandOutputManager.onOutput({ output: {
-      typed: '',
-      canonical: '',
-      completed: true,
-      error: false,
-      output: output
-    } });
-  };
 
 });
 /*
@@ -7589,16 +7257,359 @@ exports.template = template;
 
 
 });
+/*
+ * Copyright 2009-2011 Mozilla Foundation and contributors
+ * Licensed under the New BSD license. See LICENSE.txt or:
+ * http://opensource.org/licenses/BSD-3-Clause
+ */
+
+define('gcli/promise', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+
+/**
+ * Create an unfulfilled promise
+ * @constructor
+ */
+function Promise() {
+  this._status = Promise.PENDING;
+  this._value = undefined;
+  this._onSuccessHandlers = [];
+  this._onErrorHandlers = [];
+
+  // Debugging help
+  this._id = Promise._nextId++;
+  Promise._outstanding[this._id] = this;
+}
+
+/**
+ * We give promises and ID so we can track which are outstanding
+ */
+Promise._nextId = 0;
+
+/**
+ * Outstanding promises. Handy list for debugging only
+ */
+Promise._outstanding = [];
+
+/**
+ * Recently resolved promises. Also for debugging only
+ */
+Promise._recent = [];
+
+/**
+ * A promise can be in one of 2 states.
+ * The ERROR and SUCCESS states are terminal, the PENDING state is the only
+ * start state.
+ */
+Promise.ERROR = -1;
+Promise.PENDING = 0;
+Promise.SUCCESS = 1;
+
+/**
+ * Yeay for RTTI
+ */
+Promise.prototype.isPromise = true;
+
+/**
+ * Have we either been resolve()ed or reject()ed?
+ */
+Promise.prototype.isComplete = function() {
+  return this._status != Promise.PENDING;
+};
+
+/**
+ * Have we resolve()ed?
+ */
+Promise.prototype.isResolved = function() {
+  return this._status == Promise.SUCCESS;
+};
+
+/**
+ * Have we reject()ed?
+ */
+Promise.prototype.isRejected = function() {
+  return this._status == Promise.ERROR;
+};
+
+/**
+ * Take the specified action of fulfillment of a promise, and (optionally)
+ * a different action on promise rejection
+ */
+Promise.prototype.then = function(onSuccess, onError) {
+  if (typeof onSuccess === 'function') {
+    if (this._status === Promise.SUCCESS) {
+      onSuccess.call(null, this._value);
+    }
+    else if (this._status === Promise.PENDING) {
+      this._onSuccessHandlers.push(onSuccess);
+    }
+  }
+
+  if (typeof onError === 'function') {
+    if (this._status === Promise.ERROR) {
+      onError.call(null, this._value);
+    }
+    else if (this._status === Promise.PENDING) {
+      this._onErrorHandlers.push(onError);
+    }
+  }
+
+  return this;
+};
+
+/**
+ * Like then() except that rather than returning <tt>this</tt> we return
+ * a promise which resolves when the original promise resolves
+ */
+Promise.prototype.chainPromise = function(onSuccess) {
+  var chain = new Promise();
+  chain._chainedFrom = this;
+  this.then(function(data) {
+    try {
+      chain.resolve(onSuccess(data));
+    }
+    catch (ex) {
+      chain.reject(ex);
+    }
+  }, function(ex) {
+    chain.reject(ex);
+  });
+  return chain;
+};
+
+/**
+ * Supply the fulfillment of a promise
+ */
+Promise.prototype.resolve = function(data) {
+  return this._complete(this._onSuccessHandlers,
+                        Promise.SUCCESS, data, 'resolve');
+};
+
+/**
+ * Renege on a promise
+ */
+Promise.prototype.reject = function(data) {
+  return this._complete(this._onErrorHandlers, Promise.ERROR, data, 'reject');
+};
+
+/**
+ * Internal method to be called on resolve() or reject()
+ */
+Promise.prototype._complete = function(list, status, data, name) {
+  // Complain if we've already been completed
+  if (this._status != Promise.PENDING) {
+    Promise._error('Promise complete. Attempted ' + name + '() with ', data);
+    Promise._error('Prev status = ', this._status, ', value = ', this._value);
+    throw new Error('Promise already complete');
+  }
+  else if (list.length == 0 && status == Promise.ERROR) {
+    // Complain if a rejection is ignored
+    // (this is the equivalent of an empty catch-all clause)
+    Promise._error("Promise rejection ignored and silently dropped");
+    Promise._error(data);
+    var frame;
+    if (data.stack) {
+      // This is an exception or an exception-like value
+      Promise._error("Printing original stack");
+      for (frame = data.stack; frame; frame = frame.caller) {
+        Promise._error(frame);
+      }
+    }
+    else if (data.fileName && data.lineNumber) {
+      Promise._error("Error originating at " + data.fileName + ", line "
+           + data.lineNumber);
+    }
+    else if (typeof Components !== "undefined") {
+      try {
+        if (Components.stack) {
+          Promise._error("Original stack not available. Printing current stack");
+          for (frame = Components.stack; frame; frame = frame.caller) {
+            Promise._error(frame);
+          }
+        }
+      }
+      catch (ex) {
+        // Ignore failure to read Components.stack
+      }
+    }
+  }
+
+  Promise._setTimeout(function() {
+    this._status = status;
+    this._value = data;
+
+    // Call all the handlers, and then delete them
+    list.forEach(function(handler) {
+      handler.call(null, this._value);
+    }, this);
+    delete this._onSuccessHandlers;
+    delete this._onErrorHandlers;
+
+    // Remove the given {promise} from the _outstanding list, and add it to the
+    // _recent list, pruning more than 20 recent promises from that list
+    delete Promise._outstanding[this._id];
+    // The web version of this code includes this very useful debugging aid,
+    // however there is concern that it will create a memory leak, so we leave it
+    // out when embedded in Mozilla.
+    //*
+    Promise._recent.push(this);
+    while (Promise._recent.length > 20) {
+      Promise._recent.shift();
+    }
+    //*/
+  }.bind(this), 1);
+
+  return this;
+};
+
+/**
+ * Minimal debugging.
+ */
+Promise.prototype.toString = function() {
+  return "[Promise " + this._id + "]";
+};
+
+/**
+ * Takes an array of promises and returns a promise that that is fulfilled once
+ * all the promises in the array are fulfilled
+ * @param promiseList The array of promises
+ * @return the promise that is fulfilled when all the array is fulfilled
+ */
+Promise.group = function(promiseList) {
+  if (!Array.isArray(promiseList)) {
+    promiseList = Array.prototype.slice.call(arguments);
+  }
+
+  // If the original array has nothing in it, return now to avoid waiting
+  if (promiseList.length === 0) {
+    return new Promise().resolve([]);
+  }
+
+  var groupPromise = new Promise();
+  var results = [];
+  var fulfilled = 0;
+
+  var onSuccessFactory = function(index) {
+    return function(data) {
+      results[index] = data;
+      fulfilled++;
+      // If the group has already failed, silently drop extra results
+      if (groupPromise._status !== Promise.ERROR) {
+        if (fulfilled === promiseList.length) {
+          groupPromise.resolve(results);
+        }
+      }
+    };
+  };
+
+  promiseList.forEach(function(promise, index) {
+    var onSuccess = onSuccessFactory(index);
+    var onError = groupPromise.reject.bind(groupPromise);
+    promise.then(onSuccess, onError);
+  });
+
+  return groupPromise;
+};
+
+/**
+ * Executes a code snippet or a function after specified delay.
+ * @param callback is the function you want to execute after the delay.
+ * @param delay is the number of milliseconds that the function call should
+ * be delayed by. Note that the actual delay may be longer, see Notes below.
+ * @return the ID of the timeout
+ */
+Promise._setTimeout = function(callback, delay) {
+  return window.setTimeout(callback, delay);
+};
+
+/**
+ * This implementation of promise also runs in a browser.
+ * Promise._error allows us to redirect error messages to the console with
+ * minimal changes.
+ */
+Promise._error = console.warn.bind(console);
+
+
+exports.Promise = Promise;
+
+});
+/*
+ * Copyright 2009-2011 Mozilla Foundation and contributors
+ * Licensed under the New BSD license. See LICENSE.txt or:
+ * http://opensource.org/licenses/BSD-3-Clause
+ */
+
+define('gcli/ui/intro', ['require', 'exports', 'module' , 'gcli/settings', 'gcli/l10n', 'gcli/util', 'gcli/ui/view', 'text!gcli/ui/intro.html'], function(require, exports, module) {
+
+  var settings = require('gcli/settings');
+  var l10n = require('gcli/l10n');
+  var util = require('gcli/util');
+  var view = require('gcli/ui/view');
+
+  /**
+   * Record if the user has clicked on 'Got It!'
+   */
+  var hideIntroSettingSpec = {
+    name: 'hideIntro',
+    type: 'boolean',
+    description: l10n.lookup('hideIntroDesc')
+  };
+  var hideIntro;
+
+  /**
+   * Register (and unregister) the hide-intro setting
+   */
+  exports.startup = function() {
+    hideIntro = settings.addSetting(hideIntroSettingSpec);
+  };
+
+  exports.shutdown = function() {
+    settings.removeSetting(hideIntroSettingSpec);
+    hideIntro = undefined;
+  };
+
+  /**
+   * Called when the UI is ready to add a welcome message to the output
+   */
+  exports.maybeShowIntro = function(commandOutputManager) {
+    if (hideIntro.value) {
+      return;
+    }
+
+    var output = view.createView({
+      html: require('text!gcli/ui/intro.html'),
+      data: {
+        showHideButton: true,
+        onGotIt: function(ev) {
+          hideIntro.value = true;
+          this.hider.style.display = 'none';
+        }
+      }
+    });
+
+    commandOutputManager.onOutput({ output: {
+      typed: '',
+      canonical: '',
+      completed: true,
+      error: false,
+      output: output
+    } });
+  };
+
+});
 define("text!gcli/ui/intro.html", [], "\n" +
-  "<div>\n" +
-  "  <p>GCLI is an experiment to create a highly usable command line for developers.</p>\n" +
+  "<div save=\"${hider}\">\n" +
+  "  <p>\n" +
+  "  GCLI is an experiment to create a highly usable <strong>graphical command\n" +
+  "  line</strong> for developers. It's not a JavaScript\n" +
+  "  <a href=\"https://en.wikipedia.org/wiki/Read�eval�print_loop\">REPL</a>, so\n" +
+  "  it focuses on speed of input over JavaScript syntax and a rich display over\n" +
+  "  monospace output.</p>\n" +
   "\n" +
-  "  <p>The input is commands, not JavaScript (i.e it's a command line not a\n" +
-  "  <a href=\"https://en.wikipedia.org/wiki/Read�eval�print_loop\">REPL</a>;\n" +
-  "  It focuses on speed of input rather than using JavaScript syntax and rich\n" +
-  "  hints and output over monospace text.</p>\n" +
+  "  <p>Type <span class=\"gcli-out-shortcut\">help</span> for a list of commands,\n" +
+  "  or press <code>F1/Escape</code> to show/hide command hints.</p>\n" +
   "\n" +
-  "  <button onclick=\"${onGotIt}\" save=\"${button}\">Got it!</button>\n" +
+  "  <button onclick=\"${onGotIt}\" if=\"${showHideButton}\">Got it!</button>\n" +
   "</div>\n" +
   "");
 
@@ -9285,7 +9296,27 @@ var displayHtml = require('text!gcli/ui/display.html');
 
 
 /**
- * createView is responsible for generating the web UI for GCLI
+ * createDisplay() calls 'new Display()' but returns an object which exposes a
+ * much restricted set of functions rather than all those exposed by Display.
+ * This allows for robust testing without exposing too many internals.
+ * @param options See Display() for a description of the available options.
+ */
+exports.createDisplay = function(options) {
+  var display = new Display(options);
+  var requisition = display.requisition;
+  return {
+    /**
+     * The exact shape of the object returned by exec is likely to change in
+     * the near future. If you do use it, please expect your code to break.
+     */
+    exec: requisition.exec.bind(requisition),
+    update: requisition.update.bind(requisition),
+    destroy: display.destroy.bind(display)
+  };
+};
+
+/**
+ * View is responsible for generating the web UI for GCLI.
  * @param options Object containing user customization properties.
  * See the documentation for the other components for more details.
  * Options supported directly include:
@@ -9297,12 +9328,12 @@ var displayHtml = require('text!gcli/ui/display.html');
  * - displayElement (default=#gcli-display):
  * - promptElement (default=#gcli-prompt):
  */
-exports.createView = function(options) {
+function Display(options) {
   var doc = options.document || document;
 
-  var displayStyle = undefined;
+  this.displayStyle = undefined;
   if (displayCss != null) {
-    displayStyle = util.importCss(displayCss, doc);
+    this.displayStyle = util.importCss(displayCss, doc);
   }
 
   // Configuring the document is complex because on the web side, there is an
@@ -9312,85 +9343,103 @@ exports.createView = function(options) {
   // When a component uses a document to create elements for use under a known
   // root element, then we pass in the element (if we have looked it up
   // already) or an id/document
-  var requisition = new Requisition(options.enviroment || {}, doc);
+  this.requisition = new Requisition(options.enviroment || {}, doc);
 
-  var focusManager = new FocusManager(options, {
+  this.focusManager = new FocusManager(options, {
     document: doc
   });
 
-  var inputElement = find(doc, options.inputElement || null, 'gcli-input');
-  var inputter = new Inputter(options, {
-    requisition: requisition,
-    focusManager: focusManager,
-    element: inputElement
+  this.inputElement = find(doc, options.inputElement || null, 'gcli-input');
+  this.inputter = new Inputter(options, {
+    requisition: this.requisition,
+    focusManager: this.focusManager,
+    element: this.inputElement
   });
 
   // autoResize logic: we want Completer to keep the elements at the same
   // position if we created the completion element, but if someone else created
   // it, then it's their job.
-  var completeElement = insert(inputElement,
+  this.completeElement = insert(this.inputElement,
                          options.completeElement || null, 'gcli-row-complete');
-  var completer = new Completer(options, {
-    requisition: requisition,
-    inputter: inputter,
-    autoResize: completeElement.gcliCreated,
-    element: completeElement
+  this.completer = new Completer(options, {
+    requisition: this.requisition,
+    inputter: this.inputter,
+    autoResize: this.completeElement.gcliCreated,
+    element: this.completeElement
   });
 
-  var prompt = new Prompt(options, {
-    inputter: inputter,
-    element: insert(inputElement, options.promptElement || null, 'gcli-prompt')
+  this.prompt = new Prompt(options, {
+    inputter: this.inputter,
+    element: insert(this.inputElement,
+                    options.promptElement || null, 'gcli-prompt')
   });
 
-  var element = find(doc, options.displayElement || null, 'gcli-display');
-  element.classList.add('gcli-display');
+  this.element = find(doc, options.displayElement || null, 'gcli-display');
+  this.element.classList.add('gcli-display');
 
-  var template = util.toDom(doc, displayHtml);
-  var elements = {};
-  domtemplate.template(template, elements, { stack: 'display.html' });
-  element.appendChild(template);
+  this.template = util.toDom(doc, displayHtml);
+  this.elements = {};
+  domtemplate.template(this.template, this.elements, { stack: 'display.html' });
+  this.element.appendChild(this.template);
 
-  var tooltip = new Tooltip(options, {
-    requisition: requisition,
-    inputter: inputter,
-    focusManager: focusManager,
-    element: elements.tooltip,
-    panelElement: elements.panel
+  this.tooltip = new Tooltip(options, {
+    requisition: this.requisition,
+    inputter: this.inputter,
+    focusManager: this.focusManager,
+    element: this.elements.tooltip,
+    panelElement: this.elements.panel
   });
 
-  var outputElement =  util.createElement(doc, 'div');
-  outputElement.classList.add('gcli-output');
-  var outputList = new OutputTerminal(options, {
-    requisition: requisition,
-    element: outputElement
+  this.outputElement = util.createElement(doc, 'div');
+  this.outputElement.classList.add('gcli-output');
+  this.outputList = new OutputTerminal(options, {
+    requisition: this.requisition,
+    element: this.outputElement
   });
 
-  element.appendChild(outputElement);
+  this.element.appendChild(this.outputElement);
 
-  intro.maybeShowIntro(outputList.commandOutputManager);
+  intro.maybeShowIntro(this.outputList.commandOutputManager);
+}
 
-  return {
-    exec: requisition.exec.bind(requisition),
-    update: requisition.update.bind(requisition),
+/**
+ * Call the destroy functions of the components that we created
+ */
+Display.prototype.destroy = function() {
+  delete this.element;
+  delete this.template;
 
-    /**
-     * Unregister everything
-     */
-    destroy: function() {
-      outputList.destroy();
-      tooltip.destroy();
-      prompt.destroy();
-      completer.destroy();
-      inputter.destroy();
-      focusManager.destroy();
-      requisition.destroy();
+  this.outputList.destroy();
+  delete this.outputList;
+  delete this.outputElement;
 
-      if (displayStyle) {
-        displayStyle.parentNode.removeChild(displayStyle);
-      }
-    }
-  };
+  this.tooltip.destroy();
+  delete this.tooltip;
+
+  this.prompt.destroy();
+  delete this.prompt;
+
+  this.completer.destroy();
+  delete this.completer;
+  delete this.completeElement;
+
+  this.inputter.destroy();
+  delete this.inputter;
+  delete this.inputElement;
+
+  this.focusManager.destroy();
+  delete this.focusManager;
+
+  this.requisition.destroy();
+  delete this.requisition;
+
+  if (this.displayStyle) {
+    this.displayStyle.parentNode.removeChild(this.displayStyle);
+  }
+  delete this.displayStyle;
 };
+
+exports.Display = Display;
 
 /**
  * Utility to help find an element by id, throwing if it wasn't found
@@ -10061,7 +10110,7 @@ define("text!gcli/ui/output_view.css", [], "\n" +
   "  border-radius: 3px;\n" +
   "  padding: 1px 4px 0;\n" +
   "  margin: 0 4px;\n" +
-  "  font-size: 70%;\n" +
+  "  font-size: 80%;\n" +
   "  font-family: Consolas, Inconsolata, \"Courier New\", monospace;\n" +
   "  color: #666;\n" +
   "  cursor: pointer;\n" +
@@ -10070,8 +10119,10 @@ define("text!gcli/ui/output_view.css", [], "\n" +
   "}\n" +
   "\n" +
   ".gcli-out-shortcut:before {\n" +
-  "  color: #66F;\n" +
-  "  content: '\\bb';\n" +
+  "  color: hsl(25,78%,50%);\n" +
+  "  font-weight: bold;\n" +
+  "  content: '\\bb ';\n" +
+  "  padding-right: 2px;\n" +
   "}\n" +
   "");
 
@@ -11077,7 +11128,7 @@ define("text!gcli/ui/display.html", [], "\n" +
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/commands/help', 'gcli/commands/pref', 'test/commands', 'demo/commands/basic', 'demo/commands/bugs', 'demo/commands/demo', 'demo/commands/experimental', 'demo/commands/shell'], function(require, exports, module) {
+define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/commands/help', 'gcli/commands/pref', 'test/commands', 'demo/commands/basic', 'demo/commands/demo', 'demo/commands/shell'], function(require, exports, module) {
 
   require('gcli/index');
 
@@ -11087,9 +11138,8 @@ define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/comma
   require('test/commands').startup();
 
   require('demo/commands/basic').startup();
-  require('demo/commands/bugs').startup();
+  // require('demo/commands/bugs').startup();
   require('demo/commands/demo').startup();
-  require('demo/commands/experimental').startup();
   require('demo/commands/shell').startup();
 
 });
@@ -12167,7 +12217,7 @@ define("text!test/ui/test.html", [], "\n" +
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('demo/commands/basic', ['require', 'exports', 'module' , 'gcli/index'], function(require, exports, module) {
+define('demo/commands/basic', ['require', 'exports', 'module' , 'gcli/index', 'text!gcli/ui/intro.html'], function(require, exports, module) {
 
 
 var gcli = require('gcli/index');
@@ -12178,11 +12228,17 @@ var gcli = require('gcli/index');
 exports.startup = function() {
   gcli.addCommand(echo);
   gcli.addCommand(alert);
+  gcli.addCommand(intro);
+  gcli.addCommand(edit);
+  gcli.addCommand(sleep);
 };
 
 exports.shutdown = function() {
   gcli.removeCommand(echo);
   gcli.removeCommand(alert);
+  gcli.removeCommand(intro);
+  gcli.removeCommand(edit);
+  gcli.removeCommand(sleep);
 };
 
 
@@ -12191,16 +12247,12 @@ exports.shutdown = function() {
  */
 var alert = {
   name: 'alert',
-  description: {
-    'root': 'Show an alert dialog'
-  },
+  description: 'Show an alert dialog',
   params: [
     {
       name: 'message',
       type: 'string',
-      description: {
-        'root': 'Message to display'
-      }
+      description: 'Message to display'
     }
   ],
   exec: function(args, context) {
@@ -12215,13 +12267,15 @@ var echo = {
   name: 'echo',
   description: {
     root: 'Show a message',
+    fr_fr: 'Afficher un message',
   },
   params: [
     {
       name: 'message',
       type: 'string',
       description: {
-        root: 'The message to output'
+        root: 'The message to output',
+        fr_fr: 'Le message à afficher'
       }
     }
   ],
@@ -12231,275 +12285,66 @@ var echo = {
   }
 };
 
-
-});
-/*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
- */
-
-define('demo/commands/bugs', ['require', 'exports', 'module' , 'gcli/index', 'gcli/util'], function(require, exports, module) {
-
-
-var gcli = require('gcli/index');
-var util = require('gcli/util');
-
 /**
- * Registration and de-registration.
+ * 'intro' command
  */
-exports.startup = function() {
-  gcli.addCommand(bugzCommandSpec);
-};
-
-exports.shutdown = function() {
-  gcli.removeCommand(bugzCommandSpec);
-};
-
-
-/**
- * 'bugz' command.
- */
-var bugzCommandSpec = {
-  name: 'bugz',
+var intro = {
+  name: 'intro',
+  description: 'Show the opening message',
   returnType: 'html',
-  description: 'List the GCLI bugs open in Bugzilla',
+  exec: function echo(args, context) {
+    return context.createView({
+      html: require('text!gcli/ui/intro.html')
+    });
+  }
+};
+
+/**
+ * 'edit' command
+ */
+var edit = {
+  name: 'edit',
+  description: 'Edit a file',
+  params: [
+    {
+      name: 'resource',
+      type: { name: 'resource', include: 'text/css' },
+      description: 'The resource to edit'
+    }
+  ],
+  returnType: 'html',
   exec: function(args, context) {
     var promise = context.createPromise();
-
-    function onFailure(msg) {
-      promise.resolve(msg);
-    }
-
-    // A quick hack to help us add up predictions
-    var predictions = {
-      completed: { best:0, likely:0, worst:0 },
-      outstanding: { best:0, likely:0, worst:0 }
-    };
-
-    var query = 'status_whiteboard=[GCLI-META]' +
-      '&bug_status=UNCONFIRMED' +
-      '&bug_status=NEW' +
-      '&bug_status=ASSIGNED' +
-      '&bug_status=REOPENED';
-
-    queryBugzilla(query, function(json) {
-      json.bugs.sort(function(bug1, bug2) {
-        return bug1.priority.localeCompare(bug2.priority);
-      });
-
-      var doc = context.document;
-      var div = util.createElement(doc, 'div');
-
-      var p = util.createElement(doc, 'p');
-      p.appendChild(doc.createTextNode('Open GCLI meta-bugs (i.e. '));
-      var a = util.createElement(doc, 'a');
-      a.setAttribute('target', '_blank');
-      a.setAttribute('href', 'https://bugzilla.mozilla.org/buglist.cgi?list_id=459033&status_whiteboard_type=allwordssubstr&query_format=advanced&status_whiteboard=[GCLI-META]&bug_status=UNCONFIRMED&bug_status=NEW&bug_status=ASSIGNED&bug_status=REOPENED');
-      a.appendChild(doc.createTextNode('this search'));
-      p.appendChild(a);
-      p.appendChild(doc.createTextNode('):'));
-      div.appendChild(p);
-
-      var ul = util.createElement(doc, 'ul');
-      json.bugs.forEach(function(bug) {
-        var li = liFromBug(doc, bug, predictions);
-
-        // This is the spinner graphic
-        var img = util.createElement(doc, 'img');
-        img.setAttribute('src', 'data:image/gif;base64,R0lGODlhEAAQA' +
-            'PMAAP///wAAAAAAAIKCgnJycqioqLy8vM7Ozt7e3pSUlOjo6GhoaAAA' +
-            'AAAAAAAAAAAAACH/C05FVFNDQVBFMi4wAwEAAAAh/hpDcmVhdGVkIHd' +
-            'pdGggYWpheGxvYWQuaW5mbwAh+QQJCgAAACwAAAAAEAAQAAAEKxDISa' +
-            'u9OE/Bu//cQBTGgWDhWJ5XSpqoIL6s5a7xjLeyCvOgIEdDLBqPlAgAI' +
-            'fkECQoAAAAsAAAAABAAEAAABCsQyEmrvThPwbv/XJEMxIFg4VieV0qa' +
-            'qCC+rOWu8Yy3sgrzoCBHQywaj5QIACH5BAkKAAAALAAAAAAQABAAAAQ' +
-            'rEMhJq704T8G7/9xhFMlAYOFYnldKmqggvqzlrvGMt7IK86AgR0MsGo' +
-            '+UCAAh+QQJCgAAACwAAAAAEAAQAAAEMRDISau9OE/Bu/+cghxGkQyEF' +
-            'Y7lmVYraaKqIMpufbc0bLOzFyXGE25AyI5myWw6KREAIfkECQoAAAAs' +
-            'AAAAABAAEAAABDYQyEmrvThPwbv/nKQgh1EkA0GFwFie6SqIpImq29z' +
-            'WMC6xLlssR3vdZEWhDwBqejTQqHRKiQAAIfkECQoAAAAsAAAAABAAEA' +
-            'AABDYQyEmrvThPwbv/HKUgh1EkAyGF01ie6SqIpImqACu5dpzPrRoMp' +
-            'wPwhjLa6yYDOYuaqHRKjQAAIfkECQoAAAAsAAAAABAAEAAABDEQyEmr' +
-            'vThPwbv/nKUgh1EkAxFWY3mmK9WaqCqIJA3fbP7aOFctNpn9QEiPZsl' +
-            'sOikRACH5BAkKAAAALAAAAAAQABAAAAQrEMhJq704T8G7/xymIIexEO' +
-            'E1lmdqrSYqiGTsVnA7q7VOszKQ8KYpGo/ICAAh+QQJCgAAACwAAAAAE' +
-            'AAQAAAEJhDISau9OE/Bu/+cthBDEmZjeWKpKYikC6svGq9XC+6e5v/A' +
-            'ICUCACH5BAkKAAAALAAAAAAQABAAAAQrEMhJq704T8G7/xy2EENSGOE' +
-            '1lmdqrSYqiGTsVnA7q7VOszKQ8KYpGo/ICAAh+QQJCgAAACwAAAAAEA' +
-            'AQAAAEMRDISau9OE/Bu/+ctRBDUhgHElZjeaYr1ZqoKogkDd9s/to4V' +
-            'y02mf1ASI9myWw6KREAIfkECQoAAAAsAAAAABAAEAAABDYQyEmrvThP' +
-            'wbv/HLUQQ1IYByKF01ie6SqIpImqACu5dpzPrRoMpwPwhjLa6yYDOYu' +
-            'aqHRKjQAAIfkECQoAAAAsAAAAABAAEAAABDYQyEmrvThPwbv/nLQQQ1' +
-            'IYB0KFwFie6SqIpImq29zWMC6xLlssR3vdZEWhDwBqejTQqHRKiQAAI' +
-            'fkECQoAAAAsAAAAABAAEAAABDEQyEmrvThPwbv/3EIMSWEciBWO5ZlW' +
-            'K2miqiDKbn23NGyzsxclxhNuQMiOZslsOikRADsAAAAAAAAAAAA=');
-        li.appendChild(img);
-
-        queryBugzilla('blocked=' + bug.id, function(json) {
-          var subul = util.createElement(doc, 'ul');
-          json.bugs.forEach(function(bug) {
-            subul.appendChild(liFromBug(doc, bug, predictions));
-          });
-          li.appendChild(subul);
-          li.removeChild(img);
-        }, onFailure);
-
-        ul.appendChild(li);
-      });
-
-      div.appendChild(ul);
-
-      var table = util.createElement(doc, 'table');
-      var header = util.createElement(doc, 'tr');
-      header.innerHTML = '<th>Days</th><th>Best</th><th>Likely</th><th>Worst</th>';
-      table.appendChild(header);
-      div.appendChild(table);
-
-      var compRow = util.createElement(doc, 'tr');
-      var completed = util.createElement(doc, 'td');
-      completed.innerHTML = 'Completed';
-      compRow.appendChild(completed);
-      predictions.completed.bestTd = util.createElement(doc, 'td');
-      compRow.appendChild(predictions.completed.bestTd);
-      predictions.completed.likelyTd = util.createElement(doc, 'td');
-      compRow.appendChild(predictions.completed.likelyTd);
-      predictions.completed.worstTd = util.createElement(doc, 'td');
-      compRow.appendChild(predictions.completed.worstTd);
-      table.appendChild(compRow);
-
-      var outstRow = util.createElement(doc, 'tr');
-      var outstanding = util.createElement(doc, 'td');
-      outstanding.innerHTML = 'Outstanding';
-      outstRow.appendChild(outstanding);
-      predictions.outstanding.bestTd = util.createElement(doc, 'td');
-      outstRow.appendChild(predictions.outstanding.bestTd);
-      predictions.outstanding.likelyTd = util.createElement(doc, 'td');
-      outstRow.appendChild(predictions.outstanding.likelyTd);
-      predictions.outstanding.worstTd = util.createElement(doc, 'td');
-      outstRow.appendChild(predictions.outstanding.worstTd);
-      table.appendChild(outstRow);
-
-      predictions.summary = util.createElement(doc, 'p');
-      div.appendChild(predictions.summary);
-
-      promise.resolve(div);
-    }, onFailure);
-
+    args.resource.loadContents(function(data) {
+      promise.resolve('<p>This is just a demo</p>' +
+                      '<textarea rows=5 cols=80>' + data + '</textarea>');
+    });
     return promise;
   }
 };
 
 /**
- * Simple wrapper for querying bugzilla.
- * @see https://wiki.mozilla.org/Bugzilla:REST_API
- * @see https://wiki.mozilla.org/Bugzilla:REST_API:Search
- * @see http://www.bugzilla.org/docs/developer.html
- * @see https://harthur.wordpress.com/2011/03/31/bz-js/
- * @see https://github.com/harthur/bz.js
+ * 'sleep' command
  */
-function queryBugzilla(query, onSuccess, onFailure) {
-  var url = 'https://api-dev.bugzilla.mozilla.org/0.9/bug?' + query;
-
-  var req = new XMLHttpRequest();
-  req.open('GET', url, true);
-  req.setRequestHeader('Accept', 'application/json');
-  req.setRequestHeader('Content-type', 'application/json');
-  req.onreadystatechange = function(event) {
-    if (req.readyState == 4) {
-      if (req.status >= 300 || req.status < 200) {
-        onFailure('Error: ' + JSON.stringify(req));
-        return;
-      }
-
-      var json;
-      try {
-        json = JSON.parse(req.responseText);
-      }
-      catch (ex) {
-        onFailure('Invalid response: ' + ex + ': ' + req.responseText);
-        return;
-      }
-
-      if (json.error) {
-        onFailure('Error: ' + json.error.message);
-        return;
-      }
-
-      onSuccess(json);
+var sleep = {
+  name: 'sleep',
+  description: 'Wait for a while',
+  params: [
+    {
+      name: 'length',
+      type: { name: 'number', min: 1 },
+      description: 'How long to wait (s)'
     }
-  }.bind(this);
-  req.send();
-}
-
-/**
- * Create an <li> element from the given bug object
- */
-function liFromBug(doc, bug, predictions) {
-  var done = [ 'RESOLVED', 'VERIFIED', 'CLOSED' ].indexOf(bug.status) !== -1;
-  var li = util.createElement(doc, 'li');
-  if (done) {
-    li.style.textDecoration = 'line-through';
-    li.style.color = 'grey';
+  ],
+  returnType: 'html',
+  exec: function(args, context) {
+    var promise = context.createPromise();
+    window.setTimeout(function() {
+      promise.resolve('done');
+    }, args.length * 1000);
+    return promise;
   }
-  if (bug.status === 'ASSIGNED') {
-    li.style.fontWeight = 'bold';
-  }
-  var a = util.createElement(doc, 'a');
-  a.setAttribute('target', '_blank');
-  a.setAttribute('href', 'https://bugzilla.mozilla.org/show_bug.cgi?id=' + bug.id);
-  a.appendChild(doc.createTextNode(bug.id));
-  li.appendChild(a);
-  li.appendChild(doc.createTextNode(' ' + bug.summary + ' '));
-  if (bug.whiteboard.indexOf('[minotaur]') !== -1) {
-    var bestReply = /best:([0-9]*)d/.exec(bug.whiteboard);
-    var best = (bestReply == null ? 0 : bestReply[1]);
-    var likelyReply = /likely:([0-9]*)d/.exec(bug.whiteboard);
-    var likely = (likelyReply == null ? 0 : likelyReply[1]);
-    var worstReply = /worst:([0-9]*)d/.exec(bug.whiteboard);
-    var worst = (worstReply == null ? 0 : worstReply[1]);
-    try {
-      best = parseInt(best, 10);
-      likely = parseInt(likely, 10);
-      worst = parseInt(worst, 10);
-    }
-    catch (ex) {
-      console.error(ex);
-      best = 0;
-      likely = 0;
-      worst = 0;
-    }
-    if (done) {
-      predictions.completed.best += best;
-      predictions.completed.likely += likely;
-      predictions.completed.worst += worst;
-    }
-    else {
-      predictions.outstanding.best += best;
-      predictions.outstanding.likely += likely;
-      predictions.outstanding.worst += worst;
-    }
-    var minsum = util.createElement(doc, 'span');
-    minsum.setAttribute('style', 'color: #080;');
-    minsum.appendChild(doc.createTextNode(' M:' + best + '/' + likely + '/' + worst));
-    li.appendChild(minsum);
-
-    predictions.completed.bestTd.innerHTML = '' + predictions.completed.best;
-    predictions.completed.likelyTd.innerHTML = '' + predictions.completed.likely;
-    predictions.completed.worstTd.innerHTML = '' + predictions.completed.worst;
-    predictions.outstanding.bestTd.innerHTML = '' + predictions.outstanding.best;
-    predictions.outstanding.likelyTd.innerHTML = '' + predictions.outstanding.likely;
-    predictions.outstanding.worstTd.innerHTML = '' + predictions.outstanding.worst;
-
-    var percentComplete = Math.floor((
-        (100 * predictions.completed.best / (predictions.completed.best + predictions.outstanding.best)) +
-        (100 * predictions.completed.likely / (predictions.completed.likely + predictions.outstanding.likely)) +
-        (100 * predictions.completed.worst / (predictions.completed.best + predictions.outstanding.worst))
-      ) / 3);
-    predictions.summary.innerHTML = 'Complete: ' + percentComplete + '%';
-  }
-  return li;
-}
+};
 
 
 });
@@ -12667,339 +12512,6 @@ function motivate() {
   var index = Math.floor(Math.random() * messages.length);
   return messages[index];
 }
-
-
-});
-/*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
- */
-
-define('demo/commands/experimental', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types'], function(require, exports, module) {
-var experimental = exports;
-
-
-var canon = require('gcli/canon');
-var types = require('gcli/types');
-var Type = require('gcli/types').Type;
-var Conversion = require('gcli/types').Conversion;
-
-/**
- * Registration and de-registration.
- */
-experimental.startup = function(data, reason) {
-  types.registerType(commitObject);
-  types.registerType(existingFile);
-
-  canon.addCommand(git);
-  canon.addCommand(gitAdd);
-  canon.addCommand(gitCommit);
-
-  canon.addCommand(vi);
-
-  canon.addCommand(sleep);
-};
-
-experimental.shutdown = function(data, reason) {
-  canon.removeCommand(sleep);
-
-  canon.removeCommand(vi);
-
-  canon.removeCommand(git);
-  canon.removeCommand(gitAdd);
-  canon.removeCommand(gitCommit);
-
-  types.unregisterType(commitObject);
-  types.unregisterType(existingFile);
-};
-
-
-/**
- * commitObject really needs some smarts, but for now it is a clone of string
- */
-var commitObject = new Type();
-
-commitObject.stringify = function(value) {
-  return value;
-};
-
-commitObject.parse = function(arg) {
-  return new Conversion(arg.text, arg);
-};
-
-commitObject.name = 'commitObject';
-
-/**
- * existingFile really needs some smarts, but for now it is a clone of string
- */
-var existingFile = new Type();
-
-existingFile.stringify = function(value) {
-  return value;
-};
-
-existingFile.parse = function(arg) {
-  return new Conversion(arg.text, arg);
-};
-
-existingFile.name = 'existingFile';
-
-
-/**
- * Parent 'git' command
- */
-var git = {
-  name: 'git',
-  description: 'Distributed revision control in a browser',
-  manual: 'Git is a fast, scalable, distributed revision control system' +
-    ' with an unusually rich command set that provides both' +
-    ' high-level operations and full access to internals.'
-};
-
-/**
- * 'git add' command
- */
-var gitAdd = {
-  name: 'git add',
-  description: 'Add file contents to the index',
-  manual: 'This command updates the index using the current content found in the working tree, to prepare the content staged for the next commit. It typically adds the current content of existing paths as a whole, but with some options it can also be used to add content with only part of the changes made to the working tree files applied, or remove paths that do not exist in the working tree anymore.' +
-      '<br/>The "index" holds a snapshot of the content of the working tree, and it is this snapshot that is taken as the contents of the next commit. Thus after making any changes to the working directory, and before running the commit command, you must use the add command to add any new or modified files to the index.' +
-      '<br/>This command can be performed multiple times before a commit. It only adds the content of the specified file(s) at the time the add command is run; if you want subsequent changes included in the next commit, then you must run git add again to add the new content to the index.' +
-      '<br/>The git status command can be used to obtain a summary of which files have changes that are staged for the next commit.' +
-      '<br/>The git add command will not add ignored files by default. If any ignored files were explicitly specified on the command line, git add will fail with a list of ignored files. Ignored files reached by directory recursion or filename globbing performed by Git (quote your globs before the shell) will be silently ignored. The git add command can be used to add ignored files with the -f (force) option.' +
-      '<br/>Please see git-commit(1) for alternative ways to add content to a commit.',
-  params: [
-    {
-      name: 'filepattern',
-      type: { name: 'array', subtype: 'string' },
-      description: 'Files to add',
-      manual: 'Fileglobs (e.g.  *.c) can be given to add all matching files. Also a leading directory name (e.g.  dir to add dir/file1 and dir/file2) can be given to add all files in the directory, recursively.'
-    },
-    {
-      group: 'Common Options',
-      params: [
-        {
-          name: 'all',
-          short: 'a',
-          type: 'boolean',
-          description: 'All (unignored) files',
-          manual: 'That means that it will find new files as well as staging modified content and removing files that are no longer in the working tree.'
-        },
-        {
-          name: 'verbose',
-          short: 'v',
-          type: 'boolean',
-          description: 'Verbose output'
-        },
-        {
-          name: 'dry-run',
-          short: 'n',
-          type: 'boolean',
-          description: 'Dry run',
-          manual: 'Don\'t actually add the file(s), just show if they exist and/or will be ignored.'
-        },
-        {
-          name: 'force',
-          short: 'f',
-          type: 'boolean',
-          description: 'Allow ignored files',
-          manual: 'Allow adding otherwise ignored files.'
-        }
-      ]
-    },
-    {
-      group: 'Advanced Options',
-      params: [
-        {
-          name: 'update',
-          short: 'u',
-          type: 'boolean',
-          description: 'Match only files already added',
-          manual: 'That means that it will never stage new files, but that it will stage modified new contents of tracked files and that it will remove files from the index if the corresponding files in the working tree have been removed.<br/>If no <filepattern> is given, default to "."; in other words, update all tracked files in the current directory and its subdirectories.'
-        },
-        {
-          name: 'refresh',
-          type: 'boolean',
-          description: 'Refresh only (don\'t add)',
-          manual: 'Don\'t add the file(s), but only refresh their stat() information in the index.'
-        },
-        {
-          name: 'ignore-errors',
-          type: 'boolean',
-          description: 'Ignore errors',
-          manual: 'If some files could not be added because of errors indexing them, do not abort the operation, but continue adding the others. The command shall still exit with non-zero status.'
-        },
-        {
-          name: 'ignore-missing',
-          type: 'boolean',
-          description: 'Ignore missing',
-          manual: 'By using this option the user can check if any of the given files would be ignored, no matter if they are already present in the work tree or not. This option can only be used together with --dry-run.'
-        }
-      ]
-    }
-  ],
-  exec: function(args, context) {
-    return "This is only a demo of UI generation.";
-  }
-};
-
-
-/**
- * 'git commit' command
- */
-var gitCommit = {
-  name: 'git commit',
-  description: 'Record changes to the repository',
-  manual: 'Stores the current contents of the index in a new commit along with a log message from the user describing the changes.' +
-      '<br/>The content to be added can be specified in several ways:' +
-      '<br/>1. by using git add to incrementally "add" changes to the index before using the commit command (Note: even modified files must be "added");' +
-      '<br/>2. by using git rm to remove files from the working tree and the index, again before using the commit command;' +
-      '<br/>3. by listing files as arguments to the commit command, in which case the commit will ignore changes staged in the index, and instead record the current content of the listed files (which must already be known to git);' +
-      '<br/>4. by using the -a switch with the commit command to automatically "add" changes from all known files (i.e. all files that are already listed in the index) and to automatically "rm" files in the index that have been removed from the working tree, and then perform the actual commit;' +
-      '<br/>5. by using the --interactive switch with the commit command to decide one by one which files should be part of the commit, before finalizing the operation. Currently, this is done by invoking git add --interactive.' +
-      '<br/>The --dry-run option can be used to obtain a summary of what is included by any of the above for the next commit by giving the same set of parameters (options and paths).' +
-      '<br/>If you make a commit and then find a mistake immediately after that, you can recover from it with git reset.',
-  params: [
-    {
-      name: 'file',
-      short: 'F',
-      type: { name: 'array', subtype: 'existingFile' },
-      description: 'Files to commit',
-      manual: 'When files are given on the command line, the command commits the contents of the named files, without recording the changes already staged. The contents of these files are also staged for the next commit on top of what have been staged before.'
-    },
-    {
-      group: 'Common Options',
-      params: [
-        {
-          name: 'all',
-          short: 'a',
-          type: 'boolean',
-          description: 'All (unignored) files',
-          manual: 'Tell the command to automatically stage files that have been modified and deleted, but new files you have not told git about are not affected.'
-        },
-        {
-          name: 'message',
-          short: 'm',
-          type: 'string',
-          description: 'Commit message',
-          manual: 'Use the given message as the commit message.'
-        },
-        {
-          name: 'signoff',
-          short: 's',
-          type: 'string',
-          description: 'Signed off by',
-          manual: 'Add Signed-off-by line by the committer at the end of the commit log message.'
-        }
-      ]
-    },
-    {
-      group: 'Advanced Options',
-      params: [
-        {
-          name: 'author',
-          type: 'string',
-          description: 'Override the author',
-          manual: 'Specify an explicit author using the standard A U Thor <author@example.com[1]> format. Otherwise <author> is assumed to be a pattern and is used to search for an existing commit by that author (i.e. rev-list --all -i --author=<author>); the commit author is then copied from the first such commit found.'
-        },
-        {
-          name: 'date',
-          type: 'string', // Make this of date type
-          description: 'Override the date',
-          manual: 'Override the author date used in the commit.'
-        },
-        {
-          name: 'amend',
-          type: 'boolean',
-          description: 'Amend tip',
-          manual: 'Used to amend the tip of the current branch. Prepare the tree object you would want to replace the latest commit as usual (this includes the usual -i/-o and explicit paths), and the commit log editor is seeded with the commit message from the tip of the current branch. The commit you create replaces the current tip -- if it was a merge, it will have the parents of the current tip as parents -- so the current top commit is discarded.'
-        },
-        {
-          name: 'verbose',
-          short: 'v',
-          type: 'boolean',
-          description: 'Verbose',
-          manual: 'Show unified diff between the HEAD commit and what would be committed at the bottom of the commit message template. Note that this diff output doesn\'t have its lines prefixed with #.'
-        },
-        {
-          name: 'quiet',
-          short: 'q',
-          type: 'boolean',
-          description: 'Quiet',
-          manual: 'Suppress commit summary message.'
-        },
-        {
-          name: 'dry-run',
-          type: 'boolean',
-          description: 'Dry run',
-          manual: 'Do not create a commit, but show a list of paths that are to be committed, paths with local changes that will be left uncommitted and paths that are untracked.'
-        },
-        {
-          name: 'untracked-files',
-          short: 'u',
-          type: {
-            name: 'selection',
-            data: [ 'no', 'normal', 'all' ]
-          },
-          description: 'Show untracked files',
-          manual: 'The mode parameter is optional, and is used to specify the handling of untracked files. The possible options are: <em>no</em> - Show no untracked files.<br/><em>normal</em> Shows untracked files and directories<br/><em>all</em> Also shows individual files in untracked directories.'
-        }
-      ]
-    },
-  ],
-  exec: function(args, context) {
-    return "This is only a demo of UI generation.";
-  }
-};
-
-
-/**
- * 'vi' command
- */
-var vi = {
-  name: 'vi',
-  description: 'Edit a file',
-  params: [
-    {
-      name: 'resource',
-      type: { name: 'resource', include: 'text/css' },
-      description: 'The resource to edit'
-    }
-  ],
-  returnType: 'html',
-  exec: function(args, context) {
-    var promise = context.createPromise();
-    args.resource.loadContents(function(data) {
-      promise.resolve('<textarea rows=5 cols=80>' + data + '</textarea>');
-    });
-    return promise;
-  }
-};
-
-
-/**
- * 'sleep' command
- */
-var sleep = {
-  name: 'sleep',
-  description: 'Wait for a while',
-  params: [
-    {
-      name: 'length',
-      type: { name: 'number', min: 1 },
-      description: 'How long to wait (s)'
-    }
-  ],
-  returnType: 'html',
-  exec: function(args, context) {
-    var promise = context.createPromise();
-    window.setTimeout(function() {
-      promise.resolve('done');
-    }, args.length * 1000);
-    return promise;
-  }
-};
 
 
 });
@@ -14438,7 +13950,8 @@ exports.testPredictions = function(options) {
   var predictions4 = resource4.parseString('').getPredictions();
 
   test.is(predictions1.length, predictions4.length, 'type spec');
-  test.is(predictions2.length + predictions3.length, predictions4.length, 'split');
+  // Bug 734045
+  // test.is(predictions2.length + predictions3.length, predictions4.length, 'split');
 };
 
 function checkPrediction(res, prediction) {
@@ -14915,7 +14428,11 @@ exports.setup = function() {
 exports.shutdown = function() {
 };
 
-exports.testDefault = function() {
+exports.testDefault = function(options) {
+  if (options.isNode) {
+    return;
+  }
+
   types.getTypeNames().forEach(function(name) {
     if (name === 'selection') {
       name = { name: 'selection', data: [ 'a', 'b' ] };

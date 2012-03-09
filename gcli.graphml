@@ -134,20 +134,6 @@
         </y:ShapeNode>
       </data>
     </node>
-    <node id="gcli/promise">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/promise</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="gcli/ui/intro">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/ui/intro</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
     <node id="gcli/ui/view">
       <data key="d0">
         <y:ShapeNode>
@@ -159,6 +145,20 @@
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">gcli/ui/domtemplate</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/promise">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/promise</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/intro">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/intro</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -435,24 +435,10 @@
         </y:ShapeNode>
       </data>
     </node>
-    <node id="demo/commands/bugs">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">demo/commands/bugs</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
     <node id="demo/commands/demo">
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">demo/commands/demo</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="demo/commands/experimental">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">demo/commands/experimental</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -639,18 +625,19 @@
     <edge source="gcli/settings" target="gcli/types"/>
     <edge source="gcli/cli" target="gcli/util"/>
     <edge source="gcli/cli" target="gcli/l10n"/>
+    <edge source="gcli/cli" target="gcli/ui/view"/>
     <edge source="gcli/cli" target="gcli/canon"/>
     <edge source="gcli/cli" target="gcli/promise"/>
     <edge source="gcli/cli" target="gcli/types"/>
     <edge source="gcli/cli" target="gcli/types/basic"/>
     <edge source="gcli/cli" target="gcli/argument"/>
+    <edge source="gcli/ui/view" target="gcli/util"/>
+    <edge source="gcli/ui/view" target="gcli/ui/domtemplate"/>
     <edge source="gcli/ui/intro" target="gcli/settings"/>
     <edge source="gcli/ui/intro" target="gcli/l10n"/>
     <edge source="gcli/ui/intro" target="gcli/util"/>
     <edge source="gcli/ui/intro" target="gcli/ui/view"/>
     <edge source="gcli/ui/intro" target="text!gcli/ui/intro.html"/>
-    <edge source="gcli/ui/view" target="gcli/util"/>
-    <edge source="gcli/ui/view" target="gcli/ui/domtemplate"/>
     <edge source="gcli/ui/focus" target="gcli/util"/>
     <edge source="gcli/ui/focus" target="gcli/settings"/>
     <edge source="gcli/ui/focus" target="gcli/l10n"/>
@@ -719,9 +706,7 @@
     <edge source="demo/index" target="gcli/commands/pref"/>
     <edge source="demo/index" target="test/commands"/>
     <edge source="demo/index" target="demo/commands/basic"/>
-    <edge source="demo/index" target="demo/commands/bugs"/>
     <edge source="demo/index" target="demo/commands/demo"/>
-    <edge source="demo/index" target="demo/commands/experimental"/>
     <edge source="demo/index" target="demo/commands/shell"/>
     <edge source="gcli/commands/help" target="gcli/canon"/>
     <edge source="gcli/commands/help" target="gcli/util"/>
@@ -748,11 +733,8 @@
     <edge source="test/commands" target="text!test/ui/test.css"/>
     <edge source="test/commands" target="text!test/ui/test.html"/>
     <edge source="demo/commands/basic" target="gcli/index"/>
-    <edge source="demo/commands/bugs" target="gcli/index"/>
-    <edge source="demo/commands/bugs" target="gcli/util"/>
+    <edge source="demo/commands/basic" target="text!gcli/ui/intro.html"/>
     <edge source="demo/commands/demo" target="gcli/index"/>
-    <edge source="demo/commands/experimental" target="gcli/canon"/>
-    <edge source="demo/commands/experimental" target="gcli/types"/>
     <edge source="demo/commands/shell" target="gcli/index"/>
     <edge source="demo/commands/shell" target="gcli/host"/>
     <edge source="gclitest/index" target="gclitest/suite"/>
