@@ -53,7 +53,6 @@ In addition, defining the following functions can be helpful, although Type
 contains default implementations:
 * increment(value)
 * decrement(value)
-* getDefault()
 
 Type, Conversion and Status are all declared by canon.js.
 
