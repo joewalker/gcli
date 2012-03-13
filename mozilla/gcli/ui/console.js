@@ -61,9 +61,7 @@ function Console(options) {
   setContentDocument(options.contentDocument);
 
   this.onOutput = commandOutputManager.onOutput;
-
-  var outputDocument = options.outputElement.ownerDocument;
-  this.requisition = new Requisition(options.environment, outputDocument);
+  this.requisition = new Requisition(options.environment, options.outputDocument);
 
   // Create a FocusManager for the various parts to register with
   this.focusManager = new FocusManager(options, {
@@ -101,6 +99,8 @@ function Console(options) {
     win.addEventListener('resize', this.resizer, false);
     this.requisition.onTextChange.add(this.resizer, this);
   }
+
+  this.options = options;
 }
 
 /**
@@ -119,7 +119,7 @@ Console.prototype.reattach = function(options) {
  */
 Console.prototype.destroy = function() {
   if (this.consoleWrap) {
-    var win = options.consoleWrap.ownerDocument.defaultView;
+    var win = this.options.consoleWrap.ownerDocument.defaultView;
 
     this.requisition.onTextChange.remove(this.resizer, this);
     win.removeEventListener('resize', this.resizer, false);
@@ -128,13 +128,11 @@ Console.prototype.destroy = function() {
     delete this.resizer;
   }
 
-  this.hintElement.removeChild(this.tooltip.element);
-
   this.tooltip.destroy();
   this.completer.destroy();
   this.inputter.destroy();
 
-  this.focusManager.removeMonitoredElement(this.hintElement, 'gcliTerm');
+  this.focusManager.removeMonitoredElement(this.options.hintElement, 'gcliTerm');
   this.focusManager.destroy();
   this.requisition.destroy();
   this.outputList.destroy();
@@ -148,7 +146,6 @@ Console.prototype.destroy = function() {
   delete this.onVisibilityChange;
 
   delete this.focusManager;
-  delete this.hintElement;
   delete this.requisition;
 
   setContentDocument(null);
@@ -163,26 +160,26 @@ Console.prototype.resizer = function() {
   // This is simpler than calculating them, but error-prone when the UI setup,
   // the styling or display settings change.
 
-  var parentRect = this.consoleWrap.getBoundingClientRect();
+  var parentRect = this.options.consoleWrap.getBoundingClientRect();
   // Magic number: 64 is the size of the toolbar above the output area
   var parentHeight = parentRect.bottom - parentRect.top - 64;
 
   // Magic number: 100 is the size at which we decide the hints are too small
   // to be useful, so we hide them
   if (parentHeight < 100) {
-    this.hintElement.classList.add('gcliterm-hint-nospace');
+    this.options.hintElement.classList.add('gcliterm-hint-nospace');
   }
   else {
-    this.hintElement.classList.remove('gcliterm-hint-nospace');
-    this.hintElement.style.overflowY = null;
-    this.hintElement.style.borderBottomColor = 'white';
+    this.options.hintElement.classList.remove('gcliterm-hint-nospace');
+    this.options.hintElement.style.overflowY = null;
+    this.options.hintElement.style.borderBottomColor = 'white';
   }
 
   // We also try to make the max-width of any GCLI elements so they don't
   // extend outside the scroll area.
-  var doc = this.hintElement.ownerDocument;
+  var doc = this.options.hintElement.ownerDocument;
 
-  var outputNode = this.hintElement.parentNode.parentNode.children[1];
+  var outputNode = this.options.hintElement.parentNode.parentNode.children[1];
   var outputs = outputNode.getElementsByClassName('gcliterm-msg-body');
   var listItems = outputNode.getElementsByClassName('hud-msg-node');
 

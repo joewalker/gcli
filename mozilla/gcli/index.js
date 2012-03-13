@@ -69,7 +69,7 @@ define(function(require, exports, module) {
   require('gcli/ui/fields/selection').startup();
 
   require('gcli/commands/help').startup();
-  require('gcli/commands/pref').startup();
+  //require('gcli/commands/pref').startup();
 
   var Console = require('gcli/ui/console').Console;
 
