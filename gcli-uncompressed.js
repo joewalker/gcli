@@ -352,6 +352,7 @@ function Parameter(paramSpec, command, groupName) {
   this.name = this.paramSpec.name;
   this.type = this.paramSpec.type;
   this.groupName = groupName;
+  this.defaultValue = this.paramSpec.defaultValue;
 
   if (!this.name) {
     throw new Error('In ' + this.command.name +
@@ -369,7 +370,7 @@ function Parameter(paramSpec, command, groupName) {
   // boolean parameters have an implicit defaultValue:false, which should
   // not be changed. See the docs.
   if (this.type instanceof BooleanType) {
-    if ('defaultValue' in this) {
+    if (this.defaultValue !== undefined) {
       console.error('In ' + this.command.name + '/' + this.name +
           ': boolean parameters can not have a defaultValue.' +
           ' Ignoring');
@@ -396,6 +397,12 @@ function Parameter(paramSpec, command, groupName) {
         ': ' + ex);
     }
   }
+
+  // Some typed (boolean, array) have a non 'undefined' blank value. Give the
+  // type a chance to override the default defaultValue of undefined
+  if (this.defaultValue === undefined) {
+    this.defaultValue = this.type.getBlank().value;
+  }
 }
 
 /**
@@ -408,6 +415,21 @@ Parameter.prototype.isKnownAs = function(name) {
     return true;
   }
   return false;
+};
+
+/**
+ * Read the default value for this parameter either from the parameter itself
+ * (if this function has been over-ridden) or from the type, or from calling
+ * parseString on an empty string
+ */
+Parameter.prototype.getBlank = function() {
+  var conversion;
+
+  if (this.type.getBlank) {
+    return this.type.getBlank();
+  }
+
+  return this.type.parseString('');
 };
 
 /**
@@ -438,7 +460,7 @@ Object.defineProperty(Parameter.prototype, 'description', {
  */
 Object.defineProperty(Parameter.prototype, 'isDataRequired', {
   get: function() {
-    return this.paramSpec.defaultValue === undefined;
+    return this.defaultValue === undefined;
   },
   enumerable: true
 });
@@ -734,11 +756,15 @@ exports.removeWhitespace = function(elem, deep) {
  * it.
  * @param cssText The CSS declarations to append
  * @param doc The document element to work from
+ * @param id Optional id to assign to the created style tag
  */
-exports.importCss = function(cssText, doc) {
+exports.importCss = function(cssText, doc, id) {
   doc = doc || document;
 
   var style = exports.createElement(doc, 'style');
+  if (id) {
+    style.id = id;
+  }
   style.appendChild(doc.createTextNode(cssText));
 
   var head = doc.getElementsByTagName('head')[0] || doc.documentElement;
@@ -2087,8 +2113,7 @@ Conversion.prototype.assign = function(assignment) {
  * Work out if there is information provided in the contained argument.
  */
 Conversion.prototype.isDataProvided = function() {
-  var argProvided = this.arg.text !== '';
-  return this.value !== undefined || argProvided;
+  return !this.arg.isBlank();
 };
 
 /**
@@ -2349,12 +2374,13 @@ Type.prototype.decrement = function(value) {
 };
 
 /**
- * There is interesting information (like predictions) in a conversion of
- * nothing, the output of this can sometimes be customized.
- * @return Conversion
+ * The 'blank value' of most types is 'undefined', but there are exceptions;
+ * This allows types to specify a better conversion from empty string than
+ * 'undefined'.
+ * 2 known examples of this are boolean -> false and array -> []
  */
-Type.prototype.getDefault = function() {
-  return this.parseString('');
+Type.prototype.getBlank = function() {
+  return new Conversion(undefined, new Argument());
 };
 
 /**
@@ -2603,10 +2629,12 @@ argument.Argument = Argument;
 /**
  * ScriptArgument is a marker that the argument is designed to be Javascript.
  * It also implements the special rules that spaces after the { or before the
- * } are part of the pre/suffix rather than the content.
+ * } are part of the pre/suffix rather than the content, and that they are
+ * never 'blank' so they can be used by Requisition._split() and not raise an
+ * ERROR status due to being blank.
  */
 function ScriptArgument(text, prefix, suffix) {
-  this.text = text;
+  this.text = text !== undefined ? text : '';
   this.prefix = prefix !== undefined ? prefix : '';
   this.suffix = suffix !== undefined ? suffix : '';
 
@@ -2638,6 +2666,15 @@ ScriptArgument.prototype.beget = function(replText, options) {
   }
 
   return new ScriptArgument(replText, prefix, suffix);
+};
+
+/**
+ * ScriptArguments are never blank due to the '{' and '}' and their special use
+ * for the command argument requires them not to be blank even when there is
+ * no text.
+ */
+ScriptArgument.prototype.isBlank = function() {
+  return false;
 };
 
 argument.ScriptArgument = ScriptArgument;
@@ -2971,13 +3008,9 @@ StringType.prototype.stringify = function(value) {
 
 StringType.prototype.parse = function(arg) {
   if (arg.text == null || arg.text === '') {
-    return new Conversion(null, arg, Status.INCOMPLETE, '');
+    return new Conversion(undefined, arg, Status.INCOMPLETE, '');
   }
   return new Conversion(arg.text, arg);
-};
-
-StringType.prototype.getDefault = function() {
-  return new Conversion('', new Argument(''));
 };
 
 StringType.prototype.name = 'string';
@@ -3034,24 +3067,24 @@ NumberType.prototype.getMax = function() {
 
 NumberType.prototype.parse = function(arg) {
   if (arg.text.replace(/\s/g, '').length === 0) {
-    return new Conversion(null, arg, Status.INCOMPLETE, '');
+    return new Conversion(undefined, arg, Status.INCOMPLETE, '');
   }
 
   var value = parseInt(arg.text, 10);
   if (isNaN(value)) {
-    return new Conversion(null, arg, Status.ERROR,
+    return new Conversion(undefined, arg, Status.ERROR,
         l10n.lookupFormat('typesNumberNan', [ arg.text ]));
   }
 
   var max = this.getMax();
   if (max != null && value > max) {
-    return new Conversion(null, arg, Status.ERROR,
+    return new Conversion(undefined, arg, Status.ERROR,
         l10n.lookupFormat('typesNumberMax', [ value, max ]));
   }
 
   var min = this.getMin();
   if (min != null && value < min) {
-    return new Conversion(null, arg, Status.ERROR,
+    return new Conversion(undefined, arg, Status.ERROR,
         l10n.lookupFormat('typesNumberMin', [ value, min ]));
   }
 
@@ -3099,14 +3132,6 @@ NumberType.prototype._boundsCheck = function(value) {
   return value;
 };
 
-NumberType.prototype.getDefault = function() {
-  var value = this.getMin();
-  if (value == null) {
-    value = 0;
-  }
-  return new Conversion(value, new Argument('' + value));
-};
-
 NumberType.prototype.name = 'number';
 
 exports.NumberType = NumberType;
@@ -3140,10 +3165,6 @@ BooleanType.prototype.parse = function(arg) {
 
 BooleanType.prototype.stringify = function(value) {
   return '' + value;
-};
-
-BooleanType.prototype.getDefault = function() {
-  return new Conversion(false, new Argument('false'));
 };
 
 BooleanType.prototype.getBlank = function() {
@@ -3192,10 +3213,6 @@ DeferredType.prototype.increment = function(value) {
   return (deferred.increment ? deferred.increment(value) : undefined);
 };
 
-DeferredType.prototype.getDefault = function() {
-  return this.defer().getDefault();
-};
-
 DeferredType.prototype.getType = function() {
   return this.defer();
 };
@@ -3229,7 +3246,7 @@ BlankType.prototype.stringify = function(value) {
 };
 
 BlankType.prototype.parse = function(arg) {
-  return new Conversion(null, arg);
+  return new Conversion(undefined, arg);
 };
 
 BlankType.prototype.name = 'blank';
@@ -3279,10 +3296,6 @@ ArrayType.prototype.parse = function(arg) {
 };
 
 ArrayType.prototype.getBlank = function(values) {
-  return new ArrayConversion([], new ArrayArgument());
-};
-
-ArrayType.prototype.getDefault = function() {
   return new ArrayConversion([], new ArrayArgument());
 };
 
@@ -3619,7 +3632,7 @@ SelectionType.prototype.parse = function(arg) {
 
   if (predictions.length === 0) {
     var msg = l10n.lookupFormat('typesSelectionNomatch', [ arg.text ]);
-    return new Conversion(null, arg, Status.ERROR, msg, predictions);
+    return new Conversion(undefined, arg, Status.ERROR, msg, predictions);
   }
 
   // This is something of a hack it basically allows us to tell the
@@ -3634,7 +3647,7 @@ SelectionType.prototype.parse = function(arg) {
     return new Conversion(value, arg, Status.VALID, '', predictions);
   }
 
-  return new Conversion(null, arg, Status.INCOMPLETE, '', predictions);
+  return new Conversion(undefined, arg, Status.INCOMPLETE, '', predictions);
 };
 
 /**
@@ -3694,11 +3707,6 @@ SelectionType.prototype._findValue = function(lookup, value) {
     }
   }
   return index;
-};
-
-SelectionType.prototype.getDefault = function() {
-  var p = this.getLookup()[0];
-  return new Conversion(p.value, new Argument(p.name));
 };
 
 SelectionType.prototype.name = 'selection';
@@ -3785,7 +3793,7 @@ CommandType.prototype.parse = function(arg) {
 
   if (predictions.length === 0) {
     var msg = l10n.lookupFormat('typesSelectionNomatch', [ arg.text ]);
-    return new Conversion(null, arg, Status.ERROR, msg, predictFunc);
+    return new Conversion(undefined, arg, Status.ERROR, msg, predictFunc);
   }
 
   var command = predictions[0].value;
@@ -3796,7 +3804,7 @@ CommandType.prototype.parse = function(arg) {
     if (command.name === arg.text && typeof command.exec === 'function') {
       return new Conversion(command, arg, Status.VALID, '');
     }
-    return new Conversion(null, arg, Status.INCOMPLETE, '', predictFunc);
+    return new Conversion(undefined, arg, Status.INCOMPLETE, '', predictFunc);
   }
 
   // It's valid if the text matches, even if there are several options
@@ -3804,7 +3812,7 @@ CommandType.prototype.parse = function(arg) {
     return new Conversion(command, arg, Status.VALID, '', predictFunc);
   }
 
-  return new Conversion(null, arg, Status.INCOMPLETE, '', predictFunc);
+  return new Conversion(undefined, arg, Status.INCOMPLETE, '', predictFunc);
 };
 
 
@@ -4436,7 +4444,7 @@ NodeType.prototype.stringify = function(value) {
 
 NodeType.prototype.parse = function(arg) {
   if (arg.text === '') {
-    return new Conversion(null, arg, Status.INCOMPLETE);
+    return new Conversion(undefined, arg, Status.INCOMPLETE);
   }
 
   var nodes;
@@ -4444,12 +4452,12 @@ NodeType.prototype.parse = function(arg) {
     nodes = doc.querySelectorAll(arg.text);
   }
   catch (ex) {
-    return new Conversion(null, arg, Status.ERROR,
+    return new Conversion(undefined, arg, Status.ERROR,
             l10n.lookup('nodeParseSyntax'));
   }
 
   if (nodes.length === 0) {
-    return new Conversion(null, arg, Status.INCOMPLETE,
+    return new Conversion(undefined, arg, Status.INCOMPLETE,
         l10n.lookup('nodeParseNone'));
   }
 
@@ -4466,7 +4474,7 @@ NodeType.prototype.parse = function(arg) {
     host.flashNode(n, 'red');
   });
 
-  return new Conversion(null, arg, Status.ERROR,
+  return new Conversion(undefined, arg, Status.ERROR,
           l10n.lookupFormat('nodeParseMultiple', [ nodes.length ]));
 };
 
@@ -4628,8 +4636,7 @@ exports.getDocument = function() {
  * Resource should not be used directly, but instead through a sub-class like
  * CssResource or ScriptResource.
  */
-function Resource(id, name, type, inline, element) {
-  this.id = id;
+function Resource(name, type, inline, element) {
   this.name = name;
   this.type = type;
   this.inline = inline;
@@ -5262,37 +5269,7 @@ Object.defineProperty(Assignment.prototype, 'holdEvents', {
  * Setup an empty value for the conversion by parsing an empty argument.
  */
 Assignment.prototype.setBlank = function() {
-  var conversion;
-  if (this.param.getBlank) {
-    conversion = this.param.getBlank();
-  }
-  else if (this.param.type.getBlank) {
-    conversion = this.param.type.getBlank();
-  }
-  else {
-    conversion = this.param.type.parse(new Argument());
-  }
-
-  this.setConversion(conversion);
-};
-
-/**
- * Find a default value for the conversion either from the parameter, or from
- * the type, or failing that by parsing an empty argument.
- */
-Assignment.prototype.setDefault = function() {
-  var conversion;
-  if (this.param.getDefault) {
-    conversion = this.param.getDefault();
-  }
-  else if (this.param.type.getDefault) {
-    conversion = this.param.type.getDefault();
-  }
-  else {
-    conversion = this.param.type.parse(new Argument());
-  }
-
-  this.setConversion(conversion);
+  this.setConversion(this.param.type.getBlank());
 };
 
 /**
@@ -5710,7 +5687,7 @@ Requisition.prototype.getStatus = function() {
   var status = Status.VALID;
   this.getAssignments(true).forEach(function(assignment) {
     var assignStatus = assignment.getStatus();
-    if (assignment.getStatus() > status) {
+    if (assignStatus > status) {
       status = assignStatus;
     }
   }, this);
@@ -5727,7 +5704,9 @@ Requisition.prototype.getStatus = function() {
 Requisition.prototype.getArgsObject = function() {
   var args = {};
   this.getAssignments().forEach(function(assignment) {
-    args[assignment.param.name] = assignment.value;
+    args[assignment.param.name] = assignment.conversion.isDataProvided() ?
+            assignment.value :
+            assignment.param.defaultValue;
   }, this);
   return args;
 };
@@ -6079,7 +6058,7 @@ Requisition.prototype.exec = function(input) {
       // means there is no command line to parse.
       command = canon.getCommand(input.command);
       if (!command) {
-        console.error('Command not found: ' + command);
+        console.error('Command not found: ' + input.command);
       }
       args = input.args;
     }
@@ -6133,6 +6112,7 @@ Requisition.prototype.exec = function(input) {
         function(data) { onComplete(data, false); },
         function(error) { onComplete(error, true); });
 
+      outputObject.promise = reply;
       // Add progress to our promise and add a handler for it here
       // See bug 659300
     }
@@ -6418,7 +6398,7 @@ Requisition.prototype._split = function(args) {
   if (args[0] instanceof ScriptArgument) {
     // Special case: if the user enters { console.log('foo'); } then we need to
     // use the hidden 'eval' command
-    conversion = new Conversion(evalCommand, new Argument());
+    conversion = new Conversion(evalCommand, new ScriptArgument());
     this.commandAssignment.setConversion(conversion);
     return;
   }
@@ -6684,6 +6664,7 @@ exports.createView = function(options) {
  */
 exports.populateWithOutputData = function(outputData, element) {
   util.clearElement(element);
+  var document = element.ownerDocument;
 
   var output = outputData.output;
   if (output == null) {
@@ -6695,16 +6676,16 @@ exports.populateWithOutputData = function(outputData, element) {
     node = output;
   }
   else if (output.isView) {
-    node = output.toDom(element.ownerDocument);
+    node = output.toDom(document);
   }
   else {
     if (outputData.command.returnType === 'terminal') {
-      node = util.createElement(element.ownerDocument, 'textarea');
+      node = util.createElement(document, 'textarea');
       node.classList.add('gcli-row-terminal');
       node.readOnly = true;
     }
     else {
-      node = util.createElement(element.ownerDocument, 'p');
+      node = util.createElement(document, 'p');
     }
 
     util.setContents(node, output.toString());
@@ -8851,7 +8832,7 @@ function Menu(options) {
 
   // Pull the HTML into the DOM, but don't add it to the document
   if (menuCss != null) {
-    this.style = util.importCss(menuCss, this.document);
+    this.style = util.importCss(menuCss, this.document, 'gcli-menu');
   }
 
   this.template = util.toDom(this.document, menuHtml);
@@ -9333,7 +9314,7 @@ function Display(options) {
 
   this.displayStyle = undefined;
   if (displayCss != null) {
-    this.displayStyle = util.importCss(displayCss, doc);
+    this.displayStyle = util.importCss(displayCss, doc, 'gcli-css-display');
   }
 
   // Configuring the document is complex because on the web side, there is an
@@ -9525,7 +9506,7 @@ function Tooltip(options, components) {
 
   // Pull the HTML into the DOM, but don't add it to the document
   if (tooltipCss != null) {
-    this.style = util.importCss(tooltipCss, this.document);
+    this.style = util.importCss(tooltipCss, this.document, 'gcli-tooltip');
   }
 
   this.template = util.toDom(this.document, tooltipHtml);
@@ -9840,7 +9821,7 @@ function OutputTerminal(options, components) {
 
   var document = components.element.ownerDocument;
   if (outputViewCss != null) {
-    this.style = util.importCss(outputViewCss, document);
+    this.style = util.importCss(outputViewCss, document, 'gcli-output-view');
   }
 
   this.template = util.toDom(document, outputViewHtml);
@@ -9996,6 +9977,14 @@ exports.OutputView = OutputView;
 
 });
 define("text!gcli/ui/output_view.css", [], "\n" +
+  ".gcli-row-in-typed,\n" +
+  ".gcli-row-prompt,\n" +
+  ".gcli-row-terminal,\n" +
+  ".gcli-row-subterminal,\n" +
+  ".gcli-out-shortcut {\n" +
+  "  font-family: Consolas, Inconsolata, \"Courier New\", monospace;\n" +
+  "}\n" +
+  "\n" +
   ".gcli-row-in {\n" +
   "  margin: 10px 5px 5px;\n" +
   "  padding: 3px 4px 1px;\n" +
@@ -10023,11 +10012,6 @@ define("text!gcli/ui/output_view.css", [], "\n" +
   "\n" +
   ".gcli-row-duration {\n" +
   "  color: #666;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-in-typed,\n" +
-  ".gcli-row-prompt {\n" +
-  "  font-family: Consolas, Inconsolata, \"Courier New\", monospace;\n" +
   "}\n" +
   "\n" +
   ".gcli-row-prompt {\n" +
@@ -10096,13 +10080,12 @@ define("text!gcli/ui/output_view.css", [], "\n" +
   "  padding: 0 2px;\n" +
   "}\n" +
   "\n" +
-  ".gcli-row-out .gcli-row-terminal {\n" +
+  ".gcli-row-terminal {\n" +
   "  border-radius: 3px;\n" +
   "  border: 1px solid #ddd;\n" +
   "  height: 200px;\n" +
   "  width: 620px;\n" +
   "  font-size: 80%;\n" +
-  "  font-family: Consolas, Inconsolata, \"Courier New\", monospace;\n" +
   "}\n" +
   "\n" +
   ".gcli-out-shortcut {\n" +
@@ -10111,7 +10094,6 @@ define("text!gcli/ui/output_view.css", [], "\n" +
   "  padding: 1px 4px 0;\n" +
   "  margin: 0 4px;\n" +
   "  font-size: 80%;\n" +
-  "  font-family: Consolas, Inconsolata, \"Courier New\", monospace;\n" +
   "  color: #666;\n" +
   "  cursor: pointer;\n" +
   "  vertical-align: bottom;\n" +
@@ -10197,7 +10179,7 @@ function Inputter(options, components) {
   this.scratchpad = options.scratchpad;
 
   if (inputterCss != null) {
-    this.style = util.importCss(inputterCss, this.document);
+    this.style = util.importCss(inputterCss, this.document, 'gcli-inputter');
   }
 
   // Used to distinguish focus from TAB in CLI. See onKeyUp()
@@ -11128,7 +11110,7 @@ define("text!gcli/ui/display.html", [], "\n" +
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/commands/help', 'gcli/commands/pref', 'test/commands', 'demo/commands/basic', 'demo/commands/demo', 'demo/commands/shell'], function(require, exports, module) {
+define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/commands/help', 'gcli/commands/pref', 'test/commands', 'demo/commands/basic', 'demo/commands/demo'], function(require, exports, module) {
 
   require('gcli/index');
 
@@ -11140,7 +11122,6 @@ define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/comma
   require('demo/commands/basic').startup();
   // require('demo/commands/bugs').startup();
   require('demo/commands/demo').startup();
-  require('demo/commands/shell').startup();
 
 });
 /*
@@ -11226,7 +11207,7 @@ help.shutdown = function() {
  */
 help.onFirstUseStartup = function(document) {
   if (!helpStyle && helpCss != null) {
-    helpStyle = util.importCss(helpCss, document);
+    helpStyle = util.importCss(helpCss, document, 'gcli-help');
   }
 };
 
@@ -11469,10 +11450,10 @@ define("text!gcli/commands/help_list.html", [], "\n" +
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('gcli/commands/pref', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/util', 'gcli/settings', 'gcli/ui/view', 'gcli/ui/domtemplate', 'gcli/promise', 'text!gcli/commands/pref_set_check.html', 'text!gcli/commands/pref_list.css', 'text!gcli/commands/pref_list_outer.html', 'text!gcli/commands/pref_list_inner.html'], function(require, exports, module) {
+define('gcli/commands/pref', ['require', 'exports', 'module' , 'gcli/index', 'gcli/l10n', 'gcli/util', 'gcli/settings', 'gcli/ui/view', 'gcli/ui/domtemplate', 'gcli/promise', 'text!gcli/commands/pref_set_check.html', 'text!gcli/commands/pref_list.css', 'text!gcli/commands/pref_list_outer.html', 'text!gcli/commands/pref_list_inner.html'], function(require, exports, module) {
 
 
-var canon = require('gcli/canon');
+var gcli = require('gcli/index');
 var l10n = require('gcli/l10n');
 var util = require('gcli/util');
 var settings = require('gcli/settings');
@@ -11566,15 +11547,15 @@ var prefSetCmdSpec = {
 exports.startup = function() {
   allowSet = settings.addSetting(allowSetSettingSpec);
 
-  canon.addCommand(prefCmdSpec);
-  canon.addCommand(prefListCmdSpec);
-  canon.addCommand(prefSetCmdSpec);
+  gcli.addCommand(prefCmdSpec);
+  gcli.addCommand(prefListCmdSpec);
+  gcli.addCommand(prefSetCmdSpec);
 };
 
 exports.shutdown = function() {
-  canon.removeCommand(prefCmdSpec);
-  canon.removeCommand(prefListCmdSpec);
-  canon.removeCommand(prefSetCmdSpec);
+  gcli.removeCommand(prefCmdSpec);
+  gcli.removeCommand(prefListCmdSpec);
+  gcli.removeCommand(prefSetCmdSpec);
 
   PrefList.outerTemplate = undefined;
   if (PrefList.style) {
@@ -11691,7 +11672,7 @@ PrefList.onFirstUseStartup = function(document) {
   }
 
   if (!PrefList.style && PrefList.css != null) {
-    PrefList.style = util.importCss(PrefList.css, document);
+    PrefList.style = util.importCss(PrefList.css, document, 'gcli-pref-list');
   }
 };
 
@@ -11816,7 +11797,7 @@ var testCommandSpec = {
   params: [],
   exec: function(env, context) {
     if (!template) {
-      util.importCss(testCss, context.document);
+      util.importCss(testCss, context.document, 'gcli-test');
       template = util.toDom(context.document, testHtml);
     }
 
@@ -12521,87 +12502,6 @@ function motivate() {
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('demo/commands/shell', ['require', 'exports', 'module' , 'gcli/index', 'gcli/host'], function(require, exports, module) {
-
-
-var gcli = require('gcli/index');
-var host = require('gcli/host');
-
-/**
- * 'ls' command
- */
-var ls = {
-  name: 'ls',
-  description: 'List directory contents',
-  manual: 'For each operand that names a file of a type other than directory, ls displays its name as well as any requested, associated information. For each operand that names a file of type directory, ls displays the names of files contained within that directory, as well as any requested, associated information.' +
-          '<br/>If no operands are given, the contents of the current directory are displayed. If more than one operand is given, non-directory operands are displayed first; directory and non-directory operands are sorted separately and in lexicographical order.',
-  params: [
-    {
-      name: 'long',
-      type: 'boolean',
-      description: 'Long listing'
-    }
-  ],
-  returnType: 'terminal',
-  exec: function(args, context) {
-    var promise = context.createPromise();
-    host.exec(promise, {
-      cmd: '/bin/ls',
-      args: args.long ? [ '-l' ] : [ ],
-    });
-    return promise;
-  }
-};
-
-/**
- * 'build' command
- */
-var build = {
-  name: 'build',
-  description: 'Create a Build',
-  manual: 'GCLI contains some build machinery, not as a replacement for' +
-          ' make/ant/etc, but as a way of kicking of such build tools,' +
-          ' potentially with performance tweaks, or other customizations.',
-  params: [
-    {
-      name: 'type',
-      type: { name: 'selection', data: [ 'standard', 'firefox' ] },
-      description: 'Build Type',
-      manual: ''
-    }
-  ],
-  returnType: 'terminal',
-  exec: function(args, context) {
-    var promise = context.createPromise();
-    host.func(promise, {
-      func: 'build',
-      args: [ args.type ],
-    });
-    return promise;
-  }
-};
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function(data, reason) {
-  gcli.addCommand(ls);
-  gcli.addCommand(build);
-};
-
-exports.shutdown = function(data, reason) {
-  gcli.removeCommand(ls);
-  gcli.removeCommand(build);
-};
-
-
-});
-/*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
- */
-
 define('gclitest/index', ['require', 'exports', 'module' , 'gclitest/suite'], function(require, exports, module) {
 
   var examiner = require('gclitest/suite').examiner;
@@ -12718,19 +12618,19 @@ exports.testBlank = function() {
   test.is(        '', statuses);
   test.is(Status.ERROR, status);
   test.is(-1, assignC.paramIndex);
-  test.is(null, requ.commandAssignment.value);
+  test.is(undefined, requ.commandAssignment.value);
 
   update({ typed: ' ', cursor: { start: 1, end: 1 } });
   test.is(        'V', statuses);
   test.is(Status.ERROR, status);
   test.is(-1, assignC.paramIndex);
-  test.is(null, requ.commandAssignment.value);
+  test.is(undefined, requ.commandAssignment.value);
 
   update({ typed: ' ', cursor: { start: 0, end: 0 } });
   test.is(        'V', statuses);
   test.is(Status.ERROR, status);
   test.is(-1, assignC.paramIndex);
-  test.is(null, requ.commandAssignment.value);
+  test.is(undefined, requ.commandAssignment.value);
 };
 
 exports.testIncompleteMultiMatch = function() {
@@ -12741,7 +12641,7 @@ exports.testIncompleteMultiMatch = function() {
   test.ok(assignC.getPredictions().length > 0);
   verifyPredictionsContains('tsv', assignC.getPredictions());
   verifyPredictionsContains('tsr', assignC.getPredictions());
-  test.is(null, requ.commandAssignment.value);
+  test.is(undefined, requ.commandAssignment.value);
 };
 
 exports.testIncompleteSingleMatch = function() {
@@ -12751,7 +12651,7 @@ exports.testIncompleteSingleMatch = function() {
   test.is(-1, assignC.paramIndex);
   test.is(1, assignC.getPredictions().length);
   test.is('tselarr', assignC.getPredictions()[0].name);
-  test.is(null, requ.commandAssignment.value);
+  test.is(undefined, requ.commandAssignment.value);
 };
 
 exports.testTsv = function() {
@@ -12782,7 +12682,7 @@ exports.testTsv = function() {
   test.is(commands.option2, assignC.getPredictions()[1].value);
   test.is('tsv', requ.commandAssignment.value.name);
   test.is('o', assign1.arg.text);
-  test.is(null, assign1.value);
+  test.is(undefined, assign1.value);
 
   update({ typed: 'tsv option', cursor: { start: 10, end: 10 } });
   test.is(        'VVVVIIIIII', statuses);
@@ -12793,7 +12693,7 @@ exports.testTsv = function() {
   test.is(commands.option2, assignC.getPredictions()[1].value);
   test.is('tsv', requ.commandAssignment.value.name);
   test.is('option', assign1.arg.text);
-  test.is(null, assign1.value);
+  test.is(undefined, assign1.value);
 
   update({ typed: 'tsv option', cursor: { start: 1, end: 1 } });
   test.is(        'VVVVEEEEEE', statuses);
@@ -12801,7 +12701,7 @@ exports.testTsv = function() {
   test.is(-1, assignC.paramIndex);
   test.is('tsv', requ.commandAssignment.value.name);
   test.is('option', assign1.arg.text);
-  test.is(null, assign1.value);
+  test.is(undefined, assign1.value);
 
   update({ typed: 'tsv option ', cursor: { start: 11, end: 11 } });
   test.is(        'VVVVEEEEEEV', statuses);
@@ -12810,7 +12710,7 @@ exports.testTsv = function() {
   test.is(0, assignC.getPredictions().length);
   test.is('tsv', requ.commandAssignment.value.name);
   test.is('option', assign1.arg.text);
-  test.is(null, assign1.value);
+  test.is(undefined, assign1.value);
 
   update({ typed: 'tsv option1', cursor: { start: 11, end: 11 } });
   test.is(        'VVVVVVVVVVV', statuses);
@@ -12846,7 +12746,7 @@ exports.testTsv = function() {
   test.is('option2', assign1.arg.text);
   test.is(commands.option2, assign1.value);
   test.is('6', assign2.arg.text);
-  test.is(null, assign2.value);
+  test.is(undefined, assign2.value);
   test.is(1, assignC.paramIndex);
 };
 
@@ -12914,15 +12814,15 @@ exports.testSingleNumber = function() {
   test.is(        'VVV', statuses);
   test.is(Status.ERROR, status);
   test.is('tsu', requ.commandAssignment.value.name);
-  //test.is(undefined, assign1.arg);
-  test.is(null, assign1.value);
+  test.is('', assign1.arg.text);
+  test.is(undefined, assign1.value);
 
   update({ typed: 'tsu ', cursor: { start: 4, end: 4 } });
   test.is(        'VVVV', statuses);
   test.is(Status.ERROR, status);
   test.is('tsu', requ.commandAssignment.value.name);
-  //test.is(undefined, assign1.arg);
-  test.is(null, assign1.value);
+  test.is('', assign1.arg.text);
+  test.is(undefined, assign1.value);
 
   update({ typed: 'tsu 1', cursor: { start: 5, end: 5 } });
   test.is(        'VVVVV', statuses);
@@ -12937,7 +12837,7 @@ exports.testSingleNumber = function() {
   test.is(Status.ERROR, status);
   test.is('tsu', requ.commandAssignment.value.name);
   test.is('x', assign1.arg.text);
-  test.is(null, assign1.value);
+  test.is(undefined, assign1.value);
 };
 
 exports.testNestedCommand = function() {
@@ -12964,15 +12864,15 @@ exports.testNestedCommand = function() {
   test.is(        'VVVVVVV', statuses);
   test.is(Status.ERROR, status);
   test.is('tsn dif', requ.commandAssignment.value.name);
-  //test.is(undefined, assign1.arg);
-  //test.is(undefined, assign1.value);
+  test.is('', assign1.arg.text);
+  test.is(undefined, assign1.value);
 
   update({ typed: 'tsn dif ', cursor: { start: 8, end: 8 } });
   test.is(        'VVVVVVVV', statuses);
   test.is(Status.ERROR, status);
   test.is('tsn dif', requ.commandAssignment.value.name);
-  //test.is(undefined, assign1.arg);
-  //test.is(undefined, assign1.value);
+  test.is('', assign1.arg.text);
+  test.is(undefined, assign1.value);
 
   update({ typed: 'tsn dif x', cursor: { start: 9, end: 9 } });
   test.is(        'VVVVVVVVV', statuses);
@@ -12985,8 +12885,8 @@ exports.testNestedCommand = function() {
   test.is(        'VVVVVVV', statuses);
   test.is(Status.ERROR, status);
   test.is('tsn ext', requ.commandAssignment.value.name);
-  //test.is(undefined, assign1.arg);
-  //test.is(undefined, assign1.value);
+  test.is('', assign1.arg.text);
+  test.is(undefined, assign1.value);
 };
 
 
@@ -13224,7 +13124,7 @@ commands.tsg = {
       group: 'Second',
       params: [
         { name: 'txt2', type: 'string', defaultValue: 'd' },
-        { name: 'num2', type: { name: 'number', defaultValue: 42 } }
+        { name: 'num2', type: { name: 'number', min: 40 }, defaultValue: 42 }
       ]
     }
   ],
@@ -13393,7 +13293,7 @@ exports.testExec = function() {
   exec('tsm a 10 10', { abc: 'a', txt: '10', num: 10 });
 
   // Bug 707009 - GCLI doesn't always fill in default parameters properly
-  // exec('tsg a', { solo: 'a', txt1: null, boolean1: false, txt2: 'd', num2: 42 });
+  exec('tsg aaa', { solo: 'aaa', txt1: null, boolean1: false, txt2: 'd', num2: 42 });
 };
 
 var mockBody = {
@@ -14447,8 +14347,10 @@ exports.testDefault = function(options) {
       name = { name: 'array', subtype: 'string' };
     }
     var type = types.getType(name);
-    var conversion = type.getDefault();
-    test.ok(conversion != null, 'default defined');
+    if (type.name !== 'boolean' && type.name !== 'array') {
+      test.ok(type.getBlank().value === undefined,
+              'default defined for ' + type.name);
+    }
   });
 };
 
