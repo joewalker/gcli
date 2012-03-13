@@ -102,12 +102,22 @@
   padding: 0 2px;
 }
 
-.gcli-row-terminal {
+.gcli-row-terminal,
+.gcli-row-subterminal {
   border-radius: 3px;
   border: 1px solid #ddd;
+}
+
+.gcli-row-terminal {
   height: 200px;
   width: 620px;
   font-size: 80%;
+}
+
+.gcli-row-subterminal {
+  height: 150px;
+  width: 300px;
+  font-size: 75%;
 }
 
 .gcli-out-shortcut {
