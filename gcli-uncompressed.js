@@ -2380,7 +2380,7 @@ Type.prototype.decrement = function(value) {
  * 2 known examples of this are boolean -> false and array -> []
  */
 Type.prototype.getBlank = function() {
-  return new Conversion(undefined, new Argument());
+  return this.parse(new Argument());
 };
 
 /**
@@ -5632,6 +5632,13 @@ Requisition.prototype._onAssignmentChange = function(ev) {
  * When the command changes, we need to keep a bunch of stuff in sync
  */
 Requisition.prototype._onCommandAssignmentChange = function(ev) {
+  // Assignments fire AssignmentChange events on any change, including minor
+  // things like whitespace change in arg prefix, so we ignore anything but
+  // an actual value change
+  if (ev.conversion.valueEquals(ev.oldConversion)) {
+    return;
+  }
+
   this._assignments = {};
 
   var command = this.commandAssignment.value;
@@ -9180,8 +9187,6 @@ function SelectionTooltipField(type, options) {
   this.menu = new Menu({ document: this.document, type: type });
   this.element = this.menu.element;
 
-  this.setConversion(this.type.parse(new Argument('')));
-
   this.onFieldChange = util.createEvent('SelectionTooltipField.onFieldChange');
 
   // i.e. Register this.onItemClick as the default action for a menu click
@@ -9549,8 +9554,15 @@ Tooltip.prototype.destroy = function() {
  * Called whenever the assignment that we're providing help with changes
  */
 Tooltip.prototype.assignmentChanged = function(ev) {
+  // This can be kicked off either by requisition doing an assign or by
+  // inputter noticing a cursor movement out of a command, so we should check
+  // that this really is a new assignment
+  if (this.assignment === ev.assignment) {
+    return;
+  }
+
   if (this.assignment) {
-    this.assignment.onAssignmentChange.remove(this.assignmentValueChanged, this);
+    this.assignment.onAssignmentChange.remove(this.assignmentContentsChanged, this);
   }
   this.assignment = ev.assignment;
 
@@ -9571,7 +9583,7 @@ Tooltip.prototype.assignmentChanged = function(ev) {
   this.focusManager.setImportantFieldFlag(this.field.isImportant);
 
   this.field.onFieldChange.add(this.fieldChanged, this);
-  this.assignment.onAssignmentChange.add(this.assignmentValueChanged, this);
+  this.assignment.onAssignmentChange.add(this.assignmentContentsChanged, this);
 
   this.field.setConversion(this.assignment.conversion);
 
@@ -9621,7 +9633,14 @@ Tooltip.prototype.fieldChanged = function(ev) {
 /**
  * Called by the onAssignmentChange event on the current Assignment
  */
-Tooltip.prototype.assignmentValueChanged = function(ev) {
+Tooltip.prototype.assignmentContentsChanged = function(ev) {
+  // Assignments fire AssignmentChange events on any change, including minor
+  // things like whitespace change in arg prefix, so we ignore anything but
+  // an actual value change.
+  if (ev.conversion.valueEquals(ev.oldConversion)) {
+    return;
+  }
+
   this.field.setConversion(ev.conversion);
   util.setContents(this.descriptionEle, this.description);
 
@@ -10394,8 +10413,7 @@ Inputter.prototype._processCaretChange = function(input) {
       end = start;
       break;
 
-    case null:
-    case Caret.NO_CHANGE:
+    default:
       start = input.cursor.start;
       end = input.cursor.end;
       break;
@@ -10507,11 +10525,9 @@ Inputter.prototype.onKeyUp = function(ev) {
       this.requisition.update(this.history.backward());
     }
     else {
-      // If the user has typed nothing, or they're on a valid value, then we
-      // increment the value, but if they've typed something that's not right
-      // we want to pick from the predictions
-      if (this.assignment.arg.text === '' ||
-              this.assignment.getStatus() === Status.VALID) {
+      // If the user is on a valid value, then we increment the value, but if
+      // they've typed something that's not right we page through predictions
+      if (this.assignment.getStatus() === Status.VALID) {
         this.assignment.increment();
         // See notes below on focusManager.onKeyUp and input change
         if (this.focusManager) {
@@ -10539,8 +10555,7 @@ Inputter.prototype.onKeyUp = function(ev) {
     }
     else {
       // See notes above for the UP key
-      if (this.assignment.arg.text === '' ||
-              this.assignment.getStatus() === Status.VALID) {
+      if (this.assignment.getStatus() === Status.VALID) {
         this.assignment.decrement();
         // See notes below on focusManager.onKeyUp and input change
         if (this.focusManager) {
