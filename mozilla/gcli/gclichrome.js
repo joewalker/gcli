@@ -6,44 +6,37 @@
 
 define(function(require, exports, module) {
 
-  var cli = require('gcli/cli');
-  var basic = require('gcli/types/basic');
-  var javascript = require('gcli/types/javascript');
-  var node = require('gcli/types/node');
+  // The API for use by command authors
+  exports.addCommand = require('gcli/canon').addCommand;
+  exports.removeCommand = require('gcli/canon').removeCommand;
 
-  var Requisition = require('gcli/cli').Requisition;
-  var Display = require('gcli/ui/display').Display;
+  require('gcli/types/basic').startup();
+  require('gcli/types/command').startup();
+  require('gcli/types/javascript').startup();
+  require('gcli/types/node').startup();
+  require('gcli/types/resource').startup();
+  require('gcli/types/selection').startup();
+  require('gcli/types/setting').startup();
+
+  require('gcli/settings').startup();
+  require('gcli/cli').startup();
+  require('gcli/ui/intro').startup();
+  require('gcli/ui/focus').startup();
+  require('gcli/ui/fields/basic').startup();
+  require('gcli/ui/fields/javascript').startup();
+  require('gcli/ui/fields/selection').startup();
+
+  var display = require('gcli/ui/display');
 
   /**
-   * Called from gclichrome.xul
+   * Create a basic UI for GCLI on the web
    */
-  exports.startup = function(window) {
-    var enabled;
-    try {
-      enabled = Services.prefs.getBoolPref("devtools.gclichrome.enable");
-    }
-    catch (ex) {
-      dump('devtools.gclichrome.enable is not set: ' + ex + '\n');
-    }
-
-    if (!enabled) {
-      console.log('devtools.gclichrome.enable is not set: ' + ex + '\n');
-      return;
-    }
-
-    basic.startup();
-    javascript.startup();
-    node.startup();
-    cli.startup();
-
-    javascript.setGlobalObject(window);
-    node.setDocument(window.document);
-    cli.setEvalFunction(window.eval);
-
-    var opts = {
-      document: window.document,
-      requisition: new Requisition(opts, window.document)
-    };
-    opts.display = new Display(opts);
+  exports.createDisplay = function(options) {
+    return display.createDisplay(options || {});
   };
+
+  /**
+   * @deprecated Use createDisplay
+   */
+  exports.createView = exports.createDisplay;
 });

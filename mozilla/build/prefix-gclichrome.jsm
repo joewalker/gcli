@@ -46,11 +46,10 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-var EXPORTED_SYMBOLS = [ "gclichrome" ];
+var EXPORTED_SYMBOLS = [ "require" ];
 
 Components.utils.import("resource:///modules/gcli.jsm");
-Components.utils.import("resource://gre/modules/Services.jsm");
 
 var define = gcli._internal.define;
 var console = gcli._internal.console;
-
+var require = gcli._internal.require;
