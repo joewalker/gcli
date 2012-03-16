@@ -26,6 +26,7 @@
   z-index: -1000;
   color: transparent;
   margin-top: -1px;
+  border-top: 1px solid transparent;
 }
 
 .gcli-prompt {
