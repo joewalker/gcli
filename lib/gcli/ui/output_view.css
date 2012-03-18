@@ -75,14 +75,13 @@
 }
 
 .gcli-row-out a {
-  color: #000;
+  color: hsl(200,40%,40%);
   text-decoration: none;
-  border-bottom: 2px dashed #ddd;
 }
 
 .gcli-row-out a:hover {
-  border-bottom: 2px dotted #ddd;
   cursor: pointer;
+  border-bottom: 1px dotted hsl(200,40%,60%);
 }
 
 .gcli-row-out input[type=password],
