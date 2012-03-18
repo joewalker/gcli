@@ -8,10 +8,8 @@
 }
 
 .gcli-row-in {
-  margin: 10px 5px 5px;
+  margin: 10px 5px 0px;
   padding: 3px 4px 1px;
-  border-radius: 3px;
-  border: 1px solid #aaa;
 }
 
 .gcli-row-in > img {
@@ -55,7 +53,7 @@
 }
 
 .gcli-row-out {
-  margin: 0 8px 0px;
+  margin: 0 8px 0px 40px;
   padding: 1px 10px;
   line-height: 1.2em;
   font-size: 95%;
