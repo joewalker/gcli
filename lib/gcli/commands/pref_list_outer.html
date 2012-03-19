@@ -1,7 +1,7 @@
-<div>
+<div ignore="${onLoad(__element)}">
   <div class="gcli-pref-list-filter">
     ${l10n.prefOutputFilter}:
-    <input save="${input}" onKeyUp="${onFilterChange}" value="${search}"/>
+    <input onKeyUp="${onFilterChange}" value="${search}"/>
   </div>
   <table class="gcli-pref-list-table">
     <colgroup>
