@@ -26,8 +26,7 @@ function onLoad() {
     var gclitest = define.globalDomain.require("gclitest/index");
     gclitest.run({
       window: gcliterm.document.defaultView,
-      inputter: gcliterm.opts.console.inputter,
-      requisition: gcliterm.opts.requistion
+      display: gcliterm.opts.console
     });
   }
   catch (ex) {

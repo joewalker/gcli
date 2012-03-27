@@ -14,7 +14,9 @@
         <td class="gcliTestSuite">${suite.name}</td>
         <td class="gcliTestTitle">${test.title}</td>
         <td class="gcliTest${test.status.name}">${test.status.name}</td>
-        <td>${test.message || '-'}</td>
+        <td class="gcliTestMessages">
+          <div foreach="message in ${test.messages}">${message}</div>
+        </td>
       </tr>
     </tbody>
   </table>
