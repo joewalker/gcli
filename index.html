@@ -28,10 +28,8 @@
   <script type="text/javascript" src="es5-shim.js"></script>
   <script type="text/javascript" src="gcli-uncompressed.js"></script>
   <script type="text/javascript">
-    // 'deps' should be the same as in lib/server/build.js:buildStandard
-    var deps = [ 'gcli/index', 'gclitest/index', 'demo/index' ];
-    require(deps, function(gcli, gclitest) {
-      gclitest.run({ useFakeWindow: true });
+    // dependencies should be reflected in lib/server/build.js:buildStandard
+    require([ 'gcli/index', 'demo/index' ], function(gcli) {
       gcli.createDisplay();
     });
   </script>

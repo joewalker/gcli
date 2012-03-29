@@ -623,12 +623,23 @@ function nameFunction(handler) {
  */
 exports.createEvent = function(name) {
   var handlers = [];
+  var holdFire = false;
+  var heldEvents = [];
+  var eventCombiner = undefined;
 
   /**
    * This is how the event is triggered.
    * @param ev The event object to be passed to the event listeners
    */
   var event = function(ev) {
+    if (holdFire) {
+      heldEvents.push(ev);
+      if (eventDebug) {
+        console.log('Held fire: ' + name, ev);
+      }
+      return;
+    }
+
     if (eventDebug) {
       console.group('Fire: ' + name + ' to ' + handlers.length + ' listeners', ev);
     }
@@ -676,6 +687,77 @@ exports.createEvent = function(name) {
   event.removeAll = function() {
     handlers = [];
   };
+
+  /**
+   * Temporarily prevent this event from firing.
+   * @see resumeFire(ev)
+   */
+  event.holdFire = function() {
+    if (eventDebug) {
+      console.group('Holding fire: ' + name);
+    }
+
+    holdFire = true;
+  };
+
+  /**
+   * Resume firing events.
+   * If there are heldEvents, then we fire one event to cover them all. If an
+   * event combining function has been provided then we use that to combine the
+   * events. Otherwise the last held event is used.
+   * @see holdFire()
+   */
+  event.resumeFire = function() {
+    if (eventDebug) {
+      console.groupEnd('Resume fire: ' + name);
+    }
+
+    if (holdFire !== true) {
+      throw new Error('Event not held: ' + name);
+    }
+
+    holdFire = false;
+    if (heldEvents.length === 0) {
+      return;
+    }
+
+    if (heldEvents.length === 1) {
+      event(heldEvents[0]);
+    }
+    else {
+      var first = heldEvents[0];
+      var last = heldEvents[heldEvents.length - 1];
+      if (eventCombiner) {
+        event(eventCombiner(first, last, heldEvents));
+      }
+      else {
+        event(last);
+      }
+    }
+
+    heldEvents = [];
+  };
+
+  /**
+   * When resumeFire has a number of events to combine, by default it just
+   * picks the last, however you can provide an eventCombiner which returns a
+   * combined event.
+   * eventCombiners will be passed 3 parameters:
+   * - first The first event to be held
+   * - last The last event to be held
+   * - all An array containing all the held events
+   * The return value from an eventCombiner is expected to be an event object
+   */
+  Object.defineProperty(event, 'eventCombiner', {
+    set: function(newEventCombiner) {
+      if (typeof newEventCombiner !== 'function') {
+        throw new Error('eventCombiner is not a function');
+      }
+      eventCombiner = newEventCombiner;
+    },
+
+    enumerable: true
+  });
 
   return event;
 };
@@ -756,10 +838,30 @@ exports.removeWhitespace = function(elem, deep) {
  * it.
  * @param cssText The CSS declarations to append
  * @param doc The document element to work from
- * @param id Optional id to assign to the created style tag
+ * @param id Optional id to assign to the created style tag. If the id already
+ * exists on the document, we do not add the CSS again.
  */
 exports.importCss = function(cssText, doc, id) {
+  if (!cssText) {
+    return undefined;
+  }
+
   doc = doc || document;
+
+  if (!id) {
+    id = 'hash-' + hash(cssText);
+  }
+
+  if (id) {
+    var found = doc.getElementById(id);
+    if (found) {
+      if (found.tagName.toLowerCase() !== 'style') {
+        console.error('Warning: importCss passed id=' + id +
+                ', but that pre-exists (and isn\'t a style tag)');
+      }
+      return found;
+    }
+  }
 
   var style = exports.createElement(doc, 'style');
   if (id) {
@@ -772,6 +874,25 @@ exports.importCss = function(cssText, doc, id) {
 
   return style;
 };
+
+/**
+ * Simple hash function which happens to match Java's |String.hashCode()|
+ * Done like this because I we don't need crypto-security, but do need speed,
+ * and I don't want to spend a long time working on it.
+ * @see http://werxltd.com/wp/2010/05/13/javascript-implementation-of-javas-string-hashcode-method/
+ */
+function hash(str) {
+  var hash = 0;
+  if (str.length == 0) {
+    return hash;
+  }
+  for (var i = 0; i < str.length; i++) {
+    var char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash;
+}
 
 /**
  * There are problems with innerHTML on XML documents, so we need to do a dance
@@ -3168,7 +3289,7 @@ BooleanType.prototype.stringify = function(value) {
 };
 
 BooleanType.prototype.getBlank = function() {
-  return new Conversion(false, new Argument('false'));
+  return new Conversion(false, new Argument(), Status.VALID, '', this.lookup);
 };
 
 BooleanType.prototype.name = 'boolean';
@@ -3570,12 +3691,25 @@ SelectionType.prototype._dataToLookup = function(data) {
 /**
  * Return a list of possible completions for the given arg.
  * @param arg The initial input to match
- * @return A trimmed lookup table of string:value pairs
+ * @return A trimmed array of string:value pairs
  */
 SelectionType.prototype._findPredictions = function(arg) {
   var predictions = [];
   var lookup = this.getLookup();
   var i, option;
+
+  // If the arg has a suffix then we're kind of 'done'. Only an exact match
+  // will do.
+  if (arg.suffix.length > 0) {
+    for (i = 0; i < lookup.length && predictions.length < this.maxPredictions; i++) {
+      option = lookup[i];
+      if (option.name === arg.text) {
+        this._addToPredictions(predictions, option, arg);
+      }
+    }
+
+    return predictions;
+  }
 
   // Start with prefix matching
   for (i = 0; i < lookup.length && predictions.length < this.maxPredictions; i++) {
@@ -3905,6 +4039,10 @@ JavascriptType.prototype.parse = function(arg) {
   var typed = arg.text;
   var scope = globalObject;
 
+  // No input is undefined
+  if (typed === '') {
+    return new Conversion(undefined, arg, Status.INCOMPLETE);
+  }
   // Just accept numbers
   if (!isNaN(parseFloat(typed)) && isFinite(typed)) {
     return new Conversion(typed, arg);
@@ -4679,6 +4817,10 @@ CssResource.prototype.loadContents = function(callback) {
 
 CssResource._getAllStyles = function() {
   var resources = [];
+  if (doc == null) {
+    return resources;
+  }
+
   Array.prototype.forEach.call(doc.styleSheets, function(domSheet) {
     CssResource._getStyle(domSheet, resources);
   });
@@ -4751,6 +4893,10 @@ ScriptResource.prototype.loadContents = function(callback) {
 };
 
 ScriptResource._getAllScripts = function() {
+  if (doc == null) {
+    return [];
+  }
+
   var scriptNodes = doc.querySelectorAll('script');
   var resources = Array.prototype.map.call(scriptNodes, function(scriptNode) {
     var resource = ResourceCache.get(scriptNode);
@@ -4979,26 +5125,109 @@ var types = require('gcli/types');
 
 
 /**
- * Where the values for the settings are stored
+ * Where we store the settings that we've created
+ */
+var settings = {};
+
+/**
+ * Where the values for the settings are stored while in use.
  */
 var settingValues = {};
 
 /**
- * Initialize the settingValues store from sessionStorage
+ * Where the values for the settings are persisted for next use.
+ */
+var settingStorage;
+
+/**
+ * Allow a system to setup a different set of defaults from what GCLI provides
+ */
+exports.setDefaults = function(newValues) {
+  Object.keys(newValues).forEach(function(name) {
+    if (settingValues[name] === undefined) {
+      settingValues[name] = newValues[name];
+    }
+  });
+};
+
+/**
+ * Initialize the settingValues store from localStorage
  */
 exports.startup = function() {
+  settingStorage = new LocalSettingStorage();
+  settingStorage.load(settingValues);
+};
+
+exports.shutdown = function() {
+};
+
+/**
+ * 'static' function to get an array containing all known Settings
+ */
+exports.getAll = function(filter) {
+  var all = [];
+  Object.keys(settings).forEach(function(name) {
+    if (filter == null || name.indexOf(filter) !== -1) {
+      all.push(settings[name]);
+    }
+  }.bind(this));
+  all.sort(function(s1, s2) {
+    return s1.name.localeCompare(s2.name);
+  }.bind(this));
+  return all;
+};
+
+/**
+ * Add a new setting
+ * @return The new Setting object
+ */
+exports.addSetting = function(prefSpec) {
+  var type = types.getType(prefSpec.type);
+  var setting = new Setting(prefSpec.name, type, prefSpec.description);
+  settings[setting.name] = setting;
+  return setting;
+};
+
+/**
+ * Remove a setting
+ */
+exports.removeSetting = function(nameOrSpec) {
+  var name = typeof nameOrPrefSpec === 'string' ? nameOrSpec : nameOrSpec.name;
+  delete settings[name];
+};
+
+/**
+ * Implement the load() and save() functions to write a JSON string blob to
+ * localStorage
+ */
+function LocalSettingStorage() {
+}
+
+LocalSettingStorage.prototype.load = function(values) {
   if (typeof localStorage === 'undefined') {
     return;
   }
 
   var gcliSettings = localStorage.getItem('gcli-settings');
   if (gcliSettings != null) {
-    settingValues = JSON.parse(gcliSettings);
+    var parsed = JSON.parse(gcliSettings);
+    Object.keys(parsed).forEach(function(name) {
+      values[name] = parsed[name];
+    });
   }
 };
 
-exports.shutdown = function() {
+LocalSettingStorage.prototype.save = function(values) {
+  if (localStorage) {
+    var json = JSON.stringify(values);
+    localStorage.setItem('gcli-settings', json);
+  }
+  else {
+    console.warn('Missing localStorage, settings will not be saved');
+  }
 };
+
+exports.LocalSettingStorage = LocalSettingStorage;
 
 
 /**
@@ -5020,57 +5249,11 @@ Object.defineProperty(Setting.prototype, 'value', {
 
   set: function(value) {
     settingValues[this.name] = value;
-    var json = JSON.stringify(settingValues);
-    if (localStorage) {
-      localStorage.setItem('gcli-settings', json);
-    }
-    else {
-      console.warn('Missing localStorage, settings will not be saved');
-    }
+    settingStorage.save(settingValues);
   },
 
   enumerable: true
 });
-
-
-/**
- * Where we store the settings that we've created
- */
-var settings = {};
-
-/**
- * 'static' function to get an array containing all known Settings
- */
-exports.getAll = function(filter) {
-  var all = [];
-  Object.keys(settings).forEach(function(name) {
-    if (filter == null || name.indexOf(filter) !== -1) {
-      all.push(settings[name]);
-    }
-  }.bind(this));
-  all.sort(function(s1, s2) {
-    return s1.name.localeCompare(s2.name);
-  }.bind(this));
-  return all;
-};
-
-/**
- * Add a new setting
- */
-exports.addSetting = function(prefSpec) {
-  var type = types.getType(prefSpec.type);
-  var setting = new Setting(prefSpec.name, type, prefSpec.description);
-  settings[setting.name] = setting;
-  return setting;
-};
-
-/**
- * Remove a setting
- */
-exports.removeSetting = function(nameOrSpec) {
-  var name = typeof nameOrPrefSpec === 'string' ? nameOrSpec : nameOrSpec.name;
-  delete settings[name];
-};
 
 
 });
@@ -5142,11 +5325,6 @@ function Assignment(param, paramIndex) {
   this.param = param;
   this.paramIndex = paramIndex;
   this.onAssignmentChange = util.createEvent('Assignment.onAssignmentChange');
-
-  // Sometimes (i.e. completion) we need to hold events until we're finished
-  // mutating
-  this._holdEvents = false;
-  this._oldConversion = undefined;
 
   this.setBlank();
 }
@@ -5225,45 +5403,12 @@ Assignment.prototype.setConversion = function(conversion) {
     return;
   }
 
-  if (this._holdEvents) {
-    if (!this._oldConversion) {
-      this._oldConversion = oldConversion;
-    }
-  }
-  else {
-    this.onAssignmentChange({
-      assignment: this,
-      conversion: this.conversion,
-      oldConversion: oldConversion
-    });
-  }
+  this.onAssignmentChange({
+    assignment: this,
+    conversion: this.conversion,
+    oldConversion: oldConversion
+  });
 };
-
-/**
- * Normally setConversion causes onAssignmentChange to be called. However we
- * may need to call setConversion several times delaying the event until the
- * end.
- */
-Object.defineProperty(Assignment.prototype, 'holdEvents', {
-  get: function() {
-    return this._holdEvents;
-  },
-
-  set: function(holdEvents) {
-    // If we're turning off event holding, then we need to fire the held event
-    if (!holdEvents) {
-      this.onAssignmentChange({
-        assignment: this,
-        conversion: this.conversion,
-        oldConversion: this._oldConversion
-      });
-      this._oldConversion = undefined;
-    }
-    this._holdEvents = holdEvents;
-  },
-
-  enumerable: true
-});
 
 /**
  * Setup an empty value for the conversion by parsing an empty argument.
@@ -5531,12 +5676,12 @@ function Requisition(environment, doc) {
   // Used to store cli arguments that were not assigned to parameters
   this._unassigned = new UnassignedAssignment();
 
-  // Temporarily set this to true to prevent _onAssignmentChange resetting
+  // Temporarily set this to true to prevent _assignmentChanged resetting
   // argument positions
   this._structuralChangeInProgress = false;
 
-  this.commandAssignment.onAssignmentChange.add(this._onCommandAssignmentChange, this);
-  this.commandAssignment.onAssignmentChange.add(this._onAssignmentChange, this);
+  this.commandAssignment.onAssignmentChange.add(this._commandAssignmentChanged, this);
+  this.commandAssignment.onAssignmentChange.add(this._assignmentChanged, this);
 
   this.commandOutputManager = canon.commandOutputManager;
 
@@ -5554,8 +5699,8 @@ var MORE_THAN_THE_MOST_ARGS_POSSIBLE = 1000000;
  * Avoid memory leaks
  */
 Requisition.prototype.destroy = function() {
-  this.commandAssignment.onAssignmentChange.remove(this._onCommandAssignmentChange, this);
-  this.commandAssignment.onAssignmentChange.remove(this._onAssignmentChange, this);
+  this.commandAssignment.onAssignmentChange.remove(this._commandAssignmentChanged, this);
+  this.commandAssignment.onAssignmentChange.remove(this._assignmentChanged, this);
 
   delete this.document;
   delete this.environment;
@@ -5565,7 +5710,7 @@ Requisition.prototype.destroy = function() {
  * When any assignment changes, we might need to update the _args array to
  * match and inform people of changes to the typed input text.
  */
-Requisition.prototype._onAssignmentChange = function(ev) {
+Requisition.prototype._assignmentChanged = function(ev) {
   // Don't report an event if the value is unchanged
   if (ev.oldConversion != null &&
       ev.conversion.valueEquals(ev.oldConversion)) {
@@ -5631,7 +5776,7 @@ Requisition.prototype._onAssignmentChange = function(ev) {
 /**
  * When the command changes, we need to keep a bunch of stuff in sync
  */
-Requisition.prototype._onCommandAssignmentChange = function(ev) {
+Requisition.prototype._commandAssignmentChanged = function(ev) {
   // Assignments fire AssignmentChange events on any change, including minor
   // things like whitespace change in arg prefix, so we ignore anything but
   // an actual value change
@@ -5646,7 +5791,7 @@ Requisition.prototype._onCommandAssignmentChange = function(ev) {
     for (var i = 0; i < command.params.length; i++) {
       var param = command.params[i];
       var assignment = new Assignment(param, i);
-      assignment.onAssignmentChange.add(this._onAssignmentChange, this);
+      assignment.onAssignmentChange.add(this._assignmentChanged, this);
       this._assignments[param.name] = assignment;
     }
   }
@@ -5762,38 +5907,46 @@ Requisition.prototype.complete = function(cursor, predictionChoice) {
 
   var predictions = assignment.conversion.getPredictions();
   if (predictions.length > 0) {
+    this.onTextChange.holdFire();
+
     var prediction = assignment.conversion.getPredictionAt(predictionChoice);
 
     // Mutate this argument to hold the completion
     var arg = assignment.arg.beget(prediction.name);
-    var conversion = new Conversion(prediction.value, arg);
-    assignment.holdEvents = true;
+    var conversion = assignment.param.type.parse(arg);
     assignment.setConversion(conversion);
+
+    // If this argument isn't assigned to anything (i.e. it was created by
+    // assignment.setBlank) we need to add it into the _args array so
+    // requisition.toString can make sense
+    if (this._args.indexOf(arg) === -1) {
+      this._args.push(arg);
+    }
 
     if (prediction.incomplete) {
       // This is the easy case - the prediction is incomplete - no need to add
       // any spaces
-      assignment.holdEvents = false;
       return;
     }
 
     // The prediction reported !incomplete, which means it's complete so we
-    // should add a space to delimit this argument and move-on. The question
-    // is, where does the space go? The obvious thing to do is to add it to the
-    // suffix of the completed argument, but that's wrong because spaces are
-    // attached to the start of the next argument rather than the end of the
-    // previous one (and this matters to getCurrentAssignment).
+    // should add a space to delimit this argument and let the user move-on.
+    // The question is, where does the space go? The obvious thing to do is to
+    // add it to the suffix of the completed argument, but that's wrong because
+    // spaces are attached to the start of the next argument rather than the
+    // end of the previous one (and this matters to getCurrentAssignment).
     // However there might not be a next argument (if we've at the end of the
     // input), in which case we really do use this one.
     // Also if there is already a space in those positions, don't add another
+
     var nextIndex = assignment.paramIndex + 1;
     var nextAssignment = this.getAssignment(nextIndex);
     if (nextAssignment) {
       // Add a space onto the next argument (if there isn't one there already)
-      var nextConversion = nextAssignment.conversion;
-      var nextArg = nextConversion.arg;
+      var nextArg = nextAssignment.conversion.arg;
       if (nextArg.prefix.charAt(0) !== ' ') {
         nextArg.prefix = ' ' + nextArg.prefix;
+        var nextConversion = nextAssignment.param.type.parse(nextArg);
         nextAssignment.setConversion(nextConversion);
 
         // If this argument isn't assigned to anything (i.e. it was created by
@@ -5822,10 +5975,9 @@ Requisition.prototype.complete = function(cursor, predictionChoice) {
       }
     }
 
-    assignment.holdEvents = false;
+    this.onTextChange();
+    this.onTextChange.resumeFire();
   }
-
-  this.onTextChange();
 };
 
 /**
@@ -5916,6 +6068,24 @@ Requisition.prototype.toString = function() {
   }
 
   return this.toCanonicalString();
+};
+
+/**
+ * If the last character is whitespace then things that we suggest to add to
+ * the end don't need a space prefix.
+ * While this is quite a niche function, it has 2 benefits:
+ * - it's more correct because we can distinguish between final whitespace that
+ *   is part of an unclosed string, and parameter separating whitespace.
+ * - also it's faster than toString() the whole thing and checking the end char
+ * @return true iff the last character is interpreted as parameter separating
+ * whitespace
+ */
+Requisition.prototype.typedEndsWithWhitespace = function() {
+  if (this._args) {
+    return this._args.slice(-1)[0].suffix.slice(-1) === ' ';
+  }
+
+  return this.toCanonicalString().slice(-1) === ' ';
 };
 
 /**
@@ -6052,6 +6222,9 @@ Requisition.prototype.exec = function(input) {
   var command;
   var args;
   var hidden = false;
+  if (input && input.hidden) {
+    hidden = true;
+  }
 
   if (input) {
     if (typeof input === 'string') {
@@ -6097,15 +6270,18 @@ Requisition.prototype.exec = function(input) {
     start: new Date()
   };
 
-  this.commandOutputManager.onOutput({ output: outputObject });
+  if (!hidden) {
+    this.commandOutputManager.onOutput({ output: outputObject });
+  }
 
   var onComplete = function(output, error) {
+    outputObject.end = new Date();
+    outputObject.duration = outputObject.end.getTime() - outputObject.start.getTime();
+    outputObject.error = error;
+    outputObject.output = output;
+    outputObject.completed = true;
+
     if (!hidden) {
-      outputObject.end = new Date();
-      outputObject.duration = outputObject.end.getTime() - outputObject.start.getTime();
-      outputObject.error = error;
-      outputObject.output = output;
-      outputObject.completed = true;
       this.commandOutputManager.onOutput({ output: outputObject });
     }
   }.bind(this);
@@ -6616,6 +6792,10 @@ var domtemplate = require('gcli/ui/domtemplate');
  * - html (required): The HTML source, probably from a call to require
  * - options (default={}): The domtemplate options. See domtemplate for details
  * - data (default={}): The data to domtemplate. See domtemplate for details.
+ * - css (default=none): Some CSS to be added to the final document. If 'css'
+ *   is used, use of cssId is strongly recommended.
+ * - cssId (default=none): An ID to prevent multiple CSS additions. See
+ *   util.importCss for more details.
  * @return An object containing a single function 'appendTo()' which runs the
  * template adding the result to the specified element. Takes 2 parameters:
  * - element (required): the element to add to
@@ -6655,6 +6835,10 @@ exports.createView = function(options) {
      * @param document to use in realizing the template
      */
     toDom: function(document) {
+      if (options.css) {
+        util.importCss(options.css, document, options.cssId);
+      }
+
       var child = util.toDom(document, options.html);
       domtemplate.template(child, options.data || {}, options.options || {});
       return child;
@@ -6802,7 +6986,7 @@ Templater.prototype._splitSpecial = /\uF001|\uF002/;
  * Cached regex used to detect if a script is capable of being interpreted
  * using Template._property() or if we need to use Template._envEval()
  */
-Templater.prototype._isPropertyScript = /^[a-zA-Z0-9.]*$/;
+Templater.prototype._isPropertyScript = /^[_a-zA-Z0-9.]*$/;
 
 /**
  * Recursive function to walk the tree processing the attributes as it goes.
@@ -8238,11 +8422,16 @@ BooleanField.prototype.setConversion = function(conversion) {
 };
 
 BooleanField.prototype.getConversion = function() {
-  var value = this.element.checked;
-  var arg = this.named ?
-    value ? new TrueNamedArgument(this.name) : new FalseNamedArgument() :
-    new Argument(' ' + value);
-  return new Conversion(value, arg);
+  var arg;
+  if (this.named) {
+    arg = this.element.checked ?
+            new TrueNamedArgument(this.name) :
+            new FalseNamedArgument();
+  }
+  else {
+    arg = new Argument(' ' + this.element.checked);
+  }
+  return this.type.parse(arg);
 };
 
 
@@ -8270,12 +8459,13 @@ DeferredField.prototype.update = function() {
   }
 
   if (this.field) {
+    this.field.onFieldChange.remove(this.fieldChanged, this);
     this.field.destroy();
   }
 
   this.subtype = subtype;
   this.field = fields.getField(subtype, this.options);
-  this.field.onFieldChange.add(this.onFieldChange, this);
+  this.field.onFieldChange.add(this.fieldChanged, this);
 
   util.clearElement(this.element);
   this.element.appendChild(this.field.element);
@@ -8304,7 +8494,8 @@ DeferredField.prototype.getConversion = function() {
 Object.defineProperty(DeferredField.prototype, 'isImportant', {
   get: function() {
     return this.field.isImportant;
-  }
+  },
+  enumerable: true
 });
 
 
@@ -8423,13 +8614,12 @@ ArrayField.prototype._onAdd = function(ev, subConversion) {
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('gcli/ui/fields', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types', 'gcli/types/basic'], function(require, exports, module) {
+define('gcli/ui/fields', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types/basic'], function(require, exports, module) {
 
 
 var util = require('gcli/util');
 var KeyEvent = require('gcli/util').KeyEvent;
 
-var Conversion = require('gcli/types').Conversion;
 var BlankType = require('gcli/types/basic').BlankType;
 
 /**
@@ -8649,7 +8839,7 @@ BlankField.prototype.setConversion = function(conversion) {
 };
 
 BlankField.prototype.getConversion = function() {
-  return new Conversion(null);
+  return this.type.parse(new Argument());
 };
 
 exports.addField(BlankField);
@@ -8717,7 +8907,7 @@ function JavascriptField(type, options) {
   this.onFieldChange = util.createEvent('JavascriptField.onFieldChange');
 
   // i.e. Register this.onItemClick as the default action for a menu click
-  this.menu.onItemClick.add(this.onItemClick, this);
+  this.menu.onItemClick.add(this.itemClicked, this);
 }
 
 JavascriptField.prototype = Object.create(Field.prototype);
@@ -8729,7 +8919,7 @@ JavascriptField.claim = function(type) {
 JavascriptField.prototype.destroy = function() {
   Field.prototype.destroy.call(this);
   this.input.removeEventListener('keyup', this.onInputChange, false);
-  this.menu.onItemClick.remove(this.onItemClick, this);
+  this.menu.onItemClick.remove(this.itemClicked, this);
   this.menu.destroy();
   delete this.element;
   delete this.input;
@@ -8768,7 +8958,7 @@ JavascriptField.prototype.setConversion = function(conversion) {
   this.setMessage(conversion.message);
 };
 
-JavascriptField.prototype.onItemClick = function(ev) {
+JavascriptField.prototype.itemClicked = function(ev) {
   this.onFieldChange(ev);
   this.setMessage(ev.conversion.message);
 };
@@ -8884,10 +9074,8 @@ Menu.prototype.onItemClickInternal = function(ev) {
  * to display)
  * @param items The items to show in the menu
  * @param match Matching text to highlight in the output
- * @param error An error message to display
  */
-Menu.prototype.show = function(items, match, error) {
-  this.error = error;
+Menu.prototype.show = function(items, match) {
   this.items = items.filter(function(item) {
     return item.hidden === undefined || item.hidden !== true;
   }.bind(this));
@@ -8898,7 +9086,7 @@ Menu.prototype.show = function(items, match, error) {
     }.bind(this));
   }
 
-  if (this.error == null && this.items.length === 0) {
+  if (this.items.length === 0) {
     this.element.style.display = 'none';
     return;
   }
@@ -9056,9 +9244,6 @@ define("text!gcli/ui/fields/menu.html", [], "\n" +
   "    <td class=\"gcli-menu-name\">${item.name}</td>\n" +
   "    <td class=\"gcli-menu-desc\">${item.description}</td>\n" +
   "  </tr>\n" +
-  "  <tr if=\"${error}\">\n" +
-  "    <td class=\"gcli-menu-error\" colspan=\"2\">${error}</td>\n" +
-  "  </tr>\n" +
   "</table>\n" +
   "");
 
@@ -9159,9 +9344,7 @@ SelectionField.prototype.setConversion = function(conversion) {
 
 SelectionField.prototype.getConversion = function() {
   var item = this.items[this.element.value];
-  var arg = new Argument(item.name, ' ');
-  var value = item.value ? item.value : item;
-  return new Conversion(value, arg);
+  return this.type.parse(new Argument(item.name, ' '));
 };
 
 SelectionField.prototype._addOption = function(item) {
@@ -9190,7 +9373,7 @@ function SelectionTooltipField(type, options) {
   this.onFieldChange = util.createEvent('SelectionTooltipField.onFieldChange');
 
   // i.e. Register this.onItemClick as the default action for a menu click
-  this.menu.onItemClick.add(this.onItemClick, this);
+  this.menu.onItemClick.add(this.itemClicked, this);
 }
 
 SelectionTooltipField.prototype = Object.create(Field.prototype);
@@ -9201,7 +9384,7 @@ SelectionTooltipField.claim = function(type) {
 
 SelectionTooltipField.prototype.destroy = function() {
   Field.prototype.destroy.call(this);
-  this.menu.onItemClick.remove(this.onItemClick, this);
+  this.menu.onItemClick.remove(this.itemClicked, this);
   this.menu.destroy();
   delete this.element;
   delete this.document;
@@ -9220,7 +9403,7 @@ SelectionTooltipField.prototype.setConversion = function(conversion) {
   this.setMessage(conversion.message);
 };
 
-SelectionTooltipField.prototype.onItemClick = function(ev) {
+SelectionTooltipField.prototype.itemClicked = function(ev) {
   this.onFieldChange(ev);
   this.setMessage(ev.conversion.message);
 };
@@ -9248,7 +9431,8 @@ SelectionTooltipField.prototype.setChoiceIndex = function(choice) {
 Object.defineProperty(SelectionTooltipField.prototype, 'isImportant', {
   get: function() {
     return this.type.name !== 'command';
-  }
+  },
+  enumerable: true
 });
 
 SelectionTooltipField.DEFAULT_VALUE = '__SelectionTooltipField.DEFAULT_VALUE';
@@ -9261,10 +9445,11 @@ SelectionTooltipField.DEFAULT_VALUE = '__SelectionTooltipField.DEFAULT_VALUE';
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('gcli/ui/display', ['require', 'exports', 'module' , 'gcli/util', 'gcli/ui/intro', 'gcli/ui/domtemplate', 'gcli/ui/tooltip', 'gcli/ui/output_terminal', 'gcli/ui/inputter', 'gcli/ui/completer', 'gcli/ui/focus', 'gcli/ui/prompt', 'gcli/cli', 'text!gcli/ui/display.css', 'text!gcli/ui/display.html'], function(require, exports, module) {
+define('gcli/ui/display', ['require', 'exports', 'module' , 'gcli/util', 'gcli/settings', 'gcli/ui/intro', 'gcli/ui/domtemplate', 'gcli/ui/tooltip', 'gcli/ui/output_terminal', 'gcli/ui/inputter', 'gcli/ui/completer', 'gcli/ui/focus', 'gcli/ui/prompt', 'gcli/cli', 'text!gcli/ui/display.css', 'text!gcli/ui/display.html'], function(require, exports, module) {
 
 
 var util = require('gcli/util');
+var settings = require('gcli/settings');
 var intro = require('gcli/ui/intro');
 var domtemplate = require('gcli/ui/domtemplate');
 
@@ -9288,6 +9473,9 @@ var displayHtml = require('text!gcli/ui/display.html');
  * @param options See Display() for a description of the available options.
  */
 exports.createDisplay = function(options) {
+  if (options.settings != null) {
+    settings.setDefaults(options.settings);
+  }
   var display = new Display(options);
   var requisition = display.requisition;
   return {
@@ -9637,7 +9825,7 @@ Tooltip.prototype.assignmentContentsChanged = function(ev) {
   // Assignments fire AssignmentChange events on any change, including minor
   // things like whitespace change in arg prefix, so we ignore anything but
   // an actual value change.
-  if (ev.conversion.valueEquals(ev.oldConversion)) {
+  if (ev.conversion.arg.text === ev.oldConversion.arg.text) {
     return;
   }
 
@@ -9709,7 +9897,8 @@ Object.defineProperty(Tooltip.prototype, 'description', {
     }
 
     return this.assignment.param.description;
-  }
+  },
+  enumerable: true
 });
 
 /**
@@ -10005,10 +10194,8 @@ define("text!gcli/ui/output_view.css", [], "\n" +
   "}\n" +
   "\n" +
   ".gcli-row-in {\n" +
-  "  margin: 10px 5px 5px;\n" +
+  "  margin: 10px 5px 0px;\n" +
   "  padding: 3px 4px 1px;\n" +
-  "  border-radius: 3px;\n" +
-  "  border: 1px solid #aaa;\n" +
   "}\n" +
   "\n" +
   ".gcli-row-in > img {\n" +
@@ -10052,7 +10239,7 @@ define("text!gcli/ui/output_view.css", [], "\n" +
   "}\n" +
   "\n" +
   ".gcli-row-out {\n" +
-  "  margin: 0 8px 0px;\n" +
+  "  margin: 0 8px 0px 40px;\n" +
   "  padding: 1px 10px;\n" +
   "  line-height: 1.2em;\n" +
   "  font-size: 95%;\n" +
@@ -10072,14 +10259,13 @@ define("text!gcli/ui/output_view.css", [], "\n" +
   "}\n" +
   "\n" +
   ".gcli-row-out a {\n" +
-  "  color: #000;\n" +
+  "  color: hsl(200,40%,40%);\n" +
   "  text-decoration: none;\n" +
-  "  border-bottom: 2px dashed #ddd;\n" +
   "}\n" +
   "\n" +
   ".gcli-row-out a:hover {\n" +
-  "  border-bottom: 2px dotted #ddd;\n" +
   "  cursor: pointer;\n" +
+  "  border-bottom: 1px dotted hsl(200,40%,60%);\n" +
   "}\n" +
   "\n" +
   ".gcli-row-out input[type=password],\n" +
@@ -10229,7 +10415,7 @@ function Inputter(options, components) {
     this.focusManager.addMonitoredElement(this.element, 'input');
   }
 
-  this.requisition.onTextChange.add(this.onTextChange, this);
+  this.requisition.onTextChange.add(this.textChanged, this);
 
   this.assignment = this.requisition.getAssignmentAt(0);
   this.onAssignmentChange = util.createEvent('Inputter.onAssignmentChange');
@@ -10249,7 +10435,7 @@ Inputter.prototype.destroy = function() {
   delete this.onWindowResize;
   this.document.defaultView.removeEventListener('resize', this.onWindowResize, false);
 
-  this.requisition.onTextChange.remove(this.onTextChange, this);
+  this.requisition.onTextChange.remove(this.textChanged, this);
   if (this.focusManager) {
     this.focusManager.removeMonitoredElement(this.element, 'input');
   }
@@ -10298,7 +10484,7 @@ Inputter.prototype.getDimensions = function() {
   var rect = this.element.getBoundingClientRect();
   return {
     top: rect.top + 1,
-    height: rect.bottom - rect.top,
+    height: rect.bottom - rect.top - 1,
     left: rect.left + 2,
     width: rect.right - rect.left
   };
@@ -10312,9 +10498,13 @@ Inputter.prototype.onMouseUp = function(ev) {
 };
 
 /**
- * Handler for the Requisition.onTextChange event
+ * Handler for the Requisition.textChanged event
  */
-Inputter.prototype.onTextChange = function() {
+Inputter.prototype.textChanged = function() {
+  if (!this.document) {
+    return; // This can happen post-destroy()
+  }
+
   if (this._caretChange == null) {
     // We weren't expecting a change so this was requested by the hint system
     // we should move the cursor to the end of the 'changed section', and the
@@ -10323,36 +10513,13 @@ Inputter.prototype.onTextChange = function() {
   }
 
   var newStr = this.requisition.toString();
+  var input = this.getInputState();
 
-  if (!this.document) {
-    return; // This can happen post-destroy()
-  }
+  input.typed = newStr;
+  this._processCaretChange(input);
 
-  // If the text is unchanged, we only need to worry about the cursor position
-  if (this.element.value && this.element.value === newStr) {
-    var input = this.getInputState();
-    this._processCaretChange(input);
-    this.onInputChange({ inputState: input });
-    return;
-  }
-
-  // Updating in a timeout fixes a XUL issue (bug 676520) where textbox gives
-  // incorrect values for its content
-  this.document.defaultView.setTimeout(function() {
-    if (!this.document) {
-      return; // This can happen post-destroy()
-    }
-
-    // Bug 678520 - We could do better caret handling by recording the caret
-    // position in terms of offset into an assignment, and then replacing into
-    // a similar place
-    var input = this.getInputState();
-    input.typed = newStr;
-    this._processCaretChange(input);
-    this.element.value = newStr;
-
-    this.onInputChange({ inputState: input });
-  }.bind(this), 0);
+  this.element.value = newStr;
+  this.onInputChange({ inputState: input });
 };
 
 /**
@@ -10427,10 +10594,10 @@ Inputter.prototype._processCaretChange = function(input) {
     cursor: { start: start, end: end }
   };
 
-  this.element.selectionStart = newInput.cursor.start;
-  this.element.selectionEnd = newInput.cursor.end;
+  this.element.selectionStart = start;
+  this.element.selectionEnd = end;
 
-  this._checkAssignment();
+  this._checkAssignment(start);
 
   this._caretChange = null;
   return newInput;
@@ -10439,9 +10606,15 @@ Inputter.prototype._processCaretChange = function(input) {
 /**
  * To be called internally whenever we think that the current assignment might
  * have changed, typically on mouse-clicks or key presses.
+ * @param start Optional - if specified, the cursor position to use in working
+ * out the current assignment. This is needed because setting the element
+ * selection start is only recognised when the event loop has finished
  */
-Inputter.prototype._checkAssignment = function() {
-  var newAssignment = this.getCurrentAssignment();
+Inputter.prototype._checkAssignment = function(start) {
+  if (start == null) {
+    start = this.element.selectionStart;
+  }
+  var newAssignment = this.requisition.getAssignmentAt(start);
   if (this.assignment !== newAssignment) {
     this.assignment = newAssignment;
     this.onAssignmentChange({ assignment: this.assignment });
@@ -10468,6 +10641,15 @@ Inputter.prototype._checkAssignment = function() {
  */
 Inputter.prototype.setInput = function(str) {
   this.requisition.update(str);
+};
+
+/**
+ * Counterpart to |setInput| for moving the cursor.
+ * @param cursor An object shaped like { start: x, end: y }
+ */
+Inputter.prototype.setCursor = function(cursor) {
+  this._caretChange = Caret.NO_CHANGE;
+  this._processCaretChange({ typed: this.element.value, cursor: cursor });
 };
 
 /**
@@ -10605,7 +10787,7 @@ Inputter.prototype.onKeyUp = function(ev) {
     // both, and do the completion.
     if (this.lastTabDownAt + 1000 > ev.timeStamp) {
       // It's possible for TAB to not change the input, in which case the
-      // onTextChange event will not fire, and the caret move will not be
+      // textChanged event will not fire, and the caret move will not be
       // processed. So we check that this is done first
       this._caretChange = Caret.TO_ARG_END;
       var inputState = this.getInputState();
@@ -10770,6 +10952,7 @@ exports.History = History;
   "  z-index: -1000;\n" +
   "  color: transparent;\n" +
   "  margin-top: -1px;\n" +
+  "  border-top: 1px solid transparent;\n" +
   "}\n" +
   "\n" +
   ".gcli-prompt {\n" +
@@ -10854,11 +11037,11 @@ function Completer(options, components) {
   this.inputter.onChoiceChange.add(this.update, this);
 
   if (components.autoResize) {
-    this.inputter.onResize.add(this.onResize, this);
+    this.inputter.onResize.add(this.resized, this);
 
     var dimensions = this.inputter.getDimensions();
     if (dimensions) {
-      this.onResize(dimensions);
+      this.resized(dimensions);
     }
   }
 
@@ -10876,7 +11059,7 @@ Completer.prototype.destroy = function() {
   this.inputter.onInputChange.remove(this.update, this);
   this.inputter.onAssignmentChange.remove(this.update, this);
   this.inputter.onChoiceChange.remove(this.update, this);
-  this.inputter.onResize.remove(this.onResize, this);
+  this.inputter.onResize.remove(this.resized, this);
 
   delete this.document;
   delete this.element;
@@ -10887,7 +11070,7 @@ Completer.prototype.destroy = function() {
 /**
  * Ensure that the completion element is the same size and the inputter element
  */
-Completer.prototype.onResize = function(ev) {
+Completer.prototype.resized = function(ev) {
   this.element.style.top = ev.top + 'px';
   this.element.style.height = ev.height + 'px';
   this.element.style.lineHeight = ev.height + 'px';
@@ -10916,7 +11099,7 @@ Completer.prototype.update = function(ev) {
   if (ev && ev.choice != null) {
     this.choice = ev.choice;
   }
-  this.input = this.inputter.getInputState();
+  this._preTemplateUpdate();
 
   var template = this.template.cloneNode(true);
   domtemplate.template(template, this, { stack: 'completer.html' });
@@ -10924,6 +11107,57 @@ Completer.prototype.update = function(ev) {
   util.clearElement(this.element);
   while (template.hasChildNodes()) {
     this.element.appendChild(template.firstChild);
+  }
+};
+
+/**
+ * Update the state of a number of internal variables in preparation for
+ * templating. Some of these properties are interdependent, so it makes sense
+ * to do them in one go.
+ */
+Completer.prototype._preTemplateUpdate = function() {
+  this.input = this.inputter.getInputState();
+
+  // What text should we display as the tab text, and should it be given as a
+  // '-> full' or as 'suffix' (which depends on if the completion is a strict
+  // completion or not)
+  if (this.input.typed.trim().length === 0) {
+    this.directTabText = '';
+    this.arrowTabText = '';
+  }
+  else {
+    var current = this.inputter.assignment;
+    var prediction = current.conversion.getPredictionAt(this.choice);
+    if (!prediction) {
+      this.directTabText = '';
+      this.arrowTabText = '';
+    }
+    else {
+      var tabText = prediction.name;
+
+      var existing = current.arg.text;
+
+      if (existing === tabText) {
+        this.directTabText = '';
+        this.arrowTabText = '';
+      }
+      else {
+        if (isStrictCompletion(existing, tabText) &&
+                this.input.cursor.start === this.input.typed.length) {
+          // Display the suffix of the prediction as the completion
+          var numLeadingSpaces = existing.match(/^(\s*)/)[0].length;
+          this.directTabText = tabText.slice(existing.length - numLeadingSpaces);
+          this.arrowTabText = '';
+        }
+        else {
+          this.directTabText = '';
+
+          // Display the '-> prediction' at the end of the completer element
+          // These JS escapes are aka &nbsp;&rarr; the right arrow
+          this.arrowTabText = ' \u00a0\u21E5 ' + tabText;
+        }
+      }
+    }
   }
 };
 
@@ -10940,43 +11174,8 @@ Object.defineProperty(Completer.prototype, 'statusMarkup', {
       member.className = 'gcli-in-' + member.status.toString().toLowerCase();
     }, this);
     return markup;
-  }
-});
-
-/**
- * What text should we display as the tab text, and should it be given as a
- * '-> full' or as 'suffix' (which depends on if the completion is a strict
- * completion or not)
- */
-Object.defineProperty(Completer.prototype, 'tabText', {
-  get: function() {
-    if (this.input.typed.length === 0) {
-      return '';
-    }
-
-    var current = this.inputter.assignment;
-    var prediction = current.conversion.getPredictionAt(this.choice);
-    if (!prediction) {
-      return '';
-    }
-    var tabText = prediction.name;
-
-    var existing = current.arg.text;
-
-    if (existing === tabText) {
-      return '';
-    }
-
-    if (isStrictCompletion(existing, tabText) &&
-            this.input.cursor.start === this.input.typed.length) {
-      // Display the suffix of the prediction as the completion
-      var numLeadingSpaces = existing.match(/^(\s*)/)[0].length;
-      return tabText.slice(existing.length - numLeadingSpaces);
-    }
-
-    // Display the '-> prediction' at the end of the completer element
-    return ' \u00a0\u21E5 ' + tabText; // aka &nbsp;&rarr; the right arrow
-  }
+  },
+  enumerable: true
 });
 
 /**
@@ -10989,7 +11188,8 @@ Object.defineProperty(Completer.prototype, 'scratchLink', {
     }
     var command = this.requisition.commandAssignment.value;
     return command && command.name === '{' ? this.scratchpad.linkText : null;
-  }
+  },
+  enumerable: true
 });
 
 /**
@@ -11003,7 +11203,8 @@ Object.defineProperty(Completer.prototype, 'unclosedJs', {
     var unclosedJs = jsCommand &&
         this.requisition.getAssignment(0).arg.suffix.indexOf('}') === -1;
     return unclosedJs;
-  }
+  },
+  enumerable: true
 });
 
 /**
@@ -11011,15 +11212,47 @@ Object.defineProperty(Completer.prototype, 'unclosedJs', {
  */
 Object.defineProperty(Completer.prototype, 'emptyParameters', {
   get: function() {
+    var typedEndSpace = this.requisition.typedEndsWithWhitespace();
+    // Cache computed property
+    var directTabText = this.directTabText;
+    // If this is the first blank assignment we might not need a space prefix
+    // also we skip [param] text if we have directTabText, but only for the
+    // first blank param.
+    var firstBlankParam = true;
     var params = [];
     this.requisition.getAssignments().forEach(function(assignment) {
-      var isCurrent = (this.inputter.assignment === assignment);
-      if (!isCurrent && assignment.arg.text === '') {
-        params.push(assignment.param);
+      if (!assignment.param.isPositionalAllowed) {
+        return;
       }
+
+      if (!assignment.arg.isBlank()) {
+        if (directTabText !== '') {
+          firstBlankParam = false;
+        }
+        return;
+      }
+
+      if (directTabText !== '' && firstBlankParam) {
+        firstBlankParam = false;
+        return;
+      }
+
+      var text = (assignment.param.isDataRequired) ?
+          '<' + assignment.param.name + '>' :
+          '[' + assignment.param.name + ']';
+
+      // Add a space if we don't have one at the end of the input or if
+      // this isn't the first param we've mentioned
+      if (!typedEndSpace || !firstBlankParam) {
+        text = ' ' + text;
+      }
+
+      firstBlankParam = false;
+      params.push(text);
     }.bind(this));
     return params;
-  }
+  },
+  enumerable: true
 });
 
 exports.Completer = Completer;
@@ -11031,8 +11264,9 @@ define("text!gcli/ui/completer.html", [], "\n" +
   "  <loop foreach=\"member in ${statusMarkup}\">\n" +
   "    <span class=\"${member.className}\">${member.string}</span>\n" +
   "  </loop>\n" +
-  "  <span class=\"gcli-in-ontab\">${tabText}</span>\n" +
-  "  <span class=\"gcli-in-todo\" foreach=\"param in ${emptyParameters}\"> [<span title=\"${param.description}\">${param.name}</span>]</span>\n" +
+  "  <span class=\"gcli-in-ontab\">${directTabText}</span>\n" +
+  "  <span class=\"gcli-in-todo\" foreach=\"param in ${emptyParameters}\">${param}</span>\n" +
+  "  <span class=\"gcli-in-ontab\">${arrowTabText}</span>\n" +
   "  <span class=\"gcli-in-closebrace\" if=\"${unclosedJs}\">}</span>\n" +
   "  <div class=\"gcli-in-scratchlink\" if=\"${scratchLink}\">${scratchLink}</div>\n" +
   "</div>\n" +
@@ -11068,11 +11302,11 @@ function Prompt(options, components) {
 
   this.inputter = components.inputter;
   if (this.inputter) {
-    this.inputter.onResize.add(this.onResize, this);
+    this.inputter.onResize.add(this.resized, this);
 
     var dimensions = this.inputter.getDimensions();
     if (dimensions) {
-      this.onResize(dimensions);
+      this.resized(dimensions);
     }
   }
 }
@@ -11082,7 +11316,7 @@ function Prompt(options, components) {
  */
 Prompt.prototype.destroy = function() {
   if (this.inputter) {
-    this.inputter.onResize.remove(this.onResize, this);
+    this.inputter.onResize.remove(this.resized, this);
   }
 
   delete this.element;
@@ -11091,7 +11325,7 @@ Prompt.prototype.destroy = function() {
 /**
  * Ensure that the completion element is the same size and the inputter element
  */
-Prompt.prototype.onResize = function(ev) {
+Prompt.prototype.resized = function(ev) {
   this.element.style.top = ev.top + 'px';
   this.element.style.height = ev.height + 'px';
   this.element.style.lineHeight = ev.height + 'px';
@@ -11125,17 +11359,17 @@ define("text!gcli/ui/display.html", [], "\n" +
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/commands/help', 'gcli/commands/pref', 'test/commands', 'demo/commands/basic', 'demo/commands/demo'], function(require, exports, module) {
+define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/commands/help', 'gcli/commands/pref', 'test/commands/test', 'demo/commands/basic', 'demo/commands/bugs', 'demo/commands/demo'], function(require, exports, module) {
 
   require('gcli/index');
 
   require('gcli/commands/help').startup();
   require('gcli/commands/pref').startup();
 
-  require('test/commands').startup();
+  require('test/commands/test').startup();
 
   require('demo/commands/basic').startup();
-  // require('demo/commands/bugs').startup();
+  require('demo/commands/bugs').startup();
   require('demo/commands/demo').startup();
 
 });
@@ -11145,22 +11379,19 @@ define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/comma
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('gcli/commands/help', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/util', 'gcli/l10n', 'gcli/ui/view', 'text!gcli/commands/help.css', 'text!gcli/commands/help_man.html', 'text!gcli/commands/help_list.html'], function(require, exports, module) {
+define('gcli/commands/help', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/ui/view', 'text!gcli/commands/help_man.html', 'text!gcli/commands/help_list.html', 'text!gcli/commands/help.css'], function(require, exports, module) {
 var help = exports;
 
 
 var canon = require('gcli/canon');
-var util = require('gcli/util');
 var l10n = require('gcli/l10n');
 var view = require('gcli/ui/view');
-
-var helpCss = require('text!gcli/commands/help.css');
-var helpStyle = undefined;
 
 // Storing the HTML on exports allows other builds to alter the help template
 // but still allowing dryice to do it's dependency thing properly
 exports.helpManHtml = require('text!gcli/commands/help_man.html');
 exports.helpListHtml = require('text!gcli/commands/help_list.html');
+exports.helpCss = require('text!gcli/commands/help.css');
 
 /**
  * 'help' command
@@ -11181,23 +11412,23 @@ var helpCommandSpec = {
   returnType: 'html',
 
   exec: function(args, context) {
-    if (context.document) {
-      help.onFirstUseStartup(context.document);
-    }
-
     var match = canon.getCommand(args.search || undefined);
     if (match) {
       return view.createView({
         html: exports.helpManHtml,
         options: { allowEval: true, stack: 'help_man.html' },
-        data: getManTemplateData(match, context)
+        data: getManTemplateData(match, context),
+        css: exports.helpCss,
+        cssId: 'gcli-help'
       });
     }
 
     return view.createView({
       html: exports.helpListHtml,
       options: { allowEval: true, stack: 'help_list.html' },
-      data: getListTemplateData(args, context)
+      data: getListTemplateData(args, context),
+      css: exports.helpCss,
+      cssId: 'gcli-help'
     });
   }
 };
@@ -11211,19 +11442,6 @@ help.startup = function() {
 
 help.shutdown = function() {
   canon.removeCommand(helpCommandSpec);
-
-  helpListTemplate = undefined;
-  helpStyle.parentElement.removeChild(helpStyle);
-  helpStyle = undefined;
-};
-
-/**
- * Called when the command is executed
- */
-help.onFirstUseStartup = function(document) {
-  if (!helpStyle && helpCss != null) {
-    helpStyle = util.importCss(helpCss, document, 'gcli-help');
-  }
 };
 
 /**
@@ -11337,48 +11555,6 @@ function getManTemplateData(command, context) {
 }
 
 });
-define("text!gcli/commands/help.css", [], "\n" +
-  ".gcli-help-name {\n" +
-  "  text-align: end;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-help-arrow {\n" +
-  "  font-size: 70%;\n" +
-  "  color: #AAA;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-help-synopsis {\n" +
-  "  font-family: monospace;\n" +
-  "  font-weight: normal;\n" +
-  "  padding: 0 3px;\n" +
-  "  margin: 0 10px;\n" +
-  "  border: 1px solid #999;\n" +
-  "  border-radius: 3px;\n" +
-  "  color: #666;\n" +
-  "  cursor: pointer;\n" +
-  "  display: inline-block;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-help-synopsis:before {\n" +
-  "  color: #66F;\n" +
-  "  content: '\\bb';\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-help-description {\n" +
-  "  margin: 0 20px;\n" +
-  "  padding: 0;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-help-parameter {\n" +
-  "  margin: 0 30px;\n" +
-  "  padding: 0;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-help-header {\n" +
-  "  margin: 10px 0 6px;\n" +
-  "}\n" +
-  "");
-
 define("text!gcli/commands/help_man.html", [], "\n" +
   "<div>\n" +
   "  <h3>${command.name}</h3>\n" +
@@ -11459,21 +11635,61 @@ define("text!gcli/commands/help_list.html", [], "\n" +
   "</div>\n" +
   "");
 
+define("text!gcli/commands/help.css", [], "\n" +
+  ".gcli-help-name {\n" +
+  "  text-align: end;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-help-arrow {\n" +
+  "  font-size: 70%;\n" +
+  "  color: #AAA;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-help-synopsis {\n" +
+  "  font-family: monospace;\n" +
+  "  font-weight: normal;\n" +
+  "  padding: 0 3px;\n" +
+  "  margin: 0 10px;\n" +
+  "  border: 1px solid #999;\n" +
+  "  border-radius: 3px;\n" +
+  "  color: #666;\n" +
+  "  cursor: pointer;\n" +
+  "  display: inline-block;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-help-synopsis:before {\n" +
+  "  color: #66F;\n" +
+  "  content: '\\bb';\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-help-description {\n" +
+  "  margin: 0 20px;\n" +
+  "  padding: 0;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-help-parameter {\n" +
+  "  margin: 0 30px;\n" +
+  "  padding: 0;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-help-header {\n" +
+  "  margin: 10px 0 6px;\n" +
+  "}\n" +
+  "");
+
 /*
  * Copyright 2009-2011 Mozilla Foundation and contributors
  * Licensed under the New BSD license. See LICENSE.txt or:
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('gcli/commands/pref', ['require', 'exports', 'module' , 'gcli/index', 'gcli/l10n', 'gcli/util', 'gcli/settings', 'gcli/ui/view', 'gcli/ui/domtemplate', 'gcli/promise', 'text!gcli/commands/pref_set_check.html', 'text!gcli/commands/pref_list.css', 'text!gcli/commands/pref_list_outer.html', 'text!gcli/commands/pref_list_inner.html'], function(require, exports, module) {
+define('gcli/commands/pref', ['require', 'exports', 'module' , 'gcli/index', 'gcli/l10n', 'gcli/util', 'gcli/settings', 'gcli/promise', 'text!gcli/commands/pref_list_outer.html', 'text!gcli/commands/pref_list.css', 'text!gcli/commands/pref_set_check.html', 'text!gcli/commands/pref_list_inner.html'], function(require, exports, module) {
 
 
 var gcli = require('gcli/index');
 var l10n = require('gcli/l10n');
 var util = require('gcli/util');
 var settings = require('gcli/settings');
-var view = require('gcli/ui/view');
-var domtemplate = require('gcli/ui/domtemplate');
 var Promise = require('gcli/promise').Promise;
 
 /**
@@ -11484,7 +11700,7 @@ var allowSetSettingSpec = {
   type: 'boolean',
   description: l10n.lookup('allowSetDesc')
 };
-var allowSet;
+var allowSet = undefined;
 
 /**
  * 'pref' command
@@ -11512,8 +11728,17 @@ var prefListCmdSpec = {
     }
   ],
   exec: function Command_prefList(args, context) {
-    var prefList = new PrefList(args, context);
-    return prefList.element;
+    return context.createView({
+      html: require('text!gcli/commands/pref_list_outer.html'),
+      data: new PrefList(args, context),
+      options: {
+        blankNullUndefined: true,
+        allowEval: true,
+        stack: 'pref_list_outer.html'
+      },
+      css: require('text!gcli/commands/pref_list.css'),
+      cssId: 'gcli-pref-list'
+    });
   }
 };
 
@@ -11540,7 +11765,7 @@ var prefSetCmdSpec = {
   ],
   exec: function Command_prefSet(args, context) {
     if (!allowSet.value && args.setting.name !== allowSet.name) {
-      return view.createView({
+      return context.createView({
         html: require('text!gcli/commands/pref_set_check.html'),
         options: { allowEval: true, stack: 'pref_set_check.html' },
         data: {
@@ -11572,12 +11797,6 @@ exports.shutdown = function() {
   gcli.removeCommand(prefListCmdSpec);
   gcli.removeCommand(prefSetCmdSpec);
 
-  PrefList.outerTemplate = undefined;
-  if (PrefList.style) {
-    PrefList.style.parentElement.removeChild(PrefList.style);
-  }
-  PrefList.style = undefined;
-
   settings.removeSetting(allowSetSettingSpec);
   allowSet = undefined;
 };
@@ -11587,25 +11806,20 @@ exports.shutdown = function() {
  * A manager for our version of about:config
  */
 function PrefList(args, context) {
-  PrefList.onFirstUseStartup(context.document);
-
   this.search = args.search;
-  this.element = PrefList.outerTemplate.cloneNode(true);
   this.context = context;
   this.url = util.createUrlLookup(module);
   this.edit = this.url('pref_list_edit.png');
-
-  // Populated by the template
-  this.input = undefined;
-  this.table = undefined;
-
-  domtemplate.template(this.element, this, {
-    blankNullUndefined: true,
-    stack: 'pref_list_outer.html'
-  });
-
-  this.updateTable();
 }
+
+/**
+ * 
+ */
+PrefList.prototype.onLoad = function(element) {
+  var table = element.querySelector('.gcli-pref-list-table');
+  this.updateTable(table);
+  return '';
+};
 
 /**
  * Forward localization lookups
@@ -11615,18 +11829,15 @@ PrefList.prototype.l10n = l10n.propertyLookup;
 /**
  * Called from the template onkeyup for the filter element
  */
-PrefList.prototype.updateTable = function() {
-  util.clearElement(this.table);
-  var newTable = PrefList.innerTemplate.cloneNode(true);
-  while (newTable.hasChildNodes()) {
-    this.table.appendChild(newTable.firstChild);
-  }
-
-  domtemplate.template(this.table, this, {
-    blankNullUndefined: true,
-    allowEval: true,
-    stack: 'pref_list_inner.html'
+PrefList.prototype.updateTable = function(table) {
+  util.clearElement(table);
+  var view = this.context.createView({
+    html: require('text!gcli/commands/pref_list_inner.html'),
+    options: { blankNullUndefined: true, stack: 'pref_list_inner.html' },
+    data: this
   });
+  var child = view.toDom(table.ownerDocument);
+  util.setContents(table, child);
 };
 
 /**
@@ -11645,7 +11856,7 @@ Object.defineProperty(PrefList.prototype, 'preferences', {
 Object.defineProperty(PrefList.prototype, 'promisePreferences', {
   get: function() {
     var promise = new Promise();
-    this.table.ownerDocument.defaultView.setTimeout(function() {
+    setTimeout(function() {
       promise.resolve(settings.getAll(this.search));
     }.bind(this), 10);
     return promise;
@@ -11654,9 +11865,12 @@ Object.defineProperty(PrefList.prototype, 'promisePreferences', {
 });
 
 PrefList.prototype.onFilterChange = function(ev) {
-  if (this.input.value !== this.search) {
-    this.search = this.input.value;
-    this.updateTable();
+  if (ev.target.value !== this.search) {
+    this.search = ev.target.value;
+
+    var root = ev.target.parentNode.parentNode;
+    var table = root.querySelector('.gcli-pref-list-table');
+    this.updateTable(table);
   }
 };
 
@@ -11665,37 +11879,26 @@ PrefList.prototype.onSetClick = function(ev) {
   this.context.update(typed);
 };
 
-PrefList.css = require('text!gcli/commands/pref_list.css');
-PrefList.style = undefined;
-
-PrefList.outerHtml = require('text!gcli/commands/pref_list_outer.html');
-PrefList.outerTemplate = undefined;
-
-PrefList.innerHtml = require('text!gcli/commands/pref_list_inner.html');
-PrefList.innerTemplate = undefined;
-
-/**
- * Called when the command is executed
- */
-PrefList.onFirstUseStartup = function(document) {
-  if (!PrefList.outerTemplate) {
-    PrefList.outerTemplate = util.toDom(document, PrefList.outerHtml);
-  }
-
-  if (!PrefList.innerTemplate) {
-    PrefList.innerTemplate = util.toDom(document, PrefList.innerHtml);
-  }
-
-  if (!PrefList.style && PrefList.css != null) {
-    PrefList.style = util.importCss(PrefList.css, document, 'gcli-pref-list');
-  }
-};
-
 });
-define("text!gcli/commands/pref_set_check.html", [], "<div>\n" +
-  "  <p><strong>${l10n.prefSetCheckHeading}</strong></p>\n" +
-  "  <p>${l10n.prefSetCheckBody}</p>\n" +
-  "  <button onclick=\"${activate}\">${l10n.prefSetCheckGo}</button>\n" +
+define("text!gcli/commands/pref_list_outer.html", [], "<div ignore=\"${onLoad(__element)}\">\n" +
+  "  <div class=\"gcli-pref-list-filter\">\n" +
+  "    ${l10n.prefOutputFilter}:\n" +
+  "    <input onKeyUp=\"${onFilterChange}\" value=\"${search}\"/>\n" +
+  "  </div>\n" +
+  "  <table class=\"gcli-pref-list-table\">\n" +
+  "    <colgroup>\n" +
+  "      <col class=\"gcli-pref-list-name\"/>\n" +
+  "      <col class=\"gcli-pref-list-value\"/>\n" +
+  "    </colgroup>\n" +
+  "    <tr>\n" +
+  "      <th>${l10n.prefOutputName}</th>\n" +
+  "      <th>${l10n.prefOutputValue}</th>\n" +
+  "    </tr>\n" +
+  "  </table>\n" +
+  "  <div class=\"gcli-pref-list-scroller\">\n" +
+  "    <table class=\"gcli-pref-list-table\" save=\"${table}\">\n" +
+  "    </table>\n" +
+  "  </div>\n" +
   "</div>\n" +
   "");
 
@@ -11734,25 +11937,10 @@ define("text!gcli/commands/pref_list.css", [], "\n" +
   "}\n" +
   "");
 
-define("text!gcli/commands/pref_list_outer.html", [], "<div>\n" +
-  "  <div class=\"gcli-pref-list-filter\">\n" +
-  "    ${l10n.prefOutputFilter}:\n" +
-  "    <input save=\"${input}\" onKeyUp=\"${onFilterChange}\" value=\"${search}\"/>\n" +
-  "  </div>\n" +
-  "  <table class=\"gcli-pref-list-table\">\n" +
-  "    <colgroup>\n" +
-  "      <col class=\"gcli-pref-list-name\"/>\n" +
-  "      <col class=\"gcli-pref-list-value\"/>\n" +
-  "    </colgroup>\n" +
-  "    <tr>\n" +
-  "      <th>${l10n.prefOutputName}</th>\n" +
-  "      <th>${l10n.prefOutputValue}</th>\n" +
-  "    </tr>\n" +
-  "  </table>\n" +
-  "  <div class=\"gcli-pref-list-scroller\">\n" +
-  "    <table class=\"gcli-pref-list-table\" save=\"${table}\">\n" +
-  "    </table>\n" +
-  "  </div>\n" +
+define("text!gcli/commands/pref_set_check.html", [], "<div>\n" +
+  "  <p><strong>${l10n.prefSetCheckHeading}</strong></p>\n" +
+  "  <p>${l10n.prefSetCheckBody}</p>\n" +
+  "  <button onclick=\"${activate}\">${l10n.prefSetCheckGo}</button>\n" +
   "</div>\n" +
   "");
 
@@ -11777,20 +11965,17 @@ define("text!gcli/commands/pref_list_inner.html", [], "<table>\n" +
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('test/commands', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/ui/domtemplate', 'test/examiner', 'text!test/ui/test.css', 'text!test/ui/test.html'], function(require, exports, module) {
+define('test/commands/test', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'test/examiner', 'text!test/commands/test.css', 'text!test/commands/test.html'], function(require, exports, module) {
 
 
 var util = require('gcli/util');
 var canon = require('gcli/canon');
-var domtemplate = require("gcli/ui/domtemplate");
 
 var examiner = require("test/examiner");
 
-var testCss = require("text!test/ui/test.css");
-var testHtml = require('text!test/ui/test.html');
+var testCss = require("text!test/commands/test.css");
+var testHtml = require('text!test/commands/test.html');
 
-
-var template;
 
 /**
  * Registration and de-registration.
@@ -11811,22 +11996,18 @@ var testCommandSpec = {
   description: 'Runs the GCLI Unit Tests',
   params: [],
   exec: function(env, context) {
-    if (!template) {
-      util.importCss(testCss, context.document, 'gcli-test');
-      template = util.toDom(context.document, testHtml);
-    }
-
     var promise = context.createPromise();
-    var options = { window: window };
 
-    examiner.runAsync(options, function() {
-      var newNode = template.cloneNode(true);
-      domtemplate.template(newNode, examiner.toRemote(), {
-        allowEval: true,
-        stack: 'test.html'
-      });
-      promise.resolve(newNode);
+    examiner.runAsync({}, function() {
+      promise.resolve(context.createView({
+        html: testHtml,
+        css: testCss,
+        cssId: 'gcli-test',
+        data: examiner.toRemote(),
+        options: { allowEval: true, stack: 'test.html' }
+      }));
     });
+
     return promise;
   }
 };
@@ -11872,14 +12053,29 @@ examiner.addSuite = function(name, suite) {
 };
 
 /**
+ * When run from an command, there are some options that we can't (and
+ * shouldn't) specify, so we allow a set of default options, which are merged
+ * with the specified options in |run()|.
+ */
+examiner.defaultOptions = {};
+
+/**
+ * Add properties to |options| from |examiner.defaultOptions| when |options|
+ * does not have a value for a given name.
+ */
+function mergeDefaultOptions(options) {
+  Object.keys(examiner.defaultOptions).forEach(function(name) {
+    if (options[name] == null) {
+      options[name] = examiner.defaultOptions[name];
+    }
+  });
+}
+
+/**
  * Run the tests defined in the test suite synchronously
- * @param options How the tests are run. Properties include:
- * - window: The browser window object to run the tests against
- * - useFakeWindow: Use a test subset and a fake DOM to avoid a real document
- * - detailedResultLog: console.log test passes and failures in more detail
  */
 examiner.run = function(options) {
-  examiner._checkOptions(options);
+  mergeDefaultOptions(options);
 
   Object.keys(examiner.suites).forEach(function(suiteName) {
     var suite = examiner.suites[suiteName];
@@ -11887,7 +12083,7 @@ examiner.run = function(options) {
   }.bind(this));
 
   if (options.detailedResultLog) {
-    examiner.log();
+    examiner.detailedResultLog();
   }
   else {
     console.log('Completed test suite');
@@ -11897,38 +12093,17 @@ examiner.run = function(options) {
 };
 
 /**
- * Check the options object. There should be either useFakeWindow or a window.
- * Setup the fake window if requested.
- */
-examiner._checkOptions = function(options) {
-  if (options.useFakeWindow) {
-    // A minimum fake dom to get us through the JS tests
-    var doc = { title: 'Fake DOM' };
-    var fakeWindow = {
-      window: { document: doc },
-      document: doc
-    };
-
-    options.window = fakeWindow;
-  }
-
-  if (!options.window) {
-    throw new Error('Tests need either window or useFakeWindow');
-  }
-};
-
-/**
  * Run all the tests asynchronously
  */
 examiner.runAsync = function(options, callback) {
-  examiner._checkOptions(options);
-  this.runAsyncInternal(0, options, callback);
+  mergeDefaultOptions(options);
+  this._runAsyncInternal(0, options, callback);
 };
 
 /**
  * Run all the test suits asynchronously
  */
-examiner.runAsyncInternal = function(i, options, callback) {
+examiner._runAsyncInternal = function(i, options, callback) {
   if (i >= Object.keys(examiner.suites).length) {
     if (typeof callback === 'function') {
       callback();
@@ -11939,16 +12114,9 @@ examiner.runAsyncInternal = function(i, options, callback) {
   var suiteName = Object.keys(examiner.suites)[i];
   examiner.suites[suiteName].runAsync(options, function() {
     setTimeout(function() {
-      examiner.runAsyncInternal(i + 1, options, callback);
+      examiner._runAsyncInternal(i + 1, options, callback);
     }.bind(this), delay);
   }.bind(this));
-};
-
-/**
- *
- */
-examiner.reportToText = function() {
-  return JSON.stringify(examiner.toRemote());
 };
 
 /**
@@ -11958,47 +12126,112 @@ examiner.toRemote = function() {
   return {
     suites: Object.keys(examiner.suites).map(function(suiteName) {
       return examiner.suites[suiteName].toRemote();
-    }.bind(this))
+    }.bind(this)),
+    summary: {
+      checks: this.checks,
+      status: this.status
+    }
   };
 };
 
 /**
+ * The number of checks in this set of test suites is the sum of the checks in
+ * the test suites.
+ */
+Object.defineProperty(examiner, 'checks', {
+  get: function() {
+    return  Object.keys(examiner.suites).reduce(function(current, suiteName) {
+      return current + examiner.suites[suiteName].checks;
+    }.bind(this), 0);
+  },
+  enumerable: true
+});
+
+/**
+ * The status of this set of test suites is the worst of the statuses of the
+ * contained test suites.
+ */
+Object.defineProperty(examiner, 'status', {
+  get: function() {
+    return Object.keys(examiner.suites).reduce(function(status, suiteName) {
+      var suiteStatus = examiner.suites[suiteName].status;
+      return status.index > suiteStatus.index ? status : suiteStatus;
+    }.bind(this), stati.notrun);
+  },
+  enumerable: true
+});
+
+/**
  * Output a test summary to console.log
  */
-examiner.log = function() {
-  var remote = this.toRemote();
-  remote.suites.forEach(function(suite) {
-    console.log(suite.name);
-    suite.tests.forEach(function(test) {
-      console.log('- ' + test.name, test.status.name, test.message || '');
-    });
-  });
+examiner.detailedResultLog = function() {
+  Object.keys(this.suites).forEach(function(suiteName) {
+    var suite = examiner.suites[suiteName];
+
+    console.log(suite.name + ': ' + suite.status.name + ' (funcs=' +
+            Object.keys(suite.tests).length +
+            ', checks=' + suite.checks + ')');
+
+    Object.keys(suite.tests).forEach(function(testName) {
+      var test = suite.tests[testName];
+      if (test.status !== stati.pass || test.failures.length !== 0) {
+        console.log('- ' + test.name + ': ' + test.status.name);
+        test.failures.forEach(function(failure) {
+          console.log('  - ' + failure.message);
+          if (failure.expected) {
+            console.log('    - Expected: ' + failure.expected);
+            console.log('    -   Actual: ' + failure.actual);
+          }
+        }.bind(this));
+      }
+    }.bind(this));
+  }.bind(this));
+
+  console.log();
+  console.log('Summary: ' + this.status.name + ' (' + this.checks + ' checks)');
 };
 
 /**
  * Used by assert to record a failure against the current test
+ * @param failure A set of properties describing the failure. Properties include:
+ * - message (string, required) A message describing the test
+ * - expected (optional) The expected data
+ * - actual (optional) The actual data
  */
-examiner.recordError = function(message) {
+examiner.recordFailure = function(failure) {
   if (!currentTest) {
-    console.error('No currentTest for ' + message);
+    console.error('No currentTest for ' + failure.message);
     return;
   }
 
   currentTest.status = stati.fail;
+  currentTest.failures.push(failure);
+};
 
-  if (Array.isArray(message)) {
-    currentTest.messages.push.apply(currentTest.messages, message);
+/**
+ * Used by assert to record a check pass
+ */
+examiner.recordPass = function() {
+  if (!currentTest) {
+    console.error('No currentTest');
+    return;
   }
-  else {
-    currentTest.messages.push(message);
-  }
+
+  currentTest.checks++;
+};
+
+/**
+ * When we want to note something alongside a test
+ */
+examiner.log = function(message) {
+  currentTest.failures.push({ message: message });
 };
 
 /**
  * A suite is a group of tests
  */
 function Suite(suiteName, suite) {
-  this.name = suiteName;
+  this.name = suiteName.replace(/gclitest\//, '');
   this.suite = suite;
 
   this.tests = {};
@@ -12014,8 +12247,8 @@ function Suite(suiteName, suite) {
  * Run all the tests in this suite synchronously
  */
 Suite.prototype.run = function(options) {
-  if (typeof this.suite.setup == "function") {
-    this.suite.setup(options);
+  if (!this._setup(options)) {
+    return;
   }
 
   Object.keys(this.tests).forEach(function(testName) {
@@ -12023,23 +12256,22 @@ Suite.prototype.run = function(options) {
     test.run(options);
   }.bind(this));
 
-  if (typeof this.suite.shutdown == "function") {
-    this.suite.shutdown(options);
-  }
+  this._shutdown(options);
 };
 
 /**
  * Run all the tests in this suite asynchronously
  */
 Suite.prototype.runAsync = function(options, callback) {
-  if (typeof this.suite.setup == "function") {
-    this.suite.setup(options);
+  if (!this._setup(options)) {
+    if (typeof callback === 'function') {
+      callback();
+    }
+    return;
   }
 
-  this.runAsyncInternal(0, options, function() {
-    if (typeof this.suite.shutdown == "function") {
-      this.suite.shutdown(options);
-    }
+  this._runAsyncInternal(0, options, function() {
+    this._shutdown(options);
 
     if (typeof callback === 'function') {
       callback();
@@ -12050,7 +12282,7 @@ Suite.prototype.runAsync = function(options, callback) {
 /**
  * Function used by the async runners that can handle async recursion.
  */
-Suite.prototype.runAsyncInternal = function(i, options, callback) {
+Suite.prototype._runAsyncInternal = function(i, options, callback) {
   if (i >= Object.keys(this.tests).length) {
     if (typeof callback === 'function') {
       callback();
@@ -12061,7 +12293,7 @@ Suite.prototype.runAsyncInternal = function(i, options, callback) {
   var testName = Object.keys(this.tests)[i];
   this.tests[testName].runAsync(options, function() {
     setTimeout(function() {
-      this.runAsyncInternal(i + 1, options, callback);
+      this._runAsyncInternal(i + 1, options, callback);
     }.bind(this), delay);
   }.bind(this));
 };
@@ -12078,6 +12310,88 @@ Suite.prototype.toRemote = function() {
   };
 };
 
+/**
+ * The number of checks in this suite is the sum of the checks in the contained
+ * tests.
+ */
+Object.defineProperty(Suite.prototype, 'checks', {
+  get: function() {
+    return Object.keys(this.tests).reduce(function(prevChecks, testName) {
+      return prevChecks + this.tests[testName].checks;
+    }.bind(this), 0);
+  },
+  enumerable: true
+});
+
+/**
+ * The status of a test suite is the worst of the statuses of the contained
+ * tests.
+ */
+Object.defineProperty(Suite.prototype, 'status', {
+  get: function() {
+    return Object.keys(this.tests).reduce(function(prevStatus, testName) {
+      var suiteStatus = this.tests[testName].status;
+      return prevStatus.index > suiteStatus.index ? prevStatus : suiteStatus;
+    }.bind(this), stati.notrun);
+  },
+  enumerable: true
+});
+
+/**
+ * Defensively setup the test suite
+ */
+Suite.prototype._setup = function(options) {
+  if (typeof this.suite.setup !== 'function') {
+    return true;
+  }
+
+  try {
+    this.suite.setup(options);
+    return true;
+  }
+  catch (ex) {
+    this._logToAllTests(stati.notrun, '' + ex);
+    console.error(ex);
+    if (ex.stack) {
+      console.error(ex.stack);
+    }
+    return false;
+  }
+};
+
+/**
+ * Defensively shutdown the test suite
+ */
+Suite.prototype._shutdown = function(options) {
+  if (typeof this.suite.shutdown !== 'function') {
+    return true;
+  }
+
+  try {
+    this.suite.shutdown(options);
+    return true;
+  }
+  catch (ex) {
+    this._logToAllTests(stati.fail, '' + ex);
+    console.error(ex);
+    if (ex.stack) {
+      console.error(ex.stack);
+    }
+    return false;
+  }
+};
+
+/**
+ * Something has gone wrong that affects all tests in this Suite
+ */
+Suite.prototype._logToAllTests = function(status, message) {
+  Object.keys(this.tests).forEach(function(testName) {
+    var test = this.tests[testName];
+    test.status = status;
+    test.failures.push({ message: message });
+  }.bind(this));
+};
+
 
 /**
  * A test represents data about a single test function
@@ -12088,8 +12402,9 @@ function Test(suite, name, func) {
   this.func = func;
   this.title = name.replace(/^test/, '').replace(/([A-Z])/g, ' $1');
 
-  this.messages = [];
+  this.failures = [];
   this.status = stati.notrun;
+  this.checks = 0;
 }
 
 /**
@@ -12098,14 +12413,15 @@ function Test(suite, name, func) {
 Test.prototype.run = function(options) {
   currentTest = this;
   this.status = stati.executing;
-  this.messages = [];
+  this.failures = [];
+  this.checks = 0;
 
   try {
     this.func.apply(this.suite, [ options ]);
   }
   catch (ex) {
     this.status = stati.fail;
-    this.messages.push('' + ex);
+    this.failures.push({ message: '' + ex });
     console.error(ex);
     if (ex.stack) {
       console.error(ex.stack);
@@ -12139,13 +12455,14 @@ Test.prototype.toRemote = function() {
     name: this.name,
     title: this.title,
     status: this.status,
-    messages: this.messages
+    failures: this.failures,
+    checks: this.checks
   };
 };
 
 
 });
-define("text!test/ui/test.css", [], "\n" +
+define("text!test/commands/test.css", [], "\n" +
   ".gcliTestSkipped {\n" +
   "  background-color: #EEE;\n" +
   "  color: #000;\n" +
@@ -12171,25 +12488,37 @@ define("text!test/ui/test.css", [], "\n" +
   "  color: #FFF;\n" +
   "}\n" +
   "\n" +
-  ".gcliTestSuite {\n" +
+  "td.gcliTestSuite {\n" +
   "  font-family: monospace;\n" +
-  "  font-size: 80%;\n" +
+  "  font-size: 90%;\n" +
   "  text-align: right;\n" +
   "}\n" +
   "\n" +
-  ".gcliTestTitle {\n" +
-  "  font-weight: bold;\n" +
+  ".gcliTestResults th.gcliTestSuite,\n" +
+  ".gcliTestResults .gcliTestChecks {\n" +
+  "  text-align: right;\n" +
+  "}\n" +
+  "\n" +
+  ".gcliTestResults th {\n" +
+  "  text-align: left;\n" +
+  "}\n" +
+  "\n" +
+  ".gcliTestMessages ul {\n" +
+  "  margin: 0 0 10px;\n" +
+  "  padding-left: 20px;\n" +
+  "  list-style-type: square;\n" +
   "}\n" +
   "");
 
-define("text!test/ui/test.html", [], "\n" +
+define("text!test/commands/test.html", [], "\n" +
   "<div>\n" +
-  "  <table>\n" +
+  "  <table class=\"gcliTestResults\">\n" +
   "    <thead>\n" +
   "      <tr>\n" +
-  "        <th>Suite</th>\n" +
+  "        <th class=\"gcliTestSuite\">Suite</th>\n" +
   "        <th>Test</th>\n" +
   "        <th>Results</th>\n" +
+  "        <th>Checks</th>\n" +
   "        <th>Notes</th>\n" +
   "      </tr>\n" +
   "    </thead>\n" +
@@ -12198,12 +12527,28 @@ define("text!test/ui/test.html", [], "\n" +
   "        <td class=\"gcliTestSuite\">${suite.name}</td>\n" +
   "        <td class=\"gcliTestTitle\">${test.title}</td>\n" +
   "        <td class=\"gcliTest${test.status.name}\">${test.status.name}</td>\n" +
-  "        <td>${test.message || '-'}</td>\n" +
+  "        <td class=\"gcliTestChecks\">${test.checks}</td>\n" +
+  "        <td class=\"gcliTestMessages\">\n" +
+  "          <div foreach=\"failure in ${test.failures}\">\n" +
+  "            ${failure.message}\n" +
+  "            <ul if=\"${failure.expected}\">\n" +
+  "              <li>Expected: ${failure.expected}</li>\n" +
+  "              <li>Actual: ${failure.actual}</li>\n" +
+  "            </ul>\n" +
+  "          </div>\n" +
+  "        </td>\n" +
   "      </tr>\n" +
   "    </tbody>\n" +
+  "    <tfoot>\n" +
+  "      <tr>\n" +
+  "        <th></th>\n" +
+  "        <th>Total</th>\n" +
+  "        <th>${summary.status.name}</th>\n" +
+  "        <th class=\"gcliTestChecks\">${summary.checks}</th>\n" +
+  "        <th></th>\n" +
+  "      </tr>\n" +
+  "    </tfoot>\n" +
   "  </table>\n" +
-  "\n" +
-  "  <div id=\"output\"> </div>\n" +
   "</div>\n" +
   "");
 
@@ -12350,6 +12695,148 @@ var sleep = {
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
+define('demo/commands/bugs', ['require', 'exports', 'module' , 'gcli/index', 'gcli/util', 'text!demo/commands/bugs.html'], function(require, exports, module) {
+
+
+var gcli = require('gcli/index');
+var util = require('gcli/util');
+
+var bugsHtml = require('text!demo/commands/bugs.html');
+
+/**
+ * Registration and de-registration.
+ */
+exports.startup = function() {
+  gcli.addCommand(bugzCommandSpec);
+};
+
+exports.shutdown = function() {
+  gcli.removeCommand(bugzCommandSpec);
+};
+
+
+/**
+ * 'bugz' command.
+ */
+var bugzCommandSpec = {
+  name: 'bugz',
+  returnType: 'html',
+  description: 'List the GCLI bugs open in Bugzilla',
+  exec: function(args, context) {
+    var promise = context.createPromise();
+
+    function onFailure(msg) {
+      promise.resolve(msg);
+    }
+
+    var query = 'short_desc=GCLI' +
+      '&short_desc_type=allwords' +
+      '&bug_status=UNCONFIRMED' +
+      '&bug_status=NEW' +
+      '&bug_status=ASSIGNED' +
+      '&bug_status=REOPENED';
+
+    queryBugzilla(query, function(json) {
+      json.bugs.forEach(function(bug) {
+        if (bug.target_milestone === '---') {
+          bug.target_milestone = 'Future';
+        }
+      });
+      json.bugs.sort(function(bug1, bug2) {
+        var ms = bug1.target_milestone.localeCompare(bug2.target_milestone);
+        if (ms !== 0) {
+          return ms;
+        }
+        return bug1.priority.localeCompare(bug2.priority);
+      });
+
+      promise.resolve(context.createView({
+        html: bugsHtml,
+        data: json
+      }));
+    }, onFailure);
+
+    return promise;
+  }
+};
+
+/**
+ * Simple wrapper for querying bugzilla.
+ * @see https://wiki.mozilla.org/Bugzilla:REST_API
+ * @see https://wiki.mozilla.org/Bugzilla:REST_API:Search
+ * @see http://www.bugzilla.org/docs/developer.html
+ * @see https://harthur.wordpress.com/2011/03/31/bz-js/
+ * @see https://github.com/harthur/bz.js
+ */
+function queryBugzilla(query, onSuccess, onFailure) {
+  var url = 'https://api-dev.bugzilla.mozilla.org/0.9/bug?' + query;
+
+  var req = new XMLHttpRequest();
+  req.open('GET', url, true);
+  req.setRequestHeader('Accept', 'application/json');
+  req.setRequestHeader('Content-type', 'application/json');
+  req.onreadystatechange = function(event) {
+    if (req.readyState == 4) {
+      if (req.status >= 300 || req.status < 200) {
+        onFailure('Error: ' + JSON.stringify(req));
+        return;
+      }
+
+      var json;
+      try {
+        json = JSON.parse(req.responseText);
+      }
+      catch (ex) {
+        onFailure('Invalid response: ' + ex + ': ' + req.responseText);
+        return;
+      }
+
+      if (json.error) {
+        onFailure('Error: ' + json.error.message);
+        return;
+      }
+
+      onSuccess(json);
+    }
+  }.bind(this);
+  req.send();
+}
+
+
+});
+define("text!demo/commands/bugs.html", [], "\n" +
+  "<div>\n" +
+  "  <p>\n" +
+  "    Open GCLI meta-bugs\n" +
+  "    (i.e. <a target=\"_blank\" href=\"https://bugzilla.mozilla.org/buglist.cgi?list_id=2622790;short_desc=GCLI;resolution=---;resolution=DUPLICATE;query_format=advanced;bug_status=UNCONFIRMED;bug_status=NEW;bug_status=ASSIGNED;bug_status=REOPENED;short_desc_type=allwords\">this search</a>):\n" +
+  "  </p>\n" +
+  "  <table>\n" +
+  "    <thead>\n" +
+  "      <tr>\n" +
+  "        <th>ID</th>\n" +
+  "        <th>Milestone</th>\n" +
+  "        <th>Pri</th>\n" +
+  "        <th>Summary</th>\n" +
+  "      </tr>\n" +
+  "    </thead>\n" +
+  "    <tbody>\n" +
+  "      <tr foreach=\"bug in ${bugs}\">\n" +
+  "        <td><a target=\"_blank\" href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=${bug.id}\">${bug.id}</a></td>\n" +
+  "        <td>${bug.target_milestone}</td>\n" +
+  "        <td>${bug.priority}</td>\n" +
+  "        <td>${bug.summary}</td>\n" +
+  "      </tr>\n" +
+  "    </tbody>\n" +
+  "  </table>\n" +
+  "</div>\n" +
+  "");
+
+/*
+ * Copyright 2009-2011 Mozilla Foundation and contributors
+ * Licensed under the New BSD license. See LICENSE.txt or:
+ * http://opensource.org/licenses/BSD-3-Clause
+ */
+
 define('demo/commands/demo', ['require', 'exports', 'module' , 'gcli/index'], function(require, exports, module) {
 
 
@@ -12451,7 +12938,7 @@ var gcliSelboolnum = {
   description: 'A selection, a boolean and a number',
   params: [
     {
-      name: 'p1',
+      name: 'sel',
       type: {
         name: 'selection',
         lookup: [
@@ -12465,14 +12952,14 @@ var gcliSelboolnum = {
       description: 'First param'
     },
     {
-      name: 'p2',
-      type: { name: 'number', min: -4, max: 42, step: 5 },
-      description: 'Second param'
+      name: 'bool',
+      type: 'boolean',
+      description: 'A boolean param'
     },
     {
-      name: 'p3',
-      type: 'boolean',
-      description: 'Third param'
+      name: 'num',
+      type: { name: 'number', min: -4, max: 42, step: 5 },
+      description: 'A number param'
     }
   ],
   returnType: 'html',
@@ -12521,13 +13008,46 @@ define('gclitest/index', ['require', 'exports', 'module' , 'gclitest/suite'], fu
 
   var examiner = require('gclitest/suite').examiner;
 
+  // A minimum fake dom to get us through the JS tests
+  var fakeWindow = {
+    isFake: true,
+    document: { title: 'Fake DOM' }
+  };
+  fakeWindow.window = fakeWindow;
+  examiner.defaultOptions = {
+    window: fakeWindow,
+    hideExec: true
+  };
+
   /**
    * A simple proxy to examiner.run, for convenience - this is run from the
    * top level.
+   * @param options Lookup of options that customize test running. Includes:
+   * - window (default=undefined) A reference to the DOM window. If left
+   *   undefined then a reduced set of tests will run.
+   * - isNode (default=false) Are we running under NodeJS, specifically, are we
+   *   using JSDom, which isn't a 100% complete DOM implementation.
+   *   Some tests are skipped when using NodeJS.
+   * - display (default=undefined) A reference to a Display implementation.
+   *   A reduced set of tests will run if left undefined
+   * - detailedResultLog (default=false) do we output a test summary to
+   *   |console.log| on test completion.
+   * - hideExec (default=false) Set the |hidden| property in calls to
+   *   |requisition.exec()| which prevents the display from becoming messed up,
+   *   however use of hideExec restricts the set of tests that are run
    */
   exports.run = function(options) {
     examiner.run(options || {});
+
+    // A better set of default than those specified above, come from the set
+    // that are passed to run().
+    examiner.defaultOptions = {
+      window: options.window,
+      display: options.display,
+      hideExec: options.hideExec
+    };
   };
+
 });
 /*
  * Copyright 2009-2011 Mozilla Foundation and contributors
@@ -12535,7 +13055,7 @@ define('gclitest/index', ['require', 'exports', 'module' , 'gclitest/suite'], fu
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('gclitest/suite', ['require', 'exports', 'module' , 'gcli/index', 'test/examiner', 'gclitest/testCli', 'gclitest/testExec', 'gclitest/testHistory', 'gclitest/testJs', 'gclitest/testKeyboard', 'gclitest/testRequire', 'gclitest/testResource', 'gclitest/testScratchpad', 'gclitest/testSpell', 'gclitest/testSplit', 'gclitest/testTokenize', 'gclitest/testTypes', 'gclitest/testUtil'], function(require, exports, module) {
+define('gclitest/suite', ['require', 'exports', 'module' , 'gcli/index', 'test/examiner', 'gclitest/testCli', 'gclitest/testCompletion', 'gclitest/testExec', 'gclitest/testHistory', 'gclitest/testJs', 'gclitest/testKeyboard', 'gclitest/testRequire', 'gclitest/testResource', 'gclitest/testScratchpad', 'gclitest/testSpell', 'gclitest/testSplit', 'gclitest/testTokenize', 'gclitest/testTooltip', 'gclitest/testTypes', 'gclitest/testUtil'], function(require, exports, module) {
 
   // We need to make sure GCLI is initialized before we begin testing it
   require('gcli/index');
@@ -12546,6 +13066,7 @@ define('gclitest/suite', ['require', 'exports', 'module' , 'gcli/index', 'test/e
   // call to require(), however that breaks the build system which looks for
   // the strings passed to require
   examiner.addSuite('gclitest/testCli', require('gclitest/testCli'));
+  examiner.addSuite('gclitest/testCompletion', require('gclitest/testCompletion'));
   examiner.addSuite('gclitest/testExec', require('gclitest/testExec'));
   examiner.addSuite('gclitest/testHistory', require('gclitest/testHistory'));
   examiner.addSuite('gclitest/testJs', require('gclitest/testJs'));
@@ -12556,6 +13077,7 @@ define('gclitest/suite', ['require', 'exports', 'module' , 'gcli/index', 'test/e
   examiner.addSuite('gclitest/testSpell', require('gclitest/testSpell'));
   examiner.addSuite('gclitest/testSplit', require('gclitest/testSplit'));
   examiner.addSuite('gclitest/testTokenize', require('gclitest/testTokenize'));
+  examiner.addSuite('gclitest/testTooltip', require('gclitest/testTooltip'));
   examiner.addSuite('gclitest/testTypes', require('gclitest/testTypes'));
   examiner.addSuite('gclitest/testUtil', require('gclitest/testUtil'));
 
@@ -12750,18 +13272,19 @@ exports.testTsv = function() {
   test.is('option1', assign1.arg.text);
   test.is(commands.option1, assign1.value);
   test.is('6', assign2.arg.text);
-  test.is(6, assign2.value);
-  test.is('number', typeof assign2.value);
+  test.is('6', assign2.value);
+  test.is('string', typeof assign2.value);
   test.is(1, assignC.paramIndex);
 
   update({ typed: 'tsv option2 6', cursor: { start: 13, end: 13 } });
-  test.is(        'VVVVVVVVVVVVE', statuses);
-  test.is(Status.ERROR, status);
+  test.is(        'VVVVVVVVVVVVV', statuses);
+  test.is(Status.VALID, status);
   test.is('tsv', requ.commandAssignment.value.name);
   test.is('option2', assign1.arg.text);
   test.is(commands.option2, assign1.value);
   test.is('6', assign2.arg.text);
-  test.is(undefined, assign2.value);
+  test.is(6, assign2.value);
+  test.is('number', typeof assign2.value);
   test.is(1, assignC.paramIndex);
 };
 
@@ -12822,8 +13345,6 @@ exports.testSingleString = function() {
   test.is('h h h', assign1.value);
 };
 
-// BUG 664203: Add test to see that a command without mandatory param -> ERROR
-
 exports.testSingleNumber = function() {
   update({ typed: 'tsu', cursor: { start: 3, end: 3 } });
   test.is(        'VVV', statuses);
@@ -12859,13 +13380,13 @@ exports.testNestedCommand = function() {
   update({ typed: 'tsn', cursor: { start: 3, end: 3 } });
   test.is(        'III', statuses);
   test.is(Status.ERROR, status);
-  test.is('tsn', requ.commandAssignment.value.name);
+  test.is('tsn', requ.commandAssignment.arg.text);
   test.is(undefined, assign1);
 
   update({ typed: 'tsn ', cursor: { start: 4, end: 4 } });
   test.is(        'IIIV', statuses);
   test.is(Status.ERROR, status);
-  test.is('tsn', requ.commandAssignment.value.name);
+  test.is('tsn', requ.commandAssignment.arg.text);
   test.is(undefined, assign1);
 
   update({ typed: 'tsn x', cursor: { start: 5, end: 5 } });
@@ -12902,6 +13423,48 @@ exports.testNestedCommand = function() {
   test.is('tsn ext', requ.commandAssignment.value.name);
   test.is('', assign1.arg.text);
   test.is(undefined, assign1.value);
+
+  update({ typed: 'tsn exte', cursor: { start: 8, end: 8 } });
+  test.is(        'VVVVVVVV', statuses);
+  test.is(Status.ERROR, status);
+  test.is('tsn exte', requ.commandAssignment.value.name);
+  test.is('', assign1.arg.text);
+  test.is(undefined, assign1.value);
+
+  update({ typed: 'tsn exten', cursor: { start: 9, end: 9 } });
+  test.is(        'VVVVVVVVV', statuses);
+  test.is(Status.ERROR, status);
+  test.is('tsn exten', requ.commandAssignment.value.name);
+  test.is('', assign1.arg.text);
+  test.is(undefined, assign1.value);
+
+  update({ typed: 'tsn extend', cursor: { start: 10, end: 10 } });
+  test.is(        'VVVVVVVVVV', statuses);
+  test.is(Status.ERROR, status);
+  test.is('tsn extend', requ.commandAssignment.value.name);
+  test.is('', assign1.arg.text);
+  test.is(undefined, assign1.value);
+
+  update({ typed: 'ts ', cursor: { start: 3, end: 3 } });
+  test.is(        'EEV', statuses);
+  test.is(Status.ERROR, status);
+  test.is('ts', requ.commandAssignment.arg.text);
+  test.is(undefined, assign1);
+};
+
+// From Bug 664203
+exports.testDeeplyNested = function() {
+  update({ typed: 'tsn deep down nested cmd', cursor: { start: 24, end: 24 } });
+  test.is(        'VVVVVVVVVVVVVVVVVVVVVVVV', statuses);
+  test.is(Status.VALID, status);
+  test.is('tsn deep down nested cmd', requ.commandAssignment.value.name);
+  test.is(undefined, assign1);
+
+  update({ typed: 'tsn deep down nested', cursor: { start: 20, end: 20 } });
+  test.is(        'IIIVIIIIVIIIIVIIIIII', statuses);
+  test.is(Status.ERROR, status);
+  test.is('tsn deep down nested', requ.commandAssignment.value.name);
+  test.is(undefined, assign1);
 };
 
 
@@ -12927,8 +13490,11 @@ var types = require('gcli/types');
  * Registration and de-registration.
  */
 commands.setup = function() {
-  commands.option1.type = types.getType('number');
-  commands.option2.type = types.getType('boolean');
+  // setup/shutdown need to register/unregister types, however that means we
+  // need to re-initialize commands.option1 and commands.option2 with the
+  // actual types
+  commands.option1.type = types.getType('string');
+  commands.option2.type = types.getType('number');
 
   types.registerType(commands.optionType);
   types.registerType(commands.optionValue);
@@ -12946,6 +13512,10 @@ commands.setup = function() {
   canon.addCommand(commands.tsnExte);
   canon.addCommand(commands.tsnExten);
   canon.addCommand(commands.tsnExtend);
+  canon.addCommand(commands.tsnDeep);
+  canon.addCommand(commands.tsnDeepDown);
+  canon.addCommand(commands.tsnDeepDownNested);
+  canon.addCommand(commands.tsnDeepDownNestedCmd);
   canon.addCommand(commands.tselarr);
   canon.addCommand(commands.tsm);
   canon.addCommand(commands.tsg);
@@ -12965,6 +13535,10 @@ commands.shutdown = function() {
   canon.removeCommand(commands.tsnExte);
   canon.removeCommand(commands.tsnExten);
   canon.removeCommand(commands.tsnExtend);
+  canon.removeCommand(commands.tsnDeep);
+  canon.removeCommand(commands.tsnDeepDown);
+  canon.removeCommand(commands.tsnDeepDownNested);
+  canon.removeCommand(commands.tsnDeepDownNestedCmd);
   canon.removeCommand(commands.tselarr);
   canon.removeCommand(commands.tsm);
   canon.removeCommand(commands.tsg);
@@ -12977,6 +13551,8 @@ commands.shutdown = function() {
 commands.option1 = { type: types.getType('string') };
 commands.option2 = { type: types.getType('number') };
 
+var lastOption = undefined;
+
 commands.optionType = new SelectionType({
   name: 'optionType',
   lookup: [
@@ -12984,15 +13560,15 @@ commands.optionType = new SelectionType({
     { name: 'option2', value: commands.option2 }
   ],
   noMatch: function() {
-    this.lastOption = null;
+    lastOption = undefined;
   },
   stringify: function(option) {
-    this.lastOption = option;
+    lastOption = option;
     return SelectionType.prototype.stringify.call(this, option);
   },
   parse: function(arg) {
     var conversion = SelectionType.prototype.parse.call(this, arg);
-    this.lastOption = conversion.value;
+    lastOption = conversion.value;
     return conversion;
   }
 });
@@ -13000,8 +13576,8 @@ commands.optionType = new SelectionType({
 commands.optionValue = new DeferredType({
   name: 'optionValue',
   defer: function() {
-    if (commands.optionType.lastOption) {
-      return commands.optionType.lastOption.type;
+    if (lastOption && lastOption.type) {
+      return lastOption.type;
     }
     else {
       return types.getType('blank');
@@ -13101,6 +13677,23 @@ commands.tsnExtend = {
   exec: createExec('tsnExtend')
 };
 
+commands.tsnDeep = {
+  name: 'tsn deep',
+};
+
+commands.tsnDeepDown = {
+  name: 'tsn deep down',
+};
+
+commands.tsnDeepDownNested = {
+  name: 'tsn deep down nested',
+};
+
+commands.tsnDeepDownNestedCmd = {
+  name: 'tsn deep down nested cmd',
+  exec: createExec('tsnDeepDownNestedCmd')
+};
+
 commands.tselarr = {
   name: 'tselarr',
   params: [
@@ -13132,14 +13725,14 @@ commands.tsg = {
       group: 'First',
       params: [
         { name: 'txt1', type: 'string', defaultValue: null },
-        { name: 'boolean1', type: 'boolean' }
+        { name: 'bool', type: 'boolean' }
       ]
     },
     {
       group: 'Second',
       params: [
         { name: 'txt2', type: 'string', defaultValue: 'd' },
-        { name: 'num2', type: { name: 'number', min: 40 }, defaultValue: 42 }
+        { name: 'num', type: { name: 'number', min: 40 }, defaultValue: 42 }
       ]
     }
   ],
@@ -13162,7 +13755,10 @@ exports.ok = function(value, message) {
   if (!value) {
     console.error('Failure: ' + message);
     console.trace();
-    examiner.recordError('not ok' + (message ? ': ' + message : ''));
+    examiner.recordFailure({ message: message });
+  }
+  else {
+    examiner.recordPass();
   }
 };
 
@@ -13172,10 +13768,222 @@ exports.is = function(expected, actual, message) {
     console.error('- Expected: ', expected);
     console.error('-   Actual: ', actual);
     console.trace();
-    examiner.recordError('expected=' + expected + ', ' +
-                     'actual=' + actual + ': ' + message);
+
+    examiner.recordFailure({ message: message, expected: expected, actual: actual });
+  }
+  else {
+    examiner.recordPass();
   }
 };
+
+exports.log = function(message) {
+  examiner.log(message);
+};
+
+});
+/*
+ * Copyright 2009-2011 Mozilla Foundation and contributors
+ * Licensed under the New BSD license. See LICENSE.txt or:
+ * http://opensource.org/licenses/BSD-3-Clause
+ */
+
+define('gclitest/testCompletion', ['require', 'exports', 'module' , 'test/assert', 'gclitest/commands'], function(require, exports, module) {
+
+
+var test = require('test/assert');
+var commands = require('gclitest/commands');
+
+
+exports.setup = function() {
+  commands.setup();
+};
+
+exports.shutdown = function() {
+  commands.shutdown();
+};
+
+
+function type(typed, tests, options) {
+  var inputter = options.display.inputter;
+  var completer = options.display.completer;
+
+  inputter.setInput(typed);
+
+  if (tests.cursor) {
+    inputter.setCursor({ start: tests.cursor, end: tests.cursor });
+  }
+
+  if (tests.emptyParameters == null) {
+    tests.emptyParameters = [];
+  }
+
+  var realParams = completer.emptyParameters;
+  test.is(tests.emptyParameters.length, realParams.length,
+          'emptyParameters.length for \'' + typed + '\'');
+
+  if (realParams.length === tests.emptyParameters.length) {
+    for (var i = 0; i < realParams.length; i++) {
+      test.is(tests.emptyParameters[i], realParams[i],
+              'emptyParameters[' + i + '] for \'' + typed + '\'');
+    }
+  }
+
+  if (tests.directTabText) {
+    test.is(tests.directTabText, completer.directTabText,
+            'directTabText for \'' + typed + '\'');
+  }
+  else {
+    test.is('', completer.directTabText,
+            'directTabText for \'' + typed + '\'');
+  }
+
+  if (tests.arrowTabText) {
+    test.is(' \u00a0\u21E5 ' + tests.arrowTabText,
+            completer.arrowTabText,
+            'arrowTabText for \'' + typed + '\'');
+  }
+  else {
+    test.is('', completer.arrowTabText,
+            'arrowTabText for \'' + typed + '\'');
+  }
+}
+
+exports.testActivate = function(options) {
+  if (!options.display) {
+    test.log('No display. Skipping activate tests');
+    return;
+  }
+
+  type('', { }, options);
+
+  type(' ', { }, options);
+
+  type('tsr', {
+    emptyParameters: [ ' <text>' ]
+  }, options);
+
+  type('tsr ', {
+    emptyParameters: [ '<text>' ]
+  }, options);
+
+  type('tsr b', { }, options);
+
+  type('tsb', {
+    emptyParameters: [ ' [toggle]' ]
+  }, options);
+
+  type('tsm', {
+    emptyParameters: [ ' <abc>', ' <txt>', ' <num>' ]
+  }, options);
+
+  type('tsm ', {
+    emptyParameters: [ ' <txt>', ' <num>' ],
+    directTabText: 'a'
+  }, options);
+
+  type('tsm a', {
+    emptyParameters: [ ' <txt>', ' <num>' ]
+  }, options);
+
+  type('tsm a ', {
+    emptyParameters: [ '<txt>', ' <num>' ]
+  }, options);
+
+  type('tsm a  ', {
+    emptyParameters: [ '<txt>', ' <num>' ]
+  }, options);
+
+  type('tsm a  d', {
+    emptyParameters: [ ' <num>' ]
+  }, options);
+
+  type('tsm a "d d"', {
+    emptyParameters: [ ' <num>' ]
+  }, options);
+
+  type('tsm a "d ', {
+    emptyParameters: [ ' <num>' ]
+  }, options);
+
+  type('tsm a "d d" ', {
+    emptyParameters: [ '<num>' ]
+  }, options);
+
+  type('tsm a "d d ', {
+    emptyParameters: [ ' <num>' ]
+  }, options);
+
+  type('tsm d r', {
+    emptyParameters: [ ' <num>' ]
+  }, options);
+
+  type('tsm a d ', {
+    emptyParameters: [ '<num>' ]
+  }, options);
+
+  type('tsm a d 4', { }, options);
+
+  type('tsg', {
+    emptyParameters: [ ' <solo>' ]
+  }, options);
+
+  type('tsg ', {
+    directTabText: 'aaa'
+  }, options);
+
+  type('tsg a', {
+    directTabText: 'aa'
+  }, options);
+
+  type('tsg b', {
+    directTabText: 'bb'
+  }, options);
+
+  type('tsg d', { }, options);
+
+  type('tsg aa', {
+    directTabText: 'a'
+  }, options);
+
+  type('tsg aaa', { }, options);
+
+  type('tsg aaa ', { }, options);
+
+  type('tsg aaa d', { }, options);
+
+  type('tsg aaa dddddd', { }, options);
+
+  type('tsg aaa dddddd ', { }, options);
+
+  type('tsg aaa "d', { }, options);
+
+  type('tsg aaa "d d', { }, options);
+
+  type('tsg aaa "d d"', { }, options);
+
+  type('tsn ex ', { }, options);
+
+  type('selarr', {
+    arrowTabText: 'tselarr'
+  }, options);
+
+  type('tselar 1', { }, options);
+
+  type('tselar 1', {
+    cursor: 7
+  }, options);
+
+  type('tselar 1', {
+    cursor: 6,
+    arrowTabText: 'tselarr'
+  }, options);
+
+  type('tselar 1', {
+    cursor: 5,
+    arrowTabText: 'tselarr'
+  }, options);
+};
+
 
 });
 /*
@@ -13196,24 +14004,25 @@ var test = require('test/assert');
 
 var actualExec;
 var actualOutput;
+var hideExec = false;
 
 exports.setup = function() {
   commands.setup();
-  commands.onCommandExec.add(onCommandExec);
-  canon.commandOutputManager.onOutput.add(onCommandOutput);
+  commands.onCommandExec.add(commandExeced);
+  canon.commandOutputManager.onOutput.add(commandOutputed);
 };
 
 exports.shutdown = function() {
   commands.shutdown();
-  commands.onCommandExec.remove(onCommandExec);
-  canon.commandOutputManager.onOutput.remove(onCommandOutput);
+  commands.onCommandExec.remove(commandExeced);
+  canon.commandOutputManager.onOutput.remove(commandOutputed);
 };
 
-function onCommandExec(ev) {
+function commandExeced(ev) {
   actualExec = ev;
 }
 
-function onCommandOutput(ev) {
+function commandOutputed(ev) {
   actualOutput = ev.output;
 }
 
@@ -13221,7 +14030,7 @@ function exec(command, expectedArgs) {
   var environment = {};
 
   var requisition = new Requisition(environment);
-  var outputObject = requisition.exec({ typed: command });
+  var outputObject = requisition.exec({ typed: command, hidden: hideExec });
 
   test.is(command.indexOf(actualExec.command.name), 0, 'Command name: ' + command);
 
@@ -13263,20 +14072,24 @@ function exec(command, expectedArgs) {
 
   test.is(environment, actualExec.context.environment, 'Environment');
 
-  test.is(false, actualOutput.error, 'output error is false');
-  test.is(command, actualOutput.typed, 'command is typed');
-  test.ok(typeof actualOutput.canonical === 'string', 'canonical exists');
+  if (!hideExec) {
+    test.is(false, actualOutput.error, 'output error is false');
+    test.is(command, actualOutput.typed, 'command is typed');
+    test.ok(typeof actualOutput.canonical === 'string', 'canonical exists');
 
-  test.is(actualExec.args, actualOutput.args, 'actualExec.args is actualOutput.args');
+    test.is(actualExec.args, actualOutput.args, 'actualExec.args is actualOutput.args');
+  }
 }
 
 
-exports.testExec = function() {
+exports.testExec = function(options) {
+  hideExec = options.hideExec;
+
   exec('tss', {});
 
-  // Bug 707008 - GCLI defered types don't work properly
-  // exec('tsv option1 10', { optionType: commands.option1, optionValue: '10' });
-  // exec('tsv option2 10', { optionType: commands.option1, optionValue: 10 });
+  // Bug 707008 - GCLI deferred types don't work properly
+  exec('tsv option1 10', { optionType: commands.option1, optionValue: '10' });
+  exec('tsv option2 10', { optionType: commands.option2, optionValue: 10 });
 
   exec('tsr fred', { text: 'fred' });
   exec('tsr fred bloggs', { text: 'fred bloggs' });
@@ -13308,7 +14121,7 @@ exports.testExec = function() {
   exec('tsm a 10 10', { abc: 'a', txt: '10', num: 10 });
 
   // Bug 707009 - GCLI doesn't always fill in default parameters properly
-  exec('tsg aaa', { solo: 'aaa', txt1: null, boolean1: false, txt2: 'd', num2: 42 });
+  exec('tsg aaa', { solo: 'aaa', txt1: null, bool: false, txt2: 'd', num: 42 });
 };
 
 var mockBody = {
@@ -13489,7 +14302,7 @@ function check(expStatuses, expStatus, expAssign, expPredict) {
       test.is(assign.getPredictions().length, expPredict, 'prediction count');
       if (assign.getPredictions().length !== expPredict) {
         assign.getPredictions().forEach(function(prediction) {
-          console.log('actual prediction: ', prediction);
+          test.log('actual prediction: ', prediction);
         });
       }
     }
@@ -13499,7 +14312,7 @@ function check(expStatuses, expStatus, expAssign, expPredict) {
     }
 
     if (!contains) {
-      console.log('Predictions: ' + assign.getPredictions().map(function(p) {
+      test.log('Predictions: ' + assign.getPredictions().map(function(p) {
         return p.name;
       }).join(', '));
     }
@@ -13508,10 +14321,10 @@ function check(expStatuses, expStatus, expAssign, expPredict) {
 
 exports.testBasic = function(options) {
   input('{');
-  check('V', Status.ERROR, '');
+  check('V', Status.ERROR, undefined);
 
   input('{ ');
-  check('VV', Status.ERROR, '');
+  check('VV', Status.ERROR, undefined);
 
   input('{ w');
   check('VVI', Status.ERROR, 'w', 'window');
@@ -13579,10 +14392,15 @@ var javascript = require('gcli/types/javascript');
 var test = require('test/assert');
 
 var tempWindow;
+var inputter;
 
 exports.setup = function(options) {
   tempWindow = javascript.getGlobalObject();
   javascript.setGlobalObject(options.window);
+
+  if (options.display) {
+    inputter = options.display.inputter;
+  }
 
   commands.setup();
 };
@@ -13590,6 +14408,7 @@ exports.setup = function(options) {
 exports.shutdown = function(options) {
   commands.shutdown();
 
+  inputter = undefined;
   javascript.setGlobalObject(tempWindow);
   tempWindow = undefined;
 };
@@ -13598,13 +14417,24 @@ var COMPLETES_TO = 'complete';
 var KEY_UPS_TO = 'keyup';
 var KEY_DOWNS_TO = 'keydown';
 
-function check(initial, action, after, choice) {
-  var requisition = new Requisition();
-  requisition.update(initial);
-  var assignment = requisition.getAssignmentAt(initial.length);
+function check(initial, action, after, choice, cursor, expectedCursor) {
+  var requisition;
+  if (inputter) {
+    requisition = inputter.requisition;
+    inputter.setInput(initial);
+  }
+  else {
+    requisition = new Requisition();
+    requisition.update(initial);
+  }
+
+  if (cursor == null) {
+    cursor = initial.length;
+  }
+  var assignment = requisition.getAssignmentAt(cursor);
   switch (action) {
     case COMPLETES_TO:
-      requisition.complete({ start: initial.length, end: initial.length }, choice);
+      requisition.complete({ start: cursor, end: cursor }, choice);
       break;
 
     case KEY_UPS_TO:
@@ -13616,10 +14446,22 @@ function check(initial, action, after, choice) {
       break;
   }
 
-  test.is(after, requisition.toString(), initial + ' + ' + action + ' -> ' + after);
+  test.is(after, requisition.toString(),
+          initial + ' + ' + action + ' -> ' + after);
+
+  if (expectedCursor != null) {
+    if (inputter) {
+      test.is(expectedCursor, inputter.getInputState().cursor.start,
+              'Ending cursor position for \'' + initial + '\'');
+    }
+  }
 }
 
 exports.testComplete = function(options) {
+  if (!inputter) {
+    test.log('Missing display, reduced checks');
+  }
+
   check('tsela', COMPLETES_TO, 'tselarr ', 0);
   check('tsn di', COMPLETES_TO, 'tsn dif ', 0);
   check('tsg a', COMPLETES_TO, 'tsg aaa ', 0);
@@ -13646,6 +14488,14 @@ exports.testComplete = function(options) {
   if (!options.isNode) {
     check('{ window.document.titl', COMPLETES_TO, '{ window.document.title ', 0);
   }
+  else {
+    test.log('Running under Node. Skipping tests due to bug 717228.');
+  }
+};
+
+exports.testInternalComplete = function(options) {
+  // Bug 664377
+  // check('tsela 1', COMPLETES_TO, 'tselarr 1', 0, 3, 8);
 };
 
 exports.testIncrDecr = function() {
@@ -13832,8 +14682,8 @@ exports.shutdown = function(options) {
 };
 
 exports.testPredictions = function(options) {
-  if (options.useFakeWindow) {
-    console.log('Skipping resource tests: options.useFakeWindow = true');
+  if (options.window.isFake) {
+    test.log('Skipping resource tests: options.window.isFake = true');
     return;
   }
 
@@ -13855,7 +14705,11 @@ exports.testPredictions = function(options) {
   var predictions3 = resource3.parseString('').getPredictions();
   // jsdom fails to support digging into stylesheets
   if (!options.isNode) {
-    test.ok(predictions3.length > 1, 'have resources');
+    test.ok(predictions3.length >= 1, 'have resources');
+  }
+  else {
+    test.log('Running under Node. ' +
+             'Skipping checks due to jsdom document.stylsheets support.');
   }
   predictions3.forEach(function(prediction) {
     checkPrediction(resource3, prediction);
@@ -13899,15 +14753,15 @@ var test = require('test/assert');
 var origScratchpad;
 
 exports.setup = function(options) {
-  if (options.inputter) {
-    origScratchpad = options.inputter.scratchpad;
-    options.inputter.scratchpad = stubScratchpad;
+  if (options.display) {
+    origScratchpad = options.display.inputter.scratchpad;
+    options.display.inputter.scratchpad = stubScratchpad;
   }
 };
 
 exports.shutdown = function(options) {
-  if (options.inputter) {
-    options.inputter.scratchpad = origScratchpad;
+  if (options.display) {
+    options.display.inputter.scratchpad = origScratchpad;
   }
 };
 
@@ -13925,14 +14779,14 @@ stubScratchpad.activate = function(value) {
 
 
 exports.testActivate = function(options) {
-  if (!options.inputter) {
-    console.log('No inputter. Skipping scratchpad tests');
+  if (!options.display) {
+    test.log('No display. Skipping scratchpad tests');
     return;
   }
 
   var ev = {};
   stubScratchpad.activatedCount = 0;
-  options.inputter.onKeyUp(ev);
+  options.display.inputter.onKeyUp(ev);
   test.is(1, stubScratchpad.activatedCount, 'scratchpad is activated');
 };
 
@@ -14332,6 +15186,101 @@ exports.testPathological = function() {
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
+define('gclitest/testTooltip', ['require', 'exports', 'module' , 'test/assert', 'gclitest/commands'], function(require, exports, module) {
+
+
+var test = require('test/assert');
+var commands = require('gclitest/commands');
+
+
+exports.setup = function() {
+  commands.setup();
+};
+
+exports.shutdown = function() {
+  commands.shutdown();
+};
+
+
+function type(typed, tests, options) {
+  var inputter = options.display.inputter;
+  var tooltip = options.display.tooltip;
+
+  inputter.setInput(typed);
+  if (tests.cursor) {
+    inputter.setCursor({ start: tests.cursor, end: tests.cursor });
+  }
+
+  if (!options.isNode) {
+    if (tests.important) {
+      test.ok(tooltip.field.isImportant, 'Important for ' + typed);
+    }
+    else {
+      test.ok(!tooltip.field.isImportant, 'Not important for ' + typed);
+    }
+
+    if (tests.options) {
+      var names = tooltip.field.menu.items.map(function(item) {
+        return item.name.textContent ? item.name.textContent : item.name;
+      });
+      test.is(tests.options.join('|'), names.join('|'), 'Options for ' + typed);
+    }
+
+    if (tests.error) {
+      test.is(tests.error, tooltip.errorEle.textContent, 'Error for ' + typed);
+    }
+    else {
+      test.is('', tooltip.errorEle.textContent, 'No error for ' + typed);
+    }
+  }
+}
+
+exports.testActivate = function(options) {
+  if (!options.display) {
+    test.log('No display. Skipping activate tests');
+    return;
+  }
+
+  if (options.isNode) {
+    test.log('Running under Node. Reduced checks due to JSDom.textContent');
+  }
+
+  type(' ', { }, options);
+
+  type('tsb ', {
+    important: true,
+    options: [ 'false', 'true' ]
+  }, options);
+
+  type('tsb t', {
+    important: true,
+    options: [ 'true' ]
+  }, options);
+
+  type('tsb tt', {
+    important: true,
+    options: [ ],
+    error: 'Can\'t use \'tt\'.'
+  }, options);
+
+
+  type('asdf', {
+    important: false,
+    options: [ ],
+    error: 'Can\'t use \'asdf\'.'
+  }, options);
+
+  type('', { }, options);
+};
+
+
+});
+/*
+ * Copyright 2009-2011 Mozilla Foundation and contributors
+ * Licensed under the New BSD license. See LICENSE.txt or:
+ * http://opensource.org/licenses/BSD-3-Clause
+ */
+
 define('gclitest/testTypes', ['require', 'exports', 'module' , 'test/assert', 'gcli/types'], function(require, exports, module) {
 
 var test = require('test/assert');
@@ -14345,6 +15294,8 @@ exports.shutdown = function() {
 
 exports.testDefault = function(options) {
   if (options.isNode) {
+    test.log('Running under Node. ' +
+             'Skipping tests due to issues with resource type.');
     return;
   }
 
@@ -14382,8 +15333,8 @@ var util = require('gcli/util');
 var test = require('test/assert');
 
 exports.testFindCssSelector = function(options) {
-  if (options.useFakeWindow) {
-    console.log('Skipping dom.findCssSelector tests due to useFakeWindow');
+  if (options.window.isFake) {
+    test.log('Skipping dom.findCssSelector tests due to window.isFake');
     return;
   }
 

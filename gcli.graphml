@@ -344,13 +344,6 @@
         </y:ShapeNode>
       </data>
     </node>
-    <node id="text!gcli/commands/help.css">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/commands/help.css</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
     <node id="text!gcli/commands/help_man.html">
       <data key="d0">
         <y:ShapeNode>
@@ -365,24 +358,17 @@
         </y:ShapeNode>
       </data>
     </node>
+    <node id="text!gcli/commands/help.css">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/commands/help.css</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
     <node id="gcli/commands/pref">
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">gcli/commands/pref</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="text!gcli/commands/pref_set_check.html">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/commands/pref_set_check.html</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="text!gcli/commands/pref_list.css">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/commands/pref_list.css</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -393,6 +379,20 @@
         </y:ShapeNode>
       </data>
     </node>
+    <node id="text!gcli/commands/pref_list.css">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/commands/pref_list.css</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/commands/pref_set_check.html">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/commands/pref_set_check.html</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
     <node id="text!gcli/commands/pref_list_inner.html">
       <data key="d0">
         <y:ShapeNode>
@@ -400,10 +400,10 @@
         </y:ShapeNode>
       </data>
     </node>
-    <node id="test/commands">
+    <node id="test/commands/test">
       <data key="d0">
         <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">test/commands</y:NodeLabel>
+           <y:NodeLabel textColor="#000000">test/commands/test</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -414,17 +414,17 @@
         </y:ShapeNode>
       </data>
     </node>
-    <node id="text!test/ui/test.css">
+    <node id="text!test/commands/test.css">
       <data key="d0">
         <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!test/ui/test.css</y:NodeLabel>
+           <y:NodeLabel textColor="#000000">text!test/commands/test.css</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
-    <node id="text!test/ui/test.html">
+    <node id="text!test/commands/test.html">
       <data key="d0">
         <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!test/ui/test.html</y:NodeLabel>
+           <y:NodeLabel textColor="#000000">text!test/commands/test.html</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -432,6 +432,20 @@
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">demo/commands/basic</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="demo/commands/bugs">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">demo/commands/bugs</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!demo/commands/bugs.html">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!demo/commands/bugs.html</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -474,6 +488,13 @@
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">test/assert</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/testCompletion">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testCompletion</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -551,6 +572,13 @@
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">gclitest/testTokenize</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/testTooltip">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testTooltip</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -642,7 +670,6 @@
     <edge source="gcli/ui/fields/basic" target="gcli/types/basic"/>
     <edge source="gcli/ui/fields/basic" target="gcli/ui/fields"/>
     <edge source="gcli/ui/fields" target="gcli/util"/>
-    <edge source="gcli/ui/fields" target="gcli/types"/>
     <edge source="gcli/ui/fields" target="gcli/types/basic"/>
     <edge source="gcli/ui/fields/javascript" target="gcli/util"/>
     <edge source="gcli/ui/fields/javascript" target="gcli/argument"/>
@@ -664,6 +691,7 @@
     <edge source="gcli/ui/fields/selection" target="gcli/ui/fields/menu"/>
     <edge source="gcli/ui/fields/selection" target="gcli/ui/fields"/>
     <edge source="gcli/ui/display" target="gcli/util"/>
+    <edge source="gcli/ui/display" target="gcli/settings"/>
     <edge source="gcli/ui/display" target="gcli/ui/intro"/>
     <edge source="gcli/ui/display" target="gcli/ui/domtemplate"/>
     <edge source="gcli/ui/display" target="gcli/ui/tooltip"/>
@@ -697,40 +725,41 @@
     <edge source="demo/index" target="gcli/index"/>
     <edge source="demo/index" target="gcli/commands/help"/>
     <edge source="demo/index" target="gcli/commands/pref"/>
-    <edge source="demo/index" target="test/commands"/>
+    <edge source="demo/index" target="test/commands/test"/>
     <edge source="demo/index" target="demo/commands/basic"/>
+    <edge source="demo/index" target="demo/commands/bugs"/>
     <edge source="demo/index" target="demo/commands/demo"/>
     <edge source="gcli/commands/help" target="gcli/canon"/>
-    <edge source="gcli/commands/help" target="gcli/util"/>
     <edge source="gcli/commands/help" target="gcli/l10n"/>
     <edge source="gcli/commands/help" target="gcli/ui/view"/>
-    <edge source="gcli/commands/help" target="text!gcli/commands/help.css"/>
     <edge source="gcli/commands/help" target="text!gcli/commands/help_man.html"/>
     <edge source="gcli/commands/help" target="text!gcli/commands/help_list.html"/>
+    <edge source="gcli/commands/help" target="text!gcli/commands/help.css"/>
     <edge source="gcli/commands/pref" target="gcli/index"/>
     <edge source="gcli/commands/pref" target="gcli/l10n"/>
     <edge source="gcli/commands/pref" target="gcli/util"/>
     <edge source="gcli/commands/pref" target="gcli/settings"/>
-    <edge source="gcli/commands/pref" target="gcli/ui/view"/>
-    <edge source="gcli/commands/pref" target="gcli/ui/domtemplate"/>
     <edge source="gcli/commands/pref" target="gcli/promise"/>
-    <edge source="gcli/commands/pref" target="text!gcli/commands/pref_set_check.html"/>
-    <edge source="gcli/commands/pref" target="text!gcli/commands/pref_list.css"/>
     <edge source="gcli/commands/pref" target="text!gcli/commands/pref_list_outer.html"/>
+    <edge source="gcli/commands/pref" target="text!gcli/commands/pref_list.css"/>
+    <edge source="gcli/commands/pref" target="text!gcli/commands/pref_set_check.html"/>
     <edge source="gcli/commands/pref" target="text!gcli/commands/pref_list_inner.html"/>
-    <edge source="test/commands" target="gcli/util"/>
-    <edge source="test/commands" target="gcli/canon"/>
-    <edge source="test/commands" target="gcli/ui/domtemplate"/>
-    <edge source="test/commands" target="test/examiner"/>
-    <edge source="test/commands" target="text!test/ui/test.css"/>
-    <edge source="test/commands" target="text!test/ui/test.html"/>
+    <edge source="test/commands/test" target="gcli/util"/>
+    <edge source="test/commands/test" target="gcli/canon"/>
+    <edge source="test/commands/test" target="test/examiner"/>
+    <edge source="test/commands/test" target="text!test/commands/test.css"/>
+    <edge source="test/commands/test" target="text!test/commands/test.html"/>
     <edge source="demo/commands/basic" target="gcli/index"/>
     <edge source="demo/commands/basic" target="text!gcli/ui/intro.html"/>
+    <edge source="demo/commands/bugs" target="gcli/index"/>
+    <edge source="demo/commands/bugs" target="gcli/util"/>
+    <edge source="demo/commands/bugs" target="text!demo/commands/bugs.html"/>
     <edge source="demo/commands/demo" target="gcli/index"/>
     <edge source="gclitest/index" target="gclitest/suite"/>
     <edge source="gclitest/suite" target="gcli/index"/>
     <edge source="gclitest/suite" target="test/examiner"/>
     <edge source="gclitest/suite" target="gclitest/testCli"/>
+    <edge source="gclitest/suite" target="gclitest/testCompletion"/>
     <edge source="gclitest/suite" target="gclitest/testExec"/>
     <edge source="gclitest/suite" target="gclitest/testHistory"/>
     <edge source="gclitest/suite" target="gclitest/testJs"/>
@@ -741,6 +770,7 @@
     <edge source="gclitest/suite" target="gclitest/testSpell"/>
     <edge source="gclitest/suite" target="gclitest/testSplit"/>
     <edge source="gclitest/suite" target="gclitest/testTokenize"/>
+    <edge source="gclitest/suite" target="gclitest/testTooltip"/>
     <edge source="gclitest/suite" target="gclitest/testTypes"/>
     <edge source="gclitest/suite" target="gclitest/testUtil"/>
     <edge source="gclitest/testCli" target="gcli/cli"/>
@@ -753,6 +783,8 @@
     <edge source="gclitest/commands" target="gcli/types/basic"/>
     <edge source="gclitest/commands" target="gcli/types"/>
     <edge source="test/assert" target="test/examiner"/>
+    <edge source="gclitest/testCompletion" target="test/assert"/>
+    <edge source="gclitest/testCompletion" target="gclitest/commands"/>
     <edge source="gclitest/testExec" target="gcli/cli"/>
     <edge source="gclitest/testExec" target="gcli/canon"/>
     <edge source="gclitest/testExec" target="gclitest/commands"/>
@@ -785,6 +817,8 @@
     <edge source="gclitest/testTokenize" target="test/assert"/>
     <edge source="gclitest/testTokenize" target="gcli/cli"/>
     <edge source="gclitest/testTokenize" target="gcli/argument"/>
+    <edge source="gclitest/testTooltip" target="test/assert"/>
+    <edge source="gclitest/testTooltip" target="gclitest/commands"/>
     <edge source="gclitest/testTypes" target="test/assert"/>
     <edge source="gclitest/testTypes" target="gcli/types"/>
     <edge source="gclitest/testUtil" target="gcli/util"/>
