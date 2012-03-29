@@ -139,7 +139,35 @@ There are 3 basic steps in using GCLI in your system.
    is left to the source.
 
 
-### Creating Custom Builds
+## Backwards Compatibility
+
+Providing 100% backwards compatibility is near impossible, especially when
+combined with a desire to allow advanced users to tinker. The goals of the GCLI
+project are:
+
+- We aim for very good backwards compatibility with code required from an
+  'index' module. This means we will not break code without a cycle of
+  deprecation warnings.
+
+  There are currently 3 'index' modules:
+  - gcli/index (all you need to get started with GCLI)
+  - demo/index (a number of demo commands)
+  - gclitest/index (GCLI test suite)
+
+  Code from these modules uses the module pattern to prevent access to internal
+  functions, so in essence, if you can get to it from an index module, you're
+  ok.
+
+- We try to avoid needless change to other modules, however we don't make any
+  promises, and don't provide a deprecation cycle.
+
+  Code from other modules uses classes rather than modules, so member variables
+  are exposed. Many classes mark private members using the `_underscorePrefix`
+  pattern. Particular care should be taken if access is needed to a private
+  member.
+
+
+## Creating Custom Builds
 
 GCLI uses [DryIce](https://github.com/mozilla/dryice) to create custom builds.
 If dryice is installed (``npm install .``) then you can create a built
