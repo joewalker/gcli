@@ -24,12 +24,23 @@
   color: #FFF;
 }
 
-.gcliTestSuite {
+td.gcliTestSuite {
   font-family: monospace;
-  font-size: 80%;
+  font-size: 90%;
   text-align: right;
 }
 
-.gcliTestTitle {
-  font-weight: bold;
+.gcliTestResults th.gcliTestSuite,
+.gcliTestResults .gcliTestChecks {
+  text-align: right;
+}
+
+.gcliTestResults th {
+  text-align: left;
+}
+
+.gcliTestMessages ul {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  list-style-type: square;
 }

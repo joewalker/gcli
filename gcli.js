@@ -30,7 +30,7 @@ exports.requirejs('gcli/index');
 var help = exports.requirejs('gcli/commands/help');
 help.startup();
 exports.requirejs('gcli/commands/pref').startup();
-exports.requirejs('test/commands').startup();
+exports.requirejs('test/commands/test').startup();
 require('./lib/server/commands').startup();
 
 help.helpManHtml = fs.readFileSync(exports.gcliHome + '/lib/server/help_man.txt', 'utf8');
