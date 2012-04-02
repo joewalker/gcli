@@ -6,15 +6,31 @@
 
 define(function(require, exports, module) {
 
+  XPCOMUtils.defineLazyGetter(this, "Highlighter", function() {
+    var tmp = {};
+    Components.utils.import("resource:///modules/highlighter.jsm", tmp);
+    return tmp.Highlighter;
+  });
 
-/**
- * Helper to turn a node background it's complementary color for 1 second.
- * There is likely a better way to do this, but this will do for now.
- */
-exports.flashNode = function(node, color) {
-  // We avoid changing the DOM under firefox developer tools so this is a no-op
-  // In future we will use the multi-highlighter implemented in bug 653545.
-};
+  /**
+   * The chromeWindow as as required by Highlighter, so it knows where to
+   * create temporary highlight nodes.
+   */
+  exports.chromeWindow = undefined;
+
+  /**
+   * Helper to turn a set of nodes background another color for 0.5 seconds.
+   * There is likely a better way to do this, but this will do for now.
+   */
+  exports.flashNodes = function(nodes, match) {
+    // Commented out until Bug 653545 is completed
+    /*
+    if (exports.chromeWindow == null) {
+      console.log('flashNodes has no chromeWindow. Skipping flash');
+    }
+    Highlighter.flashNodes(nodes, exports.chromeWindow, match);
+    */
+  };
 
 
 });

@@ -17,6 +17,7 @@ var cli = require('gcli/cli');
 var jstype = require('gcli/types/javascript');
 var nodetype = require('gcli/types/node');
 var resource = require('gcli/types/resource');
+var host = require('gcli/host');
 
 var commandOutputManager = require('gcli/canon').commandOutputManager;
 
@@ -53,12 +54,14 @@ function setContentDocument(document) {
  * - eval (optional)
  * - environment
  * - scratchpad (optional)
+ * - chromeWindow
  */
 function Console(options) {
   if (options.eval) {
     cli.setEvalFunction(options.eval);
   }
   setContentDocument(options.contentDocument);
+  host.chromeWindow = options.chromeWindow;
 
   this.onOutput = commandOutputManager.onOutput;
   this.requisition = new Requisition(options.environment, options.outputDocument);
@@ -108,9 +111,11 @@ function Console(options) {
  * @params options Object with the following properties:
  * - contentDocument: Points to the page that we should now work against
  * - environment: A replacement environment for Requisition use
+ * - chromeWindow: Allow node type to create overlay
  */
 Console.prototype.reattach = function(options) {
   setContentDocument(options.contentDocument);
+  host.chromeWindow = options.chromeWindow;
   this.requisition.environment = options.environment;
 };
 
