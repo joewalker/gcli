@@ -71,7 +71,6 @@ function Console(options) {
     // TODO: can we kill chromeDocument here?
     document: options.chromeDocument
   });
-  this.focusManager.addMonitoredElement(options.hintElement, 'gcliTerm');
   this.onVisibilityChange = this.focusManager.onVisibilityChange;
 
   this.inputter = new Inputter(options, {
@@ -128,33 +127,29 @@ Console.prototype.destroy = function() {
 
     this.requisition.onTextChange.remove(this.resizer, this);
     win.removeEventListener('resize', this.resizer, false);
-
-    delete this.consoleWrap;
-    delete this.resizer;
   }
 
   this.tooltip.destroy();
   this.completer.destroy();
   this.inputter.destroy();
-
-  this.focusManager.removeMonitoredElement(this.options.hintElement, 'gcliTerm');
   this.focusManager.destroy();
+
   this.requisition.destroy();
-  this.outputList.destroy();
 
-  delete this.outputList;
-  delete this.tooltip;
-  delete this.completer;
-  delete this.inputter;
-
-  delete this.onCommandOutput;
-  delete this.onVisibilityChange;
-
-  delete this.focusManager;
-  delete this.requisition;
-
+  host.chromeWindow = undefined;
   setContentDocument(null);
   cli.unsetEvalFunction();
+
+  console.log('destroyed console ' + host.chromeWindow);
+
+  delete this.options;
+
+  // We could also delete the following objects if we have hard-to-track-down
+  // memory leaks, as a belt-and-braces approach, however this prevents our
+  // DOM node hunter script from looking in all the nooks and crannies, so it's
+  // better if we can be leak-free without deleting them:
+  // - consoleWrap, resizer, tooltip, completer, inputter,
+  // - focusManager, onVisibilityChange, requisition
 };
 
 /**

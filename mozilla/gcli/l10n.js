@@ -40,6 +40,15 @@ exports.getPreferredLocales = function() {
 /** @see lookup() in lib/gcli/l10n.js */
 exports.lookup = function(key) {
   try {
+    // Our memory leak hunter walks reachable objects trying to work out what
+    // type of thing they are using object.constructor.name. If that causes
+    // problems then we can avoid the unknown-key-exception with the following:
+    /*
+    if (key === 'constructor') {
+      return { name: 'l10n-mem-leak-defeat' };
+    }
+    */
+
     return stringBundle.GetStringFromName(key);
   }
   catch (ex) {
