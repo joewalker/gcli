@@ -40,7 +40,7 @@ function setContentDocument(document) {
 }
 
 /**
- * Console is responsible for generating the UI for GCLI, this implementation
+ * FFDisplay is responsible for generating the UI for GCLI, this implementation
  * is a special case for use inside Firefox
  * @param options A configuration object containing the following:
  * - contentDocument (optional)
@@ -56,7 +56,7 @@ function setContentDocument(document) {
  * - scratchpad (optional)
  * - chromeWindow
  */
-function Console(options) {
+function FFDisplay(options) {
   if (options.eval) {
     cli.setEvalFunction(options.eval);
   }
@@ -112,7 +112,7 @@ function Console(options) {
  * - environment: A replacement environment for Requisition use
  * - chromeWindow: Allow node type to create overlay
  */
-Console.prototype.reattach = function(options) {
+FFDisplay.prototype.reattach = function(options) {
   setContentDocument(options.contentDocument);
   host.chromeWindow = options.chromeWindow;
   this.requisition.environment = options.environment;
@@ -121,7 +121,7 @@ Console.prototype.reattach = function(options) {
 /**
  * Avoid memory leaks
  */
-Console.prototype.destroy = function() {
+FFDisplay.prototype.destroy = function() {
   if (this.consoleWrap) {
     var win = this.options.consoleWrap.ownerDocument.defaultView;
 
@@ -155,7 +155,7 @@ Console.prototype.destroy = function() {
 /**
  * Called on chrome window resize, or on divider slide
  */
-Console.prototype.resizer = function() {
+FFDisplay.prototype.resizer = function() {
   // Bug 705109: There are several numbers hard-coded in this function.
   // This is simpler than calculating them, but error-prone when the UI setup,
   // the styling or display settings change.
@@ -227,6 +227,6 @@ Console.prototype.resizer = function() {
   }
 };
 
-exports.Console = Console;
+exports.FFDisplay = FFDisplay;
 
 });

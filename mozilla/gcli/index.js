@@ -71,7 +71,7 @@ define(function(require, exports, module) {
   require('gcli/commands/help').startup();
   //require('gcli/commands/pref').startup();
 
-  var Console = require('gcli/ui/console').Console;
+  var FFDisplay = require('gcli/ui/ffdisplay').FFDisplay;
 
   /**
    * API for use by HUDService only.
@@ -95,8 +95,8 @@ define(function(require, exports, module) {
      * - hintElement: GCLITerm.hintNode
      * - inputBackgroundElement: GCLITerm.inputStack
      */
-    createConsole: function(opts) {
-      return new Console(opts);
+    createDisplay: function(opts) {
+      return new FFDisplay(opts);
     }
   };
 });
