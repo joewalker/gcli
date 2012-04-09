@@ -140,8 +140,6 @@ FFDisplay.prototype.destroy = function() {
   setContentDocument(null);
   cli.unsetEvalFunction();
 
-  console.log('destroyed console ' + host.chromeWindow);
-
   delete this.options;
 
   // We could also delete the following objects if we have hard-to-track-down
