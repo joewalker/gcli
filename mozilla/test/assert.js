@@ -8,5 +8,6 @@ define(function(require, exports, module) {
 
   exports.ok = ok;
   exports.is = is;
+  exports.log = info;
 
 });
