@@ -98,31 +98,26 @@ Object.defineProperty(Setting.prototype, 'type', {
  */
 Object.defineProperty(Setting.prototype, 'value', {
   get: function() {
-    try {
-      switch (imports.prefBranch.getPrefType(this.name)) {
-        case imports.prefBranch.PREF_BOOL:
-          return imports.prefBranch.getBoolPref(this.name).toString();
+    switch (imports.prefBranch.getPrefType(this.name)) {
+      case imports.prefBranch.PREF_BOOL:
+        return imports.prefBranch.getBoolPref(this.name);
 
-        case imports.prefBranch.PREF_INT:
-          return imports.prefBranch.getIntPref(this.name).toString();
+      case imports.prefBranch.PREF_INT:
+        return imports.prefBranch.getIntPref(this.name);
 
-        case imports.prefBranch.PREF_STRING:
-          var value = imports.prefBranch.getComplexValue(this.name,
-                  Components.interfaces.nsISupportsString).data;
-          // Try in case it's a localized string (will throw an exception if not)
-          var isL10n = /^chrome:\/\/.+\/locale\/.+\.properties/.test(value);
-          if (!this.changed && isL10n) {
-            value = imports.prefBranch.getComplexValue(this.name,
-                    Components.interfaces.nsIPrefLocalizedString).data;
-          }
-          return value;
+      case imports.prefBranch.PREF_STRING:
+        var value = imports.prefBranch.getComplexValue(this.name,
+                Components.interfaces.nsISupportsString).data;
+        // Try in case it's a localized string (will throw an exception if not)
+        var isL10n = /^chrome:\/\/.+\/locale\/.+\.properties/.test(value);
+        if (!this.changed && isL10n) {
+          value = imports.prefBranch.getComplexValue(this.name,
+                  Components.interfaces.nsIPrefLocalizedString).data;
+        }
+        return value;
 
-        default:
-          throw new Error('Invalid value for ' + this.name);
-      }
-    } catch (ex) {
-      // Also catch obscure cases in which you can't tell in advance
-      // that the pref exists but has no user or default value...
+      default:
+        throw new Error('Invalid value for ' + this.name);
     }
   },
   enumerable: true
