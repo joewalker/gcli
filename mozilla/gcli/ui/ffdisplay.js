@@ -18,6 +18,7 @@ var jstype = require('gcli/types/javascript');
 var nodetype = require('gcli/types/node');
 var resource = require('gcli/types/resource');
 var host = require('gcli/host');
+var intro = require('gcli/ui/intro');
 
 var commandOutputManager = require('gcli/canon').commandOutputManager;
 
@@ -104,6 +105,15 @@ function FFDisplay(options) {
 
   this.options = options;
 }
+
+/**
+ * The main Display calls this as part of startup since it registers listeners
+ * for output first. The firefox display can't do this, so it has to be a
+ * separate method
+ */
+FFDisplay.prototype.maybeShowIntro = function() {
+  intro.maybeShowIntro(commandOutputManager);
+};
 
 /**
  * Called when the page to which we're attached changes
