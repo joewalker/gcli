@@ -94,6 +94,8 @@ function FFDisplay(options) {
     element: options.hintElement
   });
 
+  this.inputter.tooltip = this.tooltip;
+
   if (options.consoleWrap) {
     this.consoleWrap = options.consoleWrap;
     var win = options.consoleWrap.ownerDocument.defaultView;
