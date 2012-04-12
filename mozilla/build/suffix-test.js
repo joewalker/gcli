@@ -1,45 +1,28 @@
 
-registerCleanupFunction(function() {
-  Services.prefs.clearUserPref("devtools.gcli.enable");
-  undefine();
-  obj = undefined;
-  define = undefined;
-  console = undefined;
-  Node = undefined;
-});
+// Cached so it still exists during cleanup until we need it to
+let localDefine;
+
+const TEST_URI = "data:text/html;charset=utf-8,gcli-web";
 
 function test() {
-  Services.prefs.setBoolPref("devtools.gcli.enable", true);
-  addTab("http://example.com/browser/browser/devtools/webconsole/test/test-console.html");
-  browser.addEventListener("DOMContentLoaded", onLoad, false);
-}
+  localDefine = define;
 
-function onLoad() {
-  browser.removeEventListener("DOMContentLoaded", onLoad, false);
-  var failed = false;
-
-  try {
-    openConsole();
-
-    var gcliterm = HUDService.getHudByWindow(content).gcliterm;
-
+  DeveloperToolbarTest.test(TEST_URI, function(browser, tab) {
     var gclitest = define.globalDomain.require("gclitest/index");
     gclitest.run({
-      window: gcliterm.document.defaultView,
-      display: gcliterm.opts.console
+      display: DeveloperToolbar.display,
+      // window: browser.getBrowser().contentWindow
     });
-  }
-  catch (ex) {
-    failed = ex;
-    console.error("Test Failure", ex);
-    ok(false, "" + ex);
-  }
-  finally {
-    closeConsole();
-    finish();
-  }
 
-  if (failed) {
-    throw failed;
-  }
+    finish();
+  });
 }
+
+registerCleanupFunction(function() {
+  testModuleNames.forEach(function(moduleName) {
+    delete localDefine.modules[moduleName];
+    delete localDefine.globalDomain.modules[moduleName];
+  });
+
+  localDefine = undefined;
+});

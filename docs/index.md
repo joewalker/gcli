@@ -71,6 +71,7 @@ Other sources of GCLI documentation:
 - [Writing Commands](writing-commands.md)
 - [Writing Types](writing-types.md)
 - [Developing GCLI](developing-gcli.md)
+- [Running Tests](running-tests.md)
 - [The Design of GCLI](design.md)
 - Source
   - The most up-to-date source is Joe Walker's [Github repository for GCLI]
@@ -129,14 +130,13 @@ There are 3 basic steps in using GCLI in your system.
    is needed to get started.
 
         require([ 'gcli/index' ], function(gcli) {
-          gcli.startup();       // Initialize the command line
           gcli.addCommand(...); // Register custom commands
-          gcli.createView();    // Create a user interface
+          gcli.createDisplay(); // Create a user interface
         });
 
-   Both the startup() and createView() commands take ``options`` objects which
-   allow customization. At the current time the documentation of these object
-   is left to the source.
+   Both the startup() and createDisplay() commands take ``options`` objects
+   which allow customization. At the current time the documentation of these
+   object is left to the source.
 
 
 ## Backwards Compatibility

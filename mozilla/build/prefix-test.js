@@ -41,10 +41,3 @@
  */
 
 ///////////////////////////////////////////////////////////////////////////////
-
-var obj = {};
-Components.utils.import("resource:///modules/gcli.jsm", obj);
-
-var define = obj.gcli._internal.define;
-var console = obj.gcli._internal.console;
-var Node = Components.interfaces.nsIDOMNode;

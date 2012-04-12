@@ -17,6 +17,12 @@ imports.XPCOMUtils.defineLazyGetter(imports, 'prefBranch', function() {
           .QueryInterface(Components.interfaces.nsIPrefBranch2);
 });
 
+imports.XPCOMUtils.defineLazyGetter(imports, 'supportsString', function() {
+  return Components.classes["@mozilla.org/supports-string;1"]
+          .createInstance(Components.interfaces.nsISupportsString);
+});
+
+
 var util = require('gcli/util');
 var types = require('gcli/types');
 
@@ -98,33 +104,57 @@ Object.defineProperty(Setting.prototype, 'type', {
  */
 Object.defineProperty(Setting.prototype, 'value', {
   get: function() {
-    try {
-      switch (imports.prefBranch.getPrefType(this.name)) {
-        case imports.prefBranch.PREF_BOOL:
-          return imports.prefBranch.getBoolPref(this.name).toString();
+    switch (imports.prefBranch.getPrefType(this.name)) {
+      case imports.prefBranch.PREF_BOOL:
+        return imports.prefBranch.getBoolPref(this.name);
 
-        case imports.prefBranch.PREF_INT:
-          return imports.prefBranch.getIntPref(this.name).toString();
+      case imports.prefBranch.PREF_INT:
+        return imports.prefBranch.getIntPref(this.name);
 
-        case imports.prefBranch.PREF_STRING:
-          var value = imports.prefBranch.getComplexValue(this.name,
-                  Components.interfaces.nsISupportsString).data;
-          // Try in case it's a localized string (will throw an exception if not)
-          var isL10n = /^chrome:\/\/.+\/locale\/.+\.properties/.test(value);
-          if (!this.changed && isL10n) {
-            value = imports.prefBranch.getComplexValue(this.name,
-                    Components.interfaces.nsIPrefLocalizedString).data;
-          }
-          return value;
+      case imports.prefBranch.PREF_STRING:
+        var value = imports.prefBranch.getComplexValue(this.name,
+                Components.interfaces.nsISupportsString).data;
+        // Try in case it's a localized string (will throw an exception if not)
+        var isL10n = /^chrome:\/\/.+\/locale\/.+\.properties/.test(value);
+        if (!this.changed && isL10n) {
+          value = imports.prefBranch.getComplexValue(this.name,
+                  Components.interfaces.nsIPrefLocalizedString).data;
+        }
+        return value;
 
-        default:
-          throw new Error('Invalid value for ' + this.name);
-      }
-    } catch (ex) {
-      // Also catch obscure cases in which you can't tell in advance
-      // that the pref exists but has no user or default value...
+      default:
+        throw new Error('Invalid value for ' + this.name);
     }
   },
+
+  set: function(value) {
+    if (imports.prefBranch.prefIsLocked(this.name)) {
+      throw new Error('Locked preference ' + this.name);
+    }
+
+    switch (imports.prefBranch.getPrefType(this.name)) {
+      case imports.prefBranch.PREF_BOOL:
+        imports.prefBranch.setBoolPref(this.name, value);
+        break;
+
+      case imports.prefBranch.PREF_INT:
+        imports.prefBranch.setIntPref(this.name, value);
+        break;
+
+      case imports.prefBranch.PREF_STRING:
+        imports.supportsString.data = value;
+        imports.prefBranch.setComplexValue(this.name,
+                Components.interfaces.nsISupportsString,
+                imports.supportsString);
+        break;
+
+      default:
+        throw new Error('Invalid value for ' + this.name);
+    }
+
+    Services.prefs.savePrefFile(null);
+  },
+
   enumerable: true
 });
 

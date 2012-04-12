@@ -61,7 +61,6 @@ define(function(require, exports, module) {
   require('gcli/types/selection').startup();
 
   require('gcli/settings').startup();
-  require('gcli/cli').startup();
   require('gcli/ui/intro').startup();
   require('gcli/ui/focus').startup();
   require('gcli/ui/fields/basic').startup();
@@ -69,9 +68,12 @@ define(function(require, exports, module) {
   require('gcli/ui/fields/selection').startup();
 
   require('gcli/commands/help').startup();
-  //require('gcli/commands/pref').startup();
 
-  var Console = require('gcli/ui/console').Console;
+  // Some commands require customizing for Firefox before we include them
+  // require('gcli/cli').startup();
+  // require('gcli/commands/pref').startup();
+
+  var FFDisplay = require('gcli/ui/ffdisplay').FFDisplay;
 
   /**
    * API for use by HUDService only.
@@ -95,8 +97,8 @@ define(function(require, exports, module) {
      * - hintElement: GCLITerm.hintNode
      * - inputBackgroundElement: GCLITerm.inputStack
      */
-    createConsole: function(opts) {
-      return new Console(opts);
+    createDisplay: function(opts) {
+      return new FFDisplay(opts);
     }
   };
 });

@@ -17,6 +17,8 @@ var cli = require('gcli/cli');
 var jstype = require('gcli/types/javascript');
 var nodetype = require('gcli/types/node');
 var resource = require('gcli/types/resource');
+var host = require('gcli/host');
+var intro = require('gcli/ui/intro');
 
 var commandOutputManager = require('gcli/canon').commandOutputManager;
 
@@ -39,7 +41,7 @@ function setContentDocument(document) {
 }
 
 /**
- * Console is responsible for generating the UI for GCLI, this implementation
+ * FFDisplay is responsible for generating the UI for GCLI, this implementation
  * is a special case for use inside Firefox
  * @param options A configuration object containing the following:
  * - contentDocument (optional)
@@ -53,12 +55,14 @@ function setContentDocument(document) {
  * - eval (optional)
  * - environment
  * - scratchpad (optional)
+ * - chromeWindow
  */
-function Console(options) {
+function FFDisplay(options) {
   if (options.eval) {
     cli.setEvalFunction(options.eval);
   }
   setContentDocument(options.contentDocument);
+  host.chromeWindow = options.chromeWindow;
 
   this.onOutput = commandOutputManager.onOutput;
   this.requisition = new Requisition(options.environment, options.outputDocument);
@@ -68,7 +72,6 @@ function Console(options) {
     // TODO: can we kill chromeDocument here?
     document: options.chromeDocument
   });
-  this.focusManager.addMonitoredElement(options.hintElement, 'gcliTerm');
   this.onVisibilityChange = this.focusManager.onVisibilityChange;
 
   this.inputter = new Inputter(options, {
@@ -91,6 +94,8 @@ function Console(options) {
     element: options.hintElement
   });
 
+  this.inputter.tooltip = this.tooltip;
+
   if (options.consoleWrap) {
     this.consoleWrap = options.consoleWrap;
     var win = options.consoleWrap.ownerDocument.defaultView;
@@ -104,58 +109,63 @@ function Console(options) {
 }
 
 /**
+ * The main Display calls this as part of startup since it registers listeners
+ * for output first. The firefox display can't do this, so it has to be a
+ * separate method
+ */
+FFDisplay.prototype.maybeShowIntro = function() {
+  intro.maybeShowIntro(commandOutputManager);
+};
+
+/**
  * Called when the page to which we're attached changes
  * @params options Object with the following properties:
  * - contentDocument: Points to the page that we should now work against
  * - environment: A replacement environment for Requisition use
+ * - chromeWindow: Allow node type to create overlay
  */
-Console.prototype.reattach = function(options) {
+FFDisplay.prototype.reattach = function(options) {
   setContentDocument(options.contentDocument);
+  host.chromeWindow = options.chromeWindow;
   this.requisition.environment = options.environment;
 };
 
 /**
  * Avoid memory leaks
  */
-Console.prototype.destroy = function() {
+FFDisplay.prototype.destroy = function() {
   if (this.consoleWrap) {
     var win = this.options.consoleWrap.ownerDocument.defaultView;
 
     this.requisition.onTextChange.remove(this.resizer, this);
     win.removeEventListener('resize', this.resizer, false);
-
-    delete this.consoleWrap;
-    delete this.resizer;
   }
 
   this.tooltip.destroy();
   this.completer.destroy();
   this.inputter.destroy();
-
-  this.focusManager.removeMonitoredElement(this.options.hintElement, 'gcliTerm');
   this.focusManager.destroy();
+
   this.requisition.destroy();
-  this.outputList.destroy();
 
-  delete this.outputList;
-  delete this.tooltip;
-  delete this.completer;
-  delete this.inputter;
-
-  delete this.onCommandOutput;
-  delete this.onVisibilityChange;
-
-  delete this.focusManager;
-  delete this.requisition;
-
+  host.chromeWindow = undefined;
   setContentDocument(null);
   cli.unsetEvalFunction();
+
+  delete this.options;
+
+  // We could also delete the following objects if we have hard-to-track-down
+  // memory leaks, as a belt-and-braces approach, however this prevents our
+  // DOM node hunter script from looking in all the nooks and crannies, so it's
+  // better if we can be leak-free without deleting them:
+  // - consoleWrap, resizer, tooltip, completer, inputter,
+  // - focusManager, onVisibilityChange, requisition
 };
 
 /**
  * Called on chrome window resize, or on divider slide
  */
-Console.prototype.resizer = function() {
+FFDisplay.prototype.resizer = function() {
   // Bug 705109: There are several numbers hard-coded in this function.
   // This is simpler than calculating them, but error-prone when the UI setup,
   // the styling or display settings change.
@@ -227,6 +237,6 @@ Console.prototype.resizer = function() {
   }
 };
 
-exports.Console = Console;
+exports.FFDisplay = FFDisplay;
 
 });
