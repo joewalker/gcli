@@ -17,6 +17,12 @@ imports.XPCOMUtils.defineLazyGetter(imports, 'prefBranch', function() {
           .QueryInterface(Components.interfaces.nsIPrefBranch2);
 });
 
+imports.XPCOMUtils.defineLazyGetter(imports, 'supportsString', function() {
+  return Components.classes["@mozilla.org/supports-string;1"]
+          .createInstance(Components.interfaces.nsISupportsString);
+});
+
+
 var util = require('gcli/util');
 var types = require('gcli/types');
 
@@ -120,6 +126,35 @@ Object.defineProperty(Setting.prototype, 'value', {
         throw new Error('Invalid value for ' + this.name);
     }
   },
+
+  set: function(value) {
+    if (imports.prefBranch.prefIsLocked(this.name)) {
+      throw new Error('Locked preference ' + this.name);
+    }
+
+    switch (imports.prefBranch.getPrefType(this.name)) {
+      case imports.prefBranch.PREF_BOOL:
+        imports.prefBranch.setBoolPref(this.name, value);
+        break;
+
+      case imports.prefBranch.PREF_INT:
+        imports.prefBranch.setIntPref(this.name, value);
+        break;
+
+      case imports.prefBranch.PREF_STRING:
+        imports.supportsString.data = value;
+        imports.prefBranch.setComplexValue(this.name,
+                Components.interfaces.nsISupportsString,
+                imports.supportsString);
+        break;
+
+      default:
+        throw new Error('Invalid value for ' + this.name);
+    }
+
+    Services.prefs.savePrefFile(null);
+  },
+
   enumerable: true
 });
 
