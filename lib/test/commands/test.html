@@ -19,9 +19,9 @@
         <td class="gcliTestMessages">
           <div foreach="failure in ${test.failures}">
             ${failure.message}
-            <ul if="${failure.expected}">
-              <li>Expected: ${failure.expected}</li>
-              <li>Actual: ${failure.actual}</li>
+            <ul if="${failure.params}">
+              <li>P1: ${failure.p1}</li>
+              <li>P2: ${failure.p2}</li>
             </ul>
           </div>
         </td>
