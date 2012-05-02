@@ -30,8 +30,8 @@ With this:
     });
     
     function testCommands() {
-      require([ 'gclitest/commands' ], function(commands) {
-        commands.setup();
+      require([ 'gclitest/mockCommands' ], function(mockCommands) {
+        mockCommands.setup();
       });
     }
 
