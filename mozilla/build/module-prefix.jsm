@@ -11,15 +11,15 @@
  * for the specific language governing rights and limitations under the
  * License.
  *
- * The Original Code is the GCLI.
+ * The Original Code is GCLI.
  *
  * The Initial Developer of the Original Code is
  * The Mozilla Foundation.
- * Portions created by the Initial Developer are Copyright (C) 2011
+ * Portions created by the Initial Developer are Copyright (C) 2012
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
- *   Joe Walker <jwalker@mozilla.com> (original author)
+ *   Joe Walker <jwalker@mozilla.com> (Original Author)
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -34,3 +34,11 @@
  * the terms of any one of the MPL, the GPL or the LGPL.
  *
  * ***** END LICENSE BLOCK ***** */
+
+"use strict";
+
+var EXPORTED_SYMBOLS = [ ];
+
+Components.utils.import("resource:///modules/Require.jsm");
+Components.utils.import("resource:///modules/Console.jsm");
+Components.utils.import("resource:///modules/Browser.jsm");
