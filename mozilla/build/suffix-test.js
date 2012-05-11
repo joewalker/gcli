@@ -11,9 +11,9 @@ function test() {
     var gclitest = define.globalDomain.require("gclitest/index");
     gclitest.run({
       display: DeveloperToolbar.display,
-      // window: browser.getBrowser().contentWindow
+      isFirefox: true,
+      window: browser.contentDocument.defaultView
     });
-
     finish();
   });
 }
