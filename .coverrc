@@ -1,0 +1,8 @@
+{
+  "dataDirectory": "built/coverage_data",
+  "modules": true,
+  "html": {
+    "directory": "built/coverage_html",
+    "generateIndex": true
+  }
+}
