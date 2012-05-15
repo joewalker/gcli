@@ -1,0 +1,16 @@
+
+# Junk that could exist anywhere:
+.DS_Store
+*.swp
+*.tmp
+.*.gz
+
+# A handy place to put stuff that git should ignore:
+/ignore
+
+# Unit Test Coverage Files
+/coverage_data/
+/coverage_html/
+
+# Firefox build files
+/ff/
