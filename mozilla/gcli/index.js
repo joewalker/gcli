@@ -4,6 +4,45 @@
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
+var mozl10n = {};
+
+(function(aMozl10n) {
+  var temp = {};
+  Components.utils.import("resource://gre/modules/Services.jsm", temp);
+  var stringBundle = temp.Services.strings.createBundle(
+          "chrome://browser/locale/devtools/gclicommands.properties");
+
+  /**
+   * Lookup a string in the GCLI string bundle
+   * @param name The name to lookup
+   * @return The looked up name
+   */
+  aMozl10n.lookup = function(name) {
+    try {
+      return stringBundle.GetStringFromName(name);
+    }
+    catch (ex) {
+      throw new Error("Failure in lookup('" + name + "')");
+    }
+  };
+
+  /**
+   * Lookup a string in the GCLI string bundle
+   * @param name The name to lookup
+   * @param swaps An array of swaps. See stringBundle.formatStringFromName
+   * @return The looked up name
+   */
+  aMozl10n.lookupFormat = function(name, swaps) {
+    try {
+      return stringBundle.formatStringFromName(name, swaps, swaps.length);
+    }
+    catch (ex) {
+      throw new Error("Failure in lookupFormat('" + name + "')");
+    }
+  };
+
+})(mozl10n);
+
 define(function(require, exports, module) {
 
   // Internal startup process. Not exported
@@ -24,14 +63,11 @@ define(function(require, exports, module) {
 
   require('gcli/commands/help').startup();
 
-  // Some commands require customizing for Firefox before we include them
-  // require('gcli/cli').startup();
-  // require('gcli/commands/pref').startup();
-
-
   // The API for use by command authors
   exports.addCommand = require('gcli/canon').addCommand;
   exports.removeCommand = require('gcli/canon').removeCommand;
+  exports.lookup = mozl10n.lookup;
+  exports.lookupFormat = mozl10n.lookupFormat;
 
   /**
    * This code is internal and subject to change without notice.
