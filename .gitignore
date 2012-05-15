@@ -1,11 +1,4 @@
 
-# Ignore any hg stuff in the patch queue
-mozilla/patches/.hg
-mozilla/patches/.hgignore
-mozilla/patches/.mq
-mozilla/patches/status
-mozilla/patches/guards
-
 # Junk that could exist anywhere:
 .DS_Store
 *.swp
@@ -25,7 +18,7 @@ mozilla/patches/guards
 /.settings.xml
 /.settings.xml.old
 /.idea/
+/.externalToolBuilders/
 
 # Manually installed node packages should be ignored
 /node_modules/
-/.externalToolBuilders
