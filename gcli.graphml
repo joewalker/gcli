@@ -400,6 +400,13 @@
         </y:ShapeNode>
       </data>
     </node>
+    <node id="gcli/commands/intro">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/commands/intro</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
     <node id="test/commands/test">
       <data key="d0">
         <y:ShapeNode>
@@ -411,6 +418,13 @@
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">test/examiner</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="test/assert">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">test/assert</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -470,6 +484,20 @@
         </y:ShapeNode>
       </data>
     </node>
+    <node id="gclitest/testCanon">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testCanon</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/helpers">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/helpers</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
     <node id="gclitest/testCli">
       <data key="d0">
         <y:ShapeNode>
@@ -477,17 +505,10 @@
         </y:ShapeNode>
       </data>
     </node>
-    <node id="gclitest/commands">
+    <node id="gclitest/mockCommands">
       <data key="d0">
         <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gclitest/commands</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="test/assert">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">test/assert</y:NodeLabel>
+           <y:NodeLabel textColor="#000000">gclitest/mockCommands</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -505,10 +526,31 @@
         </y:ShapeNode>
       </data>
     </node>
+    <node id="gclitest/testHelp">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testHelp</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
     <node id="gclitest/testHistory">
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">gclitest/testHistory</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/testInputter">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testInputter</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/testIntro">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testIntro</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -523,6 +565,20 @@
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">gclitest/testKeyboard</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/testPref">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testPref</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/mockSettings">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/mockSettings</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -551,6 +607,13 @@
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">gclitest/testScratchpad</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gclitest/testSettings">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gclitest/testSettings</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -645,7 +708,6 @@
     <edge source="gcli/settings" target="gcli/util"/>
     <edge source="gcli/settings" target="gcli/types"/>
     <edge source="gcli/cli" target="gcli/util"/>
-    <edge source="gcli/cli" target="gcli/l10n"/>
     <edge source="gcli/cli" target="gcli/ui/view"/>
     <edge source="gcli/cli" target="gcli/canon"/>
     <edge source="gcli/cli" target="gcli/promise"/>
@@ -656,8 +718,8 @@
     <edge source="gcli/ui/view" target="gcli/ui/domtemplate"/>
     <edge source="gcli/ui/intro" target="gcli/settings"/>
     <edge source="gcli/ui/intro" target="gcli/l10n"/>
-    <edge source="gcli/ui/intro" target="gcli/util"/>
     <edge source="gcli/ui/intro" target="gcli/ui/view"/>
+    <edge source="gcli/ui/intro" target="gcli/cli"/>
     <edge source="gcli/ui/intro" target="text!gcli/ui/intro.html"/>
     <edge source="gcli/ui/focus" target="gcli/util"/>
     <edge source="gcli/ui/focus" target="gcli/settings"/>
@@ -712,7 +774,6 @@
     <edge source="gcli/ui/output_terminal" target="gcli/util"/>
     <edge source="gcli/ui/output_terminal" target="gcli/canon"/>
     <edge source="gcli/ui/output_terminal" target="gcli/ui/domtemplate"/>
-    <edge source="gcli/ui/output_terminal" target="gcli/ui/view"/>
     <edge source="gcli/ui/output_terminal" target="text!gcli/ui/output_view.css"/>
     <edge source="gcli/ui/output_terminal" target="text!gcli/ui/output_terminal.html"/>
     <edge source="gcli/ui/inputter" target="gcli/util"/>
@@ -725,6 +786,7 @@
     <edge source="demo/index" target="gcli/index"/>
     <edge source="demo/index" target="gcli/commands/help"/>
     <edge source="demo/index" target="gcli/commands/pref"/>
+    <edge source="demo/index" target="gcli/commands/intro"/>
     <edge source="demo/index" target="test/commands/test"/>
     <edge source="demo/index" target="demo/commands/basic"/>
     <edge source="demo/index" target="demo/commands/bugs"/>
@@ -744,13 +806,15 @@
     <edge source="gcli/commands/pref" target="text!gcli/commands/pref_list.css"/>
     <edge source="gcli/commands/pref" target="text!gcli/commands/pref_set_check.html"/>
     <edge source="gcli/commands/pref" target="text!gcli/commands/pref_list_inner.html"/>
-    <edge source="test/commands/test" target="gcli/util"/>
+    <edge source="gcli/commands/intro" target="gcli/index"/>
+    <edge source="gcli/commands/intro" target="gcli/l10n"/>
+    <edge source="gcli/commands/intro" target="text!gcli/ui/intro.html"/>
     <edge source="test/commands/test" target="gcli/canon"/>
     <edge source="test/commands/test" target="test/examiner"/>
     <edge source="test/commands/test" target="text!test/commands/test.css"/>
     <edge source="test/commands/test" target="text!test/commands/test.html"/>
+    <edge source="test/examiner" target="test/assert"/>
     <edge source="demo/commands/basic" target="gcli/index"/>
-    <edge source="demo/commands/basic" target="text!gcli/ui/intro.html"/>
     <edge source="demo/commands/bugs" target="gcli/index"/>
     <edge source="demo/commands/bugs" target="gcli/util"/>
     <edge source="demo/commands/bugs" target="text!demo/commands/bugs.html"/>
@@ -758,67 +822,89 @@
     <edge source="gclitest/index" target="gclitest/suite"/>
     <edge source="gclitest/suite" target="gcli/index"/>
     <edge source="gclitest/suite" target="test/examiner"/>
+    <edge source="gclitest/suite" target="gclitest/testCanon"/>
     <edge source="gclitest/suite" target="gclitest/testCli"/>
     <edge source="gclitest/suite" target="gclitest/testCompletion"/>
     <edge source="gclitest/suite" target="gclitest/testExec"/>
+    <edge source="gclitest/suite" target="gclitest/testHelp"/>
     <edge source="gclitest/suite" target="gclitest/testHistory"/>
+    <edge source="gclitest/suite" target="gclitest/testInputter"/>
+    <edge source="gclitest/suite" target="gclitest/testIntro"/>
     <edge source="gclitest/suite" target="gclitest/testJs"/>
     <edge source="gclitest/suite" target="gclitest/testKeyboard"/>
+    <edge source="gclitest/suite" target="gclitest/testPref"/>
     <edge source="gclitest/suite" target="gclitest/testRequire"/>
     <edge source="gclitest/suite" target="gclitest/testResource"/>
     <edge source="gclitest/suite" target="gclitest/testScratchpad"/>
+    <edge source="gclitest/suite" target="gclitest/testSettings"/>
     <edge source="gclitest/suite" target="gclitest/testSpell"/>
     <edge source="gclitest/suite" target="gclitest/testSplit"/>
     <edge source="gclitest/suite" target="gclitest/testTokenize"/>
     <edge source="gclitest/suite" target="gclitest/testTooltip"/>
     <edge source="gclitest/suite" target="gclitest/testTypes"/>
     <edge source="gclitest/suite" target="gclitest/testUtil"/>
+    <edge source="gclitest/testCanon" target="gclitest/helpers"/>
+    <edge source="gclitest/testCanon" target="gcli/canon"/>
+    <edge source="gclitest/testCanon" target="test/assert"/>
+    <edge source="gclitest/helpers" target="test/assert"/>
     <edge source="gclitest/testCli" target="gcli/cli"/>
     <edge source="gclitest/testCli" target="gcli/types"/>
-    <edge source="gclitest/testCli" target="gclitest/commands"/>
+    <edge source="gclitest/testCli" target="gclitest/mockCommands"/>
     <edge source="gclitest/testCli" target="test/assert"/>
-    <edge source="gclitest/commands" target="gcli/canon"/>
-    <edge source="gclitest/commands" target="gcli/util"/>
-    <edge source="gclitest/commands" target="gcli/types/selection"/>
-    <edge source="gclitest/commands" target="gcli/types/basic"/>
-    <edge source="gclitest/commands" target="gcli/types"/>
-    <edge source="test/assert" target="test/examiner"/>
+    <edge source="gclitest/mockCommands" target="gcli/canon"/>
+    <edge source="gclitest/mockCommands" target="gcli/util"/>
+    <edge source="gclitest/mockCommands" target="gcli/types/selection"/>
+    <edge source="gclitest/mockCommands" target="gcli/types/basic"/>
+    <edge source="gclitest/mockCommands" target="gcli/types"/>
     <edge source="gclitest/testCompletion" target="test/assert"/>
-    <edge source="gclitest/testCompletion" target="gclitest/commands"/>
+    <edge source="gclitest/testCompletion" target="gclitest/mockCommands"/>
     <edge source="gclitest/testExec" target="gcli/cli"/>
     <edge source="gclitest/testExec" target="gcli/canon"/>
-    <edge source="gclitest/testExec" target="gclitest/commands"/>
+    <edge source="gclitest/testExec" target="gclitest/mockCommands"/>
     <edge source="gclitest/testExec" target="gcli/types/node"/>
     <edge source="gclitest/testExec" target="test/assert"/>
+    <edge source="gclitest/testHelp" target="gclitest/helpers"/>
     <edge source="gclitest/testHistory" target="test/assert"/>
     <edge source="gclitest/testHistory" target="gcli/history"/>
+    <edge source="gclitest/testInputter" target="gclitest/mockCommands"/>
+    <edge source="gclitest/testInputter" target="gcli/util"/>
+    <edge source="gclitest/testInputter" target="test/assert"/>
+    <edge source="gclitest/testIntro" target="gclitest/helpers"/>
+    <edge source="gclitest/testIntro" target="test/assert"/>
     <edge source="gclitest/testJs" target="gcli/cli"/>
     <edge source="gclitest/testJs" target="gcli/types"/>
     <edge source="gclitest/testJs" target="gcli/types/javascript"/>
+    <edge source="gclitest/testJs" target="gcli/canon"/>
     <edge source="gclitest/testJs" target="test/assert"/>
     <edge source="gclitest/testKeyboard" target="gcli/cli"/>
-    <edge source="gclitest/testKeyboard" target="gcli/types"/>
     <edge source="gclitest/testKeyboard" target="gcli/canon"/>
-    <edge source="gclitest/testKeyboard" target="gclitest/commands"/>
-    <edge source="gclitest/testKeyboard" target="gcli/types/node"/>
+    <edge source="gclitest/testKeyboard" target="gclitest/mockCommands"/>
     <edge source="gclitest/testKeyboard" target="gcli/types/javascript"/>
     <edge source="gclitest/testKeyboard" target="test/assert"/>
+    <edge source="gclitest/testPref" target="gcli/commands/pref"/>
+    <edge source="gclitest/testPref" target="gclitest/helpers"/>
+    <edge source="gclitest/testPref" target="gclitest/mockSettings"/>
+    <edge source="gclitest/testPref" target="test/assert"/>
+    <edge source="gclitest/mockSettings" target="gcli/settings"/>
     <edge source="gclitest/testRequire" target="test/assert"/>
     <edge source="gclitest/testRequire" target="gclitest/requirable"/>
     <edge source="gclitest/testResource" target="gcli/types/resource"/>
     <edge source="gclitest/testResource" target="gcli/types"/>
     <edge source="gclitest/testResource" target="test/assert"/>
     <edge source="gclitest/testScratchpad" target="test/assert"/>
+    <edge source="gclitest/testSettings" target="gclitest/mockSettings"/>
+    <edge source="gclitest/testSettings" target="test/assert"/>
     <edge source="gclitest/testSpell" target="test/assert"/>
     <edge source="gclitest/testSpell" target="gcli/types/spell"/>
     <edge source="gclitest/testSplit" target="test/assert"/>
-    <edge source="gclitest/testSplit" target="gclitest/commands"/>
+    <edge source="gclitest/testSplit" target="gclitest/mockCommands"/>
     <edge source="gclitest/testSplit" target="gcli/cli"/>
+    <edge source="gclitest/testSplit" target="gcli/canon"/>
     <edge source="gclitest/testTokenize" target="test/assert"/>
     <edge source="gclitest/testTokenize" target="gcli/cli"/>
     <edge source="gclitest/testTokenize" target="gcli/argument"/>
     <edge source="gclitest/testTooltip" target="test/assert"/>
-    <edge source="gclitest/testTooltip" target="gclitest/commands"/>
+    <edge source="gclitest/testTooltip" target="gclitest/mockCommands"/>
     <edge source="gclitest/testTypes" target="test/assert"/>
     <edge source="gclitest/testTypes" target="gcli/types"/>
     <edge source="gclitest/testUtil" target="gcli/util"/>
