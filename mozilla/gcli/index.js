@@ -45,12 +45,6 @@ var mozl10n = {};
 
 define(function(require, exports, module) {
 
-  // The API for use by command authors
-  exports.addCommand = require('gcli/canon').addCommand;
-  exports.removeCommand = require('gcli/canon').removeCommand;
-  exports.lookup = mozl10n.lookup;
-  exports.lookupFormat = mozl10n.lookupFormat;
-
   // Internal startup process. Not exported
   require('gcli/types/basic').startup();
   require('gcli/types/command').startup();
@@ -69,36 +63,29 @@ define(function(require, exports, module) {
 
   require('gcli/commands/help').startup();
 
-  // Some commands require customizing for Firefox before we include them
-  // require('gcli/cli').startup();
-  // require('gcli/commands/pref').startup();
-
-  var FFDisplay = require('gcli/ui/ffdisplay').FFDisplay;
+  // The API for use by command authors
+  exports.addCommand = require('gcli/canon').addCommand;
+  exports.removeCommand = require('gcli/canon').removeCommand;
+  exports.lookup = mozl10n.lookup;
+  exports.lookupFormat = mozl10n.lookupFormat;
 
   /**
-   * API for use by HUDService only.
    * This code is internal and subject to change without notice.
+   * createView() for Firefox requires an options object with the following
+   * members:
+   * - contentDocument: From the window of the attached tab
+   * - chromeDocument: GCLITerm.document
+   * - environment.hudId: GCLITerm.hudId
+   * - jsEnvironment.globalObject: 'window'
+   * - jsEnvironment.evalFunction: 'eval' in a sandbox
+   * - inputElement: GCLITerm.inputNode
+   * - completeElement: GCLITerm.completeNode
+   * - hintElement: GCLITerm.hintNode
+   * - inputBackgroundElement: GCLITerm.inputStack
    */
-  exports._internal = {
-    require: require,
-    define: define,
-    console: console,
-
-    /**
-     * createView() for Firefox requires an options object with the following
-     * members:
-     * - contentDocument: From the window of the attached tab
-     * - chromeDocument: GCLITerm.document
-     * - environment.hudId: GCLITerm.hudId
-     * - jsEnvironment.globalObject: 'window'
-     * - jsEnvironment.evalFunction: 'eval' in a sandbox
-     * - inputElement: GCLITerm.inputNode
-     * - completeElement: GCLITerm.completeNode
-     * - hintElement: GCLITerm.hintNode
-     * - inputBackgroundElement: GCLITerm.inputStack
-     */
-    createDisplay: function(opts) {
-      return new FFDisplay(opts);
-    }
+  exports.createDisplay = function(opts) {
+    var FFDisplay = require('gcli/ui/ffdisplay').FFDisplay;
+    return new FFDisplay(opts);
   };
+
 });
