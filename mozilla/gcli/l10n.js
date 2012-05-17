@@ -9,7 +9,8 @@ define(function(require, exports, module) {
 Components.utils.import('resource://gre/modules/XPCOMUtils.jsm');
 Components.utils.import('resource://gre/modules/Services.jsm');
 
-XPCOMUtils.defineLazyGetter(this, 'stringBundle', function () {
+var imports = {};
+XPCOMUtils.defineLazyGetter(imports, 'stringBundle', function () {
   return Services.strings.createBundle('chrome://browser/locale/devtools/gcli.properties');
 });
 
@@ -49,7 +50,7 @@ exports.lookup = function(key) {
     }
     */
 
-    return stringBundle.GetStringFromName(key);
+    return imports.stringBundle.GetStringFromName(key);
   }
   catch (ex) {
     console.error('Failed to lookup ', key, ex);
@@ -67,7 +68,7 @@ exports.propertyLookup = Proxy.create({
 /** @see lookupFormat in lib/gcli/l10n.js */
 exports.lookupFormat = function(key, swaps) {
   try {
-    return stringBundle.formatStringFromName(key, swaps, swaps.length);
+    return imports.stringBundle.formatStringFromName(key, swaps, swaps.length);
   }
   catch (ex) {
     console.error('Failed to format ', key, ex);

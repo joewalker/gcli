@@ -6,11 +6,6 @@
 
 define(function(require, exports, module) {
 
-  XPCOMUtils.defineLazyGetter(this, "Highlighter", function() {
-    var tmp = {};
-    Components.utils.import("resource:///modules/highlighter.jsm", tmp);
-    return tmp.Highlighter;
-  });
 
   /**
    * The chromeWindow as as required by Highlighter, so it knows where to
@@ -27,8 +22,13 @@ define(function(require, exports, module) {
     /*
     if (exports.chromeWindow == null) {
       console.log('flashNodes has no chromeWindow. Skipping flash');
+      return;
     }
-    Highlighter.flashNodes(nodes, exports.chromeWindow, match);
+
+    var imports = {};
+    Components.utils.import("resource:///modules/highlighter.jsm", imports);
+
+    imports.Highlighter.flashNodes(nodes, exports.chromeWindow, match);
     */
   };
 
