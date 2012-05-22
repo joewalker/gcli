@@ -14,13 +14,14 @@
   <h3>${getHeading()}</h3>
 
   <table>
-    <tr foreach="command in ${getMatchingCommands()}"
-        onclick="${onclick}" ondblclick="${ondblclick}">
+    <tr foreach="command in ${getMatchingCommands()}">
       <th class="gcli-help-name">${command.name}</th>
       <td class="gcli-help-arrow">&#x2192;</td>
       <td>
         ${command.description}
-        <span class="gcli-out-shortcut gcli-help-command">help ${command.name}</span>
+        <span class="gcli-out-shortcut"
+            onclick="${onclick}" ondblclick="${ondblclick}"
+            data-command="help ${command.name}">help ${command.name}</span>
       </td>
     </tr>
   </table>

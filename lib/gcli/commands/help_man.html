@@ -4,8 +4,8 @@
 
   <h4 class="gcli-help-header">
     ${l10n.helpManSynopsis}:
-    <span class="gcli-help-synopsis" onclick="${onclick}">
-      <span class="gcli-help-command">${command.name}</span>
+    <span class="gcli-out-shortcut" onclick="${onclick}" data-command="${command.name}">
+      ${command.name}
       <span foreach="param in ${command.params}">
         ${param.defaultValue !== undefined ? '[' + param.name + ']' : param.name}
       </span>
@@ -39,8 +39,9 @@
       <li foreach="subcommand in ${subcommands}">
         <strong>${subcommand.name}</strong>:
         ${subcommand.description}
-        <span class="gcli-help-synopsis" onclick="${onclick}" ondblclick="${ondblclick}">
-          <span class="gcli-help-command">help ${subcommand.name}</span>
+        <span class="gcli-out-shortcut" data-command="help ${subcommand.name}"
+            onclick="${onclick}" ondblclick="${ondblclick}">
+          help ${subcommand.name}
         </span>
       </li>
     </ul>
