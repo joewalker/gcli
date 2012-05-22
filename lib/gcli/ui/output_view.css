@@ -118,20 +118,20 @@
 }
 
 .gcli-out-shortcut {
+  font-weight: normal;
   border: 1px solid #999;
   border-radius: 3px;
-  padding: 1px 4px 0;
-  margin: 0 4px;
-  font-size: 80%;
   color: #666;
   cursor: pointer;
-  vertical-align: bottom;
-  white-space: pre;
+  padding: 0 3px 1px;
+  margin: 1px 4px;
+  display: inline-block;
 }
 
 .gcli-out-shortcut:before {
+  content: '\bb';
+  padding-right: 2px;
   color: hsl(25,78%,50%);
   font-weight: bold;
-  content: '\bb ';
-  padding-right: 2px;
+  font-size: 110%;
 }
