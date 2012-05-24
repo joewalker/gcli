@@ -188,8 +188,14 @@ exports.addSetting = function(prefSpec) {
       allSettings[i] = setting;
     }
   }
+  exports.onChange({ added: setting.name });
   return setting;
 };
+
+/**
+ * Event for use to detect when the list of settings changes
+ */
+exports.onChange = util.createEvent('Settings.onChange');
 
 /**
  * Remove a setting. A no-op in this case
