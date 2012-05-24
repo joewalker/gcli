@@ -158,6 +158,13 @@ Object.defineProperty(Setting.prototype, 'value', {
   enumerable: true
 });
 
+/**
+ * Reset this setting to it's initial default value
+ */
+Setting.prototype.setDefault = function() {
+  imports.prefBranch.clearUserPref(this.name);
+  Services.prefs.savePrefFile(null);
+};
 
 /**
  * 'static' function to get an array containing all known Settings
