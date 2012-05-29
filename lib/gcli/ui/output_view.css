@@ -1,15 +1,8 @@
 
-.gcli-row-in-typed,
-.gcli-row-prompt,
-.gcli-row-terminal,
-.gcli-row-subterminal,
-.gcli-out-shortcut {
-  font-family: Consolas, Inconsolata, "Courier New", monospace;
-}
-
 .gcli-row-in {
-  margin: 10px 5px 0px;
-  padding: 3px 4px 1px;
+  padding: 0 4px;
+  box-shadow: 0 -6px 10px -6px #ddd;
+  border-top: 1px solid #bbb;
 }
 
 .gcli-row-in > img {
@@ -53,8 +46,8 @@
 }
 
 .gcli-row-out {
-  margin: 0 8px 0px 40px;
-  padding: 1px 10px;
+  margin: 0 10px 15px;
+  padding: 0 10px;
   line-height: 1.2em;
   font-size: 95%;
 }
@@ -118,20 +111,20 @@
 }
 
 .gcli-out-shortcut {
+  font-weight: normal;
   border: 1px solid #999;
   border-radius: 3px;
-  padding: 1px 4px 0;
-  margin: 0 4px;
-  font-size: 80%;
   color: #666;
   cursor: pointer;
-  vertical-align: bottom;
-  white-space: pre;
+  padding: 0 3px 1px;
+  margin: 1px 4px;
+  display: inline-block;
 }
 
 .gcli-out-shortcut:before {
+  content: '\bb';
+  padding-right: 2px;
   color: hsl(25,78%,50%);
   font-weight: bold;
-  content: '\bb ';
-  padding-right: 2px;
+  font-size: 110%;
 }

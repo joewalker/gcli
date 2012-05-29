@@ -2,7 +2,7 @@
 .gcli-in-input,
 .gcli-in-complete,
 .gcli-prompt {
-  font-family: Consolas, Inconsolata, "Courier New", monospace;
+  font-family: Segoe UI, Helvetica Neue, Verdana, Arial, sans-serif;
 }
 
 .gcli-in-input,
@@ -36,6 +36,7 @@
   color: hsl(25,78%,50%);
   font-size: 150%;
   font-weight: bold;
+  line-height: 95%;
 }
 
 .gcli-in-incomplete {
