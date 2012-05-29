@@ -44,14 +44,6 @@
   -webkit-padding-end: 8px;
 }
 
-.gcli-menu-error {
-  overflow: hidden;
-  white-space: nowrap;
-  padding: 8px 10px 2px;
-  font-size: 80%;
-  color: red;
-}
-
 .gcli-menu-highlight,
 .gcli-menu-highlight.gcli-menu-option:hover {
   background-image: -moz-linear-gradient(top, #eee, #b8b8b8);
