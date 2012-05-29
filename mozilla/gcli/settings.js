@@ -29,8 +29,7 @@ var types = require('gcli/types');
 var allSettings = [];
 
 /**
- * No setup required because settings are pre-loaded with Mozilla,
- * but match API with main settings.js
+ * Cache existing settings on startup
  */
 exports.startup = function() {
   imports.prefBranch.getChildList('').forEach(function(name) {
@@ -114,9 +113,8 @@ Object.defineProperty(Setting.prototype, 'value', {
       case imports.prefBranch.PREF_STRING:
         var value = imports.prefBranch.getComplexValue(this.name,
                 Components.interfaces.nsISupportsString).data;
-        // Try in case it's a localized string (will throw an exception if not)
-        var isL10n = /^chrome:\/\/.+\/locale\/.+\.properties/.test(value);
-        if (!this.changed && isL10n) {
+        // In case of a localized string
+        if (/^chrome:\/\/.+\/locale\/.+\.properties/.test(value)) {
           value = imports.prefBranch.getComplexValue(this.name,
                   Components.interfaces.nsIPrefLocalizedString).data;
         }
