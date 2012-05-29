@@ -29,8 +29,7 @@ var types = require('gcli/types');
 var allSettings = [];
 
 /**
- * No setup required because settings are pre-loaded with Mozilla,
- * but match API with main settings.js
+ * Cache existing settings on startup
  */
 exports.startup = function() {
   imports.prefBranch.getChildList('').forEach(function(name) {
@@ -114,9 +113,8 @@ Object.defineProperty(Setting.prototype, 'value', {
       case imports.prefBranch.PREF_STRING:
         var value = imports.prefBranch.getComplexValue(this.name,
                 Components.interfaces.nsISupportsString).data;
-        // Try in case it's a localized string (will throw an exception if not)
-        var isL10n = /^chrome:\/\/.+\/locale\/.+\.properties/.test(value);
-        if (!this.changed && isL10n) {
+        // In case of a localized string
+        if (/^chrome:\/\/.+\/locale\/.+\.properties/.test(value)) {
           value = imports.prefBranch.getComplexValue(this.name,
                   Components.interfaces.nsIPrefLocalizedString).data;
         }
@@ -158,6 +156,13 @@ Object.defineProperty(Setting.prototype, 'value', {
   enumerable: true
 });
 
+/**
+ * Reset this setting to it's initial default value
+ */
+Setting.prototype.setDefault = function() {
+  imports.prefBranch.clearUserPref(this.name);
+  Services.prefs.savePrefFile(null);
+};
 
 /**
  * 'static' function to get an array containing all known Settings
@@ -181,8 +186,35 @@ exports.addSetting = function(prefSpec) {
       allSettings[i] = setting;
     }
   }
+  exports.onChange({ added: setting.name });
   return setting;
 };
+
+/**
+ * Getter for an existing setting. Generally use of this function should be
+ * avoided. Systems that define a setting should export it if they wish it to
+ * be available to the outside, or not otherwise. Use of this function breaks
+ * that boundary and also hides dependencies. Acceptable uses include testing
+ * and embedded uses of GCLI that pre-define all settings (e.g. Firefox)
+ * @param name The name of the setting to fetch
+ * @return The found Setting object, or undefined if the setting was not found
+ */
+exports.getSetting = function(name) {
+  var found = undefined;
+  allSettings.some(function(setting) {
+    if (setting.name === name) {
+      found = setting;
+      return true;
+    }
+    return false;
+  });
+  return found;
+};
+
+/**
+ * Event for use to detect when the list of settings changes
+ */
+exports.onChange = util.createEvent('Settings.onChange');
 
 /**
  * Remove a setting. A no-op in this case

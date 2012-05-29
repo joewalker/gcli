@@ -62,6 +62,7 @@ define(function(require, exports, module) {
   require('gcli/ui/fields/selection').startup();
 
   require('gcli/commands/help').startup();
+  require('gcli/commands/pref').startup();
 
   // The API for use by command authors
   exports.addCommand = require('gcli/canon').addCommand;
