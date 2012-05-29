@@ -193,6 +193,27 @@ exports.addSetting = function(prefSpec) {
 };
 
 /**
+ * Getter for an existing setting. Generally use of this function should be
+ * avoided. Systems that define a setting should export it if they wish it to
+ * be available to the outside, or not otherwise. Use of this function breaks
+ * that boundary and also hides dependencies. Acceptable uses include testing
+ * and embedded uses of GCLI that pre-define all settings (e.g. Firefox)
+ * @param name The name of the setting to fetch
+ * @return The found Setting object, or undefined if the setting was not found
+ */
+exports.getSetting = function(name) {
+  var found = undefined;
+  allSettings.some(function(setting) {
+    if (setting.name === name) {
+      found = setting;
+      return true;
+    }
+    return false;
+  });
+  return found;
+};
+
+/**
  * Event for use to detect when the list of settings changes
  */
 exports.onChange = util.createEvent('Settings.onChange');
