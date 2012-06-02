@@ -372,6 +372,20 @@
         </y:ShapeNode>
       </data>
     </node>
+    <node id="text!gcli/commands/pref_set_check.html">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/commands/pref_set_check.html</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/commands/pref_list">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/commands/pref_list</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
     <node id="text!gcli/commands/pref_list_outer.html">
       <data key="d0">
         <y:ShapeNode>
@@ -383,13 +397,6 @@
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">text!gcli/commands/pref_list.css</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="text!gcli/commands/pref_set_check.html">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/commands/pref_set_check.html</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -425,6 +432,13 @@
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">test/assert</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="test/status">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">test/status</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -689,7 +703,6 @@
     <edge source="gcli/types/selection" target="gcli/l10n"/>
     <edge source="gcli/types/selection" target="gcli/types"/>
     <edge source="gcli/types/selection" target="gcli/types/spell"/>
-    <edge source="gcli/types/selection" target="gcli/argument"/>
     <edge source="gcli/types/command" target="gcli/canon"/>
     <edge source="gcli/types/command" target="gcli/l10n"/>
     <edge source="gcli/types/command" target="gcli/types"/>
@@ -718,6 +731,7 @@
     <edge source="gcli/ui/view" target="gcli/ui/domtemplate"/>
     <edge source="gcli/ui/intro" target="gcli/settings"/>
     <edge source="gcli/ui/intro" target="gcli/l10n"/>
+    <edge source="gcli/ui/intro" target="gcli/util"/>
     <edge source="gcli/ui/intro" target="gcli/ui/view"/>
     <edge source="gcli/ui/intro" target="gcli/cli"/>
     <edge source="gcli/ui/intro" target="text!gcli/ui/intro.html"/>
@@ -786,6 +800,7 @@
     <edge source="demo/index" target="gcli/index"/>
     <edge source="demo/index" target="gcli/commands/help"/>
     <edge source="demo/index" target="gcli/commands/pref"/>
+    <edge source="demo/index" target="gcli/commands/pref_list"/>
     <edge source="demo/index" target="gcli/commands/intro"/>
     <edge source="demo/index" target="test/commands/test"/>
     <edge source="demo/index" target="demo/commands/basic"/>
@@ -793,27 +808,33 @@
     <edge source="demo/index" target="demo/commands/demo"/>
     <edge source="gcli/commands/help" target="gcli/canon"/>
     <edge source="gcli/commands/help" target="gcli/l10n"/>
+    <edge source="gcli/commands/help" target="gcli/util"/>
     <edge source="gcli/commands/help" target="gcli/ui/view"/>
     <edge source="gcli/commands/help" target="text!gcli/commands/help_man.html"/>
     <edge source="gcli/commands/help" target="text!gcli/commands/help_list.html"/>
     <edge source="gcli/commands/help" target="text!gcli/commands/help.css"/>
-    <edge source="gcli/commands/pref" target="gcli/index"/>
+    <edge source="gcli/commands/pref" target="gcli/canon"/>
     <edge source="gcli/commands/pref" target="gcli/l10n"/>
-    <edge source="gcli/commands/pref" target="gcli/util"/>
     <edge source="gcli/commands/pref" target="gcli/settings"/>
-    <edge source="gcli/commands/pref" target="gcli/promise"/>
-    <edge source="gcli/commands/pref" target="text!gcli/commands/pref_list_outer.html"/>
-    <edge source="gcli/commands/pref" target="text!gcli/commands/pref_list.css"/>
     <edge source="gcli/commands/pref" target="text!gcli/commands/pref_set_check.html"/>
-    <edge source="gcli/commands/pref" target="text!gcli/commands/pref_list_inner.html"/>
-    <edge source="gcli/commands/intro" target="gcli/index"/>
+    <edge source="gcli/commands/pref_list" target="gcli/canon"/>
+    <edge source="gcli/commands/pref_list" target="gcli/l10n"/>
+    <edge source="gcli/commands/pref_list" target="gcli/util"/>
+    <edge source="gcli/commands/pref_list" target="gcli/settings"/>
+    <edge source="gcli/commands/pref_list" target="gcli/promise"/>
+    <edge source="gcli/commands/pref_list" target="text!gcli/commands/pref_list_outer.html"/>
+    <edge source="gcli/commands/pref_list" target="text!gcli/commands/pref_list.css"/>
+    <edge source="gcli/commands/pref_list" target="text!gcli/commands/pref_list_inner.html"/>
+    <edge source="gcli/commands/intro" target="gcli/canon"/>
     <edge source="gcli/commands/intro" target="gcli/l10n"/>
-    <edge source="gcli/commands/intro" target="text!gcli/ui/intro.html"/>
+    <edge source="gcli/commands/intro" target="gcli/ui/intro"/>
     <edge source="test/commands/test" target="gcli/canon"/>
     <edge source="test/commands/test" target="test/examiner"/>
     <edge source="test/commands/test" target="text!test/commands/test.css"/>
     <edge source="test/commands/test" target="text!test/commands/test.html"/>
     <edge source="test/examiner" target="test/assert"/>
+    <edge source="test/examiner" target="test/status"/>
+    <edge source="test/assert" target="test/status"/>
     <edge source="demo/commands/basic" target="gcli/index"/>
     <edge source="demo/commands/bugs" target="gcli/index"/>
     <edge source="demo/commands/bugs" target="gcli/util"/>

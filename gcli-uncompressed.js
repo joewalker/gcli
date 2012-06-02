@@ -412,8 +412,6 @@ Parameter.prototype.isKnownAs = function(name) {
  * parseString on an empty string
  */
 Parameter.prototype.getBlank = function() {
-  var conversion;
-
   if (this.type.getBlank) {
     return this.type.getBlank();
   }
@@ -512,12 +510,18 @@ canon.addCommand = function addCommand(commandSpec) {
 
 /**
  * Remove an individual command. The opposite of #addCommand().
+ * Removing a non-existent command is a no-op.
  * @param commandOrName Either a command name or the command itself.
+ * @return true if a command was removed, false otherwise.
  */
 canon.removeCommand = function removeCommand(commandOrName) {
   var name = typeof commandOrName === 'string' ?
           commandOrName :
           commandOrName.name;
+
+  if (!commands[name]) {
+    return false;
+  }
 
   // See start of canon.addCommand if changing this code
   delete commands[name];
@@ -527,6 +531,7 @@ canon.removeCommand = function removeCommand(commandOrName) {
   });
 
   canon.onCanonChange();
+  return true;
 };
 
 /**
@@ -1094,6 +1099,56 @@ exports.createUrlLookup = function(callingModule) {
       return filename + '/' + path;
     }
   };
+};
+
+/**
+ * Helper to find the 'data-command' attribute and call some action on it.
+ * @see |updateCommand()| and |executeCommand()|
+ */
+function withCommand(element, action) {
+  var command = element.getAttribute('data-command');
+  if (!command) {
+    command = element.querySelector('*[data-command]')
+            .getAttribute('data-command');
+  }
+
+  if (command) {
+    action(command);
+  }
+  else {
+    console.warn('Missing data-command for ' + util.findCssSelector(element));
+  }
+}
+
+/**
+ * Update the requisition to contain the text of the clicked element
+ * @param element The clicked element, containing either a data-command
+ * attribute directly or in a nested element, from which we get the command
+ * to be executed.
+ * @param context Either a Requisition or an ExecutionContext or another object
+ * that contains an |update()| function that follows a similar contract.
+ */
+exports.updateCommand = function(element, context) {
+  withCommand(element, function(command) {
+    context.update(command);
+  });
+};
+
+/**
+ * Execute the text contained in the element that was clicked
+ * @param element The clicked element, containing either a data-command
+ * attribute directly or in a nested element, from which we get the command
+ * to be executed.
+ * @param context Either a Requisition or an ExecutionContext or another object
+ * that contains an |update()| function that follows a similar contract.
+ */
+exports.executeCommand = function(element, context) {
+  withCommand(element, function(command) {
+    context.exec({
+      visible: true,
+      typed: command
+    });
+  });
 };
 
 
@@ -2068,6 +2123,26 @@ var i18n = {
     // Displayed when the user asks for help on what it does.
     prefListSearchManual: 'Search for the given string in the list of available preferences',
 
+    // A very short description of the 'pref show' command.
+    // This string is designed to be shown in a menu alongside the command name,
+    // which is why it should be as short as possible.
+    // See prefShowManual for a fuller description of what it does.
+    prefShowDesc: 'Display setting value',
+
+    // A fuller description of the 'pref show' command.
+    // Displayed when the user asks for help on what it does.
+    prefShowManual: 'Display the value of a given preference',
+
+    // A short description of the 'setting' parameter to the 'pref show' command.
+    // See prefShowSettingManual for a fuller description of what it does.
+    // This string is designed to be shown in a dialog with restricted space,
+    // which is why it should be as short as possible.
+    prefShowSettingDesc: 'Setting to display',
+
+    // A fuller description of the 'setting' parameter to the 'pref show' command.
+    // Displayed when the user asks for help on what it does.
+    prefShowSettingManual: 'The name of the setting to display',
+
     // A very short description of the 'pref set' command.
     // This string is designed to be shown in a menu alongside the command name,
     // which is why it should be as short as possible.
@@ -2151,6 +2226,31 @@ var i18n = {
     // A fuller description of the 'intro' command.
     // Displayed when the user asks for help on what it does.
     introManual: 'Redisplay the message that is shown to new users until they click the \'Got it!\' button',
+
+    // The 'intro text' opens when the user first opens the developer toolbar
+    // to explain the command line, and is shown each time it is opened until
+    // the user clicks the 'Got it!' button.
+    // This string is the opening paragraph of the intro text.
+    introTextOpening: 'The Firefox command line is designed for developers. It focuses on speed of input over JavaScript syntax and a rich display over monospace output.',
+
+    // For information about the 'intro text' see introTextOpening.
+    // The second paragraph is in 2 sections, the first section points the user
+    // to the 'help' command.
+    introTextCommands: 'For a list of commands type',
+
+    // For information about the 'intro text' see introTextOpening.
+    // The second section in the second paragraph points the user to the
+    // F1/Escape keys which show and hide hints.
+    introTextKeys: 'or to show/hide command hints press',
+
+    // For information about the 'intro text' see introTextOpening.
+    // This string is used with introTextKeys, and contains the keys that are
+    // pressed to open and close hints.
+    introTextF1Escape: 'F1/Escape',
+
+    // For information about the 'intro text' see introTextOpening.
+    // The text on the button that dismisses the intro text.
+    introTextGo: 'Got it!',
 
     // Short description of the 'hideIntro' setting. Displayed when the user
     // asks for help on the settings.
@@ -3650,7 +3750,7 @@ exports.Speller = Speller;
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('gcli/types/selection', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types', 'gcli/types/spell', 'gcli/argument'], function(require, exports, module) {
+define('gcli/types/selection', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types', 'gcli/types/spell'], function(require, exports, module) {
 
 
 var l10n = require('gcli/l10n');
@@ -3659,7 +3759,6 @@ var Type = require('gcli/types').Type;
 var Status = require('gcli/types').Status;
 var Conversion = require('gcli/types').Conversion;
 var Speller = require('gcli/types/spell').Speller;
-var Argument = require('gcli/argument').Argument;
 
 
 /**
@@ -3690,6 +3789,9 @@ exports.shutdown = function() {
  *   the associated name. However the name maybe available directly from the
  *   value using a property lookup. Setting 'stringifyProperty' allows
  *   SelectionType to take this shortcut.
+ * - cacheable : If lookup is a function, then we normally assume that
+ *   the values fetched can change. Setting 'cacheable' enables internal
+ *   caching.
  */
 function SelectionType(typeSpec) {
   if (typeSpec) {
@@ -3720,13 +3822,29 @@ SelectionType.prototype.stringify = function(value) {
 };
 
 /**
+ * If typeSpec contained cacheable:true then calls to parse() work on cached
+ * data. clearCache() enables the cache to be cleared.
+ */
+SelectionType.prototype.clearCache = function() {
+  delete this._cachedLookup;
+};
+
+/**
  * There are several ways to get selection data. This unifies them into one
  * single function.
  * @return An array of objects with name and value properties.
  */
 SelectionType.prototype.getLookup = function() {
+  if (this._cachedLookup) {
+    return this._cachedLookup;
+  }
+
   if (this.lookup) {
     if (typeof this.lookup === 'function') {
+      if (this.cacheable) {
+        this._cachedLookup = this.lookup();
+        return this._cachedLookup;
+      }
       return this.lookup();
     }
     return this.lookup;
@@ -5089,7 +5207,7 @@ var ResourceCache = {
    * Drop all cache entries. Helpful to prevent memory leaks
    */
   clear: function() {
-    ResourceCache._cached = {};
+    ResourceCache._cached = [];
   }
 };
 
@@ -5142,9 +5260,13 @@ function SettingType(typeSpec) {
   if (Object.keys(typeSpec).length > 0) {
     throw new Error('SettingType can not be customized');
   }
+
+  settings.onChange.add(function(ev) {
+    this.clearCache();
+  }, this);
 }
 
-SettingType.prototype = Object.create(SelectionType.prototype);
+SettingType.prototype = new SelectionType({ cacheable: true });
 
 SettingType.prototype.lookup = function() {
   return settings.getAll().map(function(setting) {
@@ -5269,7 +5391,21 @@ exports.addSetting = function(prefSpec) {
   var setting = new Setting(prefSpec.name, type, prefSpec.description,
                             prefSpec.defaultValue);
   settings[setting.name] = setting;
+  exports.onChange({ added: setting.name });
   return setting;
+};
+
+/**
+ * Getter for an existing setting. Generally use of this function should be
+ * avoided. Systems that define a setting should export it if they wish it to
+ * be available to the outside, or not otherwise. Use of this function breaks
+ * that boundary and also hides dependencies. Acceptable uses include testing
+ * and embedded uses of GCLI that pre-define all settings (e.g. Firefox)
+ * @param name The name of the setting to fetch
+ * @return The found Setting object, or undefined if the setting was not found
+ */
+exports.getSetting = function(name) {
+  return settings[name];
 };
 
 /**
@@ -5278,7 +5414,13 @@ exports.addSetting = function(prefSpec) {
 exports.removeSetting = function(nameOrSpec) {
   var name = typeof nameOrPrefSpec === 'string' ? nameOrSpec : nameOrSpec.name;
   delete settings[name];
+  exports.onChange({ removed: name });
 };
+
+/**
+ * Event for use to detect when the list of settings changes
+ */
+exports.onChange = util.createEvent('Settings.onChange');
 
 /**
  * Implement the load() and save() functions to write a JSON string blob to
@@ -6912,6 +7054,12 @@ Output.prototype.toDom = function(element) {
     util.setContents(node, output.toString());
   }
 
+  // Make sure that links open in a new window.
+  var links = node.querySelectorAll('*[href]');
+  for (var i = 0; i < links.length; i++) {
+    links[i].setAttribute('target', '_blank');
+  }
+
   element.appendChild(node);
 };
 
@@ -7093,6 +7241,7 @@ function Templater(options) {
   else {
     this.stack = [];
   }
+  this.nodes = [];
 }
 
 /**
@@ -7130,6 +7279,7 @@ Templater.prototype.processNode = function(node, data) {
     data = {};
   }
   this.stack.push(node.nodeName + (node.id ? '#' + node.id : ''));
+  var pushedNode = false;
   try {
     // Process attributes
     if (node.attributes && node.attributes.length) {
@@ -7146,7 +7296,9 @@ Templater.prototype.processNode = function(node, data) {
         }
       }
       // Only make the node available once we know it's not going away
+      this.nodes.push(data.__element);
       data.__element = node;
+      pushedNode = true;
       // It's good to clean up the attributes when we've processed them,
       // but if we do it straight away, we mess up the array index
       var attrs = Array.prototype.slice.call(node.attributes);
@@ -7209,7 +7361,9 @@ Templater.prototype.processNode = function(node, data) {
       this._processTextNode(node, data);
     }
   } finally {
-    delete data.__element;
+    if (pushedNode) {
+      data.__element = this.nodes.pop();
+    }
     this.stack.pop();
   }
 };
@@ -7384,11 +7538,14 @@ Templater.prototype._processTextNode = function(node, data) {
           reply = this._maybeImportNode(reply, doc);
           siblingNode.parentNode.insertBefore(reply, siblingNode);
         } else if (typeof reply.item === 'function' && reply.length) {
-          // if thing is a NodeList, then import the children
-          for (var i = 0; i < reply.length; i++) {
-            var child = this._maybeImportNode(reply.item(i), doc);
-            siblingNode.parentNode.insertBefore(child, siblingNode);
-          }
+          // NodeLists can be live, in which case _maybeImportNode can
+          // remove them from the document, and thus the NodeList, which in
+          // turn breaks iteration. So first we clone the list
+          var list = Array.prototype.slice.call(reply, 0);
+          list.forEach(function(child) {
+            var imported = this._maybeImportNode(child, doc);
+            siblingNode.parentNode.insertBefore(imported, siblingNode);
+          }.bind(this));
         }
         else {
           // if thing isn't a DOM element then wrap its string value in one
@@ -7839,10 +7996,11 @@ exports.Promise = Promise;
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('gcli/ui/intro', ['require', 'exports', 'module' , 'gcli/settings', 'gcli/l10n', 'gcli/ui/view', 'gcli/cli', 'text!gcli/ui/intro.html'], function(require, exports, module) {
+define('gcli/ui/intro', ['require', 'exports', 'module' , 'gcli/settings', 'gcli/l10n', 'gcli/util', 'gcli/ui/view', 'gcli/cli', 'text!gcli/ui/intro.html'], function(require, exports, module) {
 
   var settings = require('gcli/settings');
   var l10n = require('gcli/l10n');
+  var util = require('gcli/util');
   var view = require('gcli/ui/view');
   var Output = require('gcli/cli').Output;
 
@@ -7872,7 +8030,7 @@ define('gcli/ui/intro', ['require', 'exports', 'module' , 'gcli/settings', 'gcli
   /**
    * Called when the UI is ready to add a welcome message to the output
    */
-  exports.maybeShowIntro = function(commandOutputManager) {
+  exports.maybeShowIntro = function(commandOutputManager, context) {
     if (hideIntro.value) {
       return;
     }
@@ -7880,33 +8038,47 @@ define('gcli/ui/intro', ['require', 'exports', 'module' , 'gcli/settings', 'gcli
     var output = new Output();
     commandOutputManager.onOutput({ output: output });
 
-    var viewData = view.createView({
+    var viewData = this.createView(context, output);
+
+    output.complete(viewData);
+  };
+
+  /**
+   * Called when the UI is ready to add a welcome message to the output
+   */
+  exports.createView = function(context, output) {
+    return view.createView({
       html: require('text!gcli/ui/intro.html'),
+      options: { stack: 'intro.html' },
       data: {
-        showHideButton: true,
+        l10n: l10n.propertyLookup,
+        onclick: function(ev) {
+          util.updateCommand(ev.currentTarget, context);
+        },
+        ondblclick: function(ev) {
+          util.executeCommand(ev.currentTarget, context);
+        },
+        showHideButton: (output != null),
         onGotIt: function(ev) {
           hideIntro.value = true;
           output.onClose();
         }
       }
     });
-
-    output.complete(viewData);
   };
 });
 define("text!gcli/ui/intro.html", [], "\n" +
   "<div>\n" +
+  "  <p>${l10n.introTextOpening}</p>\n" +
+  "\n" +
   "  <p>\n" +
-  "  GCLI is an experiment to create a highly usable <strong>graphical command\n" +
-  "  line</strong> for developers. It's not a JavaScript\n" +
-  "  <a href=\"https://en.wikipedia.org/wiki/Read�eval�print_loop\">REPL</a>, so\n" +
-  "  it focuses on speed of input over JavaScript syntax and a rich display over\n" +
-  "  monospace output.</p>\n" +
+  "    ${l10n.introTextCommands}\n" +
+  "    <span class=\"gcli-out-shortcut\" onclick=\"${onclick}\"\n" +
+  "        ondblclick=\"${ondblclick}\" data-command=\"help\">help</span>,\n" +
+  "    ${l10n.introTextKeys} <code>${l10n.introTextF1Escape}</code>.\n" +
+  "  </p>\n" +
   "\n" +
-  "  <p>Type <span class=\"gcli-out-shortcut\">help</span> for a list of commands,\n" +
-  "  or press <code>F1/Escape</code> to show/hide command hints.</p>\n" +
-  "\n" +
-  "  <button onclick=\"${onGotIt}\" if=\"${showHideButton}\">Got it!</button>\n" +
+  "  <button onclick=\"${onGotIt}\" if=\"${showHideButton}\">${l10n.introTextGo}</button>\n" +
   "</div>\n" +
   "");
 
@@ -7942,7 +8114,7 @@ var eagerHelperSettingSpec = {
       { name: 'always', value: Eagerness.ALWAYS },
     ]
   },
-  defaultValue: 1,
+  defaultValue: Eagerness.SOMETIMES,
   description: l10n.lookup('eagerHelperDesc'),
   ignoreTypeDifference: true
 };
@@ -8087,7 +8259,8 @@ FocusManager.prototype.removeMonitoredElement = function(element, where) {
 FocusManager.prototype.updatePosition = function(dimensions) {
   var ev = {
     tooltipVisible: this.isTooltipVisible,
-    outputVisible: this.isOutputVisible
+    outputVisible: this.isOutputVisible,
+    dimensions: dimensions
   };
   this.onVisibilityChange(ev);
 };
@@ -9297,14 +9470,6 @@ define("text!gcli/ui/fields/menu.css", [], "\n" +
   "  -webkit-padding-end: 8px;\n" +
   "}\n" +
   "\n" +
-  ".gcli-menu-error {\n" +
-  "  overflow: hidden;\n" +
-  "  white-space: nowrap;\n" +
-  "  padding: 8px 10px 2px;\n" +
-  "  font-size: 80%;\n" +
-  "  color: red;\n" +
-  "}\n" +
-  "\n" +
   ".gcli-menu-highlight,\n" +
   ".gcli-menu-highlight.gcli-menu-option:hover {\n" +
   "  background-image: -moz-linear-gradient(top, #eee, #b8b8b8);\n" +
@@ -9662,7 +9827,7 @@ function Display(options) {
 
   this.element.appendChild(this.outputElement);
 
-  intro.maybeShowIntro(this.outputList.commandOutputManager);
+  intro.maybeShowIntro(this.outputList.commandOutputManager, this.requisition);
 }
 
 /**
@@ -10314,17 +10479,10 @@ exports.OutputView = OutputView;
 
 });
 define("text!gcli/ui/output_view.css", [], "\n" +
-  ".gcli-row-in-typed,\n" +
-  ".gcli-row-prompt,\n" +
-  ".gcli-row-terminal,\n" +
-  ".gcli-row-subterminal,\n" +
-  ".gcli-out-shortcut {\n" +
-  "  font-family: Consolas, Inconsolata, \"Courier New\", monospace;\n" +
-  "}\n" +
-  "\n" +
   ".gcli-row-in {\n" +
-  "  margin: 10px 5px 0px;\n" +
-  "  padding: 3px 4px 1px;\n" +
+  "  padding: 0 4px;\n" +
+  "  box-shadow: 0 -6px 10px -6px #ddd;\n" +
+  "  border-top: 1px solid #bbb;\n" +
   "}\n" +
   "\n" +
   ".gcli-row-in > img {\n" +
@@ -10368,8 +10526,8 @@ define("text!gcli/ui/output_view.css", [], "\n" +
   "}\n" +
   "\n" +
   ".gcli-row-out {\n" +
-  "  margin: 0 8px 0px 40px;\n" +
-  "  padding: 1px 10px;\n" +
+  "  margin: 0 10px 15px;\n" +
+  "  padding: 0 10px;\n" +
   "  line-height: 1.2em;\n" +
   "  font-size: 95%;\n" +
   "}\n" +
@@ -10433,22 +10591,22 @@ define("text!gcli/ui/output_view.css", [], "\n" +
   "}\n" +
   "\n" +
   ".gcli-out-shortcut {\n" +
+  "  font-weight: normal;\n" +
   "  border: 1px solid #999;\n" +
   "  border-radius: 3px;\n" +
-  "  padding: 1px 4px 0;\n" +
-  "  margin: 0 4px;\n" +
-  "  font-size: 80%;\n" +
   "  color: #666;\n" +
   "  cursor: pointer;\n" +
-  "  vertical-align: bottom;\n" +
-  "  white-space: pre;\n" +
+  "  padding: 0 3px 1px;\n" +
+  "  margin: 1px 4px;\n" +
+  "  display: inline-block;\n" +
   "}\n" +
   "\n" +
   ".gcli-out-shortcut:before {\n" +
+  "  content: '\\bb';\n" +
+  "  padding-right: 2px;\n" +
   "  color: hsl(25,78%,50%);\n" +
   "  font-weight: bold;\n" +
-  "  content: '\\bb ';\n" +
-  "  padding-right: 2px;\n" +
+  "  font-size: 110%;\n" +
   "}\n" +
   "");
 
@@ -11099,7 +11257,7 @@ define("text!gcli/ui/inputter.css", [], "\n" +
   ".gcli-in-input,\n" +
   ".gcli-in-complete,\n" +
   ".gcli-prompt {\n" +
-  "  font-family: Consolas, Inconsolata, \"Courier New\", monospace;\n" +
+  "  font-family: Segoe UI, Helvetica Neue, Verdana, Arial, sans-serif;\n" +
   "}\n" +
   "\n" +
   ".gcli-in-input,\n" +
@@ -11133,6 +11291,7 @@ define("text!gcli/ui/inputter.css", [], "\n" +
   "  color: hsl(25,78%,50%);\n" +
   "  font-size: 150%;\n" +
   "  font-weight: bold;\n" +
+  "  line-height: 95%;\n" +
   "}\n" +
   "\n" +
   ".gcli-in-incomplete {\n" +
@@ -11493,7 +11652,6 @@ Prompt.prototype.destroy = function() {
 Prompt.prototype.resized = function(ev) {
   this.element.style.top = ev.top + 'px';
   this.element.style.height = ev.height + 'px';
-  this.element.style.lineHeight = ev.height + 'px';
   this.element.style.left = ev.left + 'px';
   this.element.style.width = ev.width + 'px';
 };
@@ -11524,12 +11682,13 @@ define("text!gcli/ui/display.html", [], "\n" +
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/commands/help', 'gcli/commands/pref', 'gcli/commands/intro', 'test/commands/test', 'demo/commands/basic', 'demo/commands/bugs', 'demo/commands/demo'], function(require, exports, module) {
+define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/commands/help', 'gcli/commands/pref', 'gcli/commands/pref_list', 'gcli/commands/intro', 'test/commands/test', 'demo/commands/basic', 'demo/commands/bugs', 'demo/commands/demo'], function(require, exports, module) {
 
   require('gcli/index');
 
   require('gcli/commands/help').startup();
   require('gcli/commands/pref').startup();
+  require('gcli/commands/pref_list').startup();
   require('gcli/commands/intro').startup();
 
   require('test/commands/test').startup();
@@ -11545,12 +11704,13 @@ define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/comma
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('gcli/commands/help', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/ui/view', 'text!gcli/commands/help_man.html', 'text!gcli/commands/help_list.html', 'text!gcli/commands/help.css'], function(require, exports, module) {
+define('gcli/commands/help', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/util', 'gcli/ui/view', 'text!gcli/commands/help_man.html', 'text!gcli/commands/help_list.html', 'text!gcli/commands/help.css'], function(require, exports, module) {
 var help = exports;
 
 
 var canon = require('gcli/canon');
 var l10n = require('gcli/l10n');
+var util = require('gcli/util');
 var view = require('gcli/ui/view');
 
 // Storing the HTML on exports allows other builds to alter the help template
@@ -11611,26 +11771,6 @@ help.shutdown = function() {
 };
 
 /**
- * Find an element within the passed element with the class gcli-help-command
- * and update the requisition to contain this text.
- */
-function updateCommand(element, context) {
-  var typed = element.querySelector('.gcli-help-command').textContent;
-  context.update(typed);
-}
-
-/**
- * Find an element within the passed element with the class gcli-help-command
- * and execute this text.
- */
-function executeCommand(element, context) {
-  context.exec({
-    visible: true,
-    typed: element.querySelector('.gcli-help-command').textContent
-  });
-}
-
-/**
  * Create a block of data suitable to be passed to the help_list.html template
  */
 function getListTemplateData(args, context) {
@@ -11639,11 +11779,11 @@ function getListTemplateData(args, context) {
     includeIntro: args.search == null,
 
     onclick: function(ev) {
-      updateCommand(ev.currentTarget, context);
+      util.updateCommand(ev.currentTarget, context);
     },
 
     ondblclick: function(ev) {
-      executeCommand(ev.currentTarget, context);
+      util.executeCommand(ev.currentTarget, context);
     },
 
     getHeading: function() {
@@ -11683,11 +11823,18 @@ function getManTemplateData(command, context) {
     command: command,
 
     onclick: function(ev) {
-      updateCommand(ev.currentTarget, context);
+      util.updateCommand(ev.currentTarget, context);
     },
 
     ondblclick: function(ev) {
-      executeCommand(ev.currentTarget, context);
+      util.executeCommand(ev.currentTarget, context);
+    },
+
+    describe: function(item, element) {
+      var text = item.manual || item.description;
+      var parent = element.ownerDocument.createElement('div');
+      util.setContents(parent, text);
+      return parent.childNodes;
     },
 
     getTypeDescription: function(param) {
@@ -11727,8 +11874,8 @@ define("text!gcli/commands/help_man.html", [], "\n" +
   "\n" +
   "  <h4 class=\"gcli-help-header\">\n" +
   "    ${l10n.helpManSynopsis}:\n" +
-  "    <span class=\"gcli-help-synopsis\" onclick=\"${onclick}\">\n" +
-  "      <span class=\"gcli-help-command\">${command.name}</span>\n" +
+  "    <span class=\"gcli-out-shortcut\" onclick=\"${onclick}\" data-command=\"${command.name}\">\n" +
+  "      ${command.name}\n" +
   "      <span foreach=\"param in ${command.params}\">\n" +
   "        ${param.defaultValue !== undefined ? '[' + param.name + ']' : param.name}\n" +
   "      </span>\n" +
@@ -11737,9 +11884,7 @@ define("text!gcli/commands/help_man.html", [], "\n" +
   "\n" +
   "  <h4 class=\"gcli-help-header\">${l10n.helpManDescription}:</h4>\n" +
   "\n" +
-  "  <p class=\"gcli-help-description\">\n" +
-  "    ${command.manual || command.description}\n" +
-  "  </p>\n" +
+  "  <p class=\"gcli-help-description\">${describe(command, __element)}</p>\n" +
   "\n" +
   "  <div if=\"${command.exec}\">\n" +
   "    <h4 class=\"gcli-help-header\">${l10n.helpManParameters}:</h4>\n" +
@@ -11747,9 +11892,9 @@ define("text!gcli/commands/help_man.html", [], "\n" +
   "    <ul class=\"gcli-help-parameter\">\n" +
   "      <li if=\"${command.params.length === 0}\">${l10n.helpManNone}</li>\n" +
   "      <li foreach=\"param in ${command.params}\">\n" +
-  "        <tt>${param.name}</tt> ${getTypeDescription(param)}\n" +
+  "        ${param.name} <em>${getTypeDescription(param)}</em>\n" +
   "        <br/>\n" +
-  "        ${param.manual || param.description}\n" +
+  "        ${describe(param, __element)}\n" +
   "      </li>\n" +
   "    </ul>\n" +
   "  </div>\n" +
@@ -11762,8 +11907,9 @@ define("text!gcli/commands/help_man.html", [], "\n" +
   "      <li foreach=\"subcommand in ${subcommands}\">\n" +
   "        <strong>${subcommand.name}</strong>:\n" +
   "        ${subcommand.description}\n" +
-  "        <span class=\"gcli-help-synopsis\" onclick=\"${onclick}\" ondblclick=\"${ondblclick}\">\n" +
-  "          <span class=\"gcli-help-command\">help ${subcommand.name}</span>\n" +
+  "        <span class=\"gcli-out-shortcut\" data-command=\"help ${subcommand.name}\"\n" +
+  "            onclick=\"${onclick}\" ondblclick=\"${ondblclick}\">\n" +
+  "          help ${subcommand.name}\n" +
   "        </span>\n" +
   "      </li>\n" +
   "    </ul>\n" +
@@ -11779,22 +11925,23 @@ define("text!gcli/commands/help_list.html", [], "\n" +
   "    <p>GCLI is an experiment to create a highly usable JavaScript command line for developers.</p>\n" +
   "    <p>\n" +
   "      Useful links:\n" +
-  "      <a target='_blank' href='https://github.com/joewalker/gcli'>Source</a> (BSD),\n" +
-  "      <a target='_blank' href='https://github.com/joewalker/gcli/blob/master/docs/index.md'>Documentation</a> (for users/embedders),\n" +
-  "      <a target='_blank' href='https://wiki.mozilla.org/DevTools/Features/GCLI'>Mozilla feature page</a> (for GCLI in the web console).\n" +
+  "      <a href='https://github.com/joewalker/gcli'>Source</a> (BSD),\n" +
+  "      <a href='https://github.com/joewalker/gcli/blob/master/docs/index.md'>Documentation</a> (for users/embedders),\n" +
+  "      <a href='https://wiki.mozilla.org/DevTools/Features/GCLI'>Mozilla feature page</a> (for GCLI in the web console).\n" +
   "    </p>\n" +
   "  </div>\n" +
   "\n" +
   "  <h3>${getHeading()}</h3>\n" +
   "\n" +
   "  <table>\n" +
-  "    <tr foreach=\"command in ${getMatchingCommands()}\"\n" +
-  "        onclick=\"${onclick}\" ondblclick=\"${ondblclick}\">\n" +
+  "    <tr foreach=\"command in ${getMatchingCommands()}\">\n" +
   "      <th class=\"gcli-help-name\">${command.name}</th>\n" +
-  "      <td class=\"gcli-help-arrow\">&#x2192;</td>\n" +
+  "      <td class=\"gcli-help-arrow\">-</td>\n" +
   "      <td>\n" +
   "        ${command.description}\n" +
-  "        <span class=\"gcli-out-shortcut gcli-help-command\">help ${command.name}</span>\n" +
+  "        <span class=\"gcli-out-shortcut\"\n" +
+  "            onclick=\"${onclick}\" ondblclick=\"${ondblclick}\"\n" +
+  "            data-command=\"help ${command.name}\">help ${command.name}</span>\n" +
   "      </td>\n" +
   "    </tr>\n" +
   "  </table>\n" +
@@ -11807,25 +11954,7 @@ define("text!gcli/commands/help.css", [], "\n" +
   "}\n" +
   "\n" +
   ".gcli-help-arrow {\n" +
-  "  font-size: 70%;\n" +
   "  color: #AAA;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-help-synopsis {\n" +
-  "  font-family: monospace;\n" +
-  "  font-weight: normal;\n" +
-  "  padding: 0 3px;\n" +
-  "  margin: 0 10px;\n" +
-  "  border: 1px solid #999;\n" +
-  "  border-radius: 3px;\n" +
-  "  color: #666;\n" +
-  "  cursor: pointer;\n" +
-  "  display: inline-block;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-help-synopsis:before {\n" +
-  "  color: #66F;\n" +
-  "  content: '\\bb';\n" +
   "}\n" +
   "\n" +
   ".gcli-help-description {\n" +
@@ -11849,14 +11978,12 @@ define("text!gcli/commands/help.css", [], "\n" +
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('gcli/commands/pref', ['require', 'exports', 'module' , 'gcli/index', 'gcli/l10n', 'gcli/util', 'gcli/settings', 'gcli/promise', 'text!gcli/commands/pref_list_outer.html', 'text!gcli/commands/pref_list.css', 'text!gcli/commands/pref_set_check.html', 'text!gcli/commands/pref_list_inner.html'], function(require, exports, module) {
+define('gcli/commands/pref', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/settings', 'text!gcli/commands/pref_set_check.html'], function(require, exports, module) {
 
 
-var gcli = require('gcli/index');
+var canon = require('gcli/canon');
 var l10n = require('gcli/l10n');
-var util = require('gcli/util');
 var settings = require('gcli/settings');
-var Promise = require('gcli/promise').Promise;
 
 /**
  * Record if the user has clicked on 'Got It!'
@@ -11879,33 +12006,22 @@ var prefCmdSpec = {
 };
 
 /**
- * 'pref list' command
+ * 'pref show' command
  */
-var prefListCmdSpec = {
-  name: 'pref list',
-  description: l10n.lookup('prefListDesc'),
-  manual: l10n.lookup('prefListManual'),
+var prefShowCmdSpec = {
+  name: 'pref show',
+  description: l10n.lookup('prefShowDesc'),
+  manual: l10n.lookup('prefShowManual'),
   params: [
     {
-      name: 'search',
-      type: 'string',
-      defaultValue: null,
-      description: l10n.lookup('prefListSearchDesc'),
-      manual: l10n.lookup('prefListSearchManual')
+      name: 'setting',
+      type: 'setting',
+      description: l10n.lookup('prefShowSettingDesc'),
+      manual: l10n.lookup('prefShowSettingManual')
     }
   ],
-  exec: function Command_prefList(args, context) {
-    return context.createView({
-      html: require('text!gcli/commands/pref_list_outer.html'),
-      data: new PrefList(args, context),
-      options: {
-        blankNullUndefined: true,
-        allowEval: true,
-        stack: 'pref_list_outer.html'
-      },
-      css: require('text!gcli/commands/pref_list.css'),
-      cssId: 'gcli-pref-list'
-    });
+  exec: function Command_prefShow(args, context) {
+    return args.setting.value;
   }
 };
 
@@ -11939,7 +12055,7 @@ var prefSetCmdSpec = {
         data: {
           l10n: l10n.propertyLookup,
           activate: function() {
-            context.exec('pref set allowSet true');
+            context.exec('pref set ' + exports.allowSet.name + ' true');
           }
         },
       });
@@ -11976,20 +12092,86 @@ var prefResetCmdSpec = {
 exports.startup = function() {
   exports.allowSet = settings.addSetting(allowSetSettingSpec);
 
-  gcli.addCommand(prefCmdSpec);
-  gcli.addCommand(prefListCmdSpec);
-  gcli.addCommand(prefSetCmdSpec);
-  gcli.addCommand(prefResetCmdSpec);
+  canon.addCommand(prefCmdSpec);
+  canon.addCommand(prefShowCmdSpec);
+  canon.addCommand(prefSetCmdSpec);
+  canon.addCommand(prefResetCmdSpec);
 };
 
 exports.shutdown = function() {
-  gcli.removeCommand(prefCmdSpec);
-  gcli.removeCommand(prefListCmdSpec);
-  gcli.removeCommand(prefSetCmdSpec);
-  gcli.removeCommand(prefResetCmdSpec);
+  canon.removeCommand(prefCmdSpec);
+  canon.removeCommand(prefShowCmdSpec);
+  canon.removeCommand(prefSetCmdSpec);
+  canon.removeCommand(prefResetCmdSpec);
 
   settings.removeSetting(allowSetSettingSpec);
   exports.allowSet = undefined;
+};
+
+
+});
+define("text!gcli/commands/pref_set_check.html", [], "<div>\n" +
+  "  <p><strong>${l10n.prefSetCheckHeading}</strong></p>\n" +
+  "  <p>${l10n.prefSetCheckBody}</p>\n" +
+  "  <button onclick=\"${activate}\">${l10n.prefSetCheckGo}</button>\n" +
+  "</div>\n" +
+  "");
+
+/*
+ * Copyright 2009-2011 Mozilla Foundation and contributors
+ * Licensed under the New BSD license. See LICENSE.txt or:
+ * http://opensource.org/licenses/BSD-3-Clause
+ */
+
+define('gcli/commands/pref_list', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/util', 'gcli/settings', 'gcli/promise', 'text!gcli/commands/pref_list_outer.html', 'text!gcli/commands/pref_list.css', 'text!gcli/commands/pref_list_inner.html'], function(require, exports, module) {
+
+
+var canon = require('gcli/canon');
+var l10n = require('gcli/l10n');
+var util = require('gcli/util');
+var settings = require('gcli/settings');
+var Promise = require('gcli/promise').Promise;
+
+/**
+ * 'pref list' command
+ */
+var prefListCmdSpec = {
+  name: 'pref list',
+  description: l10n.lookup('prefListDesc'),
+  manual: l10n.lookup('prefListManual'),
+  params: [
+    {
+      name: 'search',
+      type: 'string',
+      defaultValue: null,
+      description: l10n.lookup('prefListSearchDesc'),
+      manual: l10n.lookup('prefListSearchManual')
+    }
+  ],
+  exec: function Command_prefList(args, context) {
+    return context.createView({
+      html: require('text!gcli/commands/pref_list_outer.html'),
+      data: new PrefList(args, context),
+      options: {
+        blankNullUndefined: true,
+        allowEval: true,
+        stack: 'pref_list_outer.html'
+      },
+      css: require('text!gcli/commands/pref_list.css'),
+      cssId: 'gcli-pref-list'
+    });
+  }
+};
+
+/**
+ * Registration and de-registration.
+ */
+exports.startup = function(excludeList) {
+  canon.addCommand(prefListCmdSpec);
+};
+
+exports.shutdown = function() {
+  canon.removeCommand(prefListCmdSpec);
 };
 
 
@@ -12128,13 +12310,6 @@ define("text!gcli/commands/pref_list.css", [], "\n" +
   "}\n" +
   "");
 
-define("text!gcli/commands/pref_set_check.html", [], "<div>\n" +
-  "  <p><strong>${l10n.prefSetCheckHeading}</strong></p>\n" +
-  "  <p>${l10n.prefSetCheckBody}</p>\n" +
-  "  <button onclick=\"${activate}\">${l10n.prefSetCheckGo}</button>\n" +
-  "</div>\n" +
-  "");
-
 define("text!gcli/commands/pref_list_inner.html", [], "<table>\n" +
   "  <colgroup>\n" +
   "    <col class=\"gcli-pref-list-name\"/>\n" +
@@ -12156,10 +12331,11 @@ define("text!gcli/commands/pref_list_inner.html", [], "<table>\n" +
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('gcli/commands/intro', ['require', 'exports', 'module' , 'gcli/index', 'gcli/l10n', 'text!gcli/ui/intro.html'], function(require, exports, module) {
+define('gcli/commands/intro', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/ui/intro'], function(require, exports, module) {
 
-  var gcli = require('gcli/index');
+  var canon = require('gcli/canon');
   var l10n = require('gcli/l10n');
+  var intro = require('gcli/ui/intro');
 
   /**
    * 'intro' command
@@ -12170,22 +12346,19 @@ define('gcli/commands/intro', ['require', 'exports', 'module' , 'gcli/index', 'g
     manual: l10n.lookup('introManual'),
     returnType: 'html',
     exec: function echo(args, context) {
-      return context.createView({
-        html: require('text!gcli/ui/intro.html')
-      });
+      return intro.createView(context);
     }
   };
-
 
   /**
    * Registration and de-registration.
    */
   exports.startup = function() {
-    gcli.addCommand(introCmdSpec);
+    canon.addCommand(introCmdSpec);
   };
 
   exports.shutdown = function() {
-    gcli.removeCommand(introCmdSpec);
+    canon.removeCommand(introCmdSpec);
   };
 
 });
@@ -12249,10 +12422,11 @@ var testCommandSpec = {
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('test/examiner', ['require', 'exports', 'module' , 'test/assert'], function(require, exports, module) {
+define('test/examiner', ['require', 'exports', 'module' , 'test/assert', 'test/status'], function(require, exports, module) {
 var examiner = exports;
 
 var assert = require('test/assert');
+var stati = require('test/status').stati;
 
 /**
  * Test harness data
@@ -12263,14 +12437,6 @@ examiner.suites = {};
  * The gap between tests when running async
  */
 var delay = 10;
-
-var stati = {
-  notrun: { index: 0, name: 'Skipped' },
-  executing: { index: 1, name: 'Executing' },
-  asynchronous: { index: 2, name: 'Waiting' },
-  pass: { index: 3, name: 'Pass' },
-  fail: { index: 4, name: 'Fail' }
-};
 
 /**
  * Add a test suite. Generally used like:
@@ -12660,8 +12826,9 @@ Test.prototype.toRemote = function() {
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
-define('test/assert', ['require', 'exports', 'module' ], function(require, exports, module) {
+define('test/assert', ['require', 'exports', 'module' , 'test/status'], function(require, exports, module) {
 
+var stati = require('test/status').stati;
 
 /**
  * Module dependency loop resolution
@@ -12735,6 +12902,28 @@ exports.log = function(message) {
   exports.currentTest.failures.push({ message: message });
 };
 
+
+});
+/*
+ * Copyright 2009-2011 Mozilla Foundation and contributors
+ * Licensed under the New BSD license. See LICENSE.txt or:
+ * http://opensource.org/licenses/BSD-3-Clause
+ */
+
+define('test/status', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+  /**
+   * This should really be inside assert.js, however that is over-ridden by
+   * a custom assert.js for mozilla, so we keep it separate to avoid
+   * duplicating it in 2 places.
+   */
+  exports.stati = {
+    notrun: { index: 0, name: 'Skipped' },
+    executing: { index: 1, name: 'Executing' },
+    asynchronous: { index: 2, name: 'Waiting' },
+    pass: { index: 3, name: 'Pass' },
+    fail: { index: 4, name: 'Fail' }
+  };
 
 });
 define("text!test/commands/test.css", [], "\n" +
@@ -13430,6 +13619,14 @@ define('gclitest/testCanon', ['require', 'exports', 'module' , 'gclitest/helpers
       typed: 'testadd',
       status: 'ERROR'
     });
+
+    canon.removeCommand({ name: 'nonexistant' });
+    test.is(canon.getCommands().length, startCount, 'nonexistant1 command success');
+    test.is(events, 5, 'nonexistant1 event');
+
+    canon.removeCommand('nonexistant');
+    test.is(canon.getCommands().length, startCount, 'nonexistant2 command success');
+    test.is(events, 5, 'nonexistant2 event');
 
     canon.onCanonChange.remove(canonChange);
   };
@@ -14989,8 +15186,7 @@ define('gclitest/testIntro', ['require', 'exports', 'module' , 'gclitest/helpers
       typed: 'intro',
       args: { },
       outputMatch: [
-        /graphical\s*command\s*line/,
-        /GCLI/,
+        /command\s*line/,
         /help/,
         /F1/,
         /Escape/
@@ -15384,9 +15580,69 @@ exports.shutdown = function(options) {
   }
 };
 
+exports.testPrefShowStatus = function(options) {
+  if (options.isFirefox) {
+    test.log('Skipping testPrefShowStatus in Firefox.');
+    return;
+  }
+
+  helpers.status(options, {
+    typed:  'pref s',
+    markup: 'IIIIVI',
+    status: 'ERROR',
+    directTabText: 'et'
+  });
+
+  helpers.status(options, {
+    typed:  'pref show',
+    markup: 'VVVVVVVVV',
+    status: 'ERROR',
+    emptyParameters: [ ' <setting>' ]
+  });
+
+  helpers.status(options, {
+    typed:  'pref show ',
+    markup: 'VVVVVVVVVV',
+    status: 'ERROR',
+    emptyParameters: [ ]
+  });
+
+  helpers.status(options, {
+    typed:  'pref show tempTBo',
+    markup: 'VVVVVVVVVVIIIIIII',
+    directTabText: 'ol',
+    status: 'ERROR',
+    emptyParameters: [ ]
+  });
+
+  helpers.status(options, {
+    typed:  'pref show tempTBool',
+    markup: 'VVVVVVVVVVVVVVVVVVV',
+    directTabText: '',
+    status: 'VALID',
+    emptyParameters: [ ]
+  });
+
+  helpers.status(options, {
+    typed:  'pref show tempTBool 4',
+    markup: 'VVVVVVVVVVVVVVVVVVVVE',
+    directTabText: '',
+    status: 'ERROR',
+    emptyParameters: [ ]
+  });
+
+  helpers.status(options, {
+    typed:  'pref show tempNumber 4',
+    markup: 'VVVVVVVVVVVVVVVVVVVVVE',
+    directTabText: '',
+    status: 'ERROR',
+    emptyParameters: [ ]
+  });
+};
+
 exports.testPrefSetStatus = function(options) {
   if (options.isFirefox) {
-    test.log('Skipping testPref in Firefox.');
+    test.log('Skipping testPrefSetStatus in Firefox.');
     return;
   }
 
@@ -15408,13 +15664,6 @@ exports.testPrefSetStatus = function(options) {
     typed:  'pref xxx',
     markup: 'EEEEVEEE',
     status: 'ERROR'
-  });
-
-  helpers.status(options, {
-    typed:  'pref set ',
-    markup: 'VVVVVVVVV',
-    status: 'ERROR',
-    emptyParameters: [ ' <value>' ]
   });
 
   helpers.status(options, {
@@ -15451,7 +15700,7 @@ exports.testPrefSetStatus = function(options) {
 
 exports.testPrefExec = function(options) {
   if (options.isFirefox) {
-    test.log('Skipping testPref in Firefox.');
+    test.log('Skipping testPrefExec in Firefox.');
     return;
   }
 
@@ -15748,39 +15997,38 @@ exports.testPredictions = function(options) {
   }
 
   var resource1 = types.getType('resource');
-  var predictions1 = resource1.parseString('').getPredictions();
-  test.ok(predictions1.length > 1, 'have resources');
-  predictions1.forEach(function(prediction) {
+  var options1 = resource1.getLookup();
+  test.ok(options1.length > 1, 'have resources');
+  options1.forEach(function(prediction) {
     checkPrediction(resource1, prediction);
   });
 
   var resource2 = types.getType({ name: 'resource', include: 'text/javascript' });
-  var predictions2 = resource2.parseString('').getPredictions();
-  test.ok(predictions2.length > 1, 'have resources');
-  predictions2.forEach(function(prediction) {
+  var options2 = resource2.getLookup();
+  test.ok(options2.length > 1, 'have resources');
+  options2.forEach(function(prediction) {
     checkPrediction(resource2, prediction);
   });
 
   var resource3 = types.getType({ name: 'resource', include: 'text/css' });
-  var predictions3 = resource3.parseString('').getPredictions();
+  var options3 = resource3.getLookup();
   // jsdom fails to support digging into stylesheets
   if (!options.isNode) {
-    test.ok(predictions3.length >= 1, 'have resources');
+    test.ok(options3.length >= 1, 'have resources');
   }
   else {
     test.log('Running under Node. ' +
              'Skipping checks due to jsdom document.stylsheets support.');
   }
-  predictions3.forEach(function(prediction) {
+  options3.forEach(function(prediction) {
     checkPrediction(resource3, prediction);
   });
 
   var resource4 = types.getType({ name: 'resource' });
-  var predictions4 = resource4.parseString('').getPredictions();
+  var options4 = resource4.getLookup();
 
-  test.is(predictions1.length, predictions4.length, 'type spec');
-  // Bug 734045
-  // test.is(predictions2.length + predictions3.length, predictions4.length, 'split');
+  test.is(options1.length, options4.length, 'type spec');
+  test.is(options2.length + options3.length, options4.length, 'split');
 };
 
 function checkPrediction(res, prediction) {
