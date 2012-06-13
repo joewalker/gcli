@@ -8,8 +8,8 @@ Useful links:
 - Documentation: https://github.com/joewalker/gcli/blob/master/docs/index.md
 </span>
 
-# ${getHeading()}
+# ${heading}
 
-<loop foreach="command in ${getMatchingCommands()}">${command.name} &#x2192; ${command.description}
+<loop foreach="command in ${matchingCommands}">${command.name} &#x2192; ${command.description}
 </loop>
 </pre>
