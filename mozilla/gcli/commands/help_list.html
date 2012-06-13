@@ -1,9 +1,9 @@
 
 <div>
-  <h3>${getHeading()}</h3>
+  <h3>${heading}</h3>
 
   <table>
-    <tr foreach="command in ${getMatchingCommands()}"
+    <tr foreach="command in ${matchingCommands}"
         onclick="${onclick}" ondblclick="${ondblclick}">
       <th class="gcli-help-name">${command.name}</th>
       <td class="gcli-help-arrow">-</td>
