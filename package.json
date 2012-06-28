@@ -19,6 +19,6 @@
      "url" : "http://github.com/joewalker/gcli.git"
   },
   "licenses": [
-    { "type": "BSD", "url": "http://opensource.org/licenses/BSD-3-Clause" }
+    { "type": "Apache-2.0", "url": "http://www.apache.org/licenses/LICENSE-2.0" }
   ]
 }
