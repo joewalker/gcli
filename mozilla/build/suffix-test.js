@@ -8,13 +8,12 @@ function test() {
   localDefine = define;
 
   DeveloperToolbarTest.test(TEST_URI, function(browser, tab) {
-    var gclitest = define.globalDomain.require("gclitest/index");
-    gclitest.run({
+    var examiner = define.globalDomain.require('gclitest/suite').examiner;
+    examiner.runAsync({
       display: DeveloperToolbar.display,
       isFirefox: true,
       window: browser.contentDocument.defaultView
-    });
-    finish();
+    }, finish);
   });
 }
 
