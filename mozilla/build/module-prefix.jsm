@@ -26,7 +26,7 @@
 
 var EXPORTED_SYMBOLS = [ "{EXPORTED_SYMBOLS}" ];
 
-Components.utils.import("resource:///modules/devtools/Require.jsm");
-Components.utils.import("resource:///modules/devtools/Console.jsm");
+Components.utils.import("resource://gre/modules/devtools/Require.jsm");
+Components.utils.import("resource://gre/modules/devtools/Console.jsm");
 Components.utils.import("resource:///modules/devtools/Browser.jsm");
 
