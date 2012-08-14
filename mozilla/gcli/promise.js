@@ -16,7 +16,7 @@
 
 define(function(require, exports, module) {
 
-  Components.utils.import("resource:///modules/devtools/Promise.jsm");
+  Components.utils.import("resource://gre/modules/devtools/Promise.jsm");
   exports.Promise = Promise;
 
 });
