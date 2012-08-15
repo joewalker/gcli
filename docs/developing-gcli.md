@@ -6,7 +6,7 @@
 The majority of the GCLI source is stored in the ``lib`` directory.
 
 The ``docs`` directory contains documentation.
-The ``scripts`` directory contains RequireJS and ES5-shim code that GCLI uses.
+The ``scripts`` directory contains RequireJS that GCLI uses.
 The ``build`` directory contains files used when creating builds.
 The ``mozilla`` directory contains the mercurial patch queue of patches to apply
 to mozilla-central.
