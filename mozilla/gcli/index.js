@@ -74,6 +74,12 @@ define(function(require, exports, module) {
   require('gcli/commands/help').startup();
   require('gcli/commands/pref').startup();
 
+  var Cc = Components.classes;
+  var Ci = Components.interfaces;
+  var prefSvc = "@mozilla.org/preferences-service;1";
+  var prefService = Cc[prefSvc].getService(Ci.nsIPrefService);
+  var prefBranch = prefService.getBranch(null).QueryInterface(Ci.nsIPrefBranch2);
+
   // The API for use by command authors
   exports.addCommand = require('gcli/canon').addCommand;
   exports.removeCommand = require('gcli/canon').removeCommand;
@@ -97,6 +103,10 @@ define(function(require, exports, module) {
   exports.createDisplay = function(opts) {
     var FFDisplay = require('gcli/ui/ffdisplay').FFDisplay;
     return new FFDisplay(opts);
+  };
+
+  exports.hiddenByChromePref = function() {
+    return !prefBranch.prefHasUserValue("devtools.chrome.enabled");
   };
 
 });
