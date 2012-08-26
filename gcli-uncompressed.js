@@ -1,9 +1,18 @@
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 
 /**
  * Define a module along with a payload.
@@ -13,13 +22,14 @@
  */
 function define(moduleName, deps, payload) {
   if (typeof moduleName != "string") {
-    console.error(this.depth + " Error: Module name is not a string.");
-    console.trace();
-    return;
+    throw new Error("Error: Module name is not a string");
   }
 
   if (arguments.length == 2) {
     payload = deps;
+  }
+  else {
+    payload.deps = deps;
   }
 
   if (define.debugDependencies) {
@@ -28,8 +38,11 @@ function define(moduleName, deps, payload) {
   }
 
   if (moduleName in define.modules) {
-    console.error(this.depth + " Error: Redefining module: " + moduleName);
+    throw new Error("Error: Redefining module: " + moduleName);
   }
+
+  // Mark the payload so we know we need to call it to get the real module
+  payload.__uncompiled = true;
   define.modules[moduleName] = payload;
 }
 
@@ -44,113 +57,130 @@ define.modules = {};
 define.debugDependencies = false;
 
 
-/**
- * Self executing function in which Domain is defined, and attached to define
- */
 (function() {
-  /**
-   * We invoke require() in the context of a Domain so we can have multiple
-   * sets of modules running separate from each other.
-   * This contrasts with JSMs which are singletons, Domains allows us to
-   * optionally load a CommonJS module twice with separate data each time.
-   * Perhaps you want 2 command lines with a different set of commands in each,
-   * for example.
-   */
-  function Domain() {
-    this.modules = {};
+
+/**
+ * We invoke require() in the context of a Domain so we can have multiple
+ * sets of modules running separate from each other.
+ * This contrasts with JSMs which are singletons, Domains allows us to
+ * optionally load a CommonJS module twice with separate data each time.
+ * Perhaps you want 2 command lines with a different set of commands in each,
+ * for example.
+ */
+function Domain() {
+  this.modules = {};
+
+  if (define.debugDependencies) {
+    this.depth = "";
+  }
+}
+
+/**
+ * Lookup module names and resolve them by calling the definition function if
+ * needed.
+ * There are 2 ways to call this, either with an array of dependencies and a
+ * callback to call when the dependencies are found (which can happen
+ * asynchronously in an in-page context) or with a single string an no
+ * callback where the dependency is resolved synchronously and returned.
+ * The API is designed to be compatible with the CommonJS AMD spec and
+ * RequireJS.
+ * @param deps A name, or array of names for the payload
+ * @param callback Function to call when the dependencies are resolved
+ * @return The module required or undefined for array/callback method
+ */
+Domain.prototype.require = function(config, deps, callback) {
+  if (arguments.length <= 2) {
+    callback = deps;
+    deps = config;
+    config = undefined;
+  }
+
+  if (Array.isArray(deps)) {
+    var params = deps.map(function(dep) {
+      return this.lookup(dep);
+    }, this);
+    if (callback) {
+      callback.apply(null, params);
+    }
+    return undefined;
+  }
+  else {
+    return this.lookup(deps);
+  }
+};
+
+/**
+ * Lookup module names and resolve them by calling the definition function if
+ * needed.
+ * @param moduleName A name for the payload to lookup
+ * @return The module specified by aModuleName or null if not found
+ */
+Domain.prototype.lookup = function(moduleName) {
+  if (moduleName in this.modules) {
+    var module = this.modules[moduleName];
+    if (define.debugDependencies) {
+      console.log(this.depth + " Using module: " + moduleName);
+    }
+    return module;
+  }
+
+  if (!(moduleName in define.modules)) {
+    throw new Error("Missing module: " + moduleName);
+  }
+
+  var module = define.modules[moduleName];
+
+  if (define.debugDependencies) {
+    console.log(this.depth + " Compiling module: " + moduleName);
+  }
+
+  if (module.__uncompiled) {
+    if (define.debugDependencies) {
+      this.depth += ".";
+    }
+
+    var exports = {};
+    try {
+      var params = module.deps.map(function(dep) {
+        if (dep === "require") {
+          return this.require.bind(this);
+        }
+        if (dep === "exports") {
+          return exports;
+        }
+        if (dep === "module") {
+          return { id: moduleName, uri: "" };
+        }
+        return this.lookup(dep);
+      }.bind(this));
+
+      var reply = module.apply(null, params);
+      module = (reply !== undefined) ? reply : exports;
+    }
+    catch (ex) {
+      console.error("Error using module: " + moduleName, ex);
+      throw ex;
+    }
 
     if (define.debugDependencies) {
-      this.depth = "";
+      this.depth = this.depth.slice(0, -1);
     }
   }
 
-  /**
-   * Lookup module names and resolve them by calling the definition function if
-   * needed.
-   * There are 2 ways to call this, either with an array of dependencies and a
-   * callback to call when the dependencies are found (which can happen
-   * asynchronously in an in-page context) or with a single string an no
-   * callback where the dependency is resolved synchronously and returned.
-   * The API is designed to be compatible with the CommonJS AMD spec and
-   * RequireJS.
-   * @param deps A name, or array of names for the payload
-   * @param callback Function to call when the dependencies are resolved
-   * @return The module required or undefined for array/callback method
-   */
-  Domain.prototype.require = function(deps, callback) {
-    if (Array.isArray(deps)) {
-      var params = deps.map(function(dep) {
-        return this.lookup(dep);
-      }, this);
-      if (callback) {
-        callback.apply(null, params);
-      }
-      return undefined;
-    }
-    else {
-      return this.lookup(deps);
-    }
-  };
+  // cache the resulting module object for next time
+  this.modules[moduleName] = module;
 
-  /**
-   * Lookup module names and resolve them by calling the definition function if
-   * needed.
-   * @param moduleName A name for the payload to lookup
-   * @return The module specified by aModuleName or null if not found
-   */
-  Domain.prototype.lookup = function(moduleName) {
-    if (moduleName in this.modules) {
-      var module = this.modules[moduleName];
-      if (define.debugDependencies) {
-        console.log(this.depth + " Using module: " + moduleName);
-      }
-      return module;
-    }
+  return module;
+};
 
-    if (!(moduleName in define.modules)) {
-      console.error(this.depth + " Missing module: " + moduleName);
-      return null;
-    }
+/**
+ * Expose the Domain constructor and a global domain (on the define function
+ * to avoid exporting more than we need. This is a common pattern with
+ * require systems)
+ */
+define.Domain = Domain;
+define.globalDomain = new Domain();
 
-    var module = define.modules[moduleName];
-
-    if (define.debugDependencies) {
-      console.log(this.depth + " Compiling module: " + moduleName);
-    }
-
-    if (typeof module == "function") {
-      if (define.debugDependencies) {
-        this.depth += ".";
-      }
-
-      var exports = {};
-      try {
-        module(this.require.bind(this), exports, { id: moduleName, uri: "" });
-      }
-      catch (ex) {
-        console.error("Error using module: " + moduleName, ex);
-        throw ex;
-      }
-      module = exports;
-
-      if (define.debugDependencies) {
-        this.depth = this.depth.slice(0, -1);
-      }
-    }
-
-    // cache the resulting module object for next time
-    this.modules[moduleName] = module;
-
-    return module;
-  };
-
-  /**
-   * Expose the Domain constructor and a global domain (on the define function
-   * to avoid exporting more than we need. This is a common pattern with
-   * require systems)
-   */
-  define.Domain = Domain;
-  define.globalDomain = new Domain();
 })();
 
 /**
@@ -159,12 +189,25 @@ define.debugDependencies = false;
  */
 var require = define.globalDomain.require.bind(define.globalDomain);
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types/basic', 'gcli/types/command', 'gcli/types/javascript', 'gcli/types/node', 'gcli/types/resource', 'gcli/types/selection', 'gcli/types/setting', 'gcli/settings', 'gcli/cli', 'gcli/ui/intro', 'gcli/ui/focus', 'gcli/ui/fields/basic', 'gcli/ui/fields/javascript', 'gcli/ui/fields/selection', 'gcli/ui/display'], function(require, exports, module) {
+define('gcli/index', ['require', 'exports', 'module' , 'gcli/legacy', 'gcli/canon', 'gcli/types/basic', 'gcli/types/command', 'gcli/types/javascript', 'gcli/types/node', 'gcli/types/resource', 'gcli/types/selection', 'gcli/types/setting', 'gcli/settings', 'gcli/cli', 'gcli/ui/intro', 'gcli/ui/focus', 'gcli/ui/fields/basic', 'gcli/ui/fields/javascript', 'gcli/ui/fields/selection', 'gcli/ui/display'], function(require, exports, module) {
+
+  // Patch-up IE9
+  require('gcli/legacy');
 
   // The API for use by command authors
   exports.addCommand = require('gcli/canon').addCommand;
@@ -201,12 +244,134 @@ define('gcli/index', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/types
   exports.createView = exports.createDisplay;
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-define('gcli/canon', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/types', 'gcli/types/basic'], function(require, exports, module) {
+define('gcli/legacy', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return;
+  }
+
+  /**
+   * Fake a console for IE9
+   */
+  if (window.console == null) {
+    window.console = {};
+  }
+  'debug,log,warn,error,trace,group,groupEnd'.split(',').forEach(function(f) {
+    if (!window.console[f]) {
+      window.console[f] = function() {};
+    }
+  });
+
+  /**
+   * Fake Element.classList for IE9
+   * Based on https://gist.github.com/1381839 by Devon Govett
+   */
+  if (!('classList' in document.documentElement) && Object.defineProperty &&
+          typeof HTMLElement !== 'undefined') {
+    Object.defineProperty(HTMLElement.prototype, 'classList', {
+      get: function() {
+        var self = this;
+        function update(fn) {
+          return function(value) {
+            var classes = self.className.split(/\s+/);
+            var index = classes.indexOf(value);
+            fn(classes, index, value);
+            self.className = classes.join(' ');
+          };
+        }
+
+        var ret = {
+          add: update(function(classes, index, value) {
+            ~index || classes.push(value);
+          }),
+          remove: update(function(classes, index) {
+            ~index && classes.splice(index, 1);
+          }),
+          toggle: update(function(classes, index, value) {
+            ~index ? classes.splice(index, 1) : classes.push(value);
+          }),
+          contains: function(value) {
+            return !!~self.className.split(/\s+/).indexOf(value);
+          },
+          item: function(i) {
+            return self.className.split(/\s+/)[i] || null;
+          }
+        };
+
+        Object.defineProperty(ret, 'length', {
+          get: function() {
+            return self.className.split(/\s+/).length;
+          }
+        });
+
+        return ret;
+      }
+    });
+  }
+
+  /**
+   * Fake Range.createContextualFragment for IE9
+   */
+  if (typeof Range.prototype.createContextualFragment === 'undefined') {
+    Range.prototype.createContextualFragment = function(html) {
+      var container = this.startContainer;
+      var doc = container.nodeType == 9 /* i.e. Node.DOCUMENT_NODE */ ?
+              container :
+              container.ownerDocument;
+      var div = doc.createElement('div');
+      div.innerHTML = html;
+      var frag = doc.createDocumentFragment();
+      var n;
+      while (n = div.firstChild) {
+        frag.appendChild(n);
+      }
+      return frag;
+    };
+  }
+
+  /**
+   * String.prototype.trimLeft is non-standard, but it works in Firefox,
+   * Chrome and Opera. It's easiest to create a shim here.
+   */
+  if (!String.prototype.trimLeft) {
+    String.prototype.trimLeft = function() {
+      return String(this).replace(/\s*$/, '');
+    };
+  }
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/canon', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/types', 'gcli/types/basic', 'gcli/types/selection'], function(require, exports, module) {
 var canon = exports;
 
 
@@ -216,6 +381,7 @@ var l10n = require('gcli/l10n');
 var types = require('gcli/types');
 var Status = require('gcli/types').Status;
 var BooleanType = require('gcli/types/basic').BooleanType;
+var SelectionType = require('gcli/types/selection').SelectionType;
 
 /**
  * Implement the localization algorithm for any documentation objects (i.e.
@@ -261,6 +427,7 @@ function lookup(data, onUndefined) {
   return l10n.lookup(onUndefined);
 }
 
+
 /**
  * The command object is mostly just setup around a commandSpec (as passed to
  * #addCommand()).
@@ -281,6 +448,7 @@ function Command(commandSpec) {
     throw new Error('command.params must be an array in ' + this.name);
   }
 
+  this.hasNamedParameters = false;
   this.description = 'description' in this ? this.description : undefined;
   this.description = lookup(this.description, 'canonDescNone');
   this.manual = 'manual' in this ? this.manual : undefined;
@@ -309,18 +477,26 @@ function Command(commandSpec) {
   paramSpecs.forEach(function(spec) {
     if (!spec.group) {
       if (usingGroups) {
-        console.error('Parameters can\'t come after param groups.' +
-            ' Ignoring ' + this.name + '/' + spec.name);
+        throw new Error('Parameters can\'t come after param groups.' +
+                        ' Ignoring ' + this.name + '/' + spec.name);
       }
       else {
         var param = new Parameter(spec, this, null);
         this.params.push(param);
+
+        if (!param.isPositionalAllowed) {
+          this.hasNamedParameters = true;
+        }
       }
     }
     else {
       spec.params.forEach(function(ispec) {
         var param = new Parameter(ispec, this, spec.group);
         this.params.push(param);
+
+        if (!param.isPositionalAllowed) {
+          this.hasNamedParameters = true;
+        }
       }, this);
 
       usingGroups = true;
@@ -345,7 +521,7 @@ function Parameter(paramSpec, command, groupName) {
 
   if (!this.name) {
     throw new Error('In ' + this.command.name +
-      ': all params must have a name');
+                    ': all params must have a name');
   }
 
   var typeSpec = this.type;
@@ -353,16 +529,16 @@ function Parameter(paramSpec, command, groupName) {
   if (this.type == null) {
     console.error('Known types: ' + types.getTypeNames().join(', '));
     throw new Error('In ' + this.command.name + '/' + this.name +
-      ': can\'t find type for: ' + JSON.stringify(typeSpec));
+                    ': can\'t find type for: ' + JSON.stringify(typeSpec));
   }
 
   // boolean parameters have an implicit defaultValue:false, which should
   // not be changed. See the docs.
   if (this.type instanceof BooleanType) {
     if (this.defaultValue !== undefined) {
-      console.error('In ' + this.command.name + '/' + this.name +
-          ': boolean parameters can not have a defaultValue.' +
-          ' Ignoring');
+      throw new Error('In ' + this.command.name + '/' + this.name +
+                      ': boolean parameters can not have a defaultValue.' +
+                      ' Ignoring');
     }
     this.defaultValue = false;
   }
@@ -376,21 +552,28 @@ function Parameter(paramSpec, command, groupName) {
       var defaultText = this.type.stringify(this.defaultValue);
       var defaultConversion = this.type.parseString(defaultText);
       if (defaultConversion.getStatus() !== Status.VALID) {
-        console.error('In ' + this.command.name + '/' + this.name +
-            ': Error round tripping defaultValue. status = ' +
-            defaultConversion.getStatus());
+        throw new Error('In ' + this.command.name + '/' + this.name +
+                        ': Error round tripping defaultValue. status = ' +
+                        defaultConversion.getStatus());
       }
     }
     catch (ex) {
-      console.error('In ' + this.command.name + '/' + this.name +
-        ': ' + ex);
+      throw new Error('In ' + this.command.name + '/' + this.name +
+                      ': ' + ex);
     }
   }
 
-  // Some typed (boolean, array) have a non 'undefined' blank value. Give the
+  // Some types (boolean, array) have a non 'undefined' blank value. Give the
   // type a chance to override the default defaultValue of undefined
   if (this.defaultValue === undefined) {
     this.defaultValue = this.type.getBlank().value;
+  }
+
+  // All parameters that can only be set via a named parameter must have a
+  // non-undefined default value
+  if (!this.isPositionalAllowed && this.defaultValue === undefined) {
+    throw new Error('In ' + this.command.name + '/' + this.name +
+                    ': Missing defaultValue for optional parameter.');
   }
 }
 
@@ -448,6 +631,16 @@ Object.defineProperty(Parameter.prototype, 'description', {
 Object.defineProperty(Parameter.prototype, 'isDataRequired', {
   get: function() {
     return this.defaultValue === undefined;
+  },
+  enumerable: true
+});
+
+/**
+ * Reflect the paramSpec 'hidden' property (dynamically so it can change)
+ */
+Object.defineProperty(Parameter.prototype, 'hidden', {
+  get: function() {
+    return this.paramSpec.hidden;
   },
   enumerable: true
 });
@@ -598,9 +791,19 @@ canon.commandOutputManager = new CommandOutputManager();
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/util', ['require', 'exports', 'module' ], function(require, exports, module) {
@@ -1292,9 +1495,19 @@ else {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/l10n', ['require', 'exports', 'module' , 'gcli/nls/strings'], function(require, exports, module) {
@@ -1979,6 +2192,14 @@ var i18n = {
     // developer tool command lines. This describes the '{' command.
     cliEvalJavascript: 'Enter JavaScript directly',
 
+    // When the command line has more arguments than the current command can
+    // understand this is the error message shown to the user.
+    cliUnusedArg: 'Too many arguments',
+
+    // The title of the dialog which displays the options that are available
+    // to the current command.
+    cliOptions: 'Available Options',
+
     // When a command has a parameter that has a number of pre-defined options
     // the user interface presents these in a drop-down menu, where the first
     // 'option' is an indicator that a selection should be made. This string
@@ -1996,6 +2217,11 @@ var i18n = {
     // buttons to add and remove arguments. This string is used to remove
     // arguments.
     fieldArrayDel: 'Delete',
+
+    // When the menu has displayed all the matches that it should (i.e. about
+    // 10 items) then we display this to alert the user that more matches are
+    // available.
+    fieldMenuMore: 'More matches, keep typing',
 
     // The command line provides completion for JavaScript commands, however
     // there are times when the scope of what we're completing against can't
@@ -2084,6 +2310,26 @@ var i18n = {
     // Some text shown under the parameters heading in a help page for a
     // command which has no parameters.
     helpManNone: 'None',
+
+    // The heading shown in response to the 'help' command when used without a
+    // filter, just above the list of known commands.
+    helpListAll: 'Available Commands:',
+
+    // The heading shown in response to the 'help <search>' command (i.e. with
+    // a search string), just above the list of matching commands.
+    helpListPrefix: 'Commands starting with \'%1$S\':',
+
+    // The heading shown in response to the 'help <search>' command (i.e. with
+    // a search string), when there are no matching commands.
+    helpListNone: 'No commands starting with \'%1$S\'',
+
+    // When the 'help x' command wants to show the manual for the 'x' command
+    // it needs to be able to describe the parameters as either required or
+    // optional. See also 'helpManOptional'.
+    helpManRequired: 'required',
+
+    // See description of 'helpManRequired'
+    helpManOptional: 'optional',
 
     // Text shown as part of the output of the 'help' command when the command
     // in question has sub-commands, before a list of the matching sub-commands
@@ -2268,16 +2514,26 @@ var i18n = {
 exports.root = i18n.root;
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/types', ['require', 'exports', 'module' , 'gcli/argument'], function(require, exports, module) {
-var types = exports;
 
 
 var Argument = require('gcli/argument').Argument;
+var BlankArgument = require('gcli/argument').BlankArgument;
 
 
 /**
@@ -2336,7 +2592,9 @@ var Status = {
     return combined;
   }
 };
-types.Status = Status;
+
+exports.Status = Status;
+
 
 /**
  * The type.parse() method converts an Argument into a value, Conversion is
@@ -2385,8 +2643,6 @@ function Conversion(value, arg, status, message, predictions) {
   this.predictions = predictions;
 }
 
-types.Conversion = Conversion;
-
 /**
  * Ensure that all arguments that are part of this conversion know what they
  * are assigned to.
@@ -2401,7 +2657,7 @@ Conversion.prototype.assign = function(assignment) {
  * Work out if there is information provided in the contained argument.
  */
 Conversion.prototype.isDataProvided = function() {
-  return !this.arg.isBlank();
+  return this.arg.type !== 'BlankArgument';
 };
 
 /**
@@ -2473,37 +2729,8 @@ Conversion.prototype.getPredictions = function() {
 };
 
 /**
- * Accessor for a prediction by index.
- * This is useful above <tt>getPredictions()[index]</tt> because it normalizes
- * index to be within the bounds of the predictions, which means that the UI
- * can maintain an index of which prediction to choose without caring how many
- * predictions there are.
- * @param index The index of the prediction to choose
- */
-Conversion.prototype.getPredictionAt = function(index) {
-  if (index == null) {
-    return undefined;
-  }
-
-  var predictions = this.getPredictions();
-  if (predictions.length === 0) {
-    return undefined;
-  }
-
-  index = index % predictions.length;
-  if (index < 0) {
-    index = predictions.length + index;
-  }
-  return predictions[index];
-};
-
-/**
- * Accessor for a prediction by index.
- * This is useful above <tt>getPredictions()[index]</tt> because it normalizes
- * index to be within the bounds of the predictions, which means that the UI
- * can maintain an index of which prediction to choose without caring how many
- * predictions there are.
- * @param index The index of the prediction to choose
+ * Return an index constrained by the available predictions. Basically
+ * (index % predicitons.length)
  */
 Conversion.prototype.constrainPredictionIndex = function(index) {
   if (index == null) {
@@ -2521,6 +2748,15 @@ Conversion.prototype.constrainPredictionIndex = function(index) {
   }
   return index;
 };
+
+/**
+ * Constant to allow everyone to agree on the maximum number of predictions
+ * that should be provided. We actually display 1 less than this number.
+ */
+Conversion.maxPredictions = 11;
+
+exports.Conversion = Conversion;
+
 
 /**
  * ArrayConversion is a special Conversion, needed because arrays are converted
@@ -2596,7 +2832,7 @@ ArrayConversion.prototype.toString = function() {
   }, this).join(', ') + ' ]';
 };
 
-types.ArrayConversion = ArrayConversion;
+exports.ArrayConversion = ArrayConversion;
 
 
 /**
@@ -2668,7 +2904,7 @@ Type.prototype.decrement = function(value) {
  * 2 known examples of this are boolean -> false and array -> []
  */
 Type.prototype.getBlank = function() {
-  return this.parse(new Argument());
+  return this.parse(new BlankArgument());
 };
 
 /**
@@ -2680,7 +2916,7 @@ Type.prototype.getType = function() {
   return this;
 };
 
-types.Type = Type;
+exports.Type = Type;
 
 /**
  * Private registry of types
@@ -2688,7 +2924,7 @@ types.Type = Type;
  */
 var registeredTypes = {};
 
-types.getTypeNames = function() {
+exports.getTypeNames = function() {
   return Object.keys(registeredTypes);
 };
 
@@ -2701,7 +2937,7 @@ types.getTypeNames = function() {
  * #getType() is called with a 'name' that matches Type.prototype.name we will
  * pass the typeSpec into this constructor.
  */
-types.registerType = function(type) {
+exports.registerType = function(type) {
   if (typeof type === 'object') {
     if (type instanceof Type) {
       if (!type.name) {
@@ -2724,7 +2960,7 @@ types.registerType = function(type) {
   }
 };
 
-types.registerTypes = function registerTypes(newTypes) {
+exports.registerTypes = function registerTypes(newTypes) {
   Object.keys(newTypes).forEach(function(name) {
     var type = newTypes[name];
     type.name = name;
@@ -2735,14 +2971,14 @@ types.registerTypes = function registerTypes(newTypes) {
 /**
  * Remove a type from the list available to the system
  */
-types.deregisterType = function(type) {
+exports.deregisterType = function(type) {
   delete registeredTypes[type.name];
 };
 
 /**
  * Find a type, previously registered using #registerType()
  */
-types.getType = function(typeSpec) {
+exports.getType = function(typeSpec) {
   var type;
   if (typeof typeSpec === 'string') {
     type = registeredTypes[typeSpec];
@@ -2770,14 +3006,34 @@ types.getType = function(typeSpec) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/argument', ['require', 'exports', 'module' ], function(require, exports, module) {
-var argument = exports;
 
+
+/**
+ * Thinking out loud here:
+ * Arguments are an area where we could probably refactor things a bit better.
+ * The split process in Requisition creates a set of Arguments, which are then
+ * assigned. The assign process sometimes converts them into subtypes of
+ * Argument. We might consider that what gets assigned is _always_ one of the
+ * subtypes (or actually a different type hierarchy entirely) and that we
+ * don't manipulate the prefix/text/suffix but just use the 'subtypes' as
+ * filters which present a view of the underlying original Argument.
+ */
 
 /**
  * We record where in the input string an argument comes so we can report
@@ -2804,6 +3060,8 @@ function Argument(text, prefix, suffix) {
   }
 }
 
+Argument.prototype.type = 'Argument';
+
 /**
  * Return the result of merging these arguments.
  * case and some of the arguments are in quotation marks?
@@ -2817,33 +3075,52 @@ Argument.prototype.merge = function(following) {
 };
 
 /**
- * Returns a new Argument like this one but with the text set to
- * <tt>replText</tt> and the end adjusted to fit.
- * @param replText Text to replace the old text value
+ * Returns a new Argument like this one but with various items changed.
+ * @param options Values to use in creating a new Argument.
+ * Warning: some implementations of beget make additions to the options
+ * argument. You should be aware of this in the unlikely event that you want to
+ * reuse 'options' arguments.
+ * Properties:
+ * - text: The new text value
+ * - prefixSpace: Should the prefix be altered to begin with a space?
+ * - prefixPostSpace: Should the prefix be altered to end with a space?
+ * - suffixSpace: Should the suffix be altered to end with a space?
+ * - type: Constructor to use in creating new instances. Default: Argument
  */
-Argument.prototype.beget = function(replText, options) {
+Argument.prototype.beget = function(options) {
+  var text = this.text;
   var prefix = this.prefix;
   var suffix = this.suffix;
 
-  // We need to add quotes when the replacement string has spaces or is empty
-  var quote = (replText.indexOf(' ') >= 0 || replText.length == 0) ?
-      '\'' : '';
+  if (options.text != null) {
+    text = options.text;
 
-  if (options) {
-    prefix = (options.prefixSpace ? ' ' : '') + quote;
-    suffix = quote;
+    // We need to add quotes when the replacement string has spaces or is empty
+    var needsQuote = text.indexOf(' ') >= 0 || text.length == 0;
+    if (needsQuote && /['"]/.test(prefix)) {
+      prefix = prefix + '\'';
+      suffix = '\'' + suffix;
+    }
   }
 
-  return new Argument(replText, prefix, suffix);
-};
+  if (options.prefixSpace && prefix.charAt(0) !== ' ') {
+    prefix = ' ' + prefix;
+  }
 
-/**
- * Is there any visible content to this argument?
- */
-Argument.prototype.isBlank = function() {
-  return this.text === '' &&
-      this.prefix.trim() === '' &&
-      this.suffix.trim() === '';
+  if (options.prefixPostSpace && prefix.charAt(prefix.length - 1) !== ' ') {
+    prefix = prefix + ' ';
+  }
+
+  if (options.suffixSpace && suffix.charAt(suffix.length - 1) !== ' ') {
+    suffix = suffix + ' ';
+  }
+
+  if (text === this.text && suffix === this.suffix && prefix === this.prefix) {
+    return this;
+  }
+
+  var type = options.type || Argument;
+  return new type(text, prefix, suffix);
 };
 
 /**
@@ -2911,7 +3188,40 @@ Argument.merge = function(argArray, start, end) {
   return joined;
 };
 
-argument.Argument = Argument;
+/**
+ * For test/debug use only. The output from this function is subject to wanton
+ * random change without notice, and should not be relied upon to even exist
+ * at some later date.
+ */
+Object.defineProperty(Argument.prototype, '_summaryJson', {
+  get: function() {
+    var assignStatus = this.assignment == null ?
+            'null' :
+            this.assignment.param.name;
+    return '<' + this.prefix + ':' + this.text + ':' + this.suffix + '>' +
+        ' (a=' + assignStatus + ',' + ' t=' + this.type + ')';
+  },
+  enumerable: true
+});
+
+exports.Argument = Argument;
+
+
+/**
+ * BlankArgument is a marker that the argument wasn't typed but is there to
+ * fill a slot. Assignments begin with their arg set to a BlankArgument.
+ */
+function BlankArgument() {
+  this.text = '';
+  this.prefix = '';
+  this.suffix = '';
+}
+
+BlankArgument.prototype = Object.create(Argument.prototype);
+
+BlankArgument.prototype.type = 'BlankArgument';
+
+exports.BlankArgument = BlankArgument;
 
 
 /**
@@ -2926,46 +3236,43 @@ function ScriptArgument(text, prefix, suffix) {
   this.prefix = prefix !== undefined ? prefix : '';
   this.suffix = suffix !== undefined ? suffix : '';
 
-  while (this.text.charAt(0) === ' ') {
-    this.prefix = this.prefix + ' ';
-    this.text = this.text.substring(1);
-  }
-
-  while (this.text.charAt(this.text.length - 1) === ' ') {
-    this.suffix = ' ' + this.suffix;
-    this.text = this.text.slice(0, -1);
-  }
+  ScriptArgument._moveSpaces(this);
 }
 
 ScriptArgument.prototype = Object.create(Argument.prototype);
 
-/**
- * Returns a new Argument like this one but with the text set to
- * <tt>replText</tt> and the end adjusted to fit.
- * @param replText Text to replace the old text value
- */
-ScriptArgument.prototype.beget = function(replText, options) {
-  var prefix = this.prefix;
-  var suffix = this.suffix;
+ScriptArgument.prototype.type = 'ScriptArgument';
 
-  if (options && options.normalize) {
-    prefix = '{ ';
-    suffix = ' }';
+/**
+ * Private/Dangerous: Alters a ScriptArgument to move the spaces at the start
+ * or end of the 'text' into the prefix/suffix. With a string, " a " is 3 chars
+ * long, but with a ScriptArgument, { a } is only one char long.
+ * Arguments are generally supposed to be immutable, so this method should only
+ * be called on a ScriptArgument that isn't exposed to the outside world yet.
+ */
+ScriptArgument._moveSpaces = function(arg) {
+  while (arg.text.charAt(0) === ' ') {
+    arg.prefix = arg.prefix + ' ';
+    arg.text = arg.text.substring(1);
   }
 
-  return new ScriptArgument(replText, prefix, suffix);
+  while (arg.text.charAt(arg.text.length - 1) === ' ') {
+    arg.suffix = ' ' + arg.suffix;
+    arg.text = arg.text.slice(0, -1);
+  }
 };
 
 /**
- * ScriptArguments are never blank due to the '{' and '}' and their special use
- * for the command argument requires them not to be blank even when there is
- * no text.
+ * As Argument.beget that implements the space rule documented in the ctor.
  */
-ScriptArgument.prototype.isBlank = function() {
-  return false;
+ScriptArgument.prototype.beget = function(options) {
+  options.type = ScriptArgument;
+  var begotten = Argument.prototype.beget.call(this, options);
+  ScriptArgument._moveSpaces(begotten);
+  return begotten;
 };
 
-argument.ScriptArgument = ScriptArgument;
+exports.ScriptArgument = ScriptArgument;
 
 
 /**
@@ -2992,6 +3299,8 @@ function MergedArgument(args, start, end) {
 }
 
 MergedArgument.prototype = Object.create(Argument.prototype);
+
+MergedArgument.prototype.type = 'MergedArgument';
 
 /**
  * Keep track of which assignment we've been assigned to, and allow the
@@ -3023,21 +3332,23 @@ MergedArgument.prototype.equals = function(that) {
        this.prefix === that.prefix && this.suffix === that.suffix;
 };
 
-argument.MergedArgument = MergedArgument;
+exports.MergedArgument = MergedArgument;
 
 
 /**
  * TrueNamedArguments are for when we have an argument like --verbose which
  * has a boolean value, and thus the opposite of '--verbose' is ''.
  */
-function TrueNamedArgument(name, arg) {
+function TrueNamedArgument(arg) {
   this.arg = arg;
-  this.text = arg ? arg.text : '--' + name;
-  this.prefix = arg ? arg.prefix : ' ';
-  this.suffix = arg ? arg.suffix : '';
+  this.text = arg.text;
+  this.prefix = arg.prefix;
+  this.suffix = arg.suffix;
 }
 
 TrueNamedArgument.prototype = Object.create(Argument.prototype);
+
+TrueNamedArgument.prototype.type = 'TrueNamedArgument';
 
 TrueNamedArgument.prototype.assign = function(assignment) {
   if (this.arg) {
@@ -3047,12 +3358,7 @@ TrueNamedArgument.prototype.assign = function(assignment) {
 };
 
 TrueNamedArgument.prototype.getArgs = function() {
-  // NASTY! getArgs has a fairly specific use: in removing used arguments
-  // from a command line. Unlike other arguments which are EITHER used
-  // in assignments directly OR grouped in things like MergedArguments,
-  // TrueNamedArgument is used raw from the UI, or composed of another arg
-  // from the CLI, so we return both here so they can both be removed.
-  return this.arg ? [ this, this.arg ] : [ this ];
+  return [ this.arg ];
 };
 
 TrueNamedArgument.prototype.equals = function(that) {
@@ -3067,7 +3373,21 @@ TrueNamedArgument.prototype.equals = function(that) {
        this.prefix === that.prefix && this.suffix === that.suffix;
 };
 
-argument.TrueNamedArgument = TrueNamedArgument;
+/**
+ * As Argument.beget that rebuilds nameArg and valueArg
+ */
+TrueNamedArgument.prototype.beget = function(options) {
+  if (options.text) {
+    console.error('Can\'t change text of a TrueNamedArgument', this, options);
+  }
+
+  options.type = TrueNamedArgument;
+  var begotten = Argument.prototype.beget.call(this, options);
+  begotten.arg = new Argument(begotten.text, begotten.prefix, begotten.suffix);
+  return begotten;
+};
+
+exports.TrueNamedArgument = TrueNamedArgument;
 
 
 /**
@@ -3081,6 +3401,8 @@ function FalseNamedArgument() {
 }
 
 FalseNamedArgument.prototype = Object.create(Argument.prototype);
+
+FalseNamedArgument.prototype.type = 'FalseNamedArgument';
 
 FalseNamedArgument.prototype.getArgs = function() {
   return [ ];
@@ -3098,7 +3420,7 @@ FalseNamedArgument.prototype.equals = function(that) {
        this.prefix === that.prefix && this.suffix === that.suffix;
 };
 
-argument.FalseNamedArgument = FalseNamedArgument;
+exports.FalseNamedArgument = FalseNamedArgument;
 
 
 /**
@@ -3107,34 +3429,54 @@ argument.FalseNamedArgument = FalseNamedArgument;
  * <ul>
  * <li>--param value
  * <li>-p value
- * <li>--pa value
- * <li>-p:value
- * <li>--param=value
- * <li>etc
  * </ul>
- * The general format is:
- * /--?{unique-param-name-prefix}[ :=]{value}/
  * We model this as a normal argument but with a long prefix.
+ *
+ * There are 2 ways to construct a NamedArgument. One using 2 Arguments which
+ * are taken to be the argument for the name (e.g. '--param') and one for the
+ * value to assign to that parameter.
+ * Alternatively, you can pass in the text/prefix/suffix values in the same
+ * way as an Argument is constructed. If you do this then you are expected to
+ * assign to nameArg and valueArg before exposing the new NamedArgument.
  */
-function NamedArgument(nameArg, valueArg) {
-  this.nameArg = nameArg;
-  this.valueArg = valueArg;
-
-  this.text = valueArg.text;
-  this.prefix = nameArg.toString() + valueArg.prefix;
-  this.suffix = valueArg.suffix;
+function NamedArgument() {
+  if (typeof arguments[0] === 'string') {
+    this.nameArg = null;
+    this.valueArg = null;
+    this.text = arguments[0];
+    this.prefix = arguments[1];
+    this.suffix = arguments[2];
+  }
+  else if (arguments[1] == null) {
+    this.nameArg = arguments[0];
+    this.valueArg = null;
+    this.text = '';
+    this.prefix = this.nameArg.toString();
+    this.suffix = '';
+  }
+  else {
+    this.nameArg = arguments[0];
+    this.valueArg = arguments[1];
+    this.text = this.valueArg.text;
+    this.prefix = this.nameArg.toString() + this.valueArg.prefix;
+    this.suffix = this.valueArg.suffix;
+  }
 }
 
 NamedArgument.prototype = Object.create(Argument.prototype);
 
+NamedArgument.prototype.type = 'NamedArgument';
+
 NamedArgument.prototype.assign = function(assignment) {
   this.nameArg.assign(assignment);
-  this.valueArg.assign(assignment);
+  if (this.valueArg != null) {
+    this.valueArg.assign(assignment);
+  }
   this.assignment = assignment;
 };
 
 NamedArgument.prototype.getArgs = function() {
-  return [ this.nameArg, this.valueArg ];
+  return this.valueArg ? [ this.nameArg, this.valueArg ] : [ this.nameArg ];
 };
 
 NamedArgument.prototype.equals = function(that) {
@@ -3155,7 +3497,30 @@ NamedArgument.prototype.equals = function(that) {
        this.prefix === that.prefix && this.suffix === that.suffix;
 };
 
-argument.NamedArgument = NamedArgument;
+/**
+ * As Argument.beget that rebuilds nameArg and valueArg
+ */
+NamedArgument.prototype.beget = function(options) {
+  options.type = NamedArgument;
+  var begotten = Argument.prototype.beget.call(this, options);
+
+  // Cut the prefix into |whitespace|non-whitespace|whitespace| so we can
+  // rebuild nameArg and valueArg from the parts
+  var matches = /^([\s]*)([^\s]*)([\s]*)$/.exec(begotten.prefix);
+
+  if (this.valueArg == null && begotten.text === '') {
+    begotten.nameArg = new Argument(matches[2], matches[1], matches[3]);
+    begotten.valueArg = null;
+  }
+  else {
+    begotten.nameArg = new Argument(matches[2], matches[1], '');
+    begotten.valueArg = new Argument(begotten.text, matches[3], begotten.suffix);
+  }
+
+  return begotten;
+};
+
+exports.NamedArgument = NamedArgument;
 
 
 /**
@@ -3167,6 +3532,8 @@ function ArrayArgument() {
 }
 
 ArrayArgument.prototype = Object.create(Argument.prototype);
+
+ArrayArgument.prototype.type = 'ArrayArgument';
 
 ArrayArgument.prototype.addArgument = function(arg) {
   this.args.push(arg);
@@ -3200,7 +3567,7 @@ ArrayArgument.prototype.equals = function(that) {
     return false;
   }
 
-  if (!(that instanceof ArrayArgument)) {
+  if (!(that.type === 'ArrayArgument')) {
     return false;
   }
 
@@ -3226,17 +3593,27 @@ ArrayArgument.prototype.toString = function() {
   }, this).join(',') + '}';
 };
 
-argument.ArrayArgument = ArrayArgument;
+exports.ArrayArgument = ArrayArgument;
 
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-define('gcli/types/basic', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types', 'gcli/types/spell', 'gcli/types/selection', 'gcli/argument'], function(require, exports, module) {
+define('gcli/types/basic', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types', 'gcli/types/selection', 'gcli/argument'], function(require, exports, module) {
 
 
 var l10n = require('gcli/l10n');
@@ -3245,12 +3622,9 @@ var Type = require('gcli/types').Type;
 var Status = require('gcli/types').Status;
 var Conversion = require('gcli/types').Conversion;
 var ArrayConversion = require('gcli/types').ArrayConversion;
-var Speller = require('gcli/types/spell').Speller;
 var SelectionType = require('gcli/types/selection').SelectionType;
 
-var Argument = require('gcli/argument').Argument;
-var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
-var FalseNamedArgument = require('gcli/argument').FalseNamedArgument;
+var BlankArgument = require('gcli/argument').BlankArgument;
 var ArrayArgument = require('gcli/argument').ArrayArgument;
 
 
@@ -3280,9 +3654,6 @@ exports.shutdown = function() {
  * 'string' the most basic string type that doesn't need to convert
  */
 function StringType(typeSpec) {
-  if (Object.keys(typeSpec).length > 0) {
-    throw new Error('StringType can not be customized');
-  }
 }
 
 StringType.prototype = Object.create(Type.prototype);
@@ -3354,7 +3725,7 @@ NumberType.prototype.getMax = function() {
 };
 
 NumberType.prototype.parse = function(arg) {
-  if (arg.text.replace(/\s/g, '').length === 0) {
+  if (arg.text.replace(/^\s*-?/, '').length === 0) {
     return new Conversion(undefined, arg, Status.INCOMPLETE, '');
   }
 
@@ -3429,9 +3800,6 @@ exports.NumberType = NumberType;
  * true/false values
  */
 function BooleanType(typeSpec) {
-  if (Object.keys(typeSpec).length > 0) {
-    throw new Error('BooleanType can not be customized');
-  }
 }
 
 BooleanType.prototype = Object.create(SelectionType.prototype);
@@ -3442,21 +3810,24 @@ BooleanType.prototype.lookup = [
 ];
 
 BooleanType.prototype.parse = function(arg) {
-  if (arg instanceof TrueNamedArgument) {
+  if (arg.type === 'TrueNamedArgument') {
     return new Conversion(true, arg);
   }
-  if (arg instanceof FalseNamedArgument) {
+  if (arg.type === 'FalseNamedArgument') {
     return new Conversion(false, arg);
   }
   return SelectionType.prototype.parse.call(this, arg);
 };
 
 BooleanType.prototype.stringify = function(value) {
+  if (value == null) {
+    return '';
+  }
   return '' + value;
 };
 
 BooleanType.prototype.getBlank = function() {
-  return new Conversion(false, new Argument(), Status.VALID, '', this.lookup);
+  return new Conversion(false, new BlankArgument(), Status.VALID, '', this.lookup);
 };
 
 BooleanType.prototype.name = 'boolean';
@@ -3522,9 +3893,6 @@ exports.DeferredType = DeferredType;
  * It should not be used anywhere else.
  */
 function BlankType(typeSpec) {
-  if (Object.keys(typeSpec).length > 0) {
-    throw new Error('BlankType can not be customized');
-  }
 }
 
 BlankType.prototype = Object.create(Type.prototype);
@@ -3561,12 +3929,15 @@ function ArrayType(typeSpec) {
 ArrayType.prototype = Object.create(Type.prototype);
 
 ArrayType.prototype.stringify = function(values) {
+  if (values == null) {
+    return '';
+  }
   // BUG 664204: Check for strings with spaces and add quotes
   return values.join(' ');
 };
 
 ArrayType.prototype.parse = function(arg) {
-  if (arg instanceof ArrayArgument) {
+  if (arg.type === 'ArrayArgument') {
     var conversions = arg.getArguments().map(function(subArg) {
       var conversion = this.subtype.parse(subArg);
       // Hack alert. ArrayConversion needs to be able to answer questions
@@ -3590,6 +3961,327 @@ ArrayType.prototype.getBlank = function(values) {
 ArrayType.prototype.name = 'array';
 
 exports.ArrayType = ArrayType;
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/types/selection', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types', 'gcli/types/spell'], function(require, exports, module) {
+
+
+var l10n = require('gcli/l10n');
+var types = require('gcli/types');
+var Type = require('gcli/types').Type;
+var Status = require('gcli/types').Status;
+var Conversion = require('gcli/types').Conversion;
+var Speller = require('gcli/types/spell').Speller;
+
+
+/**
+ * Registration and de-registration.
+ */
+exports.startup = function() {
+  types.registerType(SelectionType);
+};
+
+exports.shutdown = function() {
+  types.unregisterType(SelectionType);
+};
+
+
+/**
+ * A selection allows the user to pick a value from known set of options.
+ * An option is made up of a name (which is what the user types) and a value
+ * (which is passed to exec)
+ * @param typeSpec Object containing properties that describe how this
+ * selection functions. Properties include:
+ * - lookup: An array of objects, one for each option, which contain name and
+ *   value properties. lookup can be a function which returns this array
+ * - data: An array of strings - alternative to 'lookup' where the valid values
+ *   are strings. i.e. there is no mapping between what is typed and the value
+ *   that is used by the program
+ * - stringifyProperty: Conversion from value to string is generally a process
+ *   of looking through all the valid options for a matching value, and using
+ *   the associated name. However the name maybe available directly from the
+ *   value using a property lookup. Setting 'stringifyProperty' allows
+ *   SelectionType to take this shortcut.
+ * - cacheable: If lookup is a function, then we normally assume that
+ *   the values fetched can change. Setting 'cacheable:true' enables internal
+ *   caching.
+ */
+function SelectionType(typeSpec) {
+  if (typeSpec) {
+    Object.keys(typeSpec).forEach(function(key) {
+      this[key] = typeSpec[key];
+    }, this);
+  }
+}
+
+SelectionType.prototype = Object.create(Type.prototype);
+
+SelectionType.prototype.stringify = function(value) {
+  if (value == null) {
+    return '';
+  }
+  if (this.stringifyProperty != null) {
+    return value[this.stringifyProperty];
+  }
+  var name = null;
+  var lookup = this.getLookup();
+  lookup.some(function(item) {
+    if (item.value === value) {
+      name = item.name;
+      return true;
+    }
+    return false;
+  }, this);
+  return name;
+};
+
+/**
+ * If typeSpec contained cacheable:true then calls to parse() work on cached
+ * data. clearCache() enables the cache to be cleared.
+ */
+SelectionType.prototype.clearCache = function() {
+  delete this._cachedLookup;
+};
+
+/**
+ * There are several ways to get selection data. This unifies them into one
+ * single function.
+ * @return An array of objects with name and value properties.
+ */
+SelectionType.prototype.getLookup = function() {
+  if (this._cachedLookup) {
+    return this._cachedLookup;
+  }
+
+  if (this.lookup) {
+    if (typeof this.lookup === 'function') {
+      if (this.cacheable) {
+        this._cachedLookup = this.lookup();
+        return this._cachedLookup;
+      }
+      return this.lookup();
+    }
+    return this.lookup;
+  }
+
+  if (Array.isArray(this.data)) {
+    this.lookup = this._dataToLookup(this.data);
+    return this.lookup;
+  }
+
+  if (typeof(this.data) === 'function') {
+    return this._dataToLookup(this.data());
+  }
+
+  throw new Error('SelectionType has no data');
+};
+
+/**
+ * Selection can be provided with either a lookup object (in the 'lookup'
+ * property) or an array of strings (in the 'data' property). Internally we
+ * always use lookup, so we need a way to convert a 'data' array to a lookup.
+ */
+SelectionType.prototype._dataToLookup = function(data) {
+  return data.map(function(option) {
+    return { name: option, value: option };
+  }, this);
+};
+
+/**
+ * Return a list of possible completions for the given arg.
+ * @param arg The initial input to match
+ * @return A trimmed array of string:value pairs
+ */
+SelectionType.prototype._findPredictions = function(arg) {
+  var predictions = [];
+  var lookup = this.getLookup();
+  var i, option;
+  var maxPredictions = Conversion.maxPredictions;
+  var match = arg.text.toLowerCase();
+
+  // If the arg has a suffix then we're kind of 'done'. Only an exact match
+  // will do.
+  if (arg.suffix.length > 0) {
+    for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
+      option = lookup[i];
+      if (option.name === arg.text) {
+        this._addToPredictions(predictions, option, arg);
+      }
+    }
+
+    return predictions;
+  }
+
+  // Cache lower case versions of all the option names
+  for (i = 0; i < lookup.length; i++) {
+    option = lookup[i];
+    if (option._gcliLowerName == null) {
+      option._gcliLowerName = option.name.toLowerCase();
+    }
+  }
+
+  // Exact hidden matches. If 'hidden: true' then we only allow exact matches
+  // All the tests after here check that !option.value.hidden
+  for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
+    option = lookup[i];
+    if (option.name === arg.text) {
+      this._addToPredictions(predictions, option, arg);
+    }
+  }
+
+  // Start with prefix matching
+  for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
+    option = lookup[i];
+    if (option._gcliLowerName.indexOf(match) === 0 && !option.value.hidden) {
+      if (predictions.indexOf(option) === -1) {
+        this._addToPredictions(predictions, option, arg);
+      }
+    }
+  }
+
+  // Try infix matching if we get less half max matched
+  if (predictions.length < (maxPredictions / 2)) {
+    for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
+      option = lookup[i];
+      if (option._gcliLowerName.indexOf(match) !== -1 && !option.value.hidden) {
+        if (predictions.indexOf(option) === -1) {
+          this._addToPredictions(predictions, option, arg);
+        }
+      }
+    }
+  }
+
+  // Try fuzzy matching if we don't get a prefix match
+  if (false && predictions.length === 0) {
+    var speller = new Speller();
+    var names = lookup.map(function(opt) {
+      return opt.name;
+    });
+    speller.train(names);
+    var corrected = speller.correct(match);
+    if (corrected) {
+      lookup.forEach(function(opt) {
+        if (opt.name === corrected) {
+          predictions.push(opt);
+        }
+      }, this);
+    }
+  }
+
+  return predictions;
+};
+
+/**
+ * Add an option to our list of predicted options.
+ * We abstract out this portion of _findPredictions() because CommandType needs
+ * to make an extra check before actually adding which SelectionType does not
+ * need to make.
+ */
+SelectionType.prototype._addToPredictions = function(predictions, option, arg) {
+  predictions.push(option);
+};
+
+SelectionType.prototype.parse = function(arg) {
+  var predictions = this._findPredictions(arg);
+
+  if (predictions.length === 0) {
+    var msg = l10n.lookupFormat('typesSelectionNomatch', [ arg.text ]);
+    return new Conversion(undefined, arg, Status.ERROR, msg, predictions);
+  }
+
+  // This is something of a hack it basically allows us to tell the
+  // setting type to forget its last setting hack.
+  if (this.noMatch) {
+    this.noMatch();
+  }
+
+  if (predictions[0].name === arg.text) {
+    var value = predictions[0].value;
+    return new Conversion(value, arg, Status.VALID, '', predictions);
+  }
+
+  return new Conversion(undefined, arg, Status.INCOMPLETE, '', predictions);
+};
+
+/**
+ * For selections, up is down and black is white. It's like this, given a list
+ * [ a, b, c, d ], it's natural to think that it starts at the top and that
+ * going up the list, moves towards 'a'. However 'a' has the lowest index, so
+ * for SelectionType, up is down and down is up.
+ * Sorry.
+ */
+SelectionType.prototype.decrement = function(value) {
+  var lookup = this.getLookup();
+  var index = this._findValue(lookup, value);
+  if (index === -1) {
+    index = 0;
+  }
+  index++;
+  if (index >= lookup.length) {
+    index = 0;
+  }
+  return lookup[index].value;
+};
+
+/**
+ * See note on SelectionType.decrement()
+ */
+SelectionType.prototype.increment = function(value) {
+  var lookup = this.getLookup();
+  var index = this._findValue(lookup, value);
+  if (index === -1) {
+    // For an increment operation when there is nothing to start from, we
+    // want to start from the top, i.e. index 0, so the value before we
+    // 'increment' (see note above) must be 1.
+    index = 1;
+  }
+  index--;
+  if (index < 0) {
+    index = lookup.length - 1;
+  }
+  return lookup[index].value;
+};
+
+/**
+ * Walk through an array of { name:.., value:... } objects looking for a
+ * matching value (using strict equality), returning the matched index (or -1
+ * if not found).
+ * @param lookup Array of objects with name/value properties to search through
+ * @param value The value to search for
+ * @return The index at which the match was found, or -1 if no match was found
+ */
+SelectionType.prototype._findValue = function(lookup, value) {
+  var index = -1;
+  for (var i = 0; i < lookup.length; i++) {
+    var pair = lookup[i];
+    if (pair.value === value) {
+      index = i;
+      break;
+    }
+  }
+  return index;
+};
+
+SelectionType.prototype.name = 'selection';
+
+exports.SelectionType = SelectionType;
 
 
 });
@@ -3745,299 +4437,19 @@ exports.Speller = Speller;
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
- */
-
-define('gcli/types/selection', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types', 'gcli/types/spell'], function(require, exports, module) {
-
-
-var l10n = require('gcli/l10n');
-var types = require('gcli/types');
-var Type = require('gcli/types').Type;
-var Status = require('gcli/types').Status;
-var Conversion = require('gcli/types').Conversion;
-var Speller = require('gcli/types/spell').Speller;
-
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  types.registerType(SelectionType);
-};
-
-exports.shutdown = function() {
-  types.unregisterType(SelectionType);
-};
-
-
-/**
- * A selection allows the user to pick a value from known set of options.
- * An option is made up of a name (which is what the user types) and a value
- * (which is passed to exec)
- * @param typeSpec Object containing properties that describe how this
- * selection functions. Properties include:
- * - lookup: An array of objects, one for each option, which contain name and
- *   value properties. lookup can be a function which returns this array
- * - data: An array of strings - alternative to 'lookup' where the valid values
- *   are strings. i.e. there is no mapping between what is typed and the value
- *   that is used by the program
- * - stringifyProperty: Conversion from value to string is generally a process
- *   of looking through all the valid options for a matching value, and using
- *   the associated name. However the name maybe available directly from the
- *   value using a property lookup. Setting 'stringifyProperty' allows
- *   SelectionType to take this shortcut.
- * - cacheable : If lookup is a function, then we normally assume that
- *   the values fetched can change. Setting 'cacheable' enables internal
- *   caching.
- */
-function SelectionType(typeSpec) {
-  if (typeSpec) {
-    Object.keys(typeSpec).forEach(function(key) {
-      this[key] = typeSpec[key];
-    }, this);
-  }
-}
-
-SelectionType.prototype = Object.create(Type.prototype);
-
-SelectionType.prototype.maxPredictions = 10;
-
-SelectionType.prototype.stringify = function(value) {
-  if (this.stringifyProperty != null) {
-    return value[this.stringifyProperty];
-  }
-  var name = null;
-  var lookup = this.getLookup();
-  lookup.some(function(item) {
-    if (item.value === value) {
-      name = item.name;
-      return true;
-    }
-    return false;
-  }, this);
-  return name;
-};
-
-/**
- * If typeSpec contained cacheable:true then calls to parse() work on cached
- * data. clearCache() enables the cache to be cleared.
- */
-SelectionType.prototype.clearCache = function() {
-  delete this._cachedLookup;
-};
-
-/**
- * There are several ways to get selection data. This unifies them into one
- * single function.
- * @return An array of objects with name and value properties.
- */
-SelectionType.prototype.getLookup = function() {
-  if (this._cachedLookup) {
-    return this._cachedLookup;
-  }
-
-  if (this.lookup) {
-    if (typeof this.lookup === 'function') {
-      if (this.cacheable) {
-        this._cachedLookup = this.lookup();
-        return this._cachedLookup;
-      }
-      return this.lookup();
-    }
-    return this.lookup;
-  }
-
-  if (Array.isArray(this.data)) {
-    this.lookup = this._dataToLookup(this.data);
-    return this.lookup;
-  }
-
-  if (typeof(this.data) === 'function') {
-    return this._dataToLookup(this.data());
-  }
-
-  throw new Error('SelectionType has no data');
-};
-
-/**
- * Selection can be provided with either a lookup object (in the 'lookup'
- * property) or an array of strings (in the 'data' property). Internally we
- * always use lookup, so we need a way to convert a 'data' array to a lookup.
- */
-SelectionType.prototype._dataToLookup = function(data) {
-  return data.map(function(option) {
-    return { name: option, value: option };
-  }, this);
-};
-
-/**
- * Return a list of possible completions for the given arg.
- * @param arg The initial input to match
- * @return A trimmed array of string:value pairs
- */
-SelectionType.prototype._findPredictions = function(arg) {
-  var predictions = [];
-  var lookup = this.getLookup();
-  var i, option;
-
-  // If the arg has a suffix then we're kind of 'done'. Only an exact match
-  // will do.
-  if (arg.suffix.length > 0) {
-    for (i = 0; i < lookup.length && predictions.length < this.maxPredictions; i++) {
-      option = lookup[i];
-      if (option.name === arg.text) {
-        this._addToPredictions(predictions, option, arg);
-      }
-    }
-
-    return predictions;
-  }
-
-  // Start with prefix matching
-  for (i = 0; i < lookup.length && predictions.length < this.maxPredictions; i++) {
-    option = lookup[i];
-    if (option.name.indexOf(arg.text) === 0) {
-      this._addToPredictions(predictions, option, arg);
-    }
-  }
-
-  // Try infix matching if we get less half max matched
-  if (predictions.length < (this.maxPredictions / 2)) {
-    for (i = 0; i < lookup.length && predictions.length < this.maxPredictions; i++) {
-      option = lookup[i];
-      if (option.name.indexOf(arg.text) !== -1) {
-        if (predictions.indexOf(option) === -1) {
-          this._addToPredictions(predictions, option, arg);
-        }
-      }
-    }
-  }
-
-  // Try fuzzy matching if we don't get a prefix match
-  if (false && predictions.length === 0) {
-    var speller = new Speller();
-    var names = lookup.map(function(opt) {
-      return opt.name;
-    });
-    speller.train(names);
-    var corrected = speller.correct(arg.text);
-    if (corrected) {
-      lookup.forEach(function(opt) {
-        if (opt.name === corrected) {
-          predictions.push(opt);
-        }
-      }, this);
-    }
-  }
-
-  return predictions;
-};
-
-/**
- * Add an option to our list of predicted options.
- * We abstract out this portion of _findPredictions() because CommandType needs
- * to make an extra check before actually adding which SelectionType does not
- * need to make.
- */
-SelectionType.prototype._addToPredictions = function(predictions, option, arg) {
-  predictions.push(option);
-};
-
-SelectionType.prototype.parse = function(arg) {
-  var predictions = this._findPredictions(arg);
-
-  if (predictions.length === 0) {
-    var msg = l10n.lookupFormat('typesSelectionNomatch', [ arg.text ]);
-    return new Conversion(undefined, arg, Status.ERROR, msg, predictions);
-  }
-
-  // This is something of a hack it basically allows us to tell the
-  // setting type to forget its last setting hack.
-  if (this.noMatch) {
-    this.noMatch();
-  }
-
-  var value = predictions[0].value;
-
-  if (predictions[0].name === arg.text) {
-    return new Conversion(value, arg, Status.VALID, '', predictions);
-  }
-
-  return new Conversion(undefined, arg, Status.INCOMPLETE, '', predictions);
-};
-
-/**
- * For selections, up is down and black is white. It's like this, given a list
- * [ a, b, c, d ], it's natural to think that it starts at the top and that
- * going up the list, moves towards 'a'. However 'a' has the lowest index, so
- * for SelectionType, up is down and down is up.
- * Sorry.
- */
-SelectionType.prototype.decrement = function(value) {
-  var lookup = this.getLookup();
-  var index = this._findValue(lookup, value);
-  if (index === -1) {
-    index = 0;
-  }
-  index++;
-  if (index >= lookup.length) {
-    index = 0;
-  }
-  return lookup[index].value;
-};
-
-/**
- * See note on SelectionType.decrement()
- */
-SelectionType.prototype.increment = function(value) {
-  var lookup = this.getLookup();
-  var index = this._findValue(lookup, value);
-  if (index === -1) {
-    // For an increment operation when there is nothing to start from, we
-    // want to start from the top, i.e. index 0, so the value before we
-    // 'increment' (see note above) must be 1.
-    index = 1;
-  }
-  index--;
-  if (index < 0) {
-    index = lookup.length - 1;
-  }
-  return lookup[index].value;
-};
-
-/**
- * Walk through an array of { name:.., value:... } objects looking for a
- * matching value (using strict equality), returning the matched index (or -1
- * if not found).
- * @param lookup Array of objects with name/value properties to search through
- * @param value The value to search for
- * @return The index at which the match was found, or -1 if no match was found
- */
-SelectionType.prototype._findValue = function(lookup, value) {
-  var index = -1;
-  for (var i = 0; i < lookup.length; i++) {
-    var pair = lookup[i];
-    if (pair.value === value) {
-      index = i;
-      break;
-    }
-  }
-  return index;
-};
-
-SelectionType.prototype.name = 'selection';
-
-exports.SelectionType = SelectionType;
-
-
-});
-/*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/types/command', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/types', 'gcli/types/selection'], function(require, exports, module) {
@@ -4056,10 +4468,48 @@ var Conversion = require('gcli/types').Conversion;
  */
 exports.startup = function() {
   types.registerType(CommandType);
+  types.registerType(ParamType);
 };
 
 exports.shutdown = function() {
   types.unregisterType(CommandType);
+  types.unregisterType(ParamType);
+};
+
+
+/**
+ * Select from the available commands.
+ * This is very similar to a SelectionType, however the level of hackery in
+ * SelectionType to make it handle Commands correctly was to high, so we
+ * simplified.
+ * If you are making changes to this code, you should check there too.
+ */
+function ParamType(typeSpec) {
+  this.requisition = typeSpec.requisition;
+  this.isIncompleteName = typeSpec.isIncompleteName;
+  this.stringifyProperty = 'name';
+}
+
+ParamType.prototype = Object.create(SelectionType.prototype);
+
+ParamType.prototype.name = 'param';
+
+ParamType.prototype.lookup = function() {
+  var displayedParams = [];
+  var command = this.requisition.commandAssignment.value;
+  command.params.forEach(function(param) {
+    var arg = this.requisition.getAssignment(param.name).arg;
+    if (!param.isPositionalAllowed && arg.type === "BlankArgument") {
+      displayedParams.push({ name: '--' + param.name, value: param });
+    }
+  }, this);
+  return displayedParams;
+};
+
+ParamType.prototype.parse = function(arg) {
+  return this.isIncompleteName ?
+      SelectionType.prototype.parse.call(this, arg) :
+      new Conversion(undefined, arg, Status.ERROR, l10n.lookup('cliUnusedArg'));
 };
 
 
@@ -4092,9 +4542,6 @@ CommandType.prototype.lookup = function() {
  * Add an option to our list of predicted options
  */
 CommandType.prototype._addToPredictions = function(predictions, option, arg) {
-  if (option.value.hidden) {
-    return;
-  }
   // The command type needs to exclude sub-commands when the CLI
   // is blank, but include them when we're filtering. This hack
   // excludes matches when the filter text is '' and when the
@@ -4140,9 +4587,19 @@ CommandType.prototype.parse = function(arg) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/types/javascript', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types'], function(require, exports, module) {
@@ -4203,9 +4660,6 @@ exports.unsetGlobalObject = function() {
  * 'javascript' handles scripted input
  */
 function JavascriptType(typeSpec) {
-  if (Object.keys(typeSpec).length > 0) {
-    throw new Error('JavascriptType can not be customized');
-  }
 }
 
 JavascriptType.prototype = Object.create(Type.prototype);
@@ -4694,12 +5148,22 @@ exports.JavascriptType = JavascriptType;
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-define('gcli/types/node', ['require', 'exports', 'module' , 'gcli/host', 'gcli/l10n', 'gcli/types'], function(require, exports, module) {
+define('gcli/types/node', ['require', 'exports', 'module' , 'gcli/host', 'gcli/l10n', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
 
 
 var host = require('gcli/host');
@@ -4708,6 +5172,7 @@ var types = require('gcli/types');
 var Type = require('gcli/types').Type;
 var Status = require('gcli/types').Status;
 var Conversion = require('gcli/types').Conversion;
+var BlankArgument = require('gcli/argument').BlankArgument;
 
 
 /**
@@ -4715,10 +5180,12 @@ var Conversion = require('gcli/types').Conversion;
  */
 exports.startup = function() {
   types.registerType(NodeType);
+  types.registerType(NodeListType);
 };
 
 exports.shutdown = function() {
   types.unregisterType(NodeType);
+  types.unregisterType(NodeListType);
 };
 
 /**
@@ -4731,10 +5198,19 @@ if (typeof document !== 'undefined') {
 }
 
 /**
+ * For testing only.
+ * The fake empty NodeList used when there are no matches, we replace this with
+ * something that looks better as soon as we have a document, so not only
+ * should you not use this, but you shouldn't cache it either.
+ */
+exports._empty = [];
+
+/**
  * Setter for the document that contains the nodes we're matching
  */
 exports.setDocument = function(document) {
   doc = document;
+  exports._empty = doc.querySelectorAll('x>:root');
 };
 
 /**
@@ -4757,14 +5233,14 @@ exports.getDocument = function() {
  * A CSS expression that refers to a single node
  */
 function NodeType(typeSpec) {
-  if (Object.keys(typeSpec).length > 0) {
-    throw new Error('NodeType can not be customized');
-  }
 }
 
 NodeType.prototype = Object.create(Type.prototype);
 
 NodeType.prototype.stringify = function(value) {
+  if (value == null) {
+    return '';
+  }
   return value.__gcliQuery || 'Error';
 };
 
@@ -4805,11 +5281,81 @@ NodeType.prototype.parse = function(arg) {
 NodeType.prototype.name = 'node';
 
 
+
+/**
+ * A CSS expression that refers to a node list.
+ *
+ * The 'allowEmpty' option ensures that we do not complain if the entered CSS
+ * selector is valid, but does not match any nodes. There is some overlap
+ * between this option and 'defaultValue'. What the user wants, in most cases,
+ * would be to use 'defaultText' (i.e. what is typed rather than the value that
+ * it represents). However this isn't a concept that exists yet and should
+ * probably be a part of GCLI if/when it does.
+ * All NodeListTypes have an automatic defaultValue of an empty NodeList so
+ * they can easily be used in named parameters.
+ */
+function NodeListType(typeSpec) {
+  if ('allowEmpty' in typeSpec && typeof typeSpec.allowEmpty !== 'boolean') {
+    throw new Error('Legal values for allowEmpty are [true|false]');
+  }
+
+  this.allowEmpty = typeSpec.allowEmpty;
+}
+
+NodeListType.prototype = Object.create(Type.prototype);
+
+NodeListType.prototype.getBlank = function() {
+  return new Conversion(exports._empty, new BlankArgument(), Status.VALID);
+};
+
+NodeListType.prototype.stringify = function(value) {
+  if (value == null) {
+    return '';
+  }
+  return value.__gcliQuery || 'Error';
+};
+
+NodeListType.prototype.parse = function(arg) {
+  if (arg.text === '') {
+    return new Conversion(undefined, arg, Status.INCOMPLETE);
+  }
+
+  var nodes;
+  try {
+    nodes = doc.querySelectorAll(arg.text);
+  }
+  catch (ex) {
+    return new Conversion(undefined, arg, Status.ERROR,
+            l10n.lookup('nodeParseSyntax'));
+  }
+
+  if (nodes.length === 0 && !this.allowEmpty) {
+    return new Conversion(undefined, arg, Status.INCOMPLETE,
+        l10n.lookup('nodeParseNone'));
+  }
+
+  host.flashNodes(nodes, false);
+  return new Conversion(nodes, arg, Status.VALID, '');
+};
+
+NodeListType.prototype.name = 'nodelist';
+
+
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/host', ['require', 'exports', 'module' ], function(require, exports, module) {
@@ -4909,9 +5455,19 @@ exports.func = function(promise, funcSpec) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/types/resource', ['require', 'exports', 'module' , 'gcli/types', 'gcli/types/selection'], function(require, exports, module) {
@@ -5214,9 +5770,19 @@ var ResourceCache = {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/types/setting', ['require', 'exports', 'module' , 'gcli/settings', 'gcli/types', 'gcli/types/selection', 'gcli/types/basic'], function(require, exports, module) {
@@ -5257,10 +5823,6 @@ var lastSetting = null;
  * A type for selecting a known setting
  */
 function SettingType(typeSpec) {
-  if (Object.keys(typeSpec).length > 0) {
-    throw new Error('SettingType can not be customized');
-  }
-
   settings.onChange.add(function(ev) {
     this.clearCache();
   }, this);
@@ -5296,9 +5858,6 @@ SettingType.prototype.name = 'setting';
  * A type for entering the value of a known setting
  */
 function SettingValueType(typeSpec) {
-  if (Object.keys(typeSpec).length > 0) {
-    throw new Error('SettingType can not be customized');
-  }
 }
 
 SettingValueType.prototype = Object.create(DeferredType.prototype);
@@ -5317,9 +5876,19 @@ SettingValueType.prototype.name = 'settingValue';
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/settings', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types'], function(require, exports, module) {
@@ -5494,16 +6063,27 @@ Object.defineProperty(Setting.prototype, 'value', {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/ui/view', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/types/basic', 'gcli/argument'], function(require, exports, module) {
+define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/ui/view', 'gcli/l10n', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/types/basic', 'gcli/argument'], function(require, exports, module) {
 
 
 var util = require('gcli/util');
 var view = require('gcli/ui/view');
+var l10n = require('gcli/l10n');
 
 var canon = require('gcli/canon');
 var Promise = require('gcli/promise').Promise;
@@ -5513,6 +6093,7 @@ var Conversion = require('gcli/types').Conversion;
 var ArrayType = require('gcli/types/basic').ArrayType;
 var StringType = require('gcli/types/basic').StringType;
 var BooleanType = require('gcli/types/basic').BooleanType;
+var NumberType = require('gcli/types/basic').NumberType;
 
 var Argument = require('gcli/argument').Argument;
 var ArrayArgument = require('gcli/argument').ArrayArgument;
@@ -5557,27 +6138,20 @@ exports.shutdown = function() {
  * @constructor
  */
 function Assignment(param, paramIndex) {
+  // The parameter that we are assigning to
   this.param = param;
+
+  this.conversion = undefined;
+
+  // The index of this parameter in the parent Requisition. paramIndex === -1
+  // is the command assignment although this should not be relied upon, it is
+  // better to test param instanceof CommandAssignment
   this.paramIndex = paramIndex;
+
   this.onAssignmentChange = util.createEvent('Assignment.onAssignmentChange');
 
   this.setBlank();
 }
-
-/**
- * The parameter that we are assigning to
- * @readonly
- */
-Assignment.prototype.param = undefined;
-
-Assignment.prototype.conversion = undefined;
-
-/**
- * The index of this parameter in the parent Requisition. paramIndex === -1
- * is the command assignment although this should not be relied upon, it is
- * better to test param instanceof CommandAssignment
- */
-Assignment.prototype.paramIndex = undefined;
 
 /**
  * Easy accessor for conversion.arg.
@@ -5617,6 +6191,47 @@ Assignment.prototype.getMessage = function() {
  */
 Assignment.prototype.getPredictions = function() {
   return this.conversion.getPredictions();
+};
+
+/**
+ * Accessor for a prediction by index.
+ * This is useful above <tt>getPredictions()[index]</tt> because it normalizes
+ * index to be within the bounds of the predictions, which means that the UI
+ * can maintain an index of which prediction to choose without caring how many
+ * predictions there are.
+ * @param index The index of the prediction to choose
+ */
+Assignment.prototype.getPredictionAt = function(index) {
+  if (index == null) {
+    index = 0;
+  }
+
+  if (this.isInName()) {
+    return undefined;
+  }
+
+  var predictions = this.getPredictions();
+  if (predictions.length === 0) {
+    return undefined;
+  }
+
+  index = index % predictions.length;
+  if (index < 0) {
+    index = predictions.length + index;
+  }
+  return predictions[index];
+};
+
+/**
+ * Some places want to take special action if we are in the name part of a
+ * named argument (i.e. the '--foo' bit).
+ * Currently this does not take actual cursor position into account, it just
+ * assumes that the cursor is at the end. In the future we will probably want
+ * to take this into account.
+ */
+Assignment.prototype.isInName = function() {
+  return this.conversion.arg.type === 'NamedArgument' &&
+         this.conversion.arg.prefix.slice(-1) !== ' ';
 };
 
 /**
@@ -5662,11 +6277,12 @@ Assignment.prototype.ensureVisibleArgument = function() {
   // case we're going to ignore the event anyway. But on the other hand
   // perhaps this function shouldn't need to know how it is used, and should
   // do the inefficient thing.
-  if (!this.conversion.arg.isBlank()) {
+  if (this.conversion.arg.type !== 'BlankArgument') {
     return false;
   }
 
-  var arg = this.conversion.arg.beget('', {
+  var arg = this.conversion.arg.beget({
+    text: '',
     prefixSpace: this.param instanceof CommandAssignment
   });
   this.conversion = this.param.type.parse(arg);
@@ -5684,43 +6300,17 @@ Assignment.prototype.ensureVisibleArgument = function() {
  */
 Assignment.prototype.getStatus = function(arg) {
   if (this.param.isDataRequired && !this.conversion.isDataProvided()) {
-    return Status.ERROR;
+    return Status.INCOMPLETE;
   }
 
   // Selection/Boolean types with a defined range of values will say that
   // '' is INCOMPLETE, but the parameter may be optional, so we don't ask
   // if the user doesn't need to enter something and hasn't done so.
-  if (!this.param.isDataRequired && this.arg.isBlank()) {
+  if (!this.param.isDataRequired && this.arg.type === 'BlankArgument') {
     return Status.VALID;
   }
 
   return this.conversion.getStatus(arg);
-};
-
-/**
- * Replace the current value with the lower value if such a concept exists.
- */
-Assignment.prototype.decrement = function() {
-  var replacement = this.param.type.decrement(this.conversion.value);
-  if (replacement != null) {
-    var str = this.param.type.stringify(replacement);
-    var arg = this.conversion.arg.beget(str);
-    var conversion = new Conversion(replacement, arg);
-    this.setConversion(conversion);
-  }
-};
-
-/**
- * Replace the current value with the higher value if such a concept exists.
- */
-Assignment.prototype.increment = function() {
-  var replacement = this.param.type.increment(this.conversion.value);
-  if (replacement != null) {
-    var str = this.param.type.stringify(replacement);
-    var arg = this.conversion.arg.beget(str);
-    var conversion = new Conversion(replacement, arg);
-    this.setConversion(conversion);
-  }
 };
 
 /**
@@ -5729,6 +6319,26 @@ Assignment.prototype.increment = function() {
 Assignment.prototype.toString = function() {
   return this.conversion.toString();
 };
+
+/**
+ * For test/debug use only. The output from this function is subject to wanton
+ * random change without notice, and should not be relied upon to even exist
+ * at some later date.
+ */
+Object.defineProperty(Assignment.prototype, '_summaryJson', {
+  get: function() {
+    return {
+      param: this.param.name + '/' + this.param.type.name,
+      defaultValue: this.param.defaultValue,
+      arg: this.conversion.arg._summaryJson,
+      value: this.value,
+      message: this.getMessage(),
+      status: this.getStatus().toString(),
+      predictionCount: this.getPredictions().length
+    };
+  },
+  enumerable: true
+});
 
 exports.Assignment = Assignment;
 
@@ -5823,31 +6433,27 @@ exports.CommandAssignment = CommandAssignment;
 /**
  * Special assignment used when ignoring parameters that don't have a home
  */
-function UnassignedAssignment() {
+function UnassignedAssignment(requisition, arg) {
   this.param = new canon.Parameter({
     name: '__unassigned',
-    type: 'string'
+    description: l10n.lookup('cliOptions'),
+    type: {
+      name: 'param',
+      requisition: requisition,
+      isIncompleteName: (arg.text.charAt(0) === '-')
+    },
   });
   this.paramIndex = -1;
   this.onAssignmentChange = util.createEvent('UnassignedAssignment.onAssignmentChange');
 
-  this.setBlank();
+  this.conversion = this.param.type.parse(arg);
+  this.conversion.assign(this);
 }
 
 UnassignedAssignment.prototype = Object.create(Assignment.prototype);
 
 UnassignedAssignment.prototype.getStatus = function(arg) {
-  return Status.ERROR;
-};
-
-UnassignedAssignment.prototype.setUnassigned = function(args) {
-  if (!args || args.length === 0) {
-    this.setBlank();
-  }
-  else {
-    var conversion = this.param.type.parse(new MergedArgument(args));
-    this.setConversion(conversion);
-  }
+  return this.conversion.getStatus();
 };
 
 
@@ -5909,7 +6515,7 @@ function Requisition(environment, doc) {
   this._args = [];
 
   // Used to store cli arguments that were not assigned to parameters
-  this._unassigned = new UnassignedAssignment();
+  this._unassigned = [];
 
   // Temporarily set this to true to prevent _assignmentChanged resetting
   // argument positions
@@ -5923,12 +6529,6 @@ function Requisition(environment, doc) {
   this.onAssignmentChange = util.createEvent('Requisition.onAssignmentChange');
   this.onTextChange = util.createEvent('Requisition.onTextChange');
 }
-
-/**
- * Some number that is higher than the most args we'll ever have. Would use
- * MAX_INTEGER if that made sense
- */
-var MORE_THAN_THE_MOST_ARGS_POSSIBLE = 1000000;
 
 /**
  * Avoid memory leaks
@@ -5963,47 +6563,6 @@ Requisition.prototype._assignmentChanged = function(ev) {
   if (ev.conversion.argEquals(ev.oldConversion)) {
     return;
   }
-
-  this._structuralChangeInProgress = true;
-
-  // Refactor? See bug 660765
-  // Do preceding arguments need to have dummy values applied so we don't
-  // get a hole in the command line?
-  var i;
-  if (ev.assignment.param.isPositionalAllowed) {
-    for (i = 0; i < ev.assignment.paramIndex; i++) {
-      var assignment = this.getAssignment(i);
-      if (assignment.param.isPositionalAllowed) {
-        if (assignment.ensureVisibleArgument()) {
-          this._args.push(assignment.arg);
-        }
-      }
-    }
-  }
-
-  // Remember where we found the first match
-  var index = MORE_THAN_THE_MOST_ARGS_POSSIBLE;
-  for (i = 0; i < this._args.length; i++) {
-    if (this._args[i].assignment === ev.assignment) {
-      if (i < index) {
-        index = i;
-      }
-      this._args.splice(i, 1);
-      i--;
-    }
-  }
-
-  if (index === MORE_THAN_THE_MOST_ARGS_POSSIBLE) {
-    this._args.push(ev.assignment.arg);
-  }
-  else {
-    // Is there a way to do this that doesn't involve a loop?
-    var newArgs = ev.conversion.arg.getArgs();
-    for (i = 0; i < newArgs.length; i++) {
-      this._args.splice(index + i, 0, newArgs[i]);
-    }
-  }
-  this._structuralChangeInProgress = false;
 
   this.onTextChange();
 };
@@ -6046,6 +6605,28 @@ Requisition.prototype.getAssignment = function(nameOrNumber) {
 };
 
 /**
+ * There are a few places where we need to know what the 'next thing' is. What
+ * is the user going to be filling out next (assuming they don't enter a named
+ * argument). The next argument is the first in line that is both blank, and
+ * that can be filled in positionally.
+ * @return The next assignment to be used, or null if all the positional
+ * parameters have values.
+ */
+Requisition.prototype._getFirstBlankPositionalAssignment = function() {
+  var reply = null;
+  Object.keys(this._assignments).some(function(name) {
+    var assignment = this.getAssignment(name);
+    if (assignment.arg.type === 'BlankArgument' &&
+            assignment.param.isPositionalAllowed) {
+      reply = assignment;
+      return true; // i.e. break
+    }
+    return false;
+  }, this);
+  return reply;
+};
+
+/**
  * Where parameter name == assignment names - they are the same
  */
 Requisition.prototype.getParameterNames = function() {
@@ -6072,9 +6653,16 @@ Requisition.prototype.cloneAssignments = function() {
  */
 Requisition.prototype.getStatus = function() {
   var status = Status.VALID;
-  if (!this._unassigned.arg.isBlank()) {
-    return Status.ERROR;
+  if (this._unassigned.length !== 0) {
+    var isAllIncomplete = true;
+    this._unassigned.forEach(function(assignment) {
+      if (!assignment.param.type.isIncompleteName) {
+        isAllIncomplete = false;
+      }
+    });
+    status = isAllIncomplete ? Status.INCOMPLETE : Status.ERROR;
   }
+
   this.getAssignments(true).forEach(function(assignment) {
     var assignStatus = assignment.getStatus();
     if (assignStatus > status) {
@@ -6119,6 +6707,43 @@ Requisition.prototype.getAssignments = function(includeCommand) {
 };
 
 /**
+ * Alter the given assignment using the given arg. This function is better than
+ * calling assignment.setConversion(assignment.param.type.parse(arg)) because
+ * it adjusts the args in this requisition to keep things up to date
+ */
+Requisition.prototype.setAssignment = function(assignment, arg) {
+  var originalArgs = assignment.arg.getArgs();
+  var conversion = assignment.param.type.parse(arg);
+  assignment.setConversion(conversion);
+
+  var replacementArgs = arg.getArgs();
+  var maxLen = Math.max(originalArgs.length, replacementArgs.length);
+  for (var i = 0; i < maxLen; i++) {
+    // If there are no more original args, or if the original arg was blank
+    // (i.e. not typed by the user), we'll just need to add at the end
+    if (i >= originalArgs.length || originalArgs[i].type === 'BlankArgument') {
+      this._args.push(replacementArgs[i]);
+      continue;
+    }
+
+    var index = this._args.indexOf(originalArgs[i]);
+    if (index === -1) {
+      console.error('Couldn\'t find ', originalArgs[i], ' in ', this._args);
+      throw new Error('Couldn\'t find ' + originalArgs[i]);
+    }
+
+    // If there are no more replacement args, we just remove the original args
+    // Otherwise swap original args and replacements
+    if (i >= replacementArgs.length) {
+      this._args.splice(index, 1);
+    }
+    else {
+      this._args[index] = replacementArgs[i];
+    }
+  }
+};
+
+/**
  * Reset all the assignments to their default values
  */
 Requisition.prototype.setBlankArguments = function() {
@@ -6143,78 +6768,82 @@ Requisition.prototype.setBlankArguments = function() {
 Requisition.prototype.complete = function(cursor, predictionChoice) {
   var assignment = this.getAssignmentAt(cursor.start);
 
-  var predictions = assignment.conversion.getPredictions();
-  if (predictions.length > 0) {
-    this.onTextChange.holdFire();
+  this.onTextChange.holdFire();
 
-    var prediction = assignment.conversion.getPredictionAt(predictionChoice);
+  var prediction = assignment.getPredictionAt(predictionChoice);
+  if (prediction == null) {
+    // No predictions generally means we shouldn't change anything on TAB, but
+    // TAB has the connotation of 'next thing' and when we're at the end of
+    // a thing that implies that we should add a space. i.e.
+    // 'help<TAB>' -> 'help '
+    // But we should only do this if the thing that we're 'completing' is valid
+    // and doesn't already end in a space.
+    if (assignment.arg.suffix.slice(-1) !== ' ' &&
+            assignment.getStatus() === Status.VALID) {
+      this._addSpace(assignment);
+    }
 
+    // Also add a space if we are in the name part of an assignment, however
+    // this time we don't want the 'push the space to the next assignment'
+    // logic, so we don't use addSpace
+    if (assignment.isInName()) {
+      var newArg = assignment.conversion.arg.beget({ prefixPostSpace: true });
+      this.setAssignment(assignment, newArg);
+    }
+  }
+  else {
     // Mutate this argument to hold the completion
-    var arg = assignment.arg.beget(prediction.name);
-    var conversion = assignment.param.type.parse(arg);
-    assignment.setConversion(conversion);
+    var arg = assignment.arg.beget({ text: prediction.name });
+    this.setAssignment(assignment, arg);
 
-    // If this argument isn't assigned to anything (i.e. it was created by
-    // assignment.setBlank) we need to add it into the _args array so
-    // requisition.toString can make sense
-    if (this._args.indexOf(arg) === -1) {
-      this._args.push(arg);
-    }
+    if (!prediction.incomplete) {
+      // The prediction is complete, add a space to let the user move-on
+      this._addSpace(assignment);
 
-    if (prediction.incomplete) {
-      // This is the easy case - the prediction is incomplete - no need to add
-      // any spaces
-      return;
-    }
-
-    // The prediction reported !incomplete, which means it's complete so we
-    // should add a space to delimit this argument and let the user move-on.
-    // The question is, where does the space go? The obvious thing to do is to
-    // add it to the suffix of the completed argument, but that's wrong because
-    // spaces are attached to the start of the next argument rather than the
-    // end of the previous one (and this matters to getCurrentAssignment).
-    // However there might not be a next argument (if we've at the end of the
-    // input), in which case we really do use this one.
-    // Also if there is already a space in those positions, don't add another
-
-    var nextIndex = assignment.paramIndex + 1;
-    var nextAssignment = this.getAssignment(nextIndex);
-    if (nextAssignment) {
-      // Add a space onto the next argument (if there isn't one there already)
-      var nextArg = nextAssignment.conversion.arg;
-      if (nextArg.prefix.charAt(0) !== ' ') {
-        nextArg.prefix = ' ' + nextArg.prefix;
-        var nextConversion = nextAssignment.param.type.parse(nextArg);
-        nextAssignment.setConversion(nextConversion);
-
-        // If this argument isn't assigned to anything (i.e. it was created by
-        // assignment.setBlank) we need to add it into the _args array so
-        // requisition.toString can make sense
-        if (this._args.indexOf(nextArg) === -1) {
-          this._args.push(nextArg);
-        }
+      // Bug 779443 - Remove or explain the reparse
+      if (assignment instanceof UnassignedAssignment) {
+        this.update(this.toString());
       }
     }
-    else {
-      // There is no next argument, this must be the last assignment, so just
-      // add the space to the prefix of this argument
-      var conversion = assignment.conversion;
-      var arg = conversion.arg;
-      if (arg.suffix.charAt(arg.suffix.length - 1) !== ' ') {
-        arg.suffix = arg.suffix + ' ';
+  }
 
-        // It's tempting to think - "we're calling setConversion twice in one
-        // call to complete, the first time to complete the text, the second
-        // to add a space, why not save the event cascade and do it once"
-        // However if we're setting up the command, the number of parameters
-        // changes as a result, so our call to getAssignment(nextIndex) will
-        // produce the wrong answer
-        assignment.setConversion(conversion);
-      }
-    }
+  this.onTextChange();
+  this.onTextChange.resumeFire();
+};
 
-    this.onTextChange();
-    this.onTextChange.resumeFire();
+/**
+ * Pressing TAB sometimes requires that we add a space to denote that we're on
+ * to the 'next thing'.
+ * @param assignment The assignment to which to append the space
+ */
+Requisition.prototype._addSpace = function(assignment) {
+  var arg = assignment.conversion.arg.beget({ suffixSpace: true });
+  if (arg !== assignment.conversion.arg) {
+    this.setAssignment(assignment, arg);
+  }
+};
+
+/**
+ * Replace the current value with the lower value if such a concept exists.
+ */
+Requisition.prototype.decrement = function(assignment) {
+  var replacement = assignment.param.type.decrement(assignment.conversion.value);
+  if (replacement != null) {
+    var str = assignment.param.type.stringify(replacement);
+    var arg = assignment.conversion.arg.beget({ text: str });
+    this.setAssignment(assignment, arg);
+  }
+};
+
+/**
+ * Replace the current value with the higher value if such a concept exists.
+ */
+Requisition.prototype.increment = function(assignment) {
+  var replacement = assignment.param.type.increment(assignment.conversion.value);
+  if (replacement != null) {
+    var str = assignment.param.type.stringify(replacement);
+    var arg = assignment.conversion.arg.beget({ text: str });
+    this.setAssignment(assignment, arg);
   }
 };
 
@@ -6318,9 +6947,16 @@ Requisition.prototype.toString = function() {
  * @return true iff the last character is interpreted as parameter separating
  * whitespace
  */
-Requisition.prototype.typedEndsWithWhitespace = function() {
+Requisition.prototype.typedEndsWithSeparator = function() {
+  // This is not as easy as doing (this.toString().slice(-1) === ' ')
+  // See the doc comments above; We're checking for separators, not spaces
   if (this._args) {
-    return this._args.slice(-1)[0].suffix.slice(-1) === ' ';
+    var lastArg = this._args.slice(-1)[0];
+    if (lastArg.suffix.slice(-1) === ' ') {
+      return true;
+    }
+    return lastArg.text === '' && lastArg.suffix === ''
+        && lastArg.prefix.slice(-1) === ' ';
   }
 
   return this.toCanonicalString().slice(-1) === ' ';
@@ -6351,8 +6987,16 @@ Requisition.prototype.getInputStatusMarkup = function(cursor) {
       status = arg.assignment.getStatus(arg);
       // Promote INCOMPLETE to ERROR  ...
       if (status === Status.INCOMPLETE) {
-        // If the cursor is not in a position to be able to complete it
-        if (arg !== cTrace.arg || cTrace.part !== 'text') {
+        // If the cursor is in the prefix or suffix of an argument then we
+        // don't consider it in the argument for the purposes of preventing
+        // the escalation to ERROR. However if this is a NamedArgument, then we
+        // allow the suffix (as space between 2 parts of the argument) to be in.
+        // We use arg.assignment.arg not arg because we're looking at the arg
+        // that got put into the assignment not as returned by tokenize()
+        var isNamed = (cTrace.arg.assignment.arg.type === 'NamedArgument');
+        var isInside = cTrace.part === 'text' ||
+                        (isNamed && cTrace.part === 'suffix');
+        if (arg.assignment !== cTrace.arg.assignment || !isInside) {
           // And if we're not in the command
           if (!(arg.assignment instanceof CommandAssignment)) {
             status = Status.ERROR;
@@ -6410,15 +7054,21 @@ Requisition.prototype.getAssignmentAt = function(cursor) {
       assignForPos.push(assignment);
     }
 
-    // suffix looks forwards
-    if (this._args.length > i + 1) {
+    // suffix is part of the argument only if this is a named parameter,
+    // otherwise it looks forwards
+    if (arg.assignment.arg.type === 'NamedArgument') {
+      // leave the argument as it is
+    }
+    else if (this._args.length > i + 1) {
       // first to the next argument
       assignment = this._args[i + 1].assignment;
     }
-    else if (assignment &&
-        assignment.paramIndex + 1 < this.assignmentCount) {
-      // then to the next assignment
-      assignment = this.getAssignment(assignment.paramIndex + 1);
+    else {
+      // then to the first blank positional parameter, leaving 'as is' if none
+      var nextAssignment = this._getFirstBlankPositionalAssignment();
+      if (nextAssignment != null) {
+        assignment = nextAssignment;
+      }
     }
 
     for (j = 0; j < arg.suffix.length; j++) {
@@ -6433,7 +7083,7 @@ Requisition.prototype.getAssignmentAt = function(cursor) {
 
   if (!reply) {
     throw new Error('Missing assignment.' +
-      ' cursor=' + cursor + ' text.length=' + this.toString().length);
+        ' cursor=' + cursor + ' text=' + this.toString());
   }
 
   return reply;
@@ -6513,7 +7163,7 @@ Requisition.prototype.exec = function(input) {
     var context = exports.createExecutionContext(this);
     var reply = command.exec(args, context);
 
-    if (reply != null && reply.isPromise) {
+    if (reply != null && typeof reply.then === 'function') {
       reply.then(
           function(data) { output.complete(data); },
           function(error) { output.error = true; output.complete(error); });
@@ -6539,12 +7189,6 @@ Requisition.prototype.exec = function(input) {
 /**
  * Called by the UI when ever the user interacts with a command line input
  * @param typed The contents of the input field
- * <p>The general sequence is:
- * <ul>
- * <li>_tokenize(): convert _typed into _parts
- * <li>_split(): convert _parts into _command and _unparsedArgs
- * <li>_assign(): convert _unparsedArgs into requisition
- * </ul>
  */
 Requisition.prototype.update = function(typed) {
   this._structuralChangeInProgress = true;
@@ -6557,6 +7201,32 @@ Requisition.prototype.update = function(typed) {
   this._structuralChangeInProgress = false;
   this.onTextChange();
 };
+
+/**
+ * For test/debug use only. The output from this function is subject to wanton
+ * random change without notice, and should not be relied upon to even exist
+ * at some later date.
+ */
+Object.defineProperty(Requisition.prototype, '_summaryJson', {
+  get: function() {
+    var summary = {
+      $args: this._args.map(function(arg) {
+        return arg._summaryJson;
+      }),
+      _command: this.commandAssignment._summaryJson,
+      _unassigned: this._unassigned.forEach(function(assignment) {
+        return assignment._summaryJson;
+      })
+    };
+
+    Object.keys(this._assignments).forEach(function(name) {
+      summary[name] = this.getAssignment(name)._summaryJson;
+    }.bind(this));
+
+    return summary;
+  },
+  enumerable: true
+});
 
 /**
  * Requisition._tokenize() is a state machine. These are the states.
@@ -6802,7 +7472,7 @@ Requisition.prototype._split = function(args) {
   // We use the hidden 'eval' command directly rather than shift()ing one of
   // the parameters, and parse()ing it.
   var conversion;
-  if (args[0] instanceof ScriptArgument) {
+  if (args[0].type === 'ScriptArgument') {
     // Special case: if the user enters { console.log('foo'); } then we need to
     // use the hidden 'eval' command
     conversion = new Conversion(evalCommand, new ScriptArgument());
@@ -6843,24 +7513,34 @@ Requisition.prototype._split = function(args) {
 };
 
 /**
+ * Add all the passed args to the list of unassigned assignments.
+ */
+Requisition.prototype._addUnassignedArgs = function(args) {
+  args.forEach(function(arg) {
+    this._unassigned.push(new UnassignedAssignment(this, arg));
+  }.bind(this));
+};
+
+/**
  * Work out which arguments are applicable to which parameters.
  */
 Requisition.prototype._assign = function(args) {
+  this._unassigned = [];
+
   if (!this.commandAssignment.value) {
-    this._unassigned.setUnassigned(args);
+    this._addUnassignedArgs(args);
     return;
   }
 
   if (args.length === 0) {
     this.setBlankArguments();
-    this._unassigned.setBlank();
     return;
   }
 
   // Create an error if the command does not take parameters, but we have
   // been given them ...
   if (this.assignmentCount === 0) {
-    this._unassigned.setUnassigned(args);
+    this._addUnassignedArgs(args);
     return;
   }
 
@@ -6874,14 +7554,13 @@ Requisition.prototype._assign = function(args) {
         new MergedArgument(args);
       var conversion = assignment.param.type.parse(arg);
       assignment.setConversion(conversion);
-      this._unassigned.setBlank();
       return;
     }
   }
 
   // Positional arguments can still be specified by name, but if they are
   // then we need to ignore them when working them out positionally
-  var names = this.getParameterNames();
+  var unassignedParams = this.getParameterNames();
 
   // We collect the arguments used in arrays here before assigning
   var arrayArgs = {};
@@ -6894,17 +7573,17 @@ Requisition.prototype._assign = function(args) {
     while (i < args.length) {
       if (assignment.param.isKnownAs(args[i].text)) {
         var arg = args.splice(i, 1)[0];
-        names = names.filter(function(test) {
+        unassignedParams = unassignedParams.filter(function(test) {
           return test !== assignment.param.name;
         });
 
         // boolean parameters don't have values, default to false
         if (assignment.param.type instanceof BooleanType) {
-          arg = new TrueNamedArgument(null, arg);
+          arg = new TrueNamedArgument(arg);
         }
         else {
           var valueArg = null;
-          if (i + 1 >= args.length) {
+          if (i + 1 <= args.length) {
             valueArg = args.splice(i, 1)[0];
           }
           arg = new NamedArgument(arg, valueArg);
@@ -6931,7 +7610,7 @@ Requisition.prototype._assign = function(args) {
   }, this);
 
   // What's left are positional parameters assign in order
-  names.forEach(function(name) {
+  unassignedParams.forEach(function(name) {
     var assignment = this.getAssignment(name);
 
     // If not set positionally, and we can't set it non-positionally,
@@ -6953,12 +7632,25 @@ Requisition.prototype._assign = function(args) {
       args = [];
     }
     else {
-      var arg = (args.length > 0) ?
-          args.splice(0, 1)[0] :
-          new Argument();
+      if (args.length === 0) {
+        assignment.setBlank();
+      }
+      else {
+        var arg = args.splice(0, 1)[0];
+        // --foo and -f are named parameters, -4 is a number. So '-' is either
+        // the start of a named parameter or a number depending on the context
+        var isIncompleteName = assignment.param.type instanceof NumberType ?
+            /-[-a-zA-Z_]/.test(arg.text) :
+            arg.text.charAt(0) === '-';
 
-      var conversion = assignment.param.type.parse(arg);
-      assignment.setConversion(conversion);
+        if (isIncompleteName) {
+          this._unassigned.push(new UnassignedAssignment(this, arg));
+        }
+        else {
+          var conversion = assignment.param.type.parse(arg);
+          assignment.setConversion(conversion);
+        }
+      }
     }
   }, this);
 
@@ -6969,7 +7661,8 @@ Requisition.prototype._assign = function(args) {
     assignment.setConversion(conversion);
   }, this);
 
-  this._unassigned.setUnassigned(args);
+  // What's left is can't be assigned, but we need to extract
+  this._addUnassignedArgs(args);
 };
 
 exports.Requisition = Requisition;
@@ -7105,9 +7798,19 @@ exports.createExecutionContext = function(requisition) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/view', ['require', 'exports', 'module' , 'gcli/util', 'gcli/ui/domtemplate'], function(require, exports, module) {
@@ -7185,9 +7888,19 @@ exports.createView = function(options) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/domtemplate', ['require', 'exports', 'module' ], function(require, exports, module) {
@@ -7715,9 +8428,19 @@ exports.template = template;
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/promise', ['require', 'exports', 'module' ], function(require, exports, module) {
@@ -7984,16 +8707,26 @@ Promise._setTimeout = function(callback, delay) {
  * Promise._error allows us to redirect error messages to the console with
  * minimal changes.
  */
-Promise._error = console.warn.bind(console);
+Promise._error = function() { console.warn(arguments); };
 
 
 exports.Promise = Promise;
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/intro', ['require', 'exports', 'module' , 'gcli/settings', 'gcli/l10n', 'gcli/util', 'gcli/ui/view', 'gcli/cli', 'text!gcli/ui/intro.html'], function(require, exports, module) {
@@ -8083,9 +8816,19 @@ define("text!gcli/ui/intro.html", [], "\n" +
   "");
 
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/focus', ['require', 'exports', 'module' , 'gcli/util', 'gcli/settings', 'gcli/l10n', 'gcli/canon'], function(require, exports, module) {
@@ -8228,6 +8971,11 @@ FocusManager.prototype.addMonitoredElement = function(element, where) {
 
   element.addEventListener('focus', monitor.onFocus, true);
   element.addEventListener('blur', monitor.onBlur, true);
+
+  if (this._document.activeElement === element) {
+    this._reportFocus(where);
+  }
+
   this._monitoredElements.push(monitor);
 };
 
@@ -8345,9 +9093,9 @@ FocusManager.prototype._eagerHelperChanged = function() {
 
 /**
  * The inputter tells us about keyboard events so we can decide to delay
- * showing the tooltip element, (or if the keypress is F1, show it now)
+ * showing the tooltip element
  */
-FocusManager.prototype.onInputChange = function(ev) {
+FocusManager.prototype.onInputChange = function() {
   this._recentOutput = false;
   this._checkShow();
 };
@@ -8440,12 +9188,16 @@ FocusManager.prototype._checkShow = function() {
  * available inputs
  */
 FocusManager.prototype._shouldShowTooltip = function() {
+  if (!this._hasFocus) {
+    return { visible: false, reason: 'notHasFocus' };
+  }
+
   if (eagerHelper.value === Eagerness.NEVER) {
-    return { visible: false, reason: 'eagerHelper !== NEVER' };
+    return { visible: false, reason: 'eagerHelperNever' };
   }
 
   if (eagerHelper.value === Eagerness.ALWAYS) {
-    return { visible: true, reason: 'eagerHelper !== ALWAYS' };
+    return { visible: true, reason: 'eagerHelperAlways' };
   }
 
   if (this._isError) {
@@ -8468,6 +9220,10 @@ FocusManager.prototype._shouldShowTooltip = function() {
  * available inputs
  */
 FocusManager.prototype._shouldShowOutput = function() {
+  if (!this._hasFocus) {
+    return { visible: false, reason: 'notHasFocus' };
+  }
+
   if (this._recentOutput) {
     return { visible: true, reason: 'recentOutput' };
   }
@@ -8480,9 +9236,19 @@ exports.FocusManager = FocusManager;
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/fields/basic', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/argument', 'gcli/types', 'gcli/types/basic', 'gcli/ui/fields'], function(require, exports, module) {
@@ -8564,7 +9330,7 @@ StringField.prototype.setConversion = function(conversion) {
 
 StringField.prototype.getConversion = function() {
   // This tweaks the prefix/suffix of the argument to fit
-  this.arg = this.arg.beget(this.element.value, { prefixSpace: true });
+  this.arg = this.arg.beget({ text: this.element.value, prefixSpace: true });
   return this.type.parse(this.arg);
 };
 
@@ -8619,7 +9385,7 @@ NumberField.prototype.setConversion = function(conversion) {
 };
 
 NumberField.prototype.getConversion = function() {
-  this.arg = this.arg.beget(this.element.value, { prefixSpace: true });
+  this.arg = this.arg.beget({ text: this.element.value, prefixSpace: true });
   return this.type.parse(this.arg);
 };
 
@@ -8666,7 +9432,7 @@ BooleanField.prototype.getConversion = function() {
   var arg;
   if (this.named) {
     arg = this.element.checked ?
-            new TrueNamedArgument(this.name) :
+            new TrueNamedArgument(new Argument(' --' + this.name)) :
             new FalseNamedArgument();
   }
   else {
@@ -8850,9 +9616,19 @@ ArrayField.prototype._onAdd = function(ev, subConversion) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/fields', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types/basic'], function(require, exports, module) {
@@ -9088,9 +9864,19 @@ exports.addField(BlankField);
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/fields/javascript', ['require', 'exports', 'module' , 'gcli/util', 'gcli/argument', 'gcli/types/javascript', 'gcli/ui/fields/menu', 'gcli/ui/fields'], function(require, exports, module) {
@@ -9098,7 +9884,7 @@ define('gcli/ui/fields/javascript', ['require', 'exports', 'module' , 'gcli/util
 
 var util = require('gcli/util');
 
-var Argument = require('gcli/argument').Argument;
+var ScriptArgument = require('gcli/argument').ScriptArgument;
 var JavascriptType = require('gcli/types/javascript').JavascriptType;
 
 var Menu = require('gcli/ui/fields/menu').Menu;
@@ -9125,7 +9911,7 @@ function JavascriptField(type, options) {
   Field.call(this, type, options);
 
   this.onInputChange = this.onInputChange.bind(this);
-  this.arg = new Argument('', '{ ', ' }');
+  this.arg = new ScriptArgument('', '{ ', ' }');
 
   this.element = util.createElement(this.document, 'div');
 
@@ -9143,7 +9929,7 @@ function JavascriptField(type, options) {
   });
   this.element.appendChild(this.menu.element);
 
-  this.setConversion(this.type.parse(new Argument('')));
+  this.setConversion(this.type.parse(new ScriptArgument('')));
 
   this.onFieldChange = util.createEvent('JavascriptField.onFieldChange');
 
@@ -9213,7 +9999,7 @@ JavascriptField.prototype.onInputChange = function(ev) {
 
 JavascriptField.prototype.getConversion = function() {
   // This tweaks the prefix/suffix of the argument to fit
-  this.arg = this.arg.beget(this.input.value, { normalize: true });
+  this.arg = new ScriptArgument(this.input.value, '{ ', ' }');
   return this.type.parse(this.arg);
 };
 
@@ -9222,17 +10008,29 @@ JavascriptField.DEFAULT_VALUE = '__JavascriptField.DEFAULT_VALUE';
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-define('gcli/ui/fields/menu', ['require', 'exports', 'module' , 'gcli/util', 'gcli/argument', 'gcli/canon', 'gcli/ui/domtemplate', 'text!gcli/ui/fields/menu.css', 'text!gcli/ui/fields/menu.html'], function(require, exports, module) {
+define('gcli/ui/fields/menu', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/argument', 'gcli/types', 'gcli/canon', 'gcli/ui/domtemplate', 'text!gcli/ui/fields/menu.css', 'text!gcli/ui/fields/menu.html'], function(require, exports, module) {
 
 
 var util = require('gcli/util');
+var l10n = require('gcli/l10n');
 
 var Argument = require('gcli/argument').Argument;
+var Conversion = require('gcli/types').Conversion;
 var canon = require('gcli/canon');
 
 var domtemplate = require('gcli/ui/domtemplate');
@@ -9283,6 +10081,11 @@ function Menu(options) {
 }
 
 /**
+ * Allow the template engine to get at localization strings
+ */
+Menu.prototype.l10n = l10n.propertyLookup;
+
+/**
  * Avoid memory leaks
  */
 Menu.prototype.destroy = function() {
@@ -9325,6 +10128,11 @@ Menu.prototype.show = function(items, match) {
   if (this.items.length === 0) {
     this.element.style.display = 'none';
     return;
+  }
+
+  if (this.items.length >= Conversion.maxPredictions) {
+    this.items.splice(-1);
+    this.items.hasMore = true;
   }
 
   var options = this.template.cloneNode(true);
@@ -9393,17 +10201,21 @@ Menu.prototype.setChoiceIndex = function(choice) {
 /**
  * Allow the inputter to use RETURN to chose the current menu item when
  * it can't execute the command line
+ * @return true if an item was 'clicked', false otherwise
  */
 Menu.prototype.selectChoice = function() {
   var selected = this.element.querySelector('.gcli-menu-highlight .gcli-menu-name');
-  if (selected) {
-    var name = selected.innerHTML;
-    var arg = new Argument(name);
-    arg.suffix = ' ';
-
-    var conversion = this.type.parse(arg);
-    this.onItemClick({ conversion: conversion });
+  if (!selected) {
+    return false;
   }
+
+  var name = selected.innerHTML;
+  var arg = new Argument(name);
+  arg.suffix = ' ';
+
+  var conversion = this.type.parse(arg);
+  this.onItemClick({ conversion: conversion });
+  return true;
 };
 
 /**
@@ -9479,22 +10291,42 @@ define("text!gcli/ui/fields/menu.css", [], "\n" +
   ".gcli-menu-typed {\n" +
   "  color: #FF6600;\n" +
   "}\n" +
+  "\n" +
+  ".gcli-menu-more {\n" +
+  "  font-size: 80%;\n" +
+  "  text-align: right;\n" +
+  "  -moz-padding-end: 8px;\n" +
+  "  -webkit-padding-end: 8px;\n" +
+  "}\n" +
   "");
 
 define("text!gcli/ui/fields/menu.html", [], "\n" +
-  "<table class=\"gcli-menu-template\" aria-live=\"polite\">\n" +
-  "  <tr class=\"gcli-menu-option\" foreach=\"item in ${items}\"\n" +
-  "      onclick=\"${onItemClickInternal}\" title=\"${item.manual}\">\n" +
-  "    <td class=\"gcli-menu-name\">${item.name}</td>\n" +
-  "    <td class=\"gcli-menu-desc\">${item.description}</td>\n" +
-  "  </tr>\n" +
-  "</table>\n" +
+  "<div>\n" +
+  "  <table class=\"gcli-menu-template\" aria-live=\"polite\">\n" +
+  "    <tr class=\"gcli-menu-option\" foreach=\"item in ${items}\"\n" +
+  "        onclick=\"${onItemClickInternal}\" title=\"${item.manual}\">\n" +
+  "      <td class=\"gcli-menu-name\">${item.name}</td>\n" +
+  "      <td class=\"gcli-menu-desc\">${item.description}</td>\n" +
+  "    </tr>\n" +
+  "  </table>\n" +
+  "  <div class=\"gcli-menu-more\" if=\"${items.hasMore}\">${l10n.fieldMenuMore}</div>\n" +
+  "</div>\n" +
   "");
 
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/fields/selection', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/argument', 'gcli/types', 'gcli/types/basic', 'gcli/types/selection', 'gcli/ui/fields/menu', 'gcli/ui/fields'], function(require, exports, module) {
@@ -9603,7 +10435,7 @@ SelectionField.prototype._addOption = function(item) {
 
 
 /**
- * A field that allows editing of javascript
+ * A field that allows selection of one of a number of options
  */
 function SelectionTooltipField(type, options) {
   Field.call(this, type, options);
@@ -9661,7 +10493,7 @@ SelectionTooltipField.prototype.onInputChange = function(ev) {
 
 SelectionTooltipField.prototype.getConversion = function() {
   // This tweaks the prefix/suffix of the argument to fit
-  this.arg = this.arg.beget('typed', { normalize: true });
+  this.arg = this.arg.beget({ text: this.input.value });
   return this.type.parse(this.arg);
 };
 
@@ -9675,9 +10507,10 @@ SelectionTooltipField.prototype.setChoiceIndex = function(choice) {
 /**
  * Allow the inputter to use RETURN to chose the current menu item when
  * it can't execute the command line
+ * @return true if an item was 'clicked', false otherwise
  */
 SelectionTooltipField.prototype.selectChoice = function() {
-  this.menu.selectChoice();
+  return this.menu.selectChoice();
 };
 
 Object.defineProperty(SelectionTooltipField.prototype, 'isImportant', {
@@ -9692,9 +10525,19 @@ SelectionTooltipField.DEFAULT_VALUE = '__SelectionTooltipField.DEFAULT_VALUE';
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/display', ['require', 'exports', 'module' , 'gcli/util', 'gcli/settings', 'gcli/ui/intro', 'gcli/ui/domtemplate', 'gcli/ui/tooltip', 'gcli/ui/output_terminal', 'gcli/ui/inputter', 'gcli/ui/completer', 'gcli/ui/focus', 'gcli/ui/prompt', 'gcli/cli', 'text!gcli/ui/display.css', 'text!gcli/ui/display.html'], function(require, exports, module) {
@@ -9901,9 +10744,19 @@ function insert(sibling, element, id) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/tooltip', ['require', 'exports', 'module' , 'gcli/util', 'gcli/cli', 'gcli/ui/fields', 'gcli/ui/domtemplate', 'text!gcli/ui/tooltip.css', 'text!gcli/ui/tooltip.html'], function(require, exports, module) {
@@ -10075,11 +10928,13 @@ Tooltip.prototype.choiceChanged = function(ev) {
 /**
  * Allow the inputter to use RETURN to chose the current menu item when
  * it can't execute the command line
+ * @return true if there was a selection to use, false otherwise
  */
 Tooltip.prototype.selectChoice = function(ev) {
   if (this.field && this.field.selectChoice) {
-    this.field.selectChoice();
+    return this.field.selectChoice();
   }
+  return false;
 };
 
 /**
@@ -10272,9 +11127,19 @@ define("text!gcli/ui/tooltip.html", [], "\n" +
   "");
 
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/output_terminal', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/ui/domtemplate', 'text!gcli/ui/output_view.css', 'text!gcli/ui/output_terminal.html'], function(require, exports, module) {
@@ -10641,9 +11506,19 @@ define("text!gcli/ui/output_terminal.html", [], "\n" +
   "");
 
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/inputter', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types', 'gcli/history', 'text!gcli/ui/inputter.css'], function(require, exports, module) {
@@ -10783,11 +11658,27 @@ Inputter.prototype.getDimensions = function() {
     return undefined;
   }
 
+  var fixedLoc = {};
+  var currentElement = this.element.parentNode;
+  while (currentElement && currentElement.nodeName !== '#document') {
+    var style = document.defaultView.getComputedStyle(currentElement, '');
+    if (style) {
+      var position = style.getPropertyValue('position');
+      if (position === 'absolute' || position === 'fixed') {
+        var bounds = currentElement.getBoundingClientRect();
+        fixedLoc.top = bounds.top;
+        fixedLoc.left = bounds.left;
+        break;
+      }
+    }
+    currentElement = currentElement.parentNode;
+  }
+
   var rect = this.element.getBoundingClientRect();
   return {
-    top: rect.top + 1,
+    top: rect.top - (fixedLoc.top || 0) + 1,
     height: rect.bottom - rect.top - 1,
-    left: rect.left + 2,
+    left: rect.left - (fixedLoc.left || 0) + 2,
     width: rect.right - rect.left
   };
 };
@@ -10984,7 +11875,7 @@ Inputter.prototype.onKeyDown = function(ev) {
   }
 
   if (this.focusManager) {
-    this.focusManager.onInputChange(ev);
+    this.focusManager.onInputChange();
   }
 
   if (ev.keyCode === KeyEvent.DOM_VK_TAB) {
@@ -11032,10 +11923,10 @@ Inputter.prototype.onKeyUp = function(ev) {
       // If the user is on a valid value, then we increment the value, but if
       // they've typed something that's not right we page through predictions
       if (this.assignment.getStatus() === Status.VALID) {
-        this.assignment.increment();
+        this.requisition.increment(assignment);
         // See notes on focusManager.onInputChange in onKeyDown
         if (this.focusManager) {
-          this.focusManager.onInputChange(ev);
+          this.focusManager.onInputChange();
         }
       }
       else {
@@ -11056,10 +11947,10 @@ Inputter.prototype.onKeyUp = function(ev) {
     else {
       // See notes above for the UP key
       if (this.assignment.getStatus() === Status.VALID) {
-        this.assignment.decrement();
+        this.requisition.decrement(assignment);
         // See notes on focusManager.onInputChange in onKeyDown
         if (this.focusManager) {
-          this.focusManager.onInputChange(ev);
+          this.focusManager.onInputChange();
         }
       }
       else {
@@ -11081,10 +11972,9 @@ Inputter.prototype.onKeyUp = function(ev) {
     else {
       // If we can't execute the command, but there is a menu choice to use
       // then use it.
-      this.tooltip.selectChoice();
-
-      // See bug 664135 - On pressing return with an invalid input, GCLI
-      // should select the incorrect part of the input for an easy fix
+      if (!this.tooltip.selectChoice()) {
+        this.focusManager.setError(true);
+      }
     }
 
     this._choice = null;
@@ -11092,13 +11982,16 @@ Inputter.prototype.onKeyUp = function(ev) {
   }
 
   if (ev.keyCode === KeyEvent.DOM_VK_TAB && !ev.shiftKey) {
+    // Being able to complete 'nothing' is OK if there is some context, but
+    // when there is nothing on the command line it jsut looks bizarre.
+    var hasContents = (this.element.value.length > 0);
     // If the TAB keypress took the cursor from another field to this one,
     // then they get the keydown/keypress, and we get the keyup. In this
     // case we don't want to do any completion.
     // If the time of the keydown/keypress of TAB was close (i.e. within
     // 1 second) to the time of the keyup then we assume that we got them
     // both, and do the completion.
-    if (this.lastTabDownAt + 1000 > ev.timeStamp) {
+    if (hasContents && this.lastTabDownAt + 1000 > ev.timeStamp) {
       // It's possible for TAB to not change the input, in which case the
       // textChanged event will not fire, and the caret move will not be
       // processed. So we check that this is done first
@@ -11191,9 +12084,19 @@ exports.Inputter = Inputter;
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/history', ['require', 'exports', 'module' ], function(require, exports, module) {
@@ -11323,9 +12226,19 @@ define("text!gcli/ui/inputter.css", [], "\n" +
   "");
 
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/completer', ['require', 'exports', 'module' , 'gcli/util', 'gcli/ui/domtemplate', 'text!gcli/ui/completer.html'], function(require, exports, module) {
@@ -11409,30 +12322,16 @@ Completer.prototype.resized = function(ev) {
 };
 
 /**
- * Is the completion given, a "strict" completion of the user inputted value?
- * A completion is considered "strict" only if it the user inputted value is an
- * exact prefix of the completion (ignoring leading whitespace)
- */
-function isStrictCompletion(inputValue, completion) {
-  // Strip any leading whitespace from the user inputted value because the
-  // completion will never have leading whitespace.
-  inputValue = inputValue.replace(/^\s*/, '');
-  // Strict: "ec" -> "echo"
-  // Non-Strict: "ls *" -> "ls foo bar baz"
-  return completion.indexOf(inputValue) === 0;
-}
-
-/**
  * Bring the completion element up to date with what the requisition says
  */
 Completer.prototype.update = function(ev) {
   if (ev && ev.choice != null) {
     this.choice = ev.choice;
   }
-  this._preTemplateUpdate();
 
+  var data = this._getCompleterTemplateData();
   var template = this.template.cloneNode(true);
-  domtemplate.template(template, this, { stack: 'completer.html' });
+  domtemplate.template(template, data, { stack: 'completer.html' });
 
   util.clearElement(this.element);
   while (template.hasChildNodes()) {
@@ -11441,143 +12340,150 @@ Completer.prototype.update = function(ev) {
 };
 
 /**
- * Update the state of a number of internal variables in preparation for
- * templating. Some of these properties are interdependent, so it makes sense
- * to do them in one go.
+ * Calculate the properties required by the template process for completer.html
  */
-Completer.prototype._preTemplateUpdate = function() {
-  this.input = this.inputter.getInputState();
+Completer.prototype._getCompleterTemplateData = function() {
+  var input = this.inputter.getInputState();
 
-  this.directTabText = '';
-  this.arrowTabText = '';
+  // directTabText is for when the current input is a prefix of the completion
+  // arrowTabText is for when we need to use an -> to show what will be used
+  var directTabText = '';
+  var arrowTabText = '';
+  var current = this.requisition.getAssignmentAt(input.cursor.start);
+  var emptyParameters = [];
 
-  // What text should we display as the tab text, and should it be given as a
-  // '-> full' or as 'suffix' (which depends on if the completion is a strict
-  // completion or not)
-  if (this.input.typed.trim().length === 0) {
-    return;
-  }
+  if (input.typed.trim().length !== 0) {
+    var cArg = current.arg;
+    var prediction = current.getPredictionAt(this.choice);
 
-  var current = this.inputter.assignment;
-  var prediction = current.conversion.getPredictionAt(this.choice);
-  if (!prediction) {
-    return;
-  }
+    if (prediction) {
+      var tabText = prediction.name;
+      var existing = cArg.text;
 
-  var tabText = prediction.name;
-  var existing = current.arg.text;
-
-  if (existing === tabText) {
-    return;
-  }
-
-  if (isStrictCompletion(existing, tabText) &&
-          this.input.cursor.start === this.input.typed.length) {
-    // Display the suffix of the prediction as the completion
-    var numLeadingSpaces = existing.match(/^(\s*)/)[0].length;
-
-    this.directTabText = tabText.slice(existing.length - numLeadingSpaces);
-  }
-  else {
-    // Display the '-> prediction' at the end of the completer element
-    // These JS escapes are aka &nbsp;&rarr; the right arrow
-    this.arrowTabText = ' \u00a0\u21E5 ' + tabText;
-  }
-};
-
-/**
- * A proxy to requisition.getInputStatusMarkup which converts space to &nbsp;
- * in the string member (for HTML display) and converts status to an
- * appropriate class name (i.e. lower cased, prefixed with gcli-in-)
- */
-Object.defineProperty(Completer.prototype, 'statusMarkup', {
-  get: function() {
-    var markup = this.requisition.getInputStatusMarkup(this.input.cursor.start);
-    markup.forEach(function(member) {
-      member.string = member.string.replace(/ /g, '\u00a0'); // i.e. &nbsp;
-      member.className = 'gcli-in-' + member.status.toString().toLowerCase();
-    }, this);
-    return markup;
-  },
-  enumerable: true
-});
-
-/**
- * The text for the 'jump to scratchpad' feature, or null if it is disabled
- */
-Object.defineProperty(Completer.prototype, 'scratchLink', {
-  get: function() {
-    if (!this.scratchpad) {
-      return null;
-    }
-    var command = this.requisition.commandAssignment.value;
-    return command && command.name === '{' ? this.scratchpad.linkText : null;
-  },
-  enumerable: true
-});
-
-/**
- * Is the entered command a JS command with no closing '}'?
- * TWEAK: This code should be considered for promotion to Requisition
- */
-Object.defineProperty(Completer.prototype, 'unclosedJs', {
-  get: function() {
-    var command = this.requisition.commandAssignment.value;
-    var jsCommand = command && command.name === '{';
-    var unclosedJs = jsCommand &&
-        this.requisition.getAssignment(0).arg.suffix.indexOf('}') === -1;
-    return unclosedJs;
-  },
-  enumerable: true
-});
-
-/**
- * Accessor for the list of parameters to be filled in
- */
-Object.defineProperty(Completer.prototype, 'emptyParameters', {
-  get: function() {
-    var typedEndSpace = this.requisition.typedEndsWithWhitespace();
-    // Cache computed property
-    var directTabText = this.directTabText;
-    // If this is the first blank assignment we might not need a space prefix
-    // also we skip [param] text if we have directTabText, but only for the
-    // first blank param.
-    var firstBlankParam = true;
-    var params = [];
-    this.requisition.getAssignments().forEach(function(assignment) {
-      if (!assignment.param.isPositionalAllowed) {
-        return;
+      // Normally the cursor being just before whitespace means that you are
+      // 'in' the previous argument, which means that the prediction is based
+      // on that argument, however NamedArguments break this by having 2 parts
+      // so we need to prepend the tabText with a space for NamedArguments,
+      // but only when there isn't already a space at the end of the prefix
+      // (i.e. ' --name' not ' --name ')
+      if (current.isInName()) {
+        tabText = ' ' + tabText;
       }
 
-      if (!assignment.arg.isBlank()) {
-        if (directTabText !== '') {
-          firstBlankParam = false;
+      if (existing !== tabText) {
+        // Decide to use directTabText or arrowTabText
+        // Strip any leading whitespace from the user inputted value because the
+        // tabText will never have leading whitespace.
+        var inputValue = existing.replace(/^\s*/, '');
+        var isStrictCompletion = tabText.indexOf(inputValue) === 0;
+        if (isStrictCompletion && input.cursor.start === input.typed.length) {
+          // Display the suffix of the prediction as the completion
+          var numLeadingSpaces = existing.match(/^(\s*)/)[0].length;
+
+          directTabText = tabText.slice(existing.length - numLeadingSpaces);
         }
-        return;
+        else {
+          // Display the '-> prediction' at the end of the completer element
+          // \u21E5 is the JS escape right arrow
+          arrowTabText = '\u21E5 ' + tabText;
+        }
       }
-
-      if (directTabText !== '' && firstBlankParam) {
-        firstBlankParam = false;
-        return;
+    }
+    else {
+      // There's no prediction, but if this is a named argument that needs a
+      // value (that is without any) then we need to show that one is needed
+      // For example 'git commit --message ', clearly needs some more text
+      if (cArg.type === 'NamedArgument' && cArg.text === '') {
+        emptyParameters.push('<' + current.param.type.name + '>\u00a0');
       }
+    }
+  }
 
-      var text = (assignment.param.isDataRequired) ?
-          '<' + assignment.param.name + '>' :
-          '[' + assignment.param.name + ']';
+  // Add a space between the typed text (+ directTabText) and the hints,
+  // making sure we don't add 2 sets of padding
+  if (directTabText !== '') {
+    directTabText += '\u00a0';
+  }
+  else if (!this.requisition.typedEndsWithSeparator()) {
+    emptyParameters.unshift('\u00a0');
+  }
 
-      // Add a space if we don't have one at the end of the input or if
-      // this isn't the first param we've mentioned
-      if (!typedEndSpace || !firstBlankParam) {
-        text = '\u00a0' + text; // i.e. &nbsp;
+  // statusMarkup is wrapper around requisition.getInputStatusMarkup converting
+  // space to &nbsp; in the string member (for HTML display) and status to an
+  // appropriate class name (i.e. lower cased, prefixed with gcli-in-)
+  var statusMarkup = this.requisition.getInputStatusMarkup(input.cursor.start);
+  statusMarkup.forEach(function(member) {
+    member.string = member.string.replace(/ /g, '\u00a0'); // i.e. &nbsp;
+    member.className = 'gcli-in-' + member.status.toString().toLowerCase();
+  }, this);
+
+  // Calculate the list of parameters to be filled in
+  // We generate an array of emptyParameter markers for each positional
+  // parameter to the current command.
+  // Generally each emptyParameter marker begins with a space to separate it
+  // from whatever came before, unless what comes before ends in a space.
+
+  var command = this.requisition.commandAssignment.value;
+  var jsCommand = command && command.name === '{';
+
+  this.requisition.getAssignments().forEach(function(assignment) {
+    // Named arguments are handled with a group [options] marker
+    if (!assignment.param.isPositionalAllowed) {
+      return;
+    }
+
+    // No hints if we've got content for this parameter
+    if (assignment.arg.toString().trim() !== '') {
+      return;
+    }
+
+    if (directTabText !== '' && current === assignment) {
+      return;
+    }
+
+    var text = (assignment.param.isDataRequired) ?
+        '<' + assignment.param.name + '>\u00a0' :
+        '[' + assignment.param.name + ']\u00a0';
+
+    emptyParameters.push(text);
+  }.bind(this));
+
+  var addOptionsMarker = false;
+  // We add an '[options]' marker when there are named parameters that are
+  // not filled in and not hidden, and we don't have any directTabText
+  if (command && command.hasNamedParameters) {
+    command.params.forEach(function(param) {
+      var arg = this.requisition.getAssignment(param.name).arg;
+      if (!param.isPositionalAllowed && !param.hidden
+              && arg.type === "BlankArgument") {
+        addOptionsMarker = true;
       }
+    }, this);
+  }
 
-      firstBlankParam = false;
-      params.push(text);
-    }.bind(this));
-    return params;
-  },
-  enumerable: true
-});
+  if (addOptionsMarker) {
+    // Add an nbsp if we don't have one at the end of the input or if
+    // this isn't the first param we've mentioned
+    emptyParameters.push('[options]\u00a0');
+  }
+
+  // Is the entered command a JS command with no closing '}'?
+  // TWEAK: This code should be considered for promotion to Requisition
+  var unclosedJs = jsCommand &&
+      this.requisition.getAssignment(0).arg.suffix.indexOf('}') === -1;
+
+  // The text for the 'jump to scratchpad' feature, or '' if it is disabled
+  var link = this.scratchpad && jsCommand ? this.scratchpad.linkText : '';
+
+  return {
+    statusMarkup: statusMarkup,
+    directTabText: directTabText,
+    emptyParameters: emptyParameters,
+    arrowTabText: arrowTabText,
+    unclosedJs: unclosedJs,
+    scratchLink: link
+  };
+};
 
 exports.Completer = Completer;
 
@@ -11597,9 +12503,19 @@ define("text!gcli/ui/completer.html", [], "\n" +
   "");
 
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/ui/prompt', ['require', 'exports', 'module' ], function(require, exports, module) {
@@ -11677,9 +12593,19 @@ define("text!gcli/ui/display.html", [], "\n" +
   "");
 
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/commands/help', 'gcli/commands/pref', 'gcli/commands/pref_list', 'gcli/commands/intro', 'test/commands/test', 'demo/commands/basic', 'demo/commands/bugs', 'demo/commands/demo'], function(require, exports, module) {
@@ -11699,9 +12625,19 @@ define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/comma
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/commands/help', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/util', 'gcli/ui/view', 'text!gcli/commands/help_man.html', 'text!gcli/commands/help_list.html', 'text!gcli/commands/help.css'], function(require, exports, module) {
@@ -11774,9 +12710,41 @@ help.shutdown = function() {
  * Create a block of data suitable to be passed to the help_list.html template
  */
 function getListTemplateData(args, context) {
+  var matchingCommands = canon.getCommands().filter(function(command) {
+    if (command.hidden) {
+      return false;
+    }
+
+    if (args.search && command.name.indexOf(args.search) !== 0) {
+      // Filtered out because they don't match the search
+      return false;
+    }
+    if (!args.search && command.name.indexOf(' ') != -1) {
+      // We don't show sub commands with plain 'help'
+      return false;
+    }
+    return true;
+  });
+  matchingCommands.sort(function(c1, c2) {
+    return c1.name.localeCompare(c2.name);
+  });
+
+  var heading;
+  if (matchingCommands.length === 0) {
+    heading = l10n.lookupFormat('helpListNone', [ args.search ]);
+  }
+  else if (args.search == null) {
+    heading = l10n.lookup('helpListAll');
+  }
+  else {
+    heading = l10n.lookupFormat('helpListPrefix', [ args.search ]);
+  }
+
   return {
     l10n: l10n.propertyLookup,
     includeIntro: args.search == null,
+    matchingCommands: matchingCommands,
+    heading: heading,
 
     onclick: function(ev) {
       util.updateCommand(ev.currentTarget, context);
@@ -11785,32 +12753,6 @@ function getListTemplateData(args, context) {
     ondblclick: function(ev) {
       util.executeCommand(ev.currentTarget, context);
     },
-
-    getHeading: function() {
-      return args.search == null ?
-              'Available Commands:' :
-              'Commands starting with \'' + args.search + '\':';
-    },
-
-    getMatchingCommands: function() {
-      var matching = canon.getCommands().filter(function(command) {
-        if (command.hidden) {
-          return false;
-        }
-
-        if (args.search && command.name.indexOf(args.search) !== 0) {
-          // Filtered out because they don't match the search
-          return false;
-        }
-        if (!args.search && command.name.indexOf(' ') != -1) {
-          // We don't show sub commands with plain 'help'
-          return false;
-        }
-        return true;
-      });
-      matching.sort();
-      return matching;
-    }
   };
 }
 
@@ -11840,10 +12782,10 @@ function getManTemplateData(command, context) {
     getTypeDescription: function(param) {
       var input = '';
       if (param.defaultValue === undefined) {
-        input = 'required';
+        input = l10n.lookup('helpManRequired');
       }
       else if (param.defaultValue === null) {
-        input = 'optional';
+        input = l10n.lookup('helpManOptional');
       }
       else {
         input = param.defaultValue;
@@ -11858,7 +12800,9 @@ function getManTemplateData(command, context) {
         return subcommand.name.indexOf(command.name) === 0 &&
                 subcommand.name !== command.name;
       });
-      matching.sort();
+      matching.sort(function(c1, c2) {
+        return c1.name.localeCompare(c2.name);
+      });
       return matching;
     },
     enumerable: true
@@ -11925,16 +12869,16 @@ define("text!gcli/commands/help_list.html", [], "\n" +
   "    <p>GCLI is an experiment to create a highly usable JavaScript command line for developers.</p>\n" +
   "    <p>\n" +
   "      Useful links:\n" +
-  "      <a href='https://github.com/joewalker/gcli'>Source</a> (BSD),\n" +
+  "      <a href='https://github.com/joewalker/gcli'>Source</a> (Apache-2.0),\n" +
   "      <a href='https://github.com/joewalker/gcli/blob/master/docs/index.md'>Documentation</a> (for users/embedders),\n" +
   "      <a href='https://wiki.mozilla.org/DevTools/Features/GCLI'>Mozilla feature page</a> (for GCLI in the web console).\n" +
   "    </p>\n" +
   "  </div>\n" +
   "\n" +
-  "  <h3>${getHeading()}</h3>\n" +
+  "  <h3>${heading}</h3>\n" +
   "\n" +
   "  <table>\n" +
-  "    <tr foreach=\"command in ${getMatchingCommands()}\">\n" +
+  "    <tr foreach=\"command in ${matchingCommands}\">\n" +
   "      <th class=\"gcli-help-name\">${command.name}</th>\n" +
   "      <td class=\"gcli-help-arrow\">-</td>\n" +
   "      <td>\n" +
@@ -11973,9 +12917,19 @@ define("text!gcli/commands/help.css", [], "\n" +
   "");
 
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/commands/pref', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/settings', 'text!gcli/commands/pref_set_check.html'], function(require, exports, module) {
@@ -12118,9 +13072,19 @@ define("text!gcli/commands/pref_set_check.html", [], "<div>\n" +
   "");
 
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/commands/pref_list', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/util', 'gcli/settings', 'gcli/promise', 'text!gcli/commands/pref_list_outer.html', 'text!gcli/commands/pref_list.css', 'text!gcli/commands/pref_list_inner.html'], function(require, exports, module) {
@@ -12326,9 +13290,19 @@ define("text!gcli/commands/pref_list_inner.html", [], "<table>\n" +
   "");
 
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gcli/commands/intro', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/ui/intro'], function(require, exports, module) {
@@ -12363,9 +13337,19 @@ define('gcli/commands/intro', ['require', 'exports', 'module' , 'gcli/canon', 'g
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('test/commands/test', ['require', 'exports', 'module' , 'gcli/canon', 'test/examiner', 'text!test/commands/test.css', 'text!test/commands/test.html'], function(require, exports, module) {
@@ -12396,11 +13380,40 @@ exports.shutdown = function() {
 var testCommandSpec = {
   name: 'test',
   description: 'Runs the GCLI Unit Tests',
-  params: [],
-  exec: function(env, context) {
+  params: [
+    {
+      name: 'suite',
+      type: {
+        name: 'selection',
+        lookup: function() {
+          return Object.keys(examiner.suites).map(function (name) {
+            return { name: name, value: examiner.suites[name] };
+          });
+        },
+      },
+      description: 'Test suite to run.',
+      defaultValue: null
+    }
+  ],
+  exec: function(args, context) {
     var promise = context.createPromise();
 
-    examiner.runAsync({}, function() {
+    var options = {};
+    examiner.mergeDefaultOptions(options);
+
+    examiner.reset();
+
+    if (args.suite) {
+      args.suite.runAsync(options, this.createResolver(promise, context));
+    }
+    else {
+      examiner.runAsync(options, this.createResolver(promise, context));
+    }
+
+    return promise;
+  },
+  createResolver: function(promise, context) {
+    return function() {
       promise.resolve(context.createView({
         html: testHtml,
         css: testCss,
@@ -12408,18 +13421,27 @@ var testCommandSpec = {
         data: examiner.toRemote(),
         options: { allowEval: true, stack: 'test.html' }
       }));
-    });
-
-    return promise;
+      context.update('');
+    };
   }
 };
 
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('test/examiner', ['require', 'exports', 'module' , 'test/assert', 'test/status'], function(require, exports, module) {
@@ -12457,20 +13479,18 @@ examiner.defaultOptions = {};
  * Add properties to |options| from |examiner.defaultOptions| when |options|
  * does not have a value for a given name.
  */
-function mergeDefaultOptions(options) {
+examiner.mergeDefaultOptions = function(options) {
   Object.keys(examiner.defaultOptions).forEach(function(name) {
     if (options[name] == null) {
       options[name] = examiner.defaultOptions[name];
     }
   });
-}
+};
 
 /**
  * Run the tests defined in the test suite synchronously
  */
 examiner.run = function(options) {
-  mergeDefaultOptions(options);
-
   Object.keys(examiner.suites).forEach(function(suiteName) {
     var suite = examiner.suites[suiteName];
     suite.run(options);
@@ -12490,7 +13510,6 @@ examiner.run = function(options) {
  * Run all the tests asynchronously
  */
 examiner.runAsync = function(options, callback) {
-  mergeDefaultOptions(options);
   this._runAsyncInternal(0, options, callback);
 };
 
@@ -12526,6 +13545,15 @@ examiner.toRemote = function() {
       status: this.status
     }
   };
+};
+
+/**
+ * Reset all the tests to their original state
+ */
+examiner.reset = function() {
+  Object.keys(examiner.suites).forEach(function(suiteName) {
+    examiner.suites[suiteName].reset();
+  }, this);
 };
 
 /**
@@ -12602,6 +13630,15 @@ function Suite(suiteName, suite) {
 }
 
 /**
+ * Reset all the tests to their original state
+ */
+Suite.prototype.reset = function() {
+  Object.keys(this.tests).forEach(function(testName) {
+    this.tests[testName].reset();
+  }, this);
+};
+
+/**
  * Run all the tests in this suite synchronously
  */
 Suite.prototype.run = function(options) {
@@ -12610,9 +13647,8 @@ Suite.prototype.run = function(options) {
   }
 
   Object.keys(this.tests).forEach(function(testName) {
-    var test = this.tests[testName];
-    test.run(options);
-  }.bind(this));
+    this.tests[testName].run(options);
+  }, this);
 
   this._shutdown(options);
 };
@@ -12767,6 +13803,15 @@ function Test(suite, name, func) {
 }
 
 /**
+ * Reset the test to its original state
+ */
+Test.prototype.reset = function() {
+  this.failures = [];
+  this.status = stati.notrun;
+  this.checks = 0;
+};
+
+/**
  * Run just a single test
  */
 Test.prototype.run = function(options) {
@@ -12780,7 +13825,7 @@ Test.prototype.run = function(options) {
   }
   catch (ex) {
     assert.ok(false, '' + ex);
-    console.error(ex);
+    console.error(ex.stack);
     if ((options.isNode || options.isFirefox) && ex.stack) {
       console.error(ex.stack);
     }
@@ -12821,9 +13866,19 @@ Test.prototype.toRemote = function() {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('test/assert', ['require', 'exports', 'module' , 'test/status'], function(require, exports, module) {
@@ -12878,8 +13933,8 @@ exports.is = function(p1, p2, message) {
 
   if (p1 !== p2) {
     console.error('Failure: ' + message);
-    console.error('- P1: ', p1);
-    console.error('- P2: ', p2);
+    console.error('- P1: ', typeof p1 === 'string' ? '"' + p1 + '"' : p1);
+    console.error('- P2: ', typeof p2 === 'string' ? '"' + p2 + '"' : p2);
     console.trace();
 
     exports.currentTest.status = stati.fail;
@@ -12905,9 +13960,19 @@ exports.log = function(message) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('test/status', ['require', 'exports', 'module' ], function(require, exports, module) {
@@ -13017,9 +14082,19 @@ define("text!test/commands/test.html", [], "\n" +
   "");
 
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('demo/commands/basic', ['require', 'exports', 'module' , 'gcli/index'], function(require, exports, module) {
@@ -13138,9 +14213,19 @@ var sleep = {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('demo/commands/bugs', ['require', 'exports', 'module' , 'gcli/index', 'gcli/util', 'text!demo/commands/bugs.html'], function(require, exports, module) {
@@ -13280,9 +14365,19 @@ define("text!demo/commands/bugs.html", [], "\n" +
   "");
 
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('demo/commands/demo', ['require', 'exports', 'module' , 'gcli/index'], function(require, exports, module) {
@@ -13367,9 +14462,46 @@ var gcliTwonums = {
     },
     {
       name: 'p2',
+      defaultValue: 8,
       type: { name: 'number', min: -20, max: 42, step: 5 },
       description: 'Second param'
-    }
+    },
+    {
+      group: 'Options',
+      params: [
+        {
+          name: 'all',
+          description: 'All your base',
+          type: 'boolean'
+        },
+        {
+          name: 'verbose',
+          description: 'Be verbose',
+          type: 'boolean'
+        },
+        {
+          name: 'message',
+          description: 'A message',
+          type: 'string',
+          defaultValue: 'nothing'
+        },
+        {
+          name: 'browser',
+          description: 'Pick a browser',
+          type: {
+            name: 'selection',
+            lookup: [
+              { name: 'chrome', value: 1 },
+              { name: 'firefox', value: 2 },
+              { name: 'ie', value: 3 },
+              { name: 'opera', value: 4 },
+              { name: 'safari', value: 5 }
+            ]
+          },
+          defaultValue: 3
+        }
+      ]
+    },
   ],
   returnType: 'html',
   exec: function(args, context) {
@@ -13447,14 +14579,26 @@ function motivate() {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-define('gclitest/index', ['require', 'exports', 'module' , 'gclitest/suite'], function(require, exports, module) {
+define('gclitest/index', ['require', 'exports', 'module' , 'gclitest/suite', 'gcli/settings', 'gcli/ui/display'], function(require, exports, module) {
 
   var examiner = require('gclitest/suite').examiner;
+  var settings = require('gcli/settings');
+  var Display = require('gcli/ui/display').Display;
 
   // A minimum fake dom to get us through the JS tests
   var fakeWindow = {
@@ -13485,7 +14629,11 @@ define('gclitest/index', ['require', 'exports', 'module' , 'gclitest/suite'], fu
    *   however use of hideExec restricts the set of tests that are run
    */
   exports.run = function(options) {
-    examiner.run(options || {});
+    options = options || {};
+    examiner.mergeDefaultOptions(options);
+
+    examiner.reset();
+    examiner.run(options);
 
     // A better set of default than those specified above, come from the set
     // that are passed to run().
@@ -13496,14 +14644,101 @@ define('gclitest/index', ['require', 'exports', 'module' , 'gclitest/suite'], fu
     };
   };
 
+  /**
+   * This is the equivalent of gcli/index.createDisplay() except it:
+   * - Sets window.display: to actual Display object (not the thin proxy
+   *   returned by gcli/index.createDisplay() and this function)
+   * - Registers all the test commands, and provides a function to re-register
+   *   them - window.testCommands() (running the test suite un-registers them)
+   * - Runs the unit tests automatically on startup
+   * - Registers a 'test' command to re-run the unit tests
+   */
+  exports.createDisplay = function(options) {
+    options = options || {};
+    if (options.settings != null) {
+      settings.setDefaults(options.settings);
+    }
+
+    window.display = new Display(options);
+    var requisition = window.display.requisition;
+
+    // setTimeout keeps stack traces clear of RequireJS frames
+    window.setTimeout(function() {
+      var options = {
+        window: window,
+        display: window.display,
+        hideExec: true
+      };
+      exports.run(options);
+
+      window.createDebugCheck = function() {
+        require([ 'gclitest/helpers' ], function(helpers) {
+          helpers.setup(options);
+          console.log(helpers._createDebugCheck());
+          helpers.shutdown(options);
+        });
+      };
+
+      window.summaryJson = function() {
+        var args = [ 'Requisition: ' ];
+        var summary = display.requisition._summaryJson;
+        Object.keys(summary).forEach(function(name) {
+          args.push(' ' + name + '=');
+          args.push(summary[name]);
+        });
+        console.log.apply(console, args);
+
+        console.log('Focus: ' +
+                    'tooltip=', display.focusManager._shouldShowTooltip(),
+                    'output=', display.focusManager._shouldShowOutput());
+      };
+
+      document.addEventListener('keyup', function(ev) {
+        if (ev.keyCode === 113 /*F2*/) {
+          window.createDebugCheck();
+        }
+        if (ev.keyCode === 115 /*F4*/) {
+          window.summaryJson();
+        }
+      }, true);
+
+      window.testCommands = function() {
+        require([ 'gclitest/mockCommands' ], function(mockCommands) {
+          mockCommands.setup();
+        });
+      };
+      window.testCommands();
+    }, 10);
+
+    return {
+      /**
+       * The exact shape of the object returned by exec is likely to change in
+       * the near future. If you do use it, please expect your code to break.
+       */
+      exec: requisition.exec.bind(requisition),
+      update: requisition.update.bind(requisition),
+      destroy: window.display.destroy.bind(window.display)
+    };
+  };
+
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-define('gclitest/suite', ['require', 'exports', 'module' , 'gcli/index', 'test/examiner', 'gclitest/testCanon', 'gclitest/testCli', 'gclitest/testCompletion', 'gclitest/testExec', 'gclitest/testHelp', 'gclitest/testHistory', 'gclitest/testInputter', 'gclitest/testIntro', 'gclitest/testJs', 'gclitest/testKeyboard', 'gclitest/testPref', 'gclitest/testRequire', 'gclitest/testResource', 'gclitest/testScratchpad', 'gclitest/testSettings', 'gclitest/testSpell', 'gclitest/testSplit', 'gclitest/testTokenize', 'gclitest/testTooltip', 'gclitest/testTypes', 'gclitest/testUtil'], function(require, exports, module) {
+define('gclitest/suite', ['require', 'exports', 'module' , 'gcli/index', 'test/examiner', 'gclitest/testCanon', 'gclitest/testCli', 'gclitest/testCompletion', 'gclitest/testExec', 'gclitest/testFocus', 'gclitest/testHelp', 'gclitest/testHistory', 'gclitest/testInputter', 'gclitest/testIncomplete', 'gclitest/testIntro', 'gclitest/testJs', 'gclitest/testKeyboard', 'gclitest/testMenu', 'gclitest/testNode', 'gclitest/testPref', 'gclitest/testRequire', 'gclitest/testResource', 'gclitest/testScratchpad', 'gclitest/testSettings', 'gclitest/testSpell', 'gclitest/testSplit', 'gclitest/testTokenize', 'gclitest/testTooltip', 'gclitest/testTypes', 'gclitest/testUtil'], function(require, exports, module) {
 
   // We need to make sure GCLI is initialized before we begin testing it
   require('gcli/index');
@@ -13517,12 +14752,16 @@ define('gclitest/suite', ['require', 'exports', 'module' , 'gcli/index', 'test/e
   examiner.addSuite('gclitest/testCli', require('gclitest/testCli'));
   examiner.addSuite('gclitest/testCompletion', require('gclitest/testCompletion'));
   examiner.addSuite('gclitest/testExec', require('gclitest/testExec'));
+  examiner.addSuite('gclitest/testFocus', require('gclitest/testFocus'));
   examiner.addSuite('gclitest/testHelp', require('gclitest/testHelp'));
   examiner.addSuite('gclitest/testHistory', require('gclitest/testHistory'));
   examiner.addSuite('gclitest/testInputter', require('gclitest/testInputter'));
+  examiner.addSuite('gclitest/testIncomplete', require('gclitest/testIncomplete'));
   examiner.addSuite('gclitest/testIntro', require('gclitest/testIntro'));
   examiner.addSuite('gclitest/testJs', require('gclitest/testJs'));
   examiner.addSuite('gclitest/testKeyboard', require('gclitest/testKeyboard'));
+  examiner.addSuite('gclitest/testMenu', require('gclitest/testMenu'));
+  examiner.addSuite('gclitest/testNode', require('gclitest/testNode'));
   examiner.addSuite('gclitest/testPref', require('gclitest/testPref'));
   examiner.addSuite('gclitest/testRequire', require('gclitest/testRequire'));
   examiner.addSuite('gclitest/testResource', require('gclitest/testResource'));
@@ -13538,9 +14777,19 @@ define('gclitest/suite', ['require', 'exports', 'module' , 'gcli/index', 'test/e
   exports.examiner = examiner;
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testCanon', ['require', 'exports', 'module' , 'gclitest/helpers', 'gcli/canon', 'test/assert'], function(require, exports, module) {
@@ -13548,6 +14797,14 @@ define('gclitest/testCanon', ['require', 'exports', 'module' , 'gclitest/helpers
   var helpers = require('gclitest/helpers');
   var canon = require('gcli/canon');
   var test = require('test/assert');
+
+  exports.setup = function(options) {
+    helpers.setup(options);
+  };
+
+  exports.shutdown = function(options) {
+    helpers.shutdown(options);
+  };
 
   exports.testAddRemove = function(options) {
     var startCount = canon.getCommands().length;
@@ -13590,7 +14847,9 @@ define('gclitest/testCanon', ['require', 'exports', 'module' , 'gclitest/helpers
 
     test.is(canon.getCommands().length, startCount, 'remove command success');
     test.is(events, 3, 'remove event');
-    helpers.status(options, {
+
+    helpers.setInput('testadd');
+    helpers.check({
       typed: 'testadd',
       status: 'ERROR'
     });
@@ -13615,7 +14874,9 @@ define('gclitest/testCanon', ['require', 'exports', 'module' , 'gclitest/helpers
 
     test.is(canon.getCommands().length, startCount, 'reremove command success');
     test.is(events, 5, 'reremove event');
-    helpers.status(options, {
+
+    helpers.setInput('testadd');
+    helpers.check({
       typed: 'testadd',
       status: 'ERROR'
     });
@@ -13633,85 +14894,301 @@ define('gclitest/testCanon', ['require', 'exports', 'module' , 'gclitest/helpers
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-define('gclitest/helpers', ['require', 'exports', 'module' , 'test/assert'], function(require, exports, module) {
+define('gclitest/helpers', ['require', 'exports', 'module' , 'test/assert', 'gcli/util'], function(require, exports, module) {
 
 
 var test = require('test/assert');
+var util = require('gcli/util');
+
+var helpers = exports;
+
+helpers._display = undefined;
+
+helpers.setup = function(options) {
+  helpers._display = options.display;
+};
+
+helpers.shutdown = function(options) {
+  helpers._display = undefined;
+};
 
 /**
- * Check that we can parse command input.
- * Doesn't execute the command, just checks that we grok the input properly:
- *
- * helpers.status({
- *   // Test inputs
- *   typed: "ech",           // Required
- *   cursor: 3,              // Optional cursor position
- *
- *   // Thing to check
- *   status: "INCOMPLETE",   // One of "VALID", "ERROR", "INCOMPLETE"
- *   emptyParameters: [ "<message>" ], // Still to type
- *   directTabText: "o",     // Simple completion text
- *   arrowTabText: "",       // When the completion is not an extension
- *   markup: "VVVIIIEEE",    // What state should the error markup be in
- * });
+ * Various functions to return the actual state of the command line
  */
-exports.status = function(options, tests) {
-  var requisition = options.display.requisition;
-  var inputter = options.display.inputter;
-  var completer = options.display.completer;
+helpers._actual = {
+  input: function() {
+    return helpers._display.inputter.element.value;
+  },
 
-  if (tests.typed) {
-    inputter.setInput(tests.typed);
-  }
-  else {
-    test.ok(false, "Missing typed for " + JSON.stringify(tests));
-    return;
-  }
+  hints: function() {
+    var templateData = helpers._display.completer._getCompleterTemplateData();
+    var actualHints = templateData.directTabText +
+                      templateData.emptyParameters.join('') +
+                      templateData.arrowTabText;
+    return actualHints.replace(/\u00a0/g, ' ')
+                      .replace(/\u21E5/, '->')
+                      .replace(/ $/, '');
+  },
 
-  if (tests.cursor) {
-    inputter.setCursor(tests.cursor);
-  }
-
-  if (tests.status) {
-    test.is(requisition.getStatus().toString(), tests.status,
-            "status for " + tests.typed);
-  }
-
-  if (tests.emptyParameters != null) {
-    var realParams = completer.emptyParameters;
-    test.is(realParams.length, tests.emptyParameters.length,
-            'emptyParameters.length for \'' + tests.typed + '\'');
-
-    if (realParams.length === tests.emptyParameters.length) {
-      for (var i = 0; i < realParams.length; i++) {
-        test.is(realParams[i].replace(/\u00a0/g, ' '), tests.emptyParameters[i],
-                'emptyParameters[' + i + '] for \'' + tests.typed + '\'');
-      }
-    }
-  }
-
-  if (tests.markup) {
-    var cursor = tests.cursor ? tests.cursor.start : tests.typed.length;
-    var statusMarkup = requisition.getInputStatusMarkup(cursor);
-    var actualMarkup = statusMarkup.map(function(s) {
+  markup: function() {
+    var cursor = helpers._display.inputter.element.selectionStart;
+    var statusMarkup = helpers._display.requisition.getInputStatusMarkup(cursor);
+    return statusMarkup.map(function(s) {
       return Array(s.string.length + 1).join(s.status.toString()[0]);
     }).join('');
-    test.is(tests.markup, actualMarkup, 'markup for ' + tests.typed);
+  },
+
+  cursor: function() {
+    return helpers._display.inputter.element.selectionStart;
+  },
+
+  current: function() {
+    return helpers._display.requisition.getAssignmentAt(helpers._actual.cursor()).param.name;
+  },
+
+  status: function() {
+    return helpers._display.requisition.getStatus().toString();
+  },
+
+  outputState: function() {
+    var outputData = helpers._display.focusManager._shouldShowOutput();
+    return outputData.visible + ':' + outputData.reason;
+  },
+
+  tooltipState: function() {
+    var tooltipData = helpers._display.focusManager._shouldShowTooltip();
+    return tooltipData.visible + ':' + tooltipData.reason;
+  }
+};
+
+helpers._directToString = [ 'boolean', 'undefined', 'number' ];
+
+helpers._createDebugCheck = function() {
+  var requisition = helpers._display.requisition;
+  var command = requisition.commandAssignment.value;
+  var input = helpers._actual.input();
+  var padding = Array(input.length + 1).join(' ');
+
+  var output = '';
+  output += 'helpers.setInput(\'' + input + '\');\n';
+  output += 'helpers.check({\n';
+  output += '  input:  \'' + input + '\',\n';
+  output += '  hints:  ' + padding + '\'' + helpers._actual.hints() + '\',\n';
+  output += '  markup: \'' + helpers._actual.markup() + '\',\n';
+  output += '  cursor: ' + helpers._actual.cursor() + ',\n';
+  output += '  current: \'' + helpers._actual.current() + '\',\n';
+  output += '  status: \'' + helpers._actual.status() + '\',\n';
+  output += '  outputState: \'' + helpers._actual.outputState() + '\',\n';
+
+  if (command) {
+    output += '  tooltipState: \'' + helpers._actual.tooltipState() + '\',\n';
+    output += '  args: {\n';
+    output += '    command: { name: \'' + command.name + '\' },\n';
+
+    requisition.getAssignments().forEach(function(assignment) {
+      output += '    ' + assignment.param.name + ': { ';
+
+      if (typeof assignment.value === 'string') {
+        output += 'value: \'' + assignment.value + '\', ';
+      }
+      else if (helpers._directToString.indexOf(typeof assignment.value) !== -1) {
+        output += 'value: ' + assignment.value + ', ';
+      }
+      else if (assignment.value === null) {
+        output += 'value: ' + assignment.value + ', ';
+      }
+      else {
+        output += '/*value:' + assignment.value + ',*/ ';
+      }
+
+      output += 'arg: \'' + assignment.arg + '\', ';
+      output += 'status: \'' + assignment.getStatus().toString() + '\', ';
+      output += 'message: \'' + assignment.getMessage() + '\'';
+      output += ' },\n';
+    });
+
+    output += '  }\n';
+  }
+  else {
+    output += '  tooltipState: \'' + helpers._actual.tooltipState() + '\'\n';
+  }
+  output += '});';
+
+  return output;
+};
+
+/**
+ * We're splitting status into setup() which alters the state of the system
+ * and check() which ensures that things are in the right place afterwards.
+ */
+helpers.setInput = function(typed, cursor) {
+  helpers._display.inputter.setInput(typed);
+
+  if (cursor) {
+    helpers._display.inputter.setCursor({ start: cursor, end: cursor });
   }
 
-  if (tests.directTabText) {
-    test.is(completer.directTabText, tests.directTabText,
-            'directTabText for \'' + tests.typed + '\'');
+  helpers._display.focusManager.onInputChange();
+};
+
+/**
+ * Simulate focusing the input field
+ */
+helpers.focusInput = function() {
+  helpers._display.inputter.focus();
+};
+
+/**
+ * Simulate pressing TAB in the input field
+ */
+helpers.pressTab = function() {
+  helpers.pressKey(9 /*KeyEvent.DOM_VK_TAB*/);
+};
+
+/**
+ * Simulate pressing RETURN in the input field
+ */
+helpers.pressReturn = function() {
+  helpers.pressKey(13 /*KeyEvent.DOM_VK_RETURN*/);
+};
+
+/**
+ * Simulate pressing a key by keyCode in the input field
+ */
+helpers.pressKey = function(keyCode) {
+  var fakeEvent = {
+    keyCode: keyCode,
+    preventDefault: function() { },
+    timeStamp: new Date().getTime()
+  };
+  helpers._display.inputter.onKeyDown(fakeEvent);
+  helpers._display.inputter.onKeyUp(fakeEvent);
+};
+
+/**
+ * check() is the new status. Similar API except that it doesn't attempt to
+ * alter the display/requisition at all, and it makes extra checks.
+ * Available checks:
+ *   input: The text displayed in the input field
+ *   cursor: The position of the start of the cursor
+ *   status: One of "VALID", "ERROR", "INCOMPLETE"
+ *   hints: The hint text, i.e. a concatenation of the directTabText, the
+ *     emptyParameters and the arrowTabText. The text as inserted into the UI
+ *     will include NBSP and Unicode RARR characters, these should be
+ *     represented using normal space and '->' for the arrow
+ *   markup: What state should the error markup be in. e.g. "VVVIIIEEE"
+ *   args: Maps of checks to make against the arguments:
+ *     value: i.e. assignment.value (which ignores defaultValue)
+ *     type: Argument/BlankArgument/MergedArgument/etc i.e. what's assigned
+ *           Care should be taken with this since it's something of an
+ *           implementation detail
+ *     arg: The toString value of the argument
+ *     status: i.e. assignment.getStatus
+ *     message: i.e. assignment.getMessage
+ *     name: For commands - checks assignment.value.name
+ */
+helpers.check = function(checks) {
+  if ('input' in checks) {
+    test.is(helpers._actual.input(), checks.input, 'input');
   }
 
-  if (tests.arrowTabText) {
-    test.is(completer.arrowTabText, ' \u00a0\u21E5 ' + tests.arrowTabText,
-            'arrowTabText for \'' + tests.typed + '\'');
+  if ('cursor' in checks) {
+    test.is(helpers._actual.cursor(), checks.cursor, 'cursor');
+  }
+
+  if ('current' in checks) {
+    test.is(helpers._actual.current(), checks.current, 'current');
+  }
+
+  if ('status' in checks) {
+    test.is(helpers._actual.status(), checks.status, 'status');
+  }
+
+  if ('markup' in checks) {
+    test.is(helpers._actual.markup(), checks.markup, 'markup');
+  }
+
+  if ('hints' in checks) {
+    test.is(helpers._actual.hints(), checks.hints, 'hints');
+  }
+
+  if ('tooltipState' in checks) {
+    test.is(helpers._actual.tooltipState(), checks.tooltipState, 'tooltipState');
+  }
+
+  if ('outputState' in checks) {
+    test.is(helpers._actual.outputState(), checks.outputState, 'outputState');
+  }
+
+  if (checks.args != null) {
+    var requisition = helpers._display.requisition;
+    Object.keys(checks.args).forEach(function(paramName) {
+      var check = checks.args[paramName];
+
+      var assignment;
+      if (paramName === 'command') {
+        assignment = requisition.commandAssignment;
+      }
+      else {
+        assignment = requisition.getAssignment(paramName);
+      }
+
+      if (assignment == null) {
+        test.ok(false, 'Unknown arg: ' + paramName);
+        return;
+      }
+
+      if ('value' in check) {
+        test.is(assignment.value,
+                check.value,
+                'arg.' + paramName + '.value');
+      }
+
+      if ('name' in check) {
+        test.is(assignment.value.name,
+                check.name,
+                'arg.' + paramName + '.name');
+      }
+
+      if ('type' in check) {
+        test.is(assignment.arg.type,
+                check.type,
+                'arg.' + paramName + '.type');
+      }
+
+      if ('arg' in check) {
+        test.is(assignment.arg.toString(),
+                check.arg,
+                'arg.' + paramName + '.arg');
+      }
+
+      if ('status' in check) {
+        test.is(assignment.getStatus().toString(),
+                check.status,
+                'arg.' + paramName + '.status');
+      }
+
+      if ('message' in check) {
+        test.is(assignment.getMessage(),
+                check.message,
+                'arg.' + paramName + '.message');
+      }
+    });
   }
 };
 
@@ -13728,7 +15205,7 @@ exports.status = function(options, tests) {
  *   blankOutput: true,       // Special checks when there is no output
  * });
  */
-exports.exec = function(options, tests) {
+helpers.exec = function(options, tests) {
   var requisition = options.display.requisition;
   var inputter = options.display.inputter;
 
@@ -13789,7 +15266,7 @@ exports.exec = function(options, tests) {
   var displayed = div.textContent.trim();
 
   if (tests.outputMatch) {
-    function doTest(match, against) {
+    var doTest = function(match, against) {
       if (!match.test(against)) {
         test.ok(false, "html output for " + typed + " against " + match.source);
         console.log("Actual textContent");
@@ -13818,9 +15295,19 @@ exports.exec = function(options, tests) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testCli', ['require', 'exports', 'module' , 'gcli/cli', 'gcli/types', 'gclitest/mockCommands', 'test/assert'], function(require, exports, module) {
@@ -14026,19 +15513,20 @@ exports.testInvalid = function() {
   update({ typed: 'zxjq', cursor: { start: 4, end: 4 } });
   test.is(        'EEEE', statuses);
   test.is('zxjq', requ.commandAssignment.arg.text);
-  test.is('', requ._unassigned.arg.text);
+  test.is(0, requ._unassigned.length);
   test.is(-1, assignC.paramIndex);
 
   update({ typed: 'zxjq ', cursor: { start: 5, end: 5 } });
   test.is(        'EEEEV', statuses);
   test.is('zxjq', requ.commandAssignment.arg.text);
-  test.is('', requ._unassigned.arg.text);
+  test.is(0, requ._unassigned.length);
   test.is(-1, assignC.paramIndex);
 
   update({ typed: 'zxjq one', cursor: { start: 8, end: 8 } });
   test.is(        'EEEEVEEE', statuses);
   test.is('zxjq', requ.commandAssignment.arg.text);
-  test.is('one', requ._unassigned.arg.text);
+  test.is(1, requ._unassigned.length);
+  test.is('one', requ._unassigned[0].arg.text);
 };
 
 exports.testSingleString = function() {
@@ -14046,7 +15534,7 @@ exports.testSingleString = function() {
   test.is(        'VVV', statuses);
   test.is(Status.ERROR, status);
   test.is('tsr', requ.commandAssignment.value.name);
-  test.ok(assign1.arg.isBlank());
+  test.ok(assign1.arg.type === 'BlankArgument');
   test.is(undefined, assign1.value);
   test.is(undefined, assign2);
 
@@ -14054,7 +15542,7 @@ exports.testSingleString = function() {
   test.is(        'VVVV', statuses);
   test.is(Status.ERROR, status);
   test.is('tsr', requ.commandAssignment.value.name);
-  test.ok(assign1.arg.isBlank());
+  test.ok(assign1.arg.type === 'BlankArgument');
   test.is(undefined, assign1.value);
   test.is(undefined, assign2);
 
@@ -14115,7 +15603,7 @@ exports.testElement = function(options) {
   test.is(        'VVV', statuses);
   test.is(Status.ERROR, status);
   test.is('tse', requ.commandAssignment.value.name);
-  test.ok(assign1.arg.isBlank());
+  test.ok(assign1.arg.type === 'BlankArgument');
   test.is(undefined, assign1.value);
 
   if (!options.isNode) {
@@ -14273,9 +15761,19 @@ exports.testDeeplyNested = function() {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/mockCommands', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/util', 'gcli/types/selection', 'gcli/types/basic', 'gcli/types'], function(require, exports, module) {
@@ -14303,6 +15801,7 @@ exports.setup = function() {
 
   canon.addCommand(exports.tsv);
   canon.addCommand(exports.tsr);
+  canon.addCommand(exports.tso);
   canon.addCommand(exports.tse);
   canon.addCommand(exports.tsj);
   canon.addCommand(exports.tsb);
@@ -14321,11 +15820,15 @@ exports.setup = function() {
   canon.addCommand(exports.tselarr);
   canon.addCommand(exports.tsm);
   canon.addCommand(exports.tsg);
+  canon.addCommand(exports.tshidden);
+  canon.addCommand(exports.tscook);
+  canon.addCommand(exports.tslong);
 };
 
 exports.shutdown = function() {
   canon.removeCommand(exports.tsv);
   canon.removeCommand(exports.tsr);
+  canon.removeCommand(exports.tso);
   canon.removeCommand(exports.tse);
   canon.removeCommand(exports.tsj);
   canon.removeCommand(exports.tsb);
@@ -14344,6 +15847,9 @@ exports.shutdown = function() {
   canon.removeCommand(exports.tselarr);
   canon.removeCommand(exports.tsm);
   canon.removeCommand(exports.tsg);
+  canon.removeCommand(exports.tshidden);
+  canon.removeCommand(exports.tscook);
+  canon.removeCommand(exports.tslong);
 
   types.deregisterType(exports.optionType);
   types.deregisterType(exports.optionValue);
@@ -14416,9 +15922,24 @@ exports.tsr = {
   exec: createExec('tsr')
 };
 
+exports.tso = {
+  name: 'tso',
+  params: [ { name: 'text', type: 'string', defaultValue: null } ],
+  exec: createExec('tso')
+};
+
 exports.tse = {
   name: 'tse',
-  params: [ { name: 'node', type: 'node' } ],
+  params: [
+    { name: 'node', type: 'node' },
+    {
+      group: 'options',
+      params: [
+        { name: 'nodes', type: { name: 'nodelist' } },
+        { name: 'nodes2', type: { name: 'nodelist', allowEmpty: true } }
+      ]
+    }
+  ],
   exec: createExec('tse')
 };
 
@@ -14451,7 +15972,8 @@ exports.tsn = {
 
 exports.tsnDif = {
   name: 'tsn dif',
-  params: [ { name: 'text', type: 'string' } ],
+  description: 'tsn dif',
+  params: [ { name: 'text', type: 'string', description: 'tsn dif text' } ],
   exec: createExec('tsnDif')
 };
 
@@ -14496,6 +16018,38 @@ exports.tsnDeepDownNestedCmd = {
   exec: createExec('tsnDeepDownNestedCmd')
 };
 
+exports.tshidden = {
+  name: 'tshidden',
+  hidden: true,
+  params: [
+    {
+      group: 'Options',
+      params: [
+        {
+          name: 'visible',
+          type: 'string',
+          defaultValue: null,
+          description: 'visible'
+        },
+        {
+          name: 'invisiblestring',
+          type: 'string',
+          description: 'invisiblestring',
+          defaultValue: null,
+          hidden: true
+        },
+        {
+          name: 'invisibleboolean',
+          type: 'boolean',
+          description: 'invisibleboolean',
+          hidden: true
+        }
+      ]
+    }
+  ],
+  exec: createExec('tshidden')
+};
+
 exports.tselarr = {
   name: 'tselarr',
   params: [
@@ -14520,93 +16074,185 @@ exports.tsg = {
   name: 'tsg',
   description: 'a param group test',
   params: [
-    { name: 'solo', type: { name: 'selection', data: [ 'aaa', 'bbb', 'ccc' ] } },
+    {
+      name: 'solo',
+      type: { name: 'selection', data: [ 'aaa', 'bbb', 'ccc' ] },
+      description: 'solo param'
+    },
     {
       group: 'First',
       params: [
-        { name: 'txt1', type: 'string', defaultValue: null },
-        { name: 'bool', type: 'boolean' }
+        {
+          name: 'txt1',
+          type: 'string',
+          defaultValue: null,
+          description: 'txt1 param'
+        },
+        {
+          name: 'bool',
+          type: 'boolean',
+          description: 'bool param'
+        }
       ]
     },
     {
       group: 'Second',
       params: [
-        { name: 'txt2', type: 'string', defaultValue: 'd' },
-        { name: 'num', type: { name: 'number', min: 40 }, defaultValue: 42 }
+        {
+          name: 'txt2',
+          type: 'string',
+          defaultValue: 'd',
+          description: 'txt2 param'
+        },
+        {
+          name: 'num',
+          type: { name: 'number', min: 40 },
+          defaultValue: 42,
+          description: 'num param'
+        }
       ]
     }
   ],
   exec: createExec('tsg')
 };
 
+exports.tscook = {
+  name: 'tscook',
+  description: 'param group test to catch problems with cookie command',
+  params: [
+    {
+      name: 'key',
+      type: 'string',
+      description: 'tscookKeyDesc'
+    },
+    {
+      name: 'value',
+      type: 'string',
+      description: 'tscookValueDesc'
+    },
+    {
+      group: 'tscookOptionsDesc',
+      params: [
+        {
+          name: 'path',
+          type: 'string',
+          defaultValue: '/',
+          description: 'tscookPathDesc'
+        },
+        {
+          name: 'domain',
+          type: 'string',
+          defaultValue: null,
+          description: 'tscookDomainDesc'
+        },
+        {
+          name: 'secure',
+          type: 'boolean',
+          description: 'tscookSecureDesc'
+        }
+      ]
+    }
+  ],
+  exec: createExec('tscook')
+};
+
+exports.tslong = {
+  name: 'tslong',
+  description: 'long param tests to catch problems with the jsb command',
+  returnValue:'string',
+  params: [
+    {
+      name: 'msg',
+      type: 'string',
+      description: 'msg Desc'
+    },
+    {
+      group: "Options Desc",
+      params: [
+        {
+          name: 'num',
+          type: 'number',
+          description: 'num Desc',
+          defaultValue: 2
+        },
+        {
+          name: 'sel',
+          type: {
+            name: 'selection',
+            lookup: [
+              { name: "space", value: " " },
+              { name: "tab", value: "\t" }
+            ]
+          },
+          description: 'sel Desc',
+          defaultValue: ' ',
+        },
+        {
+          name: 'bool',
+          type: 'boolean',
+          description: 'bool Desc'
+        },
+        {
+          name: 'num2',
+          type: 'number',
+          description: 'num2 Desc',
+          defaultValue: -1
+        },
+        {
+          name: 'bool2',
+          type: 'boolean',
+          description: 'bool2 Desc'
+        },
+        {
+          name: 'sel2',
+          type: {
+            name: 'selection',
+            data: ['collapse', 'expand', 'end-expand', 'expand-strict']
+          },
+          description: 'sel2 Desc',
+          defaultValue: "collapse"
+        }
+      ]
+    }
+  ],
+  exec: createExec('tslong')
+};
+
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-define('gclitest/testCompletion', ['require', 'exports', 'module' , 'test/assert', 'gclitest/mockCommands'], function(require, exports, module) {
+define('gclitest/testCompletion', ['require', 'exports', 'module' , 'test/assert', 'gclitest/helpers', 'gclitest/mockCommands'], function(require, exports, module) {
 
 
 var test = require('test/assert');
+var helpers = require('gclitest/helpers');
 var mockCommands = require('gclitest/mockCommands');
 
 
-exports.setup = function() {
+exports.setup = function(options) {
   mockCommands.setup();
+  helpers.setup(options);
 };
 
-exports.shutdown = function() {
+exports.shutdown = function(options) {
   mockCommands.shutdown();
+  helpers.shutdown(options);
 };
-
-
-function type(typed, tests, options) {
-  var inputter = options.display.inputter;
-  var completer = options.display.completer;
-
-  inputter.setInput(typed);
-
-  if (tests.cursor) {
-    inputter.setCursor({ start: tests.cursor, end: tests.cursor });
-  }
-
-  if (tests.emptyParameters == null) {
-    tests.emptyParameters = [];
-  }
-
-  var realParams = completer.emptyParameters;
-  test.is(tests.emptyParameters.length, realParams.length,
-          'emptyParameters.length for \'' + typed + '\'');
-
-  if (realParams.length === tests.emptyParameters.length) {
-    for (var i = 0; i < realParams.length; i++) {
-      test.is(tests.emptyParameters[i], realParams[i].replace(/\u00a0/g, ' '),
-              'emptyParameters[' + i + '] for \'' + typed + '\'');
-    }
-  }
-
-  if (tests.directTabText) {
-    test.is(tests.directTabText, completer.directTabText,
-            'directTabText for \'' + typed + '\'');
-  }
-  else {
-    test.is('', completer.directTabText,
-            'directTabText for \'' + typed + '\'');
-  }
-
-  if (tests.arrowTabText) {
-    test.is(' \u00a0\u21E5 ' + tests.arrowTabText,
-            completer.arrowTabText,
-            'arrowTabText for \'' + typed + '\'');
-  }
-  else {
-    test.is('', completer.arrowTabText,
-            'arrowTabText for \'' + typed + '\'');
-  }
-}
 
 exports.testActivate = function(options) {
   if (!options.display) {
@@ -14614,142 +16260,367 @@ exports.testActivate = function(options) {
     return;
   }
 
-  type('', { }, options);
+  helpers.setInput('');
+  helpers.check({
+    hints: ''
+  });
 
-  type(' ', { }, options);
+  helpers.setInput(' ');
+  helpers.check({
+    hints: ''
+  });
 
-  type('tsr', {
-    emptyParameters: [ ' <text>' ]
-  }, options);
+  helpers.setInput('tsr');
+  helpers.check({
+    hints: ' <text>'
+  });
 
-  type('tsr ', {
-    emptyParameters: [ '<text>' ]
-  }, options);
+  helpers.setInput('tsr ');
+  helpers.check({
+    hints: '<text>'
+  });
 
-  type('tsr b', { }, options);
+  helpers.setInput('tsr b');
+  helpers.check({
+    hints: ''
+  });
 
-  type('tsb', {
-    emptyParameters: [ ' [toggle]' ]
-  }, options);
+  helpers.setInput('tsb');
+  helpers.check({
+    hints: ' [toggle]'
+  });
 
-  type('tsm', {
-    emptyParameters: [ ' <abc>', ' <txt>', ' <num>' ]
-  }, options);
+  helpers.setInput('tsm');
+  helpers.check({
+    hints: ' <abc> <txt> <num>'
+  });
 
-  type('tsm ', {
-    emptyParameters: [ ' <txt>', ' <num>' ],
-    directTabText: 'a'
-  }, options);
+  helpers.setInput('tsm ');
+  helpers.check({
+    hints: 'a <txt> <num>'
+  });
 
-  type('tsm a', {
-    emptyParameters: [ ' <txt>', ' <num>' ]
-  }, options);
+  helpers.setInput('tsm a');
+  helpers.check({
+    hints: ' <txt> <num>'
+  });
 
-  type('tsm a ', {
-    emptyParameters: [ '<txt>', ' <num>' ]
-  }, options);
+  helpers.setInput('tsm a ');
+  helpers.check({
+    hints: '<txt> <num>'
+  });
 
-  type('tsm a  ', {
-    emptyParameters: [ '<txt>', ' <num>' ]
-  }, options);
+  helpers.setInput('tsm a  ');
+  helpers.check({
+    hints: '<txt> <num>'
+  });
 
-  type('tsm a  d', {
-    emptyParameters: [ ' <num>' ]
-  }, options);
+  helpers.setInput('tsm a  d');
+  helpers.check({
+    hints: ' <num>'
+  });
 
-  type('tsm a "d d"', {
-    emptyParameters: [ ' <num>' ]
-  }, options);
+  helpers.setInput('tsm a "d d"');
+  helpers.check({
+    hints: ' <num>'
+  });
 
-  type('tsm a "d ', {
-    emptyParameters: [ ' <num>' ]
-  }, options);
+  helpers.setInput('tsm a "d ');
+  helpers.check({
+    hints: ' <num>'
+  });
 
-  type('tsm a "d d" ', {
-    emptyParameters: [ '<num>' ]
-  }, options);
+  helpers.setInput('tsm a "d d" ');
+  helpers.check({
+    hints: '<num>'
+  });
 
-  type('tsm a "d d ', {
-    emptyParameters: [ ' <num>' ]
-  }, options);
+  helpers.setInput('tsm a "d d ');
+  helpers.check({
+    hints: ' <num>'
+  });
 
-  type('tsm d r', {
-    emptyParameters: [ ' <num>' ]
-  }, options);
+  helpers.setInput('tsm d r');
+  helpers.check({
+    hints: ' <num>'
+  });
 
-  type('tsm a d ', {
-    emptyParameters: [ '<num>' ]
-  }, options);
+  helpers.setInput('tsm a d ');
+  helpers.check({
+    hints: '<num>'
+  });
 
-  type('tsm a d 4', { }, options);
+  helpers.setInput('tsm a d 4');
+  helpers.check({
+    hints: ''
+  });
 
-  type('tsg', {
-    emptyParameters: [ ' <solo>' ]
-  }, options);
+  helpers.setInput('tsg');
+  helpers.check({
+    hints: ' <solo> [options]'
+  });
 
-  type('tsg ', {
-    directTabText: 'aaa'
-  }, options);
+  helpers.setInput('tsg ');
+  helpers.check({
+    hints: 'aaa [options]'
+  });
 
-  type('tsg a', {
-    directTabText: 'aa'
-  }, options);
+  helpers.setInput('tsg a');
+  helpers.check({
+    hints: 'aa [options]'
+  });
 
-  type('tsg b', {
-    directTabText: 'bb'
-  }, options);
+  helpers.setInput('tsg b');
+  helpers.check({
+    hints: 'bb [options]'
+  });
 
-  type('tsg d', { }, options);
+  helpers.setInput('tsg d');
+  helpers.check({
+    hints: ' [options]'
+  });
 
-  type('tsg aa', {
-    directTabText: 'a'
-  }, options);
+  helpers.setInput('tsg aa');
+  helpers.check({
+    hints: 'a [options]'
+  });
 
-  type('tsg aaa', { }, options);
+  helpers.setInput('tsg aaa');
+  helpers.check({
+    hints: ' [options]'
+  });
 
-  type('tsg aaa ', { }, options);
+  helpers.setInput('tsg aaa ');
+  helpers.check({
+    hints: '[options]'
+  });
 
-  type('tsg aaa d', { }, options);
+  helpers.setInput('tsg aaa d');
+  helpers.check({
+    hints: ' [options]'
+  });
 
-  type('tsg aaa dddddd', { }, options);
+  helpers.setInput('tsg aaa dddddd');
+  helpers.check({
+    hints: ' [options]'
+  });
 
-  type('tsg aaa dddddd ', { }, options);
+  helpers.setInput('tsg aaa dddddd ');
+  helpers.check({
+    hints: '[options]'
+  });
 
-  type('tsg aaa "d', { }, options);
+  helpers.setInput('tsg aaa "d');
+  helpers.check({
+    hints: ' [options]'
+  });
 
-  type('tsg aaa "d d', { }, options);
+  helpers.setInput('tsg aaa "d d');
+  helpers.check({
+    hints: ' [options]'
+  });
 
-  type('tsg aaa "d d"', { }, options);
+  helpers.setInput('tsg aaa "d d"');
+  helpers.check({
+    hints: ' [options]'
+  });
 
-  type('tsn ex ', { }, options);
+  helpers.setInput('tsn ex ');
+  helpers.check({
+    hints: ''
+  });
 
-  type('selarr', {
-    arrowTabText: 'tselarr'
-  }, options);
+  helpers.setInput('selarr');
+  helpers.check({
+    hints: ' -> tselarr'
+  });
 
-  type('tselar 1', { }, options);
+  helpers.setInput('tselar 1');
+  helpers.check({
+    hints: ''
+  });
 
-  type('tselar 1', {
-    cursor: 7
-  }, options);
+  helpers.setInput('tselar 1', 7);
+  helpers.check({
+    hints: ''
+  });
 
-  type('tselar 1', {
-    cursor: 6,
-    arrowTabText: 'tselarr'
-  }, options);
+  helpers.setInput('tselar 1', 6);
+  helpers.check({
+    hints: ' -> tselarr'
+  });
 
-  type('tselar 1', {
-    cursor: 5,
-    arrowTabText: 'tselarr'
-  }, options);
+  helpers.setInput('tselar 1', 5);
+  helpers.check({
+    hints: ' -> tselarr'
+  });
+};
+
+exports.testLong = function(options) {
+  helpers.setInput('tslong --sel');
+  helpers.check({
+    input:  'tslong --sel',
+    hints:              ' <selection> <msg> [options]',
+    markup: 'VVVVVVVIIIII'
+  });
+
+  helpers.pressTab();
+  helpers.check({
+    input:  'tslong --sel ',
+    hints:               'space <msg> [options]',
+    markup: 'VVVVVVVIIIIIV'
+  });
+
+  helpers.setInput('tslong --sel ');
+  helpers.check({
+    input:  'tslong --sel ',
+    hints:               'space <msg> [options]',
+    markup: 'VVVVVVVIIIIIV'
+  });
+
+  helpers.setInput('tslong --sel s');
+  helpers.check({
+    input:  'tslong --sel s',
+    hints:                'pace <msg> [options]',
+    markup: 'VVVVVVVIIIIIVI'
+  });
+
+  helpers.setInput('tslong --num ');
+  helpers.check({
+    input:  'tslong --num ',
+    hints:               '<number> <msg> [options]',
+    markup: 'VVVVVVVIIIIIV'
+  });
+
+  helpers.setInput('tslong --num 42');
+  helpers.check({
+    input:  'tslong --num 42',
+    hints:                 ' <msg> [options]',
+    markup: 'VVVVVVVVVVVVVVV'
+  });
+
+  helpers.setInput('tslong --num 42 ');
+  helpers.check({
+    input:  'tslong --num 42 ',
+    hints:                  '<msg> [options]',
+    markup: 'VVVVVVVVVVVVVVVV'
+  });
+
+  helpers.setInput('tslong --num 42 --se');
+  helpers.check({
+    input:  'tslong --num 42 --se',
+    hints:                      'l <msg> [options]',
+    markup: 'VVVVVVVVVVVVVVVVIIII'
+  });
+
+  helpers.pressTab();
+  helpers.check({
+    input:  'tslong --num 42 --sel ',
+    hints:                        'space <msg> [options]',
+    markup: 'VVVVVVVVVVVVVVVVIIIIIV'
+  });
+
+  helpers.pressTab();
+  helpers.check({
+    input:  'tslong --num 42 --sel space ',
+    hints:                              '<msg> [options]',
+    markup: 'VVVVVVVVVVVVVVVVVVVVVVVVVVVV'
+  });
+
+  helpers.setInput('tslong --num 42 --sel ');
+  helpers.check({
+    input:  'tslong --num 42 --sel ',
+    hints:                        'space <msg> [options]',
+    markup: 'VVVVVVVVVVVVVVVVIIIIIV'
+  });
+
+  helpers.setInput('tslong --num 42 --sel space ');
+  helpers.check({
+    input:  'tslong --num 42 --sel space ',
+    hints:                              '<msg> [options]',
+    markup: 'VVVVVVVVVVVVVVVVVVVVVVVVVVVV'
+  });
+};
+
+exports.testNoTab = function(options) {
+  helpers.setInput('tss');
+  helpers.pressTab();
+  helpers.check({
+    input:  'tss ',
+    markup: 'VVVV',
+    hints: ''
+  });
+
+  helpers.pressTab();
+  helpers.check({
+    input:  'tss ',
+    markup: 'VVVV',
+    hints: ''
+  });
+
+  helpers.setInput('xxxx');
+  helpers.check({
+    input:  'xxxx',
+    markup: 'EEEE',
+    hints: ''
+  });
+
+  helpers.pressTab();
+  helpers.check({
+    input:  'xxxx',
+    markup: 'EEEE',
+    hints: ''
+  });
+};
+
+exports.testOutstanding = function(options) {
+  // See bug 779800
+  /*
+  helpers.setInput('tsg --txt1 ddd ');
+  helpers.check({
+    input:  'tsg --txt1 ddd ',
+    hints:                 'aaa [options]',
+    markup: 'VVVVVVVVVVVVVVV'
+  });
+  */
+};
+
+exports.testCompleteIntoOptional = function(options) {
+  // From bug 779816
+  helpers.setInput('tso ');
+  helpers.check({
+    typed:  'tso ',
+    hints:      '[text]',
+    markup: 'VVVV',
+    status: 'VALID'
+  });
+
+  helpers.setInput('tso');
+  helpers.pressTab();
+  helpers.check({
+    typed:  'tso ',
+    hints:      '[text]',
+    markup: 'VVVV',
+    status: 'VALID'
+  });
 };
 
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testExec', ['require', 'exports', 'module' , 'gcli/cli', 'gcli/canon', 'gclitest/mockCommands', 'gcli/types/node', 'test/assert'], function(require, exports, module) {
@@ -14765,6 +16636,7 @@ var test = require('test/assert');
 var actualExec;
 var actualOutput;
 var hideExec = false;
+var skip = 'skip';
 
 exports.setup = function() {
   mockCommands.setup();
@@ -14811,6 +16683,10 @@ function exec(command, expectedArgs) {
   Object.keys(expectedArgs).forEach(function(arg) {
     var expectedArg = expectedArgs[arg];
     var actualArg = actualExec.args[arg];
+
+    if (expectedArg === skip) {
+      return;
+    }
 
     if (Array.isArray(expectedArg)) {
       if (!Array.isArray(actualArg)) {
@@ -14867,7 +16743,7 @@ exports.testExec = function(options) {
 
   var origDoc = nodetype.getDocument();
   nodetype.setDocument(mockDoc);
-  exec('tse :root', { node: mockBody });
+  exec('tse :root', { node: mockBody, nodes: skip, nodes2: skip });
   nodetype.setDocument(origDoc);
 
   exec('tsn dif fred', { text: 'fred' });
@@ -14898,7 +16774,12 @@ var mockDoc = {
         }
       };
     }
-    throw new Error('mockDoc.querySelectorAll(\'' + css + '\') error');
+    else {
+      return {
+        length: 0,
+        item: function() { return null; }
+      };
+    }
   }
 };
 
@@ -14910,30 +16791,120 @@ var mockDoc = {
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
+define('gclitest/testFocus', ['require', 'exports', 'module' , 'gclitest/helpers', 'gclitest/mockCommands'], function(require, exports, module) {
+
+
+var helpers = require('gclitest/helpers');
+var mockCommands = require('gclitest/mockCommands');
+
+exports.setup = function(options) {
+  mockCommands.setup();
+  helpers.setup(options);
+};
+
+exports.shutdown = function(options) {
+  mockCommands.shutdown();
+  helpers.shutdown(options);
+};
+
+exports.testBasic = function(options) {
+  helpers.focusInput();
+  helpers.exec(options, 'help');
+
+  helpers.setInput('tsn deep');
+  helpers.check({
+    input:  'tsn deep',
+    hints:          '',
+    markup: 'IIIVIIII',
+    cursor: 8,
+    status: 'ERROR',
+    outputState: 'false:default',
+    tooltipState: 'false:default'
+  });
+
+  helpers.pressReturn();
+  helpers.check({
+    input:  'tsn deep',
+    hints:          '',
+    markup: 'IIIVIIII',
+    cursor: 8,
+    status: 'ERROR',
+    outputState: 'false:default',
+    tooltipState: 'true:isError'
+  });
+};
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 define('gclitest/testHelp', ['require', 'exports', 'module' , 'gclitest/helpers'], function(require, exports, module) {
 
   var helpers = require('gclitest/helpers');
 
+  exports.setup = function(options) {
+    helpers.setup(options);
+  };
+
+  exports.shutdown = function(options) {
+    helpers.shutdown(options);
+  };
+
   exports.testHelpStatus = function(options) {
-    helpers.status(options, {
+    helpers.setInput('help');
+    helpers.check({
       typed:  'help',
+      hints:      ' [search]',
       markup: 'VVVV',
-      status: 'VALID',
-      emptyParameters: [ " [search]" ]
+      status: 'VALID'
     });
 
-    helpers.status(options, {
+    helpers.setInput('help ');
+    helpers.check({
+      typed:  'help ',
+      hints:       '[search]',
+      markup: 'VVVVV',
+      status: 'VALID'
+    });
+
+    // From bug 779816
+    helpers.setInput('help');
+    helpers.pressTab();
+    helpers.check({
+      typed:  'help ',
+      hints:       '[search]',
+      markup: 'VVVVV',
+      status: 'VALID'
+    });
+
+    helpers.setInput('help foo');
+    helpers.check({
       typed:  'help foo',
       markup: 'VVVVVVVV',
       status: 'VALID',
-      emptyParameters: [ ]
+      hints:  ''
     });
 
-    helpers.status(options, {
+    helpers.setInput('help foo bar');
+    helpers.check({
       typed:  'help foo bar',
       markup: 'VVVVVVVVVVVV',
       status: 'VALID',
-      emptyParameters: [ ]
+      hints:  ''
     });
   };
 
@@ -14954,7 +16925,7 @@ define('gclitest/testHelp', ['require', 'exports', 'module' , 'gclitest/helpers'
         args: { search: null },
         outputMatch: [
           /Welcome to GCLI/,
-          /Source \(BSD\)/,
+          /Source \(Apache-2.0\)/,
           /Get help/
         ]
       });
@@ -14963,7 +16934,7 @@ define('gclitest/testHelp', ['require', 'exports', 'module' , 'gclitest/helpers'
     helpers.exec(options, {
       typed: 'help nomatch',
       args: { search: 'nomatch' },
-      outputMatch: /Commands starting with 'nomatch':$/
+      outputMatch: /No commands starting with 'nomatch'$/
     });
 
     helpers.exec(options, {
@@ -14979,7 +16950,7 @@ define('gclitest/testHelp', ['require', 'exports', 'module' , 'gclitest/helpers'
     helpers.exec(options, {
       typed: 'help a b',
       args: { search: 'a b' },
-      outputMatch: /Commands starting with 'a b':$/
+      outputMatch: /No commands starting with 'a b'$/
     });
 
     helpers.exec(options, {
@@ -14994,9 +16965,19 @@ define('gclitest/testHelp', ['require', 'exports', 'module' , 'gclitest/helpers'
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testHistory', ['require', 'exports', 'module' , 'test/assert', 'gcli/history'], function(require, exports, module) {
@@ -15055,9 +17036,19 @@ exports.testForwardsPastIndex = function () {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testInputter', ['require', 'exports', 'module' , 'gclitest/mockCommands', 'gcli/util', 'test/assert'], function(require, exports, module) {
@@ -15150,10 +17141,364 @@ exports.testOutput = function(options) {
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
+define('gclitest/testIncomplete', ['require', 'exports', 'module' , 'test/assert', 'gclitest/helpers', 'gclitest/mockCommands'], function(require, exports, module) {
+
+
+var test = require('test/assert');
+var helpers = require('gclitest/helpers');
+var mockCommands = require('gclitest/mockCommands');
+
+
+exports.setup = function(options) {
+  mockCommands.setup();
+  helpers.setup(options);
+};
+
+exports.shutdown = function(options) {
+  mockCommands.shutdown();
+  helpers.shutdown(options);
+};
+
+exports.testBasic = function(options) {
+  var requisition = options.display.requisition;
+
+  helpers.setInput('tsu 2 extra');
+  helpers.check({
+    args: {
+      num: { value: 2, type: 'Argument' }
+    }
+  });
+  test.is(requisition._unassigned.length, 1, 'single unassigned: tsu 2 extra');
+  test.is(requisition._unassigned[0].param.type.isIncompleteName, false,
+          'unassigned.isIncompleteName: tsu 2 extra');
+
+  helpers.setInput('tsu');
+  helpers.check({
+    args: {
+      num: { value: undefined, type: 'BlankArgument' }
+    }
+  });
+
+  helpers.setInput('tsg');
+  helpers.check({
+    args: {
+      solo: { type: 'BlankArgument' },
+      txt1: { type: 'BlankArgument' },
+      bool: { type: 'BlankArgument' },
+      txt2: { type: 'BlankArgument' },
+      num: { type: 'BlankArgument' }
+    }
+  });
+};
+
+exports.testCompleted = function(options) {
+  helpers.setInput('tsela');
+  helpers.pressTab();
+  helpers.check({
+    args: {
+      command: { name: 'tselarr', type: 'Argument' },
+      num: { type: 'BlankArgument' },
+      arr: { type: 'ArrayArgument' },
+    }
+  });
+
+  helpers.setInput('tsn dif ');
+  helpers.check({
+    input:  'tsn dif ',
+    hints:          '<text>',
+    markup: 'VVVVVVVV',
+    cursor: 8,
+    status: 'ERROR',
+    args: {
+      command: { name: 'tsn dif', type: 'MergedArgument' },
+      text: { type: 'BlankArgument', status: 'INCOMPLETE' }
+    }
+  });
+
+  helpers.setInput('tsn di');
+  helpers.pressTab();
+  helpers.check({
+    input:  'tsn dif ',
+    hints:          '<text>',
+    markup: 'VVVVVVVV',
+    cursor: 8,
+    status: 'ERROR',
+    args: {
+      command: { name: 'tsn dif', type: 'Argument' },
+      text: { type: 'BlankArgument', status: 'INCOMPLETE' }
+    }
+  });
+
+  // The above 2 tests take different routes to 'tsn dif '. The results should
+  // be similar. The difference is in args.command.type.
+
+  helpers.setInput('tsg -');
+  helpers.check({
+    input:  'tsg -',
+    hints:       '-txt1 <solo> [options]',
+    markup: 'VVVVI',
+    cursor: 5,
+    status: 'ERROR',
+    args: {
+      solo: { value: undefined, status: 'INCOMPLETE' },
+      txt1: { value: undefined, status: 'VALID' },
+      bool: { value: false, status: 'VALID' },
+      txt2: { value: undefined, status: 'VALID' },
+      num: { value: undefined, status: 'VALID' }
+    }
+  });
+
+  helpers.pressTab();
+  helpers.check({
+    input:  'tsg --txt1 ',
+    hints:             '<string> <solo> [options]',
+    markup: 'VVVVIIIIIIV',
+    cursor: 11,
+    status: 'ERROR',
+    args: {
+      solo: { value: undefined, status: 'INCOMPLETE' },
+      txt1: { value: undefined, status: 'INCOMPLETE' },
+      bool: { value: false, status: 'VALID' },
+      txt2: { value: undefined, status: 'VALID' },
+      num: { value: undefined, status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tsg --txt1 fred');
+  helpers.check({
+    input:  'tsg --txt1 fred',
+    hints:                 ' <solo> [options]',
+    markup: 'VVVVVVVVVVVVVVV',
+    status: 'ERROR',
+    args: {
+      solo: { value: undefined, status: 'INCOMPLETE' },
+      txt1: { value: 'fred', status: 'VALID' },
+      bool: { value: false, status: 'VALID' },
+      txt2: { value: undefined, status: 'VALID' },
+      num: { value: undefined, status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tscook key value --path path --');
+  helpers.check({
+    input:  'tscook key value --path path --',
+    hints:                                 'domain [options]',
+    markup: 'VVVVVVVVVVVVVVVVVVVVVVVVVVVVVII',
+    status: 'ERROR',
+    args: {
+      key: { value: 'key', status: 'VALID' },
+      value: { value: 'value', status: 'VALID' },
+      path: { value: 'path', status: 'VALID' },
+      domain: { value: undefined, status: 'VALID' },
+      secure: { value: false, status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tscook key value --path path --domain domain --');
+  helpers.check({
+    input:  'tscook key value --path path --domain domain --',
+    hints:                                                 'secure [options]',
+    markup: 'VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVII',
+    status: 'ERROR',
+    args: {
+      key: { value: 'key', status: 'VALID' },
+      value: { value: 'value', status: 'VALID' },
+      path: { value: 'path', status: 'VALID' },
+      domain: { value: 'domain', status: 'VALID' },
+      secure: { value: false, status: 'VALID' }
+    }
+  });
+};
+
+exports.testCase = function(options) {
+  helpers.setInput('tsg AA');
+  helpers.check({
+    input:  'tsg AA',
+    hints:        ' [options] -> aaa',
+    markup: 'VVVVII',
+    status: 'ERROR',
+    args: {
+      solo: { value: undefined, text: 'AA', status: 'INCOMPLETE' },
+      txt1: { value: undefined, status: 'VALID' },
+      bool: { value: false, status: 'VALID' },
+      txt2: { value: undefined, status: 'VALID' },
+      num: { value: undefined, status: 'VALID' }
+    }
+  });
+};
+
+exports.testIncomplete = function(options) {
+  var requisition = options.display.requisition;
+
+  helpers.setInput('tsm a a -');
+  helpers.check({
+    args: {
+      abc: { value: 'a', type: 'Argument' },
+      txt: { value: 'a', type: 'Argument' },
+      num: { value: undefined, arg: ' -', type: 'Argument', status: 'INCOMPLETE' }
+    }
+  });
+
+  helpers.setInput('tsg -');
+  helpers.check({
+    args: {
+      solo: { type: 'BlankArgument' },
+      txt1: { type: 'BlankArgument' },
+      bool: { type: 'BlankArgument' },
+      txt2: { type: 'BlankArgument' },
+      num: { type: 'BlankArgument' }
+    }
+  });
+  test.is(requisition._unassigned[0], requisition.getAssignmentAt(5),
+          'unassigned -');
+  test.is(requisition._unassigned.length, 1, 'single unassigned - tsg -');
+  test.is(requisition._unassigned[0].param.type.isIncompleteName, true,
+          'unassigned.isIncompleteName: tsg -');
+};
+
+exports.testHidden = function(options) {
+  helpers.setInput('tshidde');
+  helpers.check({
+    input:  'tshidde',
+    markup: 'EEEEEEE',
+    status: 'ERROR',
+    hints:  '',
+  });
+
+  helpers.setInput('tshidden');
+  helpers.check({
+    input:  'tshidden',
+    hints:          ' [options]',
+    markup: 'VVVVVVVV',
+    status: 'VALID',
+    args: {
+      visible: { value: undefined, status: 'VALID' },
+      invisiblestring: { value: undefined, status: 'VALID' },
+      invisibleboolean: { value: false, status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tshidden --vis');
+  helpers.check({
+    input:  'tshidden --vis',
+    hints:                'ible [options]',
+    markup: 'VVVVVVVVVIIIII',
+    status: 'ERROR',
+    args: {
+      visible: { value: undefined, status: 'VALID' },
+      invisiblestring: { value: undefined, status: 'VALID' },
+      invisibleboolean: { value: false, status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tshidden --invisiblestrin');
+  helpers.check({
+    input:  'tshidden --invisiblestrin',
+    hints:                           ' [options]',
+    markup: 'VVVVVVVVVEEEEEEEEEEEEEEEE',
+    status: 'ERROR',
+    args: {
+      visible: { value: undefined, status: 'VALID' },
+      invisiblestring: { value: undefined, status: 'VALID' },
+      invisibleboolean: { value: false, status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tshidden --invisiblestring');
+  helpers.check({
+    input:  'tshidden --invisiblestring',
+    hints:                            ' <string> [options]',
+    markup: 'VVVVVVVVVIIIIIIIIIIIIIIIII',
+    status: 'ERROR',
+    args: {
+      visible: { value: undefined, status: 'VALID' },
+      invisiblestring: { value: undefined, status: 'INCOMPLETE' },
+      invisibleboolean: { value: false, status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tshidden --invisiblestring x');
+  helpers.check({
+    input:  'tshidden --invisiblestring x',
+    hints:                              ' [options]',
+    markup: 'VVVVVVVVVVVVVVVVVVVVVVVVVVVV',
+    status: 'VALID',
+    args: {
+      visible: { value: undefined, status: 'VALID' },
+      invisiblestring: { value: 'x', status: 'VALID' },
+      invisibleboolean: { value: false, status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tshidden --invisibleboolea');
+  helpers.check({
+    input:  'tshidden --invisibleboolea',
+    hints:                            ' [options]',
+    markup: 'VVVVVVVVVEEEEEEEEEEEEEEEEE',
+    status: 'ERROR',
+    args: {
+      visible: { value: undefined, status: 'VALID' },
+      invisiblestring: { value: undefined, status: 'VALID' },
+      invisibleboolean: { value: false, status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tshidden --invisibleboolean');
+  helpers.check({
+    input:  'tshidden --invisibleboolean',
+    hints:                             ' [options]',
+    markup: 'VVVVVVVVVVVVVVVVVVVVVVVVVVV',
+    status: 'VALID',
+    args: {
+      visible: { value: undefined, status: 'VALID' },
+      invisiblestring: { value: undefined, status: 'VALID' },
+      invisibleboolean: { value: true, status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tshidden --visible xxx');
+  helpers.check({
+    input:  'tshidden --visible xxx',
+    markup: 'VVVVVVVVVVVVVVVVVVVVVV',
+    status: 'VALID',
+    hints:  '',
+    args: {
+      visible: { value: 'xxx', status: 'VALID' },
+      invisiblestring: { value: undefined, status: 'VALID' },
+      invisibleboolean: { value: false, status: 'VALID' }
+    }
+  });
+};
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 define('gclitest/testIntro', ['require', 'exports', 'module' , 'gclitest/helpers', 'test/assert'], function(require, exports, module) {
 
   var helpers = require('gclitest/helpers');
   var test = require('test/assert');
+
+  exports.setup = function(options) {
+    helpers.setup(options);
+  };
+
+  exports.shutdown = function(options) {
+    helpers.shutdown(options);
+  };
 
   exports.testIntroStatus = function(options) {
     if (options.isFirefox) {
@@ -15161,18 +17506,20 @@ define('gclitest/testIntro', ['require', 'exports', 'module' , 'gclitest/helpers
       return;
     }
 
-    helpers.status(options, {
+    helpers.setInput('intro');
+    helpers.check({
       typed:  'intro',
       markup: 'VVVVV',
       status: 'VALID',
-      emptyParameters: [ ]
+      hints: ''
     });
 
-    helpers.status(options, {
+    helpers.setInput('intro foo');
+    helpers.check({
       typed:  'intro foo',
       markup: 'VVVVVVEEE',
       status: 'ERROR',
-      emptyParameters: [ ]
+      hints: ''
     });
   };
 
@@ -15196,9 +17543,19 @@ define('gclitest/testIntro', ['require', 'exports', 'module' , 'gclitest/helpers
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testJs', ['require', 'exports', 'module' , 'gcli/cli', 'gcli/types', 'gcli/types/javascript', 'gcli/canon', 'test/assert'], function(require, exports, module) {
@@ -15370,9 +17727,19 @@ exports.testBasic = function(options) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testKeyboard', ['require', 'exports', 'module' , 'gcli/cli', 'gcli/canon', 'gclitest/mockCommands', 'gcli/types/javascript', 'test/assert'], function(require, exports, module) {
@@ -15432,11 +17799,11 @@ function check(initial, action, after, choice, cursor, expectedCursor) {
       break;
 
     case KEY_UPS_TO:
-      assignment.increment();
+      requisition.increment(assignment);
       break;
 
     case KEY_DOWNS_TO:
-      assignment.decrement();
+      requisition.decrement(assignment);
       break;
   }
 
@@ -15556,6 +17923,336 @@ exports.testIncrDecr = function() {
  * http://opensource.org/licenses/BSD-3-Clause
  */
 
+define('gclitest/testMenu', ['require', 'exports', 'module' , 'gclitest/helpers', 'gclitest/mockCommands'], function(require, exports, module) {
+
+
+var helpers = require('gclitest/helpers');
+var mockCommands = require('gclitest/mockCommands');
+
+
+exports.setup = function(options) {
+  mockCommands.setup();
+  helpers.setup(options);
+};
+
+exports.shutdown = function(options) {
+  mockCommands.shutdown();
+  helpers.shutdown(options);
+};
+
+exports.testOptions = function(options) {
+  helpers.setInput('tslong');
+  helpers.check({
+    input:  'tslong',
+    markup: 'VVVVVV',
+    status: 'ERROR',
+    hints: ' <msg> [options]',
+    args: {
+      msg: { value: undefined, status: 'INCOMPLETE' },
+      num: { value: undefined, status: 'VALID' },
+      sel: { value: undefined, status: 'VALID' },
+      bool: { value: false, status: 'VALID' },
+      bool2: { value: false, status: 'VALID' },
+      sel2: { value: undefined, status: 'VALID' },
+      num2: { value: undefined, status: 'VALID' }
+    }
+  });
+};
+
+
+});
+
+/*
+ * Copyright 2009-2011 Mozilla Foundation and contributors
+ * Licensed under the New BSD license. See LICENSE.txt or:
+ * http://opensource.org/licenses/BSD-3-Clause
+ */
+
+define('gclitest/testNode', ['require', 'exports', 'module' , 'test/assert', 'gclitest/helpers', 'gclitest/mockCommands'], function(require, exports, module) {
+
+
+var test = require('test/assert');
+var helpers = require('gclitest/helpers');
+var mockCommands = require('gclitest/mockCommands');
+
+
+exports.setup = function(options) {
+  mockCommands.setup();
+  helpers.setup(options);
+};
+
+exports.shutdown = function(options) {
+  mockCommands.shutdown();
+  helpers.shutdown(options);
+};
+
+exports.testNode = function(options) {
+  var requisition = options.display.requisition;
+
+  helpers.setInput('tse ');
+  helpers.check({
+    input:  'tse ',
+    hints:      '<node> [options]',
+    markup: 'VVVV',
+    cursor: 4,
+    current: 'node',
+    status: 'ERROR',
+    args: {
+      command: { name: 'tse' },
+      node: { status: 'INCOMPLETE', message: '' },
+      nodes: { status: 'VALID' },
+      nodes2: { status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tse :');
+  helpers.check({
+    input:  'tse :',
+    hints:       ' [options]',
+    markup: 'VVVVE',
+    cursor: 5,
+    current: 'node',
+    status: 'ERROR',
+    args: {
+      command: { name: 'tse' },
+      node: {
+        arg: ' :',
+        status: 'ERROR',
+        message: 'Syntax error in CSS query'
+      },
+      nodes: { status: 'VALID' },
+      nodes2: { status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tse :root');
+  helpers.check({
+    input:  'tse :root',
+    hints:           ' [options]',
+    markup: 'VVVVVVVVV',
+    cursor: 9,
+    current: 'node',
+    status: 'VALID',
+    args: {
+      command: { name: 'tse' },
+      node: { arg: ' :root', status: 'VALID' },
+      nodes: { status: 'VALID' },
+      nodes2: { status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tse :root ');
+  helpers.check({
+    input:  'tse :root ',
+    hints:            '[options]',
+    markup: 'VVVVVVVVVV',
+    cursor: 10,
+    current: 'node',
+    status: 'VALID',
+    args: {
+      command: { name: 'tse' },
+      node: { arg: ' :root ', status: 'VALID' },
+      nodes: { status: 'VALID' },
+      nodes2: { status: 'VALID' }
+    }
+  });
+  test.is(requisition.getAssignment('node').value.tagName,
+          'HTML',
+          'root id');
+
+  helpers.setInput('tse #gcli-nomatch');
+  helpers.check({
+    input:  'tse #gcli-nomatch',
+    hints:                   ' [options]',
+    markup: 'VVVVIIIIIIIIIIIII',
+    cursor: 17,
+    current: 'node',
+    status: 'ERROR',
+    args: {
+      command: { name: 'tse' },
+      node: {
+        value: undefined,
+        arg: ' #gcli-nomatch',
+        status: 'INCOMPLETE',
+        message: 'No matches'
+      },
+      nodes: { status: 'VALID' },
+      nodes2: { status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tse #');
+  helpers.check({
+    input:  'tse #',
+    hints:       ' [options]',
+    markup: 'VVVVE',
+    cursor: 5,
+    current: 'node',
+    status: 'ERROR',
+    args: {
+      command: { name: 'tse' },
+      node: {
+        value: undefined,
+        arg: ' #',
+        status: 'ERROR',
+        message: 'Syntax error in CSS query'
+      },
+      nodes: { status: 'VALID' },
+      nodes2: { status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tse .');
+  helpers.check({
+    input:  'tse .',
+    hints:       ' [options]',
+    markup: 'VVVVE',
+    cursor: 5,
+    current: 'node',
+    status: 'ERROR',
+    args: {
+      command: { name: 'tse' },
+      node: {
+        value: undefined,
+        arg: ' .',
+        status: 'ERROR',
+        message: 'Syntax error in CSS query'
+      },
+      nodes: { status: 'VALID' },
+      nodes2: { status: 'VALID' }
+    }
+  });
+
+  helpers.setInput('tse *');
+  helpers.check({
+    input:  'tse *',
+    hints:       ' [options]',
+    markup: 'VVVVE',
+    cursor: 5,
+    current: 'node',
+    status: 'ERROR',
+    args: {
+      command: { name: 'tse' },
+      node: {
+        value: undefined,
+        arg: ' *',
+        status: 'ERROR',
+        // message: 'Too many matches (128)'
+      },
+      nodes: { status: 'VALID' },
+      nodes2: { status: 'VALID' }
+    }
+  });
+};
+
+exports.testNodes = function(options) {
+  var requisition = options.display.requisition;
+
+  helpers.setInput('tse :root --nodes *');
+  helpers.check({
+    input:  'tse :root --nodes *',
+    hints:                       ' [options]',
+    markup: 'VVVVVVVVVVVVVVVVVVV',
+    current: 'nodes',
+    status: 'VALID',
+    args: {
+      command: { name: 'tse' },
+      node: { arg: ' :root', status: 'VALID' },
+      nodes: { arg: ' --nodes *', status: 'VALID' },
+      nodes2: { status: 'VALID' }
+    }
+  });
+  test.is(requisition.getAssignment('node').value.tagName,
+          'HTML',
+          '#gcli-input id');
+
+  helpers.setInput('tse :root --nodes2 div');
+  helpers.check({
+    input:  'tse :root --nodes2 div',
+    hints:                       ' [options]',
+    markup: 'VVVVVVVVVVVVVVVVVVVVVV',
+    cursor: 22,
+    current: 'nodes2',
+    status: 'VALID',
+    args: {
+      command: { name: 'tse' },
+      node: { arg: ' :root', status: 'VALID' },
+      nodes: { status: 'VALID' },
+      nodes2: { arg: ' --nodes2 div', status: 'VALID' }
+    }
+  });
+  test.is(requisition.getAssignment('node').value.tagName,
+          'HTML',
+          'root id');
+
+  helpers.setInput('tse --nodes ffff');
+  helpers.check({
+    input:  'tse --nodes ffff',
+    hints:                  ' <node> [options]',
+    markup: 'VVVVIIIIIIIVIIII',
+    cursor: 16,
+    current: 'nodes',
+    status: 'ERROR',
+    outputState: 'false:default',
+    tooltipState: 'true:isError',
+    args: {
+      command: { name: 'tse' },
+      node: { value: undefined, arg: '', status: 'INCOMPLETE', message: '' },
+      nodes: { value: undefined, arg: ' --nodes ffff', status: 'INCOMPLETE', message: 'No matches' },
+      nodes2: { arg: '', status: 'VALID', message: '' },
+    }
+  });
+  /*
+  test.is(requisition.getAssignment('nodes2').value.constructor.name,
+          'NodeList',
+          '#gcli-input id');
+  */
+
+  helpers.setInput('tse --nodes2 ffff');
+  helpers.check({
+    input:  'tse --nodes2 ffff',
+    hints:                   ' <node> [options]',
+    markup: 'VVVVVVVVVVVVVVVVV',
+    cursor: 17,
+    current: 'nodes2',
+    status: 'ERROR',
+    outputState: 'false:default',
+    tooltipState: 'false:default',
+    args: {
+      command: { name: 'tse' },
+      node: { value: undefined, arg: '', status: 'INCOMPLETE', message: '' },
+      nodes: { arg: '', status: 'VALID', message: '' },
+      nodes2: { arg: ' --nodes2 ffff', status: 'VALID', message: '' },
+    }
+  });
+  /*
+  test.is(requisition.getAssignment('nodes').value.constructor.name,
+          'NodeList',
+          '#gcli-input id');
+  test.is(requisition.getAssignment('nodes2').value.constructor.name,
+          'NodeList',
+          '#gcli-input id');
+  */
+};
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 define('gclitest/testPref', ['require', 'exports', 'module' , 'gcli/commands/pref', 'gclitest/helpers', 'gclitest/mockSettings', 'test/assert'], function(require, exports, module) {
 
 
@@ -15566,6 +18263,8 @@ var test = require('test/assert');
 
 
 exports.setup = function(options) {
+  helpers.setup(options);
+
   if (!options.isFirefox) {
     mockSettings.setup();
   }
@@ -15575,6 +18274,8 @@ exports.setup = function(options) {
 };
 
 exports.shutdown = function(options) {
+  helpers.shutdown(options);
+
   if (!options.isFirefox) {
     mockSettings.shutdown();
   }
@@ -15586,57 +18287,60 @@ exports.testPrefShowStatus = function(options) {
     return;
   }
 
-  helpers.status(options, {
+  helpers.setInput('pref s');
+  helpers.check({
     typed:  'pref s',
+    hints:        'et',
     markup: 'IIIIVI',
-    status: 'ERROR',
-    directTabText: 'et'
+    status: 'ERROR'
   });
 
-  helpers.status(options, {
+  helpers.setInput('pref show');
+  helpers.check({
     typed:  'pref show',
+    hints:           ' <setting>',
     markup: 'VVVVVVVVV',
-    status: 'ERROR',
-    emptyParameters: [ ' <setting>' ]
+    status: 'ERROR'
   });
 
-  helpers.status(options, {
+  helpers.setInput('pref show ');
+  helpers.check({
     typed:  'pref show ',
+    hints:            'allowSet',
     markup: 'VVVVVVVVVV',
-    status: 'ERROR',
-    emptyParameters: [ ]
+    status: 'ERROR'
   });
 
-  helpers.status(options, {
+  helpers.setInput('pref show tempTBo');
+  helpers.check({
     typed:  'pref show tempTBo',
+    hints:                   'ol',
     markup: 'VVVVVVVVVVIIIIIII',
-    directTabText: 'ol',
-    status: 'ERROR',
-    emptyParameters: [ ]
+    status: 'ERROR'
   });
 
-  helpers.status(options, {
+  helpers.setInput('pref show tempTBool');
+  helpers.check({
     typed:  'pref show tempTBool',
     markup: 'VVVVVVVVVVVVVVVVVVV',
-    directTabText: '',
     status: 'VALID',
-    emptyParameters: [ ]
+    hints:  ''
   });
 
-  helpers.status(options, {
+  helpers.setInput('pref show tempTBool 4');
+  helpers.check({
     typed:  'pref show tempTBool 4',
     markup: 'VVVVVVVVVVVVVVVVVVVVE',
-    directTabText: '',
     status: 'ERROR',
-    emptyParameters: [ ]
+    hints:  ''
   });
 
-  helpers.status(options, {
+  helpers.setInput('pref show tempNumber 4');
+  helpers.check({
     typed:  'pref show tempNumber 4',
     markup: 'VVVVVVVVVVVVVVVVVVVVVE',
-    directTabText: '',
     status: 'ERROR',
-    emptyParameters: [ ]
+    hints:  ''
   });
 };
 
@@ -15646,55 +18350,59 @@ exports.testPrefSetStatus = function(options) {
     return;
   }
 
-  helpers.status(options, {
+  helpers.setInput('pref s');
+  helpers.check({
     typed:  'pref s',
+    hints:        'et',
     markup: 'IIIIVI',
     status: 'ERROR',
-    directTabText: 'et'
   });
 
-  helpers.status(options, {
+  helpers.setInput('pref set');
+  helpers.check({
     typed:  'pref set',
+    hints:          ' <setting> <value>',
     markup: 'VVVVVVVV',
-    status: 'ERROR',
-    emptyParameters: [ ' <setting>', ' <value>' ]
+    status: 'ERROR'
   });
 
-  helpers.status(options, {
+  helpers.setInput('pref xxx');
+  helpers.check({
     typed:  'pref xxx',
     markup: 'EEEEVEEE',
     status: 'ERROR'
   });
 
-  helpers.status(options, {
+  helpers.setInput('pref set ');
+  helpers.check({
     typed:  'pref set ',
+    hints:           'allowSet <value>',
     markup: 'VVVVVVVVV',
-    status: 'ERROR',
-    emptyParameters: [ ' <value>' ]
+    status: 'ERROR'
   });
 
-  helpers.status(options, {
+  helpers.setInput('pref set tempTBo');
+  helpers.check({
     typed:  'pref set tempTBo',
+    hints:                  'ol <value>',
     markup: 'VVVVVVVVVIIIIIII',
-    directTabText: 'ol',
-    status: 'ERROR',
-    emptyParameters: [ ' <value>' ]
+    status: 'ERROR'
   });
 
-  helpers.status(options, {
+  helpers.setInput('pref set tempTBool 4');
+  helpers.check({
     typed:  'pref set tempTBool 4',
     markup: 'VVVVVVVVVVVVVVVVVVVE',
-    directTabText: '',
     status: 'ERROR',
-    emptyParameters: [ ]
+    hints: ''
   });
 
-  helpers.status(options, {
+  helpers.setInput('pref set tempNumber 4');
+  helpers.check({
     typed:  'pref set tempNumber 4',
     markup: 'VVVVVVVVVVVVVVVVVVVVV',
-    directTabText: '',
     status: 'VALID',
-    emptyParameters: [ ]
+    hints: ''
   });
 };
 
@@ -15756,9 +18464,19 @@ exports.testPrefExec = function(options) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/mockSettings', ['require', 'exports', 'module' , 'gcli/settings'], function(require, exports, module) {
@@ -15856,9 +18574,19 @@ exports.shutdown = function() {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testRequire', ['require', 'exports', 'module' , 'test/assert', 'gclitest/requirable'], function(require, exports, module) {
@@ -15948,9 +18676,19 @@ exports.testRecursive = function() {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/requirable', ['require', 'exports', 'module' ], function(require, exports, module) {
@@ -15964,9 +18702,19 @@ define('gclitest/requirable', ['require', 'exports', 'module' ], function(requir
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testResource', ['require', 'exports', 'module' , 'gcli/types/resource', 'gcli/types', 'test/assert'], function(require, exports, module) {
@@ -16048,9 +18796,19 @@ function checkPrediction(res, prediction) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testScratchpad', ['require', 'exports', 'module' , 'test/assert'], function(require, exports, module) {
@@ -16101,9 +18859,19 @@ exports.testActivate = function(options) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testSettings', ['require', 'exports', 'module' , 'gclitest/mockSettings', 'test/assert'], function(require, exports, module) {
@@ -16295,9 +19063,19 @@ exports.testSpellerSimple = function(options) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testSplit', ['require', 'exports', 'module' , 'test/assert', 'gclitest/mockCommands', 'gcli/cli', 'gcli/canon'], function(require, exports, module) {
@@ -16364,18 +19142,26 @@ exports.testJavascript = function() {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-define('gclitest/testTokenize', ['require', 'exports', 'module' , 'test/assert', 'gcli/cli', 'gcli/argument'], function(require, exports, module) {
+define('gclitest/testTokenize', ['require', 'exports', 'module' , 'test/assert', 'gcli/cli'], function(require, exports, module) {
 
 
 var test = require('test/assert');
 var Requisition = require('gcli/cli').Requisition;
-var Argument = require('gcli/argument').Argument;
-var ScriptArgument = require('gcli/argument').ScriptArgument;
 
 exports.testBlanks = function() {
   var args;
@@ -16403,18 +19189,18 @@ exports.testTokSimple = function() {
   test.is('s', args[0].text);
   test.is('', args[0].prefix);
   test.is('', args[0].suffix);
-  test.ok(args[0] instanceof Argument);
+  test.is('Argument', args[0].type);
 
   args = requ._tokenize('s s');
   test.is(2, args.length);
   test.is('s', args[0].text);
   test.is('', args[0].prefix);
   test.is('', args[0].suffix);
-  test.ok(args[0] instanceof Argument);
+  test.is('Argument', args[0].type);
   test.is('s', args[1].text);
   test.is(' ', args[1].prefix);
   test.is('', args[1].suffix);
-  test.ok(args[1] instanceof Argument);
+  test.is('Argument', args[1].type);
 };
 
 exports.testJavascript = function() {
@@ -16426,57 +19212,57 @@ exports.testJavascript = function() {
   test.is('x', args[0].text);
   test.is('{', args[0].prefix);
   test.is('}', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
 
   args = requ._tokenize('{ x }');
   test.is(1, args.length);
   test.is('x', args[0].text);
   test.is('{ ', args[0].prefix);
   test.is(' }', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
 
   args = requ._tokenize('{x} {y}');
   test.is(2, args.length);
   test.is('x', args[0].text);
   test.is('{', args[0].prefix);
   test.is('}', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
   test.is('y', args[1].text);
   test.is(' {', args[1].prefix);
   test.is('}', args[1].suffix);
-  test.ok(args[1] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[1].type);
 
   args = requ._tokenize('{x}{y}');
   test.is(2, args.length);
   test.is('x', args[0].text);
   test.is('{', args[0].prefix);
   test.is('}', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
   test.is('y', args[1].text);
   test.is('{', args[1].prefix);
   test.is('}', args[1].suffix);
-  test.ok(args[1] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[1].type);
 
   args = requ._tokenize('{');
   test.is(1, args.length);
   test.is('', args[0].text);
   test.is('{', args[0].prefix);
   test.is('', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
 
   args = requ._tokenize('{ ');
   test.is(1, args.length);
   test.is('', args[0].text);
   test.is('{ ', args[0].prefix);
   test.is('', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
 
   args = requ._tokenize('{x');
   test.is(1, args.length);
   test.is('x', args[0].text);
   test.is('{', args[0].prefix);
   test.is('', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
 };
 
 exports.testRegularNesting = function() {
@@ -16488,28 +19274,28 @@ exports.testRegularNesting = function() {
   test.is('"x"', args[0].text);
   test.is('{', args[0].prefix);
   test.is('}', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
 
   args = requ._tokenize('{\'x\'}');
   test.is(1, args.length);
   test.is('\'x\'', args[0].text);
   test.is('{', args[0].prefix);
   test.is('}', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
 
   args = requ._tokenize('"{x}"');
   test.is(1, args.length);
   test.is('{x}', args[0].text);
   test.is('"', args[0].prefix);
   test.is('"', args[0].suffix);
-  test.ok(args[0] instanceof Argument);
+  test.is('Argument', args[0].type);
 
   args = requ._tokenize('\'{x}\'');
   test.is(1, args.length);
   test.is('{x}', args[0].text);
   test.is('\'', args[0].prefix);
   test.is('\'', args[0].suffix);
-  test.ok(args[0] instanceof Argument);
+  test.is('Argument', args[0].type);
 };
 
 exports.testDeepNesting = function() {
@@ -16521,14 +19307,14 @@ exports.testDeepNesting = function() {
   test.is('{}', args[0].text);
   test.is('{', args[0].prefix);
   test.is('}', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
 
   args = requ._tokenize('{{x} {y}}');
   test.is(1, args.length);
   test.is('{x} {y}', args[0].text);
   test.is('{', args[0].prefix);
   test.is('}', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
 
   args = requ._tokenize('{{w} {{{x}}}} {y} {{{z}}}');
 
@@ -16537,17 +19323,17 @@ exports.testDeepNesting = function() {
   test.is('{w} {{{x}}}', args[0].text);
   test.is('{', args[0].prefix);
   test.is('}', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
 
   test.is('y', args[1].text);
   test.is(' {', args[1].prefix);
   test.is('}', args[1].suffix);
-  test.ok(args[1] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[1].type);
 
   test.is('{{z}}', args[2].text);
   test.is(' {', args[2].prefix);
   test.is('}', args[2].suffix);
-  test.ok(args[2] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[2].type);
 
   args = requ._tokenize('{{w} {{{x}}} {y} {{{z}}}');
 
@@ -16556,7 +19342,7 @@ exports.testDeepNesting = function() {
   test.is('{w} {{{x}}} {y} {{{z}}}', args[0].text);
   test.is('{', args[0].prefix);
   test.is('', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
 };
 
 exports.testStrangeNesting = function() {
@@ -16571,12 +19357,12 @@ exports.testStrangeNesting = function() {
   test.is('"x', args[0].text);
   test.is('{', args[0].prefix);
   test.is('}', args[0].suffix);
-  test.ok(args[0] instanceof ScriptArgument);
+  test.is('ScriptArgument', args[0].type);
 
   test.is('}', args[1].text);
   test.is('"', args[1].prefix);
   test.is('', args[1].suffix);
-  test.ok(args[1] instanceof Argument);
+  test.is('Argument', args[1].type);
 };
 
 exports.testComplex = function() {
@@ -16590,12 +19376,12 @@ exports.testComplex = function() {
   test.is('1234', args[0].text);
   test.is(' ', args[0].prefix);
   test.is('', args[0].suffix);
-  test.ok(args[0] instanceof Argument);
+  test.is('Argument', args[0].type);
 
   test.is('12 34', args[1].text);
   test.is('  \'', args[1].prefix);
   test.is('\'', args[1].suffix);
-  test.ok(args[1] instanceof Argument);
+  test.is('Argument', args[1].type);
 
   args = requ._tokenize('12\'34 "12 34" \\'); // 12'34 "12 34" \
 
@@ -16604,17 +19390,17 @@ exports.testComplex = function() {
   test.is('12\'34', args[0].text);
   test.is('', args[0].prefix);
   test.is('', args[0].suffix);
-  test.ok(args[0] instanceof Argument);
+  test.is('Argument', args[0].type);
 
   test.is('12 34', args[1].text);
   test.is(' "', args[1].prefix);
   test.is('"', args[1].suffix);
-  test.ok(args[1] instanceof Argument);
+  test.is('Argument', args[1].type);
 
   test.is('\\', args[2].text);
   test.is(' ', args[2].prefix);
   test.is('', args[2].suffix);
-  test.ok(args[2] instanceof Argument);
+  test.is('Argument', args[2].type);
 };
 
 exports.testPathological = function() {
@@ -16628,30 +19414,40 @@ exports.testPathological = function() {
   test.is('a b', args[0].text);
   test.is('', args[0].prefix);
   test.is('', args[0].suffix);
-  test.ok(args[0] instanceof Argument);
+  test.is('Argument', args[0].type);
 
   test.is('\t\n\r', args[1].text);
   test.is(' ', args[1].prefix);
   test.is('', args[1].suffix);
-  test.ok(args[1] instanceof Argument);
+  test.is('Argument', args[1].type);
 
   test.is('\'x"', args[2].text);
   test.is(' ', args[2].prefix);
   test.is('', args[2].suffix);
-  test.ok(args[2] instanceof Argument);
+  test.is('Argument', args[2].type);
 
   test.is('d', args[3].text);
   test.is(' \'', args[3].prefix);
   test.is('', args[3].suffix);
-  test.ok(args[3] instanceof Argument);
+  test.is('Argument', args[3].type);
 };
 
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testTooltip', ['require', 'exports', 'module' , 'test/assert', 'gclitest/mockCommands'], function(require, exports, module) {
@@ -16744,9 +19540,19 @@ exports.testActivate = function(options) {
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testTypes', ['require', 'exports', 'module' , 'test/assert', 'gcli/types'], function(require, exports, module) {
@@ -16760,6 +19566,28 @@ exports.setup = function() {
 exports.shutdown = function() {
 };
 
+function forEachType(options, callback) {
+  types.getTypeNames().forEach(function(name) {
+    options.name = name;
+
+    // Provide some basic defaults to help selection/deferred/array work
+    if (name === 'selection') {
+      options.data = [ 'a', 'b' ];
+    }
+    else if (name === 'deferred') {
+      options.defer = function() {
+        return types.getType('string');
+      };
+    }
+    else if (name === 'array') {
+      options.subtype = 'string';
+    }
+
+    var type = types.getType(options);
+    callback(type);
+  });
+}
+
 exports.testDefault = function(options) {
   if (options.isNode) {
     test.log('Running under Node. ' +
@@ -16767,32 +19595,48 @@ exports.testDefault = function(options) {
     return;
   }
 
-  types.getTypeNames().forEach(function(name) {
-    if (name === 'selection') {
-      name = { name: 'selection', data: [ 'a', 'b' ] };
+  forEachType({}, function(type) {
+    var blank = type.getBlank().value;
+
+    // boolean and array types are exempt from needing undefined blank values
+    if (type.name === 'boolean') {
+      test.is(blank, false, 'blank boolean is false');
     }
-    if (name === 'deferred') {
-      name = {
-        name: 'deferred',
-        defer: function() { return types.getType('string'); }
-      };
+    else if (type.name === 'array') {
+      test.ok(Array.isArray(blank), 'blank array is array');
+      test.is(blank.length, 0, 'blank array is empty');
     }
-    if (name === 'array') {
-      name = { name: 'array', subtype: 'string' };
+    else if (type.name === 'nodelist') {
+      test.ok(typeof blank.item, 'function', 'blank.item is function');
+      test.is(blank.length, 0, 'blank nodelist is empty');
     }
-    var type = types.getType(name);
-    if (type.name !== 'boolean' && type.name !== 'array') {
-      test.ok(type.getBlank().value === undefined,
-              'default defined for ' + type.name);
+    else {
+      test.is(blank, undefined, 'default defined for ' + type.name);
     }
+  });
+};
+
+exports.testNullDefault = function(options) {
+  forEachType({ defaultValue: null }, function(type) {
+    test.is(type.stringify(null), '', 'stringify(null) for ' + type.name);
   });
 };
 
 });
 /*
- * Copyright 2009-2011 Mozilla Foundation and contributors
- * Licensed under the New BSD license. See LICENSE.txt or:
- * http://opensource.org/licenses/BSD-3-Clause
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 define('gclitest/testUtil', ['require', 'exports', 'module' , 'gcli/util', 'test/assert'], function(require, exports, module) {

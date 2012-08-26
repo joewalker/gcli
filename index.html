@@ -25,10 +25,9 @@
 
   <input id="gcli-input" type="text" autofocus/>
 
-  <script type="text/javascript" src="es5-shim.js"></script>
   <script type="text/javascript" src="gcli-uncompressed.js"></script>
   <script type="text/javascript">
-    // dependencies should be reflected in lib/server/build.js:buildStandard
+    // dependencies should be reflected in lib/server/commands/standard.js
     require([ 'gcli/index', 'demo/index' ], function(gcli) {
       gcli.createDisplay();
     });
