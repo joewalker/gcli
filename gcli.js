@@ -46,17 +46,17 @@ else {
   // running GCLI in Firefox just by opening index.html
   var requirejs = require('./scripts/r.js');
   requirejs.config({
-   nodeRequire: require,
-   paths: { 'text': 'scripts/text', 'i18n': 'scripts/i18n' },
-   packagePaths: {
-     'lib': [
-       { name: 'gcli', main: 'index', lib: '.' },
-       { name: 'test', main: 'index', lib: '.' },
-       { name: 'gclitest', main: 'index', lib: '.' },
-       { name: 'demo', main: 'index', lib: '.' },
-       { name: 'server', main: 'index', lib: '.' }
-     ]
-   }
+    nodeRequire: require,
+    paths: { 'text': 'scripts/text', 'i18n': 'scripts/i18n' },
+    packagePaths: {
+      'lib': [
+        { name: 'gcli', main: 'index', lib: '.' },
+        { name: 'test', main: 'index', lib: '.' },
+        { name: 'gclitest', main: 'index', lib: '.' },
+        { name: 'demo', main: 'index', lib: '.' },
+        { name: 'server', main: 'index', lib: '.' }
+      ]
+    }
   });
 
   exports.require = requirejs;
