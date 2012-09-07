@@ -16,7 +16,12 @@
 
 define(function(require, exports, module) {
 
+  var imported = {};
   Components.utils.import("resource://gre/modules/commonjs/promise/core.js",
-                          exports);
+                          imported);
+
+  exports.defer = imported.Promise.defer;
+  exports.resolve = imported.Promise.resolve;
+  exports.reject = imported.Promise.reject;
 
 });
