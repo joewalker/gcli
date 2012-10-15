@@ -33,13 +33,22 @@ There are a number of problems with the design of traditional command lines:
 Getting Started
 ---------------
 
-    git clone git://github.com/joewalker/gcli.git
-    cd gcli
-    # Load index.html into your web browser (except Chrome)
-    # For Chrome:
-    npm install .
-    ./gcli.js
-    # Visit http://localhost:9999/
+    $ git clone git://github.com/joewalker/gcli.git
+    $ cd gcli
+      -> Load index.html into your web browser (except Chrome)
+    For Chrome:
+      install node (http://nodejs.org/download/)
+    $ npm install .
+    $ node ./gcli.js
+      -> Load http://localhost:9999/
 
 When you see the '»' prompt, type 'help' to see a list of commands.
+
+
+Related Links
+-------------
+
+* **Bug reports**: http://j.mp/gclibug
+* **GCLI in Firefox**: https://developer.mozilla.org/en-US/docs/Tools/GCLI
+* **GCLI on the Web**: https://github.com/joewalker/gcli/blob/master/docs/index.md
 
