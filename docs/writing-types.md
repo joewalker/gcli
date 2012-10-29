@@ -104,5 +104,3 @@ This is an example of a very simple new password field type:
     PasswordField.claim = function(type) {
       return type.name === 'password' ? Field.claim.MATCH : Field.claim.NO_MATCH;
     };
-
-
