@@ -307,15 +307,16 @@ We can achieve this as follows:
           name: 'value',
           type: {
             name: 'delegate',
-            defer: function() { ... }
+            delegateType: function() { ... }
           }
         }
       ],
       ...
     });
 
-Several details are left out of this example, like how the defer function knows
-what the current setting is. See the ``pref`` command in Ace for an example.
+Several details are left out of this example, like how the delegateType()
+function knows what the current setting is. See the ``pref`` command for an
+example.
 
 
 ## Array types
