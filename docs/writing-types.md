@@ -9,18 +9,18 @@ number of built in types:
 * number. A JavaScript number
 * boolean. A Javascript boolean
 * selection. This is an selection from a number of alternatives
-* deferred. This type could change depending on other factors, but is well
+* delegate. This type could change depending on other factors, but is well
   defined when one of the conversion routines is called.
 
 There are a number of additional types defined by Pilot and GCLI as
-extensions to the ``selection`` and ``deferred`` types
+extensions to the ``selection`` and ``delegate`` types
 
 * setting. One of the defined settings
 * settingValue. A value that can be applied to an associated setting.
 * command. One of the defined commands
 
 Most of our types are 'static' e.g. there is only one type of 'string', however
-some types like 'selection' and 'deferred' are customizable.
+some types like 'selection' and 'delegate' are customizable.
 
 All types must inherit from Type and have the following methods:
 
@@ -42,7 +42,7 @@ All types must inherit from Type and have the following methods:
     /**
      * The plug-in system, and other things need to know what this type is
      * called. The name alone is not enough to fully specify a type. Types like
-     * 'selection' and 'deferred' need extra data, however this function returns
+     * 'selection' and 'delegate' need extra data, however this function returns
      * only the name, not the extra data.
      * <p>In old bespin, equality was based on the name. This may turn out to be
      * important in Ace too.

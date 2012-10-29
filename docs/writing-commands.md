@@ -203,7 +203,7 @@ Initially the available types are:
 - number
 - array
 - selection
-- deferred
+- delegate
 
 This list can be extended. See [Writing Types](writing-types.md) on types for
 more information.
@@ -286,9 +286,9 @@ properties are used by the command line when up and down are pressed and in
 the input type of a dialog generated from this command.
 
 
-## Deferred types
+## Delegate types
 
-Deferred types are needed when the type of some parameter depends on the type
+Delegate types are needed when the type of some parameter depends on the type
 of another parameter. For example:
 
     » set height 100
@@ -306,7 +306,7 @@ We can achieve this as follows:
         {
           name: 'value',
           type: {
-            name: 'deferred',
+            name: 'delegate',
             defer: function() { ... }
           }
         }
@@ -644,7 +644,7 @@ types this is enough detail. There are a number of exceptions:
               ]
             }
 
-* Deferred type. It is generally best to inherit from Deferred in order to
+* Delegate type. It is generally best to inherit from Delegate in order to
   provide a customization of this type. See settingValue for an example.
 
 See below for more information.
