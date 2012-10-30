@@ -8,9 +8,6 @@
 # A handy place to put stuff that git should ignore:
 /ignore
 
-# Allow local testing file to be clear of version control
-/localtest.html
-
 # Build artifacts
 /built
 

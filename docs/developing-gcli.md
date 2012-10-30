@@ -161,23 +161,6 @@ more detailed, we tend to deviate in:
           doThat();
         }
 
-We may have markers in the code as follows:
-
-* ``TODO``: This marks code that needs fixing before we do a release. We should
-  either fix the code or raise a bug and link using ``BUG``
-
-* ``IDEAL``: Sometimes we know the code we'd like to write, but need a
-  pragmatic solution that works for now. In these cases we should mark the
-  code and document the ``IDEAL`` solution.
-
-* ``FUTURE``: There are cases where the code we'd like to write isn't possible
-  because not all browsers support the feature we'd like to use. This tag
-  should be used sparingly (i.e. not for every ``var`` that we'd like to be
-  ``let``). es5shim should be used where possible.
-
-* ``BUG XXXXXX``: Where a known bug affects some code, we mark it with the bug
-  to help us keep track of bugs and the code that is affected.
-
 
 ## Startup
 
@@ -198,7 +181,59 @@ future date.
 Start the GCLI static server:
 
     cd path/to/gcli
-    python static.py
+    node gcli.js
 
-Now point your browser to [http://localhost:9999/][]. When the page loads, you
-should see the command line; enter the ``test`` command to run the unit tests.
+Now point your browser to [http://localhost:9999/localtest.html][]. When the
+page loads, you should see the command line; enter the ``test`` command to run
+the unit tests.
+
+
+## Contributing Code
+
+Please could you do the following to help minimize the amount of rework that we
+do:
+
+1. Check the unit tests run correctly (see **Running the Unit Tests** above)
+2. Check the code follows the style guide. At a minimum it should look like the
+   code around it. For more detailed notes, see **Coding Conventions** above
+3. Sign your work. To improve tracking of who did what, we follow the sign-off
+   procedure used in the Linux Kernel.
+   The sign-off is a simple line at the end of the explanation for the
+   patch, which certifies that you wrote it or otherwise have the right to
+   pass it on as an open-source patch.  The rules are pretty simple: if you
+   can certify the below:
+
+        Developer's Certificate of Origin 1.1
+
+        By making a contribution to this project, I certify that:
+
+        (a) The contribution was created in whole or in part by me and I
+            have the right to submit it under the open source license
+            indicated in the file; or
+
+        (b) The contribution is based upon previous work that, to the best
+            of my knowledge, is covered under an appropriate open source
+            license and I have the right under that license to submit that
+            work with modifications, whether created in whole or in part
+            by me, under the same open source license (unless I am
+            permitted to submit under a different license), as indicated
+            in the file; or
+
+        (c) The contribution was provided directly to me by some other
+            person who certified (a), (b) or (c) and I have not modified
+            it.
+
+        (d) I understand and agree that this project and the contribution
+            are public and that a record of the contribution (including all
+            personal information I submit with it, including my sign-off) is
+            maintained indefinitely and may be redistributed consistent with
+            this project or the open source license(s) involved.
+
+   then you just add a line saying
+
+        Signed-off-by: Random J Developer <random@developer.example.org>
+
+   using your real name (sorry, no pseudonyms or anonymous contributions.)
+
+Thanks for wanting to contribute code.
+
