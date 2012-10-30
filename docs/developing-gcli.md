@@ -196,7 +196,15 @@ do:
 1. Check the unit tests run correctly (see **Running the Unit Tests** above)
 2. Check the code follows the style guide. At a minimum it should look like the
    code around it. For more detailed notes, see **Coding Conventions** above
-3. Sign your work. To improve tracking of who did what, we follow the sign-off
+3. Help me review your work by using good commit comments. Which means 2 things
+   * Well formatted messages, i.e. 50 char summary including bug tag, followed
+     by a blank line followed by a more in-depth message wrapped to 72 chars
+     per line. This is basically the format used by the Linux Kernel. See the
+     [commit log](https://github.com/joewalker/gcli/commits/master) for
+     examples.
+   * Commit your changes as a story. Make it easy for me to understand the
+     changes that you've made.
+4. Sign your work. To improve tracking of who did what, we follow the sign-off
    procedure used in the Linux Kernel.
    The sign-off is a simple line at the end of the explanation for the
    patch, which certifies that you wrote it or otherwise have the right to
