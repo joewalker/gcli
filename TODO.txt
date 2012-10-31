@@ -1,0 +1,10 @@
+Notes on outstanding work ...
+
+Add tests
+
+Grep for update to see what we missed out of making things async.
+
+Make exec return a promise and follow through call sites
+
+Remove the util.synchronize in selectiontype.increment/decrement
+Which probably means making increment/decrement completely async
