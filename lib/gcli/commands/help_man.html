@@ -14,7 +14,7 @@
 
   <h4 class="gcli-help-header">${l10n.helpManDescription}:</h4>
 
-  <p class="gcli-help-description">${describe(command, __element)}</p>
+  <p class="gcli-help-description">${describe(command)}</p>
 
   <div if="${command.exec}">
     <h4 class="gcli-help-header">${l10n.helpManParameters}:</h4>
@@ -24,7 +24,7 @@
       <li foreach="param in ${command.params}">
         ${param.name} <em>${getTypeDescription(param)}</em>
         <br/>
-        ${describe(param, __element)}
+        ${describe(param)}
       </li>
     </ul>
   </div>
