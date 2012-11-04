@@ -535,7 +535,7 @@ the ``returnValue`` setting.
 ``returnValue`` processing is currently functioning, but incomplete, and being
 tracked in [Bug 657595](http://bugzil.la/657595). Currently you should specify
 a ``returnType`` of ``string`` or ``html``. If using HTML, you can return
-either a string for use in processing like ``innerHTML``, or a DOM node.
+either an HTML string or a DOM node.
 
 In the future, JSON will be strongly encouraged as the return type, with some
 formatting functions to convert the JSON to HTML.
@@ -559,8 +559,7 @@ and available as input to other commands as a plain string.
     ...
     return "<p>Hello</p>";
 
-GCLI will interpret this as HTML, and parse it (probably using innerHTML) for
-display.
+GCLI will interpret this as HTML, and parse it for display.
 
     { returnType: "html" }
     ...
