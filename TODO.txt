@@ -1,6 +1,6 @@
 Notes on outstanding work ...
 
-Add tests
+Make selection always async, and re-test
 
 Grep for update to see what we missed out of making things async.
 
