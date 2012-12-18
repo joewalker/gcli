@@ -2,10 +2,10 @@
 <description
     xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
   <loop foreach="member in ${statusMarkup}">
-    <label class="${member.className}">${member.string}</label>
+    <label class="${member.className}" value="${member.string}"></label>
   </loop>
-  <label class="gcli-in-ontab">${directTabText}</label>
-  <label class="gcli-in-todo" foreach="param in ${emptyParameters}">${param}</label>
-  <label class="gcli-in-ontab">${arrowTabText}</label>
-  <label class="gcli-in-closebrace" if="${unclosedJs}">}</label>
+  <label class="gcli-in-ontab" value="${directTabText}"/>
+  <label class="gcli-in-todo" foreach="param in ${emptyParameters}" value="${param}"/>
+  <label class="gcli-in-ontab" value="${arrowTabText}"/>
+  <label class="gcli-in-closebrace" if="${unclosedJs}" value="}"/>
 </description>
