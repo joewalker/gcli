@@ -109,8 +109,7 @@ browser-like as possible.
 - ``Node``/``DOMElement``/etc: The Mozilla JSM environment does not define DOM
   objects like the Node constructor etc for use in constants and instanceof.
   Currently the lack of these objects is mostly hacked around, however we
-  probably should support this better. (See [bug 668488)
-  [https://bugzilla.mozilla.org/show_bug.cgi?id=668488])
+  probably should support this better. (See [bug 668488](https://bugzilla.mozilla.org/show_bug.cgi?id=668488))
 
 
 ## Testing
