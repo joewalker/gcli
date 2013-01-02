@@ -36,26 +36,8 @@ imports.XPCOMUtils.defineLazyGetter(imports, 'supportsString', function() {
 var util = require('gcli/util');
 var types = require('gcli/types');
 
-var allSettings = [];
-
 /**
- * Cache existing settings on startup
- */
-exports.startup = function() {
-  imports.prefBranch.getChildList('').forEach(function(name) {
-    allSettings.push(new Setting(name));
-  }.bind(this));
-  allSettings.sort(function(s1, s2) {
-    return s1.name.localeCompare(s2.name);
-  }.bind(this));
-};
-
-exports.shutdown = function() {
-  allSettings = [];
-};
-
-/**
- *
+ * All local settings have this prefix when used in Firefox
  */
 var DEVTOOLS_PREFIX = 'devtools.gcli.';
 
@@ -174,14 +156,76 @@ Setting.prototype.setDefault = function() {
   Services.prefs.savePrefFile(null);
 };
 
+
 /**
- * 'static' function to get an array containing all known Settings
+ * Collection of preferences for sorted access
+ */
+var settingsAll = [];
+
+/**
+ * Collection of preferences for fast indexed access
+ */
+var settingsMap = new Map();
+
+/**
+ * Flag so we know if we've read the system preferences
+ */
+var hasReadSystem = false;
+
+/**
+ * Clear out all preferences and return to initial state
+ */
+function reset() {
+  settingsMap = new Map();
+  settingsAll = [];
+  hasReadSystem = false;
+}
+
+/**
+ * Reset everything on startup and shutdown because we're doing lazy loading
+ */
+exports.startup = function() {
+  reset();
+};
+
+exports.shutdown = function() {
+  reset();
+};
+
+/**
+ * Load system prefs if they've not been loaded already
+ * @return true
+ */
+function readSystem() {
+  if (hasReadSystem) {
+    return;
+  }
+
+  imports.prefBranch.getChildList('').forEach(function(name) {
+    var setting = new Setting(name);
+    settingsAll.push(setting);
+    settingsMap.set(name, setting);
+  });
+
+  settingsAll.sort(function(s1, s2) {
+    return s1.name.localeCompare(s2.name);
+  });
+
+  hasReadSystem = true;
+}
+
+/**
+ * Get an array containing all known Settings filtered to match the given
+ * filter (string) at any point in the name of the setting
  */
 exports.getAll = function(filter) {
+  readSystem();
+
   if (filter == null) {
-    return allSettings;
+    return settingsAll;
   }
-  return allSettings.filter(function(setting) {
+
+  return settingsAll.filter(function(setting) {
     return setting.name.indexOf(filter) !== -1;
   });
 };
@@ -191,12 +235,19 @@ exports.getAll = function(filter) {
  */
 exports.addSetting = function(prefSpec) {
   var setting = new Setting(prefSpec);
-  for (var i = 0; i < allSettings.length; i++) {
-    if (allSettings[i].name === setting.name) {
-      allSettings[i] = setting;
+
+  if (settingsMap.has(setting.name)) {
+    // Once exists already, we're going to need to replace it in the array
+    for (var i = 0; i < settingsAll.length; i++) {
+      if (settingsAll[i].name === setting.name) {
+        settingsAll[i] = setting;
+      }
     }
   }
+
+  settingsMap.set(setting.name, setting);
   exports.onChange({ added: setting.name });
+
   return setting;
 };
 
@@ -210,15 +261,20 @@ exports.addSetting = function(prefSpec) {
  * @return The found Setting object, or undefined if the setting was not found
  */
 exports.getSetting = function(name) {
-  var found = undefined;
-  allSettings.some(function(setting) {
-    if (setting.name === name) {
-      found = setting;
-      return true;
-    }
-    return false;
-  });
-  return found;
+  // We might be able to give the answer without needing to read all system
+  // settings if this is an internal setting
+  var found = settingsMap.get(name);
+  if (found) {
+    return found;
+  }
+
+  if (hasReadSystem) {
+    return undefined;
+  }
+  else {
+    readSystem();
+    return settingsMap.get(name);
+  }
 };
 
 /**
@@ -229,8 +285,7 @@ exports.onChange = util.createEvent('Settings.onChange');
 /**
  * Remove a setting. A no-op in this case
  */
-exports.removeSetting = function(nameOrSpec) {
-};
+exports.removeSetting = function() { };
 
 
 });
