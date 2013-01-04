@@ -3,7 +3,6 @@ Notes on outstanding work ...
 Make selection always async, and re-test
 
 Fix calls to update that are not properly synchronized. See:
-  cli.js: Requisition.complete (see TODO towards end)
   cli.js: Requisition.exec (2 instances)
   testKeyboard.js: check (see TODO)
 
