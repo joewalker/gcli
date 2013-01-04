@@ -6,7 +6,7 @@ Fix calls to update that are not properly synchronized. See:
   cli.js: Requisition.exec (2 instances)
   testKeyboard.js: check (see TODO)
 
-Make exec return a promise and follow through call sites
+Convert tests that use helpers.exec to use helpers.audit
 
 Remove the util.synchronize in selectiontype.increment/decrement
 Which probably means making increment/decrement completely async
