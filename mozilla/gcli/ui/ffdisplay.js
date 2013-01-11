@@ -30,7 +30,7 @@ var resource = require('gcli/types/resource');
 var host = require('gcli/host');
 var intro = require('gcli/ui/intro');
 
-var commandOutputManager = require('gcli/canon').commandOutputManager;
+var CommandOutputManager = require('gcli/canon').CommandOutputManager;
 
 /**
  * Handy utility to inject the content document (i.e. for the viewed page,
@@ -66,6 +66,7 @@ function setContentDocument(document) {
  * - environment
  * - scratchpad (optional)
  * - chromeWindow
+ * - commandOutputManager (optional)
  */
 function FFDisplay(options) {
   if (options.eval) {
@@ -74,13 +75,19 @@ function FFDisplay(options) {
   setContentDocument(options.contentDocument);
   host.chromeWindow = options.chromeWindow;
 
-  this.onOutput = commandOutputManager.onOutput;
-  this.requisition = new Requisition(options.environment, options.outputDocument);
+  this.commandOutputManager = options.commandOutputManager;
+  if (this.commandOutputManager == null) {
+    this.commandOutputManager = new CommandOutputManager();
+  }
 
-  // Create a FocusManager for the various parts to register with
+  this.onOutput = this.commandOutputManager.onOutput;
+  this.requisition = new Requisition(options.environment,
+                                     options.outputDocument,
+                                     this.commandOutputManager);
+
   this.focusManager = new FocusManager(options, {
-    // TODO: can we kill chromeDocument here?
-    document: options.chromeDocument
+    document: options.chromeDocument,
+    requisition: this.requisition,
   });
   this.onVisibilityChange = this.focusManager.onVisibilityChange;
 
@@ -124,7 +131,7 @@ function FFDisplay(options) {
  * separate method
  */
 FFDisplay.prototype.maybeShowIntro = function() {
-  intro.maybeShowIntro(commandOutputManager);
+  intro.maybeShowIntro(this.commandOutputManager);
 };
 
 /**
@@ -169,7 +176,7 @@ FFDisplay.prototype.destroy = function() {
   // DOM node hunter script from looking in all the nooks and crannies, so it's
   // better if we can be leak-free without deleting them:
   // - consoleWrap, resizer, tooltip, completer, inputter,
-  // - focusManager, onVisibilityChange, requisition
+  // - focusManager, onVisibilityChange, requisition, commandOutputManager
 };
 
 /**

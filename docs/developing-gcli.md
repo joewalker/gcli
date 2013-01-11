@@ -109,8 +109,7 @@ browser-like as possible.
 - ``Node``/``DOMElement``/etc: The Mozilla JSM environment does not define DOM
   objects like the Node constructor etc for use in constants and instanceof.
   Currently the lack of these objects is mostly hacked around, however we
-  probably should support this better. (See [bug 668488)
-  [https://bugzilla.mozilla.org/show_bug.cgi?id=668488])
+  probably should support this better. (See [bug 668488](https://bugzilla.mozilla.org/show_bug.cgi?id=668488))
 
 
 ## Testing
@@ -183,9 +182,9 @@ Start the GCLI static server:
     cd path/to/gcli
     node gcli.js
 
-Now point your browser to [http://localhost:9999/localtest.html][]. When the
-page loads, you should see the command line; enter the ``test`` command to run
-the unit tests.
+Now point your browser to http://localhost:9999/localtest.html. When the page
+loads the tests will be automatically run outputting to the console, or you can
+enter the ``test`` command to run the unit tests.
 
 
 ## Contributing Code
@@ -201,7 +200,8 @@ do:
      by a blank line followed by a more in-depth message wrapped to 72 chars
      per line. This is basically the format used by the Linux Kernel. See the
      [commit log](https://github.com/joewalker/gcli/commits/master) for
-     examples.
+     examples. The be extra helpful, please use the "shortdesc-BUGNUM: " if
+     possible which also helps in reviews.
    * Commit your changes as a story. Make it easy for me to understand the
      changes that you've made.
 4. Sign your work. To improve tracking of who did what, we follow the sign-off
