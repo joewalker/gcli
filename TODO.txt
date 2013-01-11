@@ -2,8 +2,6 @@ Notes on outstanding work ...
 
 Convert tests that use helpers.exec to use helpers.audit
   testTooltip rewrite framework
-  testInputter rewite framework
-  testHelp remove helpers.exec (and search for others)
 
 helpers.js
   Work out why/if test failures are happening being logged in wrong places
