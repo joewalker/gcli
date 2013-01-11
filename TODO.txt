@@ -1,12 +1,26 @@
 Notes on outstanding work ...
 
-Make selection always async, and re-test
+Convert tests that use helpers.exec to use helpers.audit
+  testTooltip rewrite framework
+  testInputter rewite framework
+  testHelp remove helpers.exec (and search for others)
+
+helpers.js
+  Work out why/if test failures are happening being logged in wrong places
 
 Fix calls to update that are not properly synchronized. See:
   cli.js: Requisition.exec (2 instances)
   testKeyboard.js: check (see TODO)
 
-Convert tests that use helpers.exec to use helpers.audit
-
 Remove the util.synchronize in selectiontype.increment/decrement
 Which probably means making increment/decrement completely async
+
+Requisition.setAssignment
+  why is the argUpdate default the thing you should not do?
+
+We're caching many of the async selections. We need to find a way to not do that
+
+s/setup: '/setup:    '/g
+
+Move gcli/host, gcli/l10n, gcli/legacy, gcli/promise, gcli/util, and
+  gcli/ui/domtemplate to util/*
