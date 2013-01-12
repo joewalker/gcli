@@ -24,4 +24,3 @@ helpers:
     gcli/ui/domtemplate to util/*
     So the test harness can use them, which means promise based tests
 - Add 'if' support to helpers.audit
-- Make 'check' optional
