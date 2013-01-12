@@ -16,8 +16,6 @@ Requisition.setAssignment
 We're caching many of the async selections.
   (I think, because tests run very quickly otherwise)
 
-s/setup: '/setup:    '/g
-
 
 helpers:
 
