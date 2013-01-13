@@ -570,7 +570,7 @@ GCLI will interpret this as HTML, and parse it for display.
 and other XML documents. In an HTML document it's functionally equivalent to
 ``context.document.createElement('div')``. If your command is likely to be used
 in Firefox or another XML environment, you should use it. You can import it
-with ``var util = require('gcli/util');``.
+with ``var util = require('util/util');``.
 
 GCLI will use the returned HTML element as returned. See notes on ``context``
 above.
