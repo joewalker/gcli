@@ -88,6 +88,5 @@ if (process.argv.length < 3) {
 }
 else {
   var command = process.argv.slice(2).join(' ');
-  var reply = server.exec(command);
-  console.log(reply);
+  server.updateExec(command).then(console.log, console.error);
 }

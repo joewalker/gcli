@@ -1,10 +1,6 @@
 
 # Notes on outstanding work ...
 
-Fix calls to update that are not properly synchronized. See:
-  cli.js: Requisition.exec (2 instances)
-  testKeyboard.js: check (see TODO)
-
 Remove the util.synchronize in selectiontype.increment/decrement
   Which probably means making increment/decrement completely async
 
