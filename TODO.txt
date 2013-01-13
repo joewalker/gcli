@@ -1,8 +1,6 @@
 
 # Notes on outstanding work ...
 
-Re-enable forceSync=true and fix tests
-
 Fix calls to update that are not properly synchronized. See:
   cli.js: Requisition.exec (2 instances)
   testKeyboard.js: check (see TODO)
@@ -13,9 +11,7 @@ Remove the util.synchronize in selectiontype.increment/decrement
 Requisition.setAssignment
   why is the argUpdate default the thing you should not do?
 
-We're caching many of the async selections.
-  (I think, because tests run very quickly otherwise)
-
+Allow DelegateType to see other type values
 
 helpers:
 - Add 'if' support to helpers.audit
