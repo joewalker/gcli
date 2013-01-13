@@ -18,6 +18,4 @@ We're caching many of the async selections.
 
 
 helpers:
-
-- Work out why/if test failures are happening being logged in wrong places
 - Add 'if' support to helpers.audit
