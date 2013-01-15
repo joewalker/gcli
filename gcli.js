@@ -54,7 +54,8 @@ else {
         { name: 'test', main: 'index', lib: '.' },
         { name: 'gclitest', main: 'index', lib: '.' },
         { name: 'demo', main: 'index', lib: '.' },
-        { name: 'server', main: 'index', lib: '.' }
+        { name: 'server', main: 'index', lib: '.' },
+        { name: 'util', main: 'index', lib: '.' }
       ]
     }
   });
