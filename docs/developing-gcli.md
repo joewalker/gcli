@@ -114,7 +114,7 @@ browser-like as possible.
 
 ## Testing
 
-GCLI contains 3 test suites:
+GCLI contains 2 test suites:
 
 - JS level testing is run with the ``test`` command. The tests are located in
   ``lib/gclitest`` and they use the test runner in ``lib/test``. This is fairly
@@ -125,7 +125,6 @@ GCLI contains 3 test suites:
 - Browser integration tests are included in ``browser_webconsole_gcli_*.js``,
   in ``toolkit/components/console/hudservice/tests/browser``. These are
   run with the rest of the Mozilla test suite.
-- Selenium tests for testing UI interaction are included in ``selenium-tests``.
 
 
 ## Coding Conventions
