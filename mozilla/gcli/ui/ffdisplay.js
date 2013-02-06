@@ -38,8 +38,6 @@ var CommandOutputManager = require('gcli/canon').CommandOutputManager;
  */
 function setContentDocument(document) {
   if (document) {
-    // TODO: this unwrapping smells
-    // jstype.setGlobalObject(unwrap(document.defaultView));
     nodetype.setDocument(document);
     resource.setDocument(document);
   }
