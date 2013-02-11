@@ -16,6 +16,8 @@
 
 define(function(require, exports, module) {
 
+'use strict';
+
 var Inputter = require('gcli/ui/inputter').Inputter;
 var Completer = require('gcli/ui/completer').Completer;
 var Tooltip = require('gcli/ui/tooltip').Tooltip;

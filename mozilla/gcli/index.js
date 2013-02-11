@@ -17,6 +17,9 @@
 var mozl10n = {};
 
 (function(aMozl10n) {
+
+  'use strict';
+
   var temp = {};
   Components.utils.import("resource://gre/modules/Services.jsm", temp);
   var stringBundle = temp.Services.strings.createBundle(
@@ -54,6 +57,8 @@ var mozl10n = {};
 })(mozl10n);
 
 define(function(require, exports, module) {
+
+  'use strict';
 
   // Internal startup process. Not exported
   require('gcli/types/basic').startup();
