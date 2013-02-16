@@ -66,12 +66,13 @@ else {
 exports.require('gcli/index');
 
 // Load the commands defined in Node modules
-require('./lib/server/commands/unamd').startup();
+require('./lib/server/commands/exit').startup();
 require('./lib/server/commands/firefox').startup();
 // require('./lib/server/commands/git').startup();
 require('./lib/server/commands/make').startup();
 require('./lib/server/commands/standard').startup();
 require('./lib/server/commands/test').startup();
+require('./lib/server/commands/unamd').startup();
 
 // Load the commands defined in CommonJS modules
 var help = exports.require('gcli/commands/help');
@@ -89,5 +90,11 @@ if (process.argv.length < 3) {
 }
 else {
   var command = process.argv.slice(2).join(' ');
-  server.updateExec(command).then(console.log, console.error);
+
+  server.exec(command, function(message, isError) {
+    console.log(message);
+    if (isError) {
+      process.exit(1);
+    }
+  });
 }
