@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /*
  * Copyright 2012, Mozilla Foundation and contributors
  *
@@ -33,4 +32,4 @@ page.onConsoleMessage = function() {
   console.log.apply(console, arguments);
 };
 
-page.open('http://localhost:9999/localtest.html', pageLoaded);
+page.open('localtest.html', pageLoaded);
