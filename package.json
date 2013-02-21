@@ -1,7 +1,7 @@
 {
   "name": "gcli",
   "description": "JavaScript Command Line",
-  "version": "0.2.0",
+  "version": "0.5.0",
   "homepage" : "http://github.com/joewalker/gcli",
   "engines": {
     "node": ">= 0.8"
