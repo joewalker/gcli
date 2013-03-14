@@ -203,7 +203,7 @@ Initially the available types are:
 - number
 - array
 - selection
-- deferred
+- delegate
 
 This list can be extended. See [Writing Types](writing-types.md) on types for
 more information.
@@ -286,9 +286,9 @@ properties are used by the command line when up and down are pressed and in
 the input type of a dialog generated from this command.
 
 
-## Deferred types
+## Delegate types
 
-Deferred types are needed when the type of some parameter depends on the type
+Delegate types are needed when the type of some parameter depends on the type
 of another parameter. For example:
 
     » set height 100
@@ -306,16 +306,17 @@ We can achieve this as follows:
         {
           name: 'value',
           type: {
-            name: 'deferred',
-            defer: function() { ... }
+            name: 'delegate',
+            delegateType: function() { ... }
           }
         }
       ],
       ...
     });
 
-Several details are left out of this example, like how the defer function knows
-what the current setting is. See the ``pref`` command in Ace for an example.
+Several details are left out of this example, like how the delegateType()
+function knows what the current setting is. See the ``pref`` command for an
+example.
 
 
 ## Array types
@@ -569,7 +570,7 @@ GCLI will interpret this as HTML, and parse it for display.
 and other XML documents. In an HTML document it's functionally equivalent to
 ``context.document.createElement('div')``. If your command is likely to be used
 in Firefox or another XML environment, you should use it. You can import it
-with ``var util = require('gcli/util');``.
+with ``var util = require('util/util');``.
 
 GCLI will use the returned HTML element as returned. See notes on ``context``
 above.
@@ -643,7 +644,7 @@ types this is enough detail. There are a number of exceptions:
               ]
             }
 
-* Deferred type. It is generally best to inherit from Deferred in order to
+* Delegate type. It is generally best to inherit from Delegate in order to
   provide a customization of this type. See settingValue for an example.
 
 See below for more information.

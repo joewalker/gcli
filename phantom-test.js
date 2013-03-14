@@ -14,14 +14,22 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
+var page = require('webpage').create();
 
-  var imported = {};
-  Components.utils.import("resource://gre/modules/commonjs/sdk/core/promise.js",
-                          imported);
+var pageLoaded = function(status) {
+  setInterval(function() {
+    var complete = page.evaluate(function() {
+      return document.complete;
+    });
 
-  exports.defer = imported.Promise.defer;
-  exports.resolve = imported.Promise.resolve;
-  exports.reject = imported.Promise.reject;
+    if (complete === true) {
+      phantom.exit();
+    }
+  }, 50);
+};
 
-});
+page.onConsoleMessage = function() {
+  console.log.apply(console, arguments);
+};
+
+page.open('localtest.html', pageLoaded);

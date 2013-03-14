@@ -54,7 +54,8 @@ else {
         { name: 'test', main: 'index', lib: '.' },
         { name: 'gclitest', main: 'index', lib: '.' },
         { name: 'demo', main: 'index', lib: '.' },
-        { name: 'server', main: 'index', lib: '.' }
+        { name: 'server', main: 'index', lib: '.' },
+        { name: 'util', main: 'index', lib: '.' }
       ]
     }
   });
@@ -65,12 +66,13 @@ else {
 exports.require('gcli/index');
 
 // Load the commands defined in Node modules
-require('./lib/server/commands/unamd').startup();
+require('./lib/server/commands/exit').startup();
 require('./lib/server/commands/firefox').startup();
 // require('./lib/server/commands/git').startup();
 require('./lib/server/commands/make').startup();
 require('./lib/server/commands/standard').startup();
 require('./lib/server/commands/test').startup();
+require('./lib/server/commands/unamd').startup();
 
 // Load the commands defined in CommonJS modules
 var help = exports.require('gcli/commands/help');
@@ -88,6 +90,11 @@ if (process.argv.length < 3) {
 }
 else {
   var command = process.argv.slice(2).join(' ');
-  var reply = server.exec(command);
-  console.log(reply);
+
+  server.exec(command, function(message, isError) {
+    console.log(message);
+    if (isError) {
+      process.exit(1);
+    }
+  });
 }

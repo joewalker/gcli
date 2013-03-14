@@ -10,6 +10,6 @@ node_modules/jsdom
 node_modules/socket.io
 node_modules/test
 
-node_modules/gcli/promise.js
+node_modules/util/promise.js
 
 node_modules/gcli/index.js

@@ -16,6 +16,8 @@
 
 define(function(require, exports, module) {
 
+'use strict';
+
 var Inputter = require('gcli/ui/inputter').Inputter;
 var Completer = require('gcli/ui/completer').Completer;
 var Tooltip = require('gcli/ui/tooltip').Tooltip;
@@ -27,7 +29,7 @@ var cli = require('gcli/cli');
 var jstype = require('gcli/types/javascript');
 var nodetype = require('gcli/types/node');
 var resource = require('gcli/types/resource');
-var host = require('gcli/host');
+var host = require('util/host');
 var intro = require('gcli/ui/intro');
 
 var CommandOutputManager = require('gcli/canon').CommandOutputManager;
@@ -38,8 +40,6 @@ var CommandOutputManager = require('gcli/canon').CommandOutputManager;
  */
 function setContentDocument(document) {
   if (document) {
-    // TODO: this unwrapping smells
-    // jstype.setGlobalObject(unwrap(document.defaultView));
     nodetype.setDocument(document);
     resource.setDocument(document);
   }

@@ -16,6 +16,8 @@
 
 define(function(require, exports, module) {
 
+  'use strict';
+
   // The API for use by command authors
   exports.addCommand = require('gcli/canon').addCommand;
   exports.removeCommand = require('gcli/canon').removeCommand;

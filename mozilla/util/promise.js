@@ -18,15 +18,12 @@ define(function(require, exports, module) {
 
   'use strict';
 
-  require('gcli/index');
+  var imported = {};
+  Components.utils.import("resource://gre/modules/commonjs/sdk/core/promise.js",
+                          imported);
 
-  require('gcli/commands/help').startup();
-  require('gcli/commands/pref').startup();
-  require('gcli/commands/pref_list').startup();
-  require('gcli/commands/intro').startup();
-
-  require('demo/commands/basic').startup();
-  require('demo/commands/bugs').startup();
-  require('demo/commands/demo').startup();
+  exports.defer = imported.Promise.defer;
+  exports.resolve = imported.Promise.resolve;
+  exports.reject = imported.Promise.reject;
 
 });

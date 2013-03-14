@@ -16,6 +16,7 @@
 
 define(function(require, exports, module) {
 
+  'use strict';
 
   /**
    * The chromeWindow as as required by Highlighter, so it knows where to
