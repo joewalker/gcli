@@ -78,6 +78,7 @@ define(function(require, exports, module) {
 
   require('gcli/commands/help').startup();
   require('gcli/commands/pref').startup();
+  require('gcli/commands/context').startup();
 
   var Cc = Components.classes;
   var Ci = Components.interfaces;
