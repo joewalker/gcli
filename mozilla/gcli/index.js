@@ -88,6 +88,8 @@ define(function(require, exports, module) {
   // The API for use by command authors
   exports.addCommand = require('gcli/canon').addCommand;
   exports.removeCommand = require('gcli/canon').removeCommand;
+  exports.addConverter = require('gcli/converters').addConverter;
+  exports.removeConverter = require('gcli/converters').removeConverter;
   exports.lookup = mozl10n.lookup;
   exports.lookupFormat = mozl10n.lookupFormat;
 
