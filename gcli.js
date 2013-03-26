@@ -70,6 +70,7 @@ require('./lib/server/commands/exit').startup();
 require('./lib/server/commands/firefox').startup();
 // require('./lib/server/commands/git').startup();
 require('./lib/server/commands/make').startup();
+require('./lib/server/commands/serve').startup();
 require('./lib/server/commands/standard').startup();
 require('./lib/server/commands/test').startup();
 require('./lib/server/commands/unamd').startup();
@@ -85,16 +86,61 @@ help.helpListHtml = fs.readFileSync(exports.gcliHome + '/lib/server/commands/hel
 
 // Serve or execute
 var server = require('./lib/server/index');
+var onSuccess, onError, command;
+
 if (process.argv.length < 3) {
-  server.serve();
+  // No command passed in. Serve GCLI over http and start a local REPL
+  command = 'serve';
+  onSuccess = function(message) {
+    console.log(message);
+    startRepl();
+  };
+  onFailure = function(message) {
+    console.error(message);
+  };
 }
 else {
-  var command = process.argv.slice(2).join(' ');
-
-  server.exec(command, function(message, isError) {
+  // Command passed in. No server/REPL and a process.exit(1) on failure to
+  // propagate test errors
+  command = process.argv.slice(2).join(' ');
+  onSuccess = function(message) {
     console.log(message);
-    if (isError) {
-      process.exit(1);
+  };
+  onFailure = function(message) {
+    console.error(message);
+    process.exit(1);
+  };
+}
+
+server.exec(command).then(onSuccess, onFailure);
+
+/**
+ * Start a NodeJS REPL to execute commands
+ */
+function startRepl() {
+  var repl = require('repl');
+
+  var gcliEval = function(command, scope, file, callback) {
+    // Why does node wrap the command in '(...)\n'?
+    command = command.replace(/^\((.*)\n\)$/, function(all, part) {
+      return part;
+    });
+
+    if (command.length !== 0) {
+      var onSuccess = function(message) {
+        console.log(message);
+        callback();
+      }
+      var onError = function(message) {
+        console.error(message);
+        callback();
+      }
+
+      server.exec(command).then(onSuccess, onError);
     }
-  });
+  };
+
+  console.log('This is also a limited GCLI REPL. ' +
+              'Type \'help\' for a list of commands, CTRL+C 3 times to exit:');
+  repl.start('\u00bb ', process, gcliEval, false, true);
 }
