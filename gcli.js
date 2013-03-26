@@ -70,7 +70,7 @@ require('./lib/server/commands/exit').startup();
 require('./lib/server/commands/firefox').startup();
 // require('./lib/server/commands/git').startup();
 require('./lib/server/commands/make').startup();
-require('./lib/server/commands/serve').startup();
+require('./lib/server/commands/server').startup();
 require('./lib/server/commands/standard').startup();
 require('./lib/server/commands/test').startup();
 require('./lib/server/commands/unamd').startup();
@@ -90,7 +90,7 @@ var onSuccess, onError, command;
 
 if (process.argv.length < 3) {
   // No command passed in. Serve GCLI over http and start a local REPL
-  command = 'serve';
+  command = 'server start';
   onSuccess = function(message) {
     console.log(message);
     startRepl();
