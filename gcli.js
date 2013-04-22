@@ -61,6 +61,12 @@ else {
   });
 
   exports.require = requirejs;
+
+  var fs = require('fs');
+  var helpManHtml = fs.readFileSync(exports.gcliHome + '/lib/server/gcli/commands/help_man.html', 'utf8');
+  var helpListHtml = fs.readFileSync(exports.gcliHome + '/lib/server/gcli/commands/help_list.html', 'utf8');
+  requirejs.define('text!gcli/commands/help_man.html', helpManHtml);
+  requirejs.define('text!gcli/commands/help_list.html', helpListHtml);
 }
 
 exports.require('gcli/index');
@@ -68,7 +74,6 @@ exports.require('gcli/index');
 // Load the commands defined in Node modules
 require('./lib/server/commands/basic').startup();
 require('./lib/server/commands/firefox').startup();
-// require('./lib/server/commands/git').startup();
 require('./lib/server/commands/make').startup();
 require('./lib/server/commands/server').startup();
 require('./lib/server/commands/standard').startup();
@@ -76,13 +81,8 @@ require('./lib/server/commands/test').startup();
 require('./lib/server/commands/unamd').startup();
 
 // Load the commands defined in CommonJS modules
-var help = exports.require('gcli/commands/help');
-help.startup();
+exports.require('gcli/commands/help').startup();
 exports.require('gcli/commands/pref').startup();
-
-var fs = require('fs');
-help.helpManHtml = fs.readFileSync(exports.gcliHome + '/lib/server/commands/help_man.txt', 'utf8');
-help.helpListHtml = fs.readFileSync(exports.gcliHome + '/lib/server/commands/help_list.txt', 'utf8');
 
 // Serve or execute
 var server = require('./lib/server/index');
