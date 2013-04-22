@@ -62,6 +62,15 @@ else {
 
   exports.require = requirejs;
 
+  // The Mozilla build has an override directory, to enable custom code for
+  // a platform, but in node it's more hacky - we inject into require
+  var host = require('./lib/server/util/host');
+  requirejs.define('util/host', function(require, exports, module) {
+    Object.keys(host).forEach(function(key) {
+      exports[key] = host[key];
+    });
+  });
+
   var fs = require('fs');
   var helpManHtml = fs.readFileSync(exports.gcliHome + '/lib/server/gcli/commands/help_man.html', 'utf8');
   var helpListHtml = fs.readFileSync(exports.gcliHome + '/lib/server/gcli/commands/help_list.html', 'utf8');
@@ -82,6 +91,7 @@ require('./lib/server/commands/unamd').startup();
 
 // Load the commands defined in CommonJS modules
 exports.require('gcli/commands/context').startup();
+exports.require('gcli/commands/exec').startup();
 exports.require('gcli/commands/help').startup();
 exports.require('gcli/commands/intro').startup();
 exports.require('gcli/commands/pref').startup();
