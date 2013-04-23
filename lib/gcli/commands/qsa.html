@@ -1,6 +1,6 @@
 <div>
-  <p>${nodes.length} node(s) found<span if="${nodes.length>100}">, please refine your selector to display the resulting nodes.</span></p>
-  <ol class="qsa-node-list" if=${nodes.length<=100}>
+  <p>${l10n.lookupFormat('qsaResultIntroText', [nodes.length])}<span if="${nodes.length>maxDisplayedNodes}">${l10n.lookup('qsaResultsTooMany')}</span></p>
+  <ol class="qsa-node-list" if=${nodes.length<=maxDisplayedNodes}>
     <li class="qsa-node" foreach="item in ${nodes}">
       &lt;<span class="qsa-node-tag">${item.node.tagName.toLowerCase()}</span>
       <ul class="qsa-node-attr-list">
