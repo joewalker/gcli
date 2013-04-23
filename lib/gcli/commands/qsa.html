@@ -1,0 +1,13 @@
+<div>
+  <p>${nodes.length} node(s) found<span if="${nodes.length>100}">, please refine your selector to display the resulting nodes.</span></p>
+  <ol class="qsa-node-list" if=${nodes.length<=100}>
+    <li class="qsa-node" foreach="item in ${nodes}">
+      &lt;<span class="qsa-node-tag">${item.node.tagName.toLowerCase()}</span>
+      <ul class="qsa-node-attr-list">
+        <li class="qsa-node-attr" foreach="attr in ${item.attributes}">
+          <span class="qsa-node-attr-name">${attr.name}</span>="<span class="qsa-node-attr-value">${attr.value}</span>"
+        </li>
+      </ul>/&gt;
+    </li>
+  </ol>
+</div>

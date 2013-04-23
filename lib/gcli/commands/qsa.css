@@ -1,0 +1,24 @@
+.qsa-node-list, .qsa-node-attr-list, .qsa-node-attr-list .qsa-node-attr {
+  margin: 0;
+  padding: 0;
+  display: inline;
+}
+.qsa-node-list {
+  color: #999;
+}
+
+.qsa-node-list .qsa-node {
+  display: inline-block; 
+  background: #F2F2F2;
+  border: 1px solid #D6D6D6;
+  border-radius: .2em;
+  margin: .2em;
+  padding: .5em;
+}
+
+.qsa-node-attr-name {
+  color: #F20505;
+}
+.qsa-node-attr-value {
+  color: #7ED3E8;
+}
