@@ -1,0 +1,13 @@
+<div>
+  <p>${l10n.lookupFormat('qsaResultIntroText', [nodes.length])}<span if="${nodes.length>maxDisplayedNodes}">${l10n.lookup('qsaResultsTooMany')}</span></p>
+  <ol class="qsa-node-list" if=${nodes.length<=maxDisplayedNodes}>
+    <li class="qsa-node" foreach="item in ${nodes}">
+      &lt;<span class="qsa-node-tag">${item.node.tagName.toLowerCase()}</span>
+      <ul class="qsa-node-attr-list">
+        <li class="qsa-node-attr" foreach="attr in ${item.attributes}">
+          <span class="qsa-node-attr-name">${attr.name}</span>="<span class="qsa-node-attr-value">${attr.value}</span>"
+        </li>
+      </ul>/&gt;
+    </li>
+  </ol>
+</div>
