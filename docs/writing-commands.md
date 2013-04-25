@@ -542,10 +542,7 @@ In the future, JSON will be strongly encouraged as the return type, with some
 formatting functions to convert the JSON to HTML.
 
 Asynchronous output is achieved using a promise created from the ``context``
-parameter: ``context.defer()`` (The context object also has a deprecated
-``context.createPromise()`` function which will be removed at some point.
-The function was renamed along with the change to a promise system that was
-more compatible with Q and Firefox promises.)
+parameter: ``context.defer()``.
 
 Some examples of this is practice:
 
