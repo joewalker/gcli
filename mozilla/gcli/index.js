@@ -61,13 +61,15 @@ define(function(require, exports, module) {
   'use strict';
 
   // Internal startup process. Not exported
+  // The first group are depended on by others so they must be registered first
   require('gcli/types/basic').startup();
+  require('gcli/types/selection').startup();
+
   require('gcli/types/command').startup();
   require('gcli/types/javascript').startup();
   require('gcli/types/node').startup();
   require('gcli/types/resource').startup();
   require('gcli/types/setting').startup();
-  require('gcli/types/selection').startup();
 
   require('gcli/settings').startup();
   require('gcli/ui/intro').startup();
