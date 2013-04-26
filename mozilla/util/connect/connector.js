@@ -23,7 +23,7 @@ define(function(require, exports, module) {
  * object can't be used until it is connected.
  */
 exports.connect = function(prefix, host, port) {
-  var builtinCommands = Cu.import('resource:///modules/devtools/BuiltinCommands.jsm', {});
+  var builtinCommands = Components.utils.import('resource:///modules/devtools/BuiltinCommands.jsm', {});
 
   if (exports.defaultPort != builtinCommands.DEFAULT_DEBUG_PORT) {
     console.error('Warning contradictory default debug ports');
