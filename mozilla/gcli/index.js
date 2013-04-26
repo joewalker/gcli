@@ -78,9 +78,10 @@ define(function(require, exports, module) {
   require('gcli/ui/fields/javascript').startup();
   require('gcli/ui/fields/selection').startup();
 
+  require('gcli/commands/connect').startup();
+  require('gcli/commands/context').startup();
   require('gcli/commands/help').startup();
   require('gcli/commands/pref').startup();
-  require('gcli/commands/context').startup();
 
   var Cc = Components.classes;
   var Ci = Components.interfaces;
