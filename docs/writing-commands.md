@@ -12,8 +12,8 @@ intentions to commands and commands to what's actually going to happen.
   many people wanting to implement the ``add`` command. This style of
   writing commands has become common place in Unix as the number of commands
   has gone up.
-  We plan to support some type of 'focus' concept to allow a parent command
-  to become a default, promoting its sub-commands above others.
+  The ```context``` command allows users to focus on a parent command, promoting
+  its sub-commands above others.
 
 - Each command should do exactly and only one thing. An example of a Unix
   command that breaks this principle is the ``tar`` command
@@ -26,6 +26,10 @@ intentions to commands and commands to what's actually going to happen.
 
         $ tar create foo.tar.gz -z .
         $ tar extract foo.tar.gz -z .
+
+  There may be commands (like tar) which have enough history behind them
+  that we shouldn't force everyone to re-learn a new syntax. The can be achieved
+  by having a single string parameter and parsing the input in the command)
 
 - Avoid errors. We try to avoid the user having to start again with a command
   due to some problem. The majority of problems are simple typos which we can
@@ -61,7 +65,7 @@ This is how to create a basic ``greet`` command:
       ],
       returnType: 'string',
       exec: function(args, context) {
-        return "Hello, " + args.name;
+        return 'Hello, ' + args.name;
       }
     });
 
@@ -70,8 +74,8 @@ This command is used as follows:
     » greet Joe
     Hello, Joe
 
-Terminology that isn't always obvious: a function has 'parameters', and when
-you call a function, you pass 'arguments' to it.
+Some terminology that isn't always obvious: a function has 'parameters', and
+when you call a function, you pass 'arguments' to it.
 
 
 ## Internationalization (i18n)
@@ -208,14 +212,83 @@ Initially the available types are:
 This list can be extended. See [Writing Types](writing-types.md) on types for
 more information.
 
-Named parameters can be specified anywhere on the command line (after the
-command itself) however positional parameters must be in sequential order.
+The following examples assume the following definition of the ```greet```
+command:
 
-Positional arguments quickly become unwieldy with long argument lists so
-parameters in groups can only be used via named parameters.
+    gcli.addCommand({
+      name: 'greet',
+      params: [
+        { name: 'name', type: 'string' },
+        { name: 'repeat', type: 'number' }
+      ],
+      ...
+    });
 
-Additionally grouped parameters must have default values, except boolean
-parameters, which always have a default value of ``false``.
+Parameters can be specified either with named arguments:
+
+    » greet --name Joe --repeat 2
+
+And sometimes positionally:
+
+    » greet Joe 2
+
+Parameters can be specified positionally if they are considered 'important'.
+Unimportant parameters must be specified with a named argument.
+
+Named arguments can be specified anywhere on the command line (after the
+command itself) however positional arguments must be in order. So
+these examples are the same:
+
+    » greet --name Joe --repeat 2
+    » greet --repeat 2 --name Joe
+
+However (obviously) these are not the same:
+
+    » greet Joe 2
+    » greet 2 Joe
+
+(The second would be an error because 'Joe' is not a number).
+
+Named arguments are assigned first, then the remaining arguments are assigned
+to the remaining parameters. So the following is valid and unambiguous:
+
+    » greet 2 --name Joe
+
+Positional parameters quickly become unwieldy with long parameter lists so we
+recommend only having 2 or 3 important parameters. GCLI provides hints for
+important parameters more obviously than unimportant ones.
+
+Parameters are 'important' if they are not in a parameter group. The easiest way
+to achieve this is to use the ```option: true``` property.
+
+For example, using:
+
+    gcli.addCommand({
+      name: 'greet',
+      params: [
+        { name: 'name', type: 'string' },
+        { name: 'repeat', type: 'number', option: true, defaultValue: 1 }
+      ],
+      ...
+    });
+
+Would mean that this is an error
+
+    » greet Joe 2
+
+You would instead need to do the following:
+
+    » greet Joe --repeat 2
+
+For more on parameter groups, see below.
+
+In addition to being 'important' and 'unimportant' parameters can also be
+optional. If is possible to be important and optional, but it is not possible
+to be unimportant and non-optional.
+
+Parameters are optional if they either:
+- Have a ```defaultValue``` property
+- Are of ```type=boolean``` (boolean arguments automatically default to being false)
 
 There is currently no way to make parameters mutually exclusive.
 
@@ -256,11 +329,6 @@ doesn't work when the underlying type is something else. For this use the
       },
 
 Similarly, ``lookup`` can be a function returning the data of this type.
-
-Under the covers the boolean type is implemented as a Selection with a
-``lookup`` property as follows:
-
-    lookup: { 'true': true, 'false': false }
 
 
 ## Number types
@@ -384,9 +452,36 @@ exec function:
 
 ## Parameter groups
 
-Parameters can be grouped into sections. This primarily allows us to generate
-mousable user-interfaces where similar parameters are presented to the user in
-groups.
+Parameters can be grouped into sections.
+
+There are 3 ways to assign a parameter to a group.
+
+The simplest uses ```option: true``` to put a parameter into the default
+'Options' group:
+
+    gcli.addCommand({
+      name: 'greet',
+      params: [
+        { name: 'repeat', type: 'number', option: true }
+      ],
+      ...
+    });
+
+The ```option``` property can also take a string to use an alternative parameter
+group:
+
+    gcli.addCommand({
+      name: 'greet',
+      params: [
+        { name: 'repeat', type: 'number', option: 'Advanced' }
+      ],
+      ...
+    });
+
+An example of how this can be useful is 'git' which categorizes parameters into
+'porcelain' and 'plumbing'.
+
+Finally, parameters can be grouped together as follows:
 
     gcli.addCommand({
       name: 'greet',
@@ -400,16 +495,7 @@ groups.
           ]
         }
       ],
-      ...,
-      exec: function(args, context) {
-        var output = '';
-        if (args.debug) output += 'About to send greeting';
-        for (var i = 0; i < args.repeat; i++) {
-          output += "Hello, " + args.name;
-        }
-        if (args.debug) output += 'Done!';
-        return output;
-      }
+      ...
     });
 
 This could be used as follows:

@@ -9,8 +9,6 @@ GCLI should be:
 - as fast as a traditional CLI. It should be possible to put your head down,
   and look at the keyboard and use GCLI 'blind' at full speed without making
   mistakes.
-- mousable with similar gestures to a GUI. It should be possible to hide the
-  input area and use GCLI in a similar way to a GUI.
 - principled about the way it encourages people to build commands. There is
   benefit from unifying the underlying concepts.
 - automatically helpful.
@@ -18,8 +16,8 @@ GCLI should be:
 GCLI should not attempt to:
 
 - convert existing GUI users to a CLI.
-- use natural language input. The locale for the input is gcli-GCLI. We use
-  the ``command-name <list of options>`` for all input.
+- use natural language input. The closest we should get to natural language is
+  thinking of commands as ```verb noun --adjective```.
 - gain a touch based interface. Whilst it's possible (even probable) that touch
   can provide further benefits to command line users, that can wait while we
   catch up with 1985.
@@ -37,8 +35,8 @@ of the command line?
 
 ### Connection limitations
 
-Unix pre-dates the Internet and treats almost everything as a file. It is more
-useful in a connected world to use URIs as ways to identify sources of data.
+Unix pre-dates the Internet and treats almost everything as a file. Since the
+Internet it could be more useful to use URIs as ways to identify sources of data.
 
 
 ### Memory limitations
@@ -51,9 +49,7 @@ significantly reduces the need for these concepts. We should make the results
 of past commands addressable for re-use at a later time.
 
 There are a number of possible policies for eviction of items from the history.
-The initial implementation will be a simple count based system. More
-advanced strategies could take data-size, time, and number of references into
-account.
+We should investigate options other than a simple stack.
 
 
 ### Multi-tasking limitations
@@ -72,7 +68,7 @@ more importantly that output from parallel jobs frequently collides
     $ vi main.c
     // have a nice time editing that file
 
-GCLI will allow commands to be asynchronous and will provide UI elements to
+GCLI should allow commands to be asynchronous and will provide UI elements to
 inform the user of job completion. It will also keep asynchronous command
 output contained within it's own display area.
 
