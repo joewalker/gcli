@@ -81,7 +81,9 @@ require('./lib/server/commands/test').startup();
 require('./lib/server/commands/unamd').startup();
 
 // Load the commands defined in CommonJS modules
+exports.require('gcli/commands/context').startup();
 exports.require('gcli/commands/help').startup();
+exports.require('gcli/commands/intro').startup();
 exports.require('gcli/commands/pref').startup();
 
 // Serve or execute
