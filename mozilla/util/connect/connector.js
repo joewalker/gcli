@@ -18,17 +18,27 @@ define(function(require, exports, module) {
 
 'use strict';
 
-require('gcli/index');
+/**
+ * Create a new Connection and begin the connect process so the connection
+ * object can't be used until it is connected.
+ */
+exports.connect = function(prefix, host, port) {
+  var builtinCommands = Components.utils.import('resource:///modules/devtools/BuiltinCommands.jsm', {});
 
-require('gcli/commands/connect').startup();
-require('gcli/commands/context').startup();
-require('gcli/commands/help').startup();
-require('gcli/commands/intro').startup();
-require('gcli/commands/pref').startup();
-require('gcli/commands/pref_list').startup();
+  if (exports.defaultPort != builtinCommands.DEFAULT_DEBUG_PORT) {
+    console.error('Warning contradictory default debug ports');
+  }
 
-require('demo/commands/basic').startup();
-require('demo/commands/bugs').startup();
-require('demo/commands/demo').startup();
+  var connection = new builtinCommands.Connection(prefix, host, port);
+  return connection.connect().then(function() {
+    return connection;
+  });
+};
+
+/**
+ * What port should we use by default?
+ */
+exports.defaultPort = 4242;
+
 
 });

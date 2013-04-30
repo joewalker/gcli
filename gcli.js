@@ -61,40 +61,88 @@ else {
   });
 
   exports.require = requirejs;
+
+  var fs = require('fs');
+  var helpManHtml = fs.readFileSync(exports.gcliHome + '/lib/server/gcli/commands/help_man.html', 'utf8');
+  var helpListHtml = fs.readFileSync(exports.gcliHome + '/lib/server/gcli/commands/help_list.html', 'utf8');
+  requirejs.define('text!gcli/commands/help_man.html', helpManHtml);
+  requirejs.define('text!gcli/commands/help_list.html', helpListHtml);
 }
 
 exports.require('gcli/index');
 
 // Load the commands defined in Node modules
-require('./lib/server/commands/exit').startup();
+require('./lib/server/commands/basic').startup();
 require('./lib/server/commands/firefox').startup();
-// require('./lib/server/commands/git').startup();
 require('./lib/server/commands/make').startup();
+require('./lib/server/commands/server').startup();
 require('./lib/server/commands/standard').startup();
 require('./lib/server/commands/test').startup();
 require('./lib/server/commands/unamd').startup();
 
 // Load the commands defined in CommonJS modules
-var help = exports.require('gcli/commands/help');
-help.startup();
+exports.require('gcli/commands/context').startup();
+exports.require('gcli/commands/help').startup();
+exports.require('gcli/commands/intro').startup();
 exports.require('gcli/commands/pref').startup();
-
-var fs = require('fs');
-help.helpManHtml = fs.readFileSync(exports.gcliHome + '/lib/server/commands/help_man.txt', 'utf8');
-help.helpListHtml = fs.readFileSync(exports.gcliHome + '/lib/server/commands/help_list.txt', 'utf8');
 
 // Serve or execute
 var server = require('./lib/server/index');
+var onSuccess, onError, command;
+
 if (process.argv.length < 3) {
-  server.serve();
+  // No command passed in. Serve GCLI over http and start a local REPL
+  command = 'server start';
+  onSuccess = function(message) {
+    console.log(message);
+    startRepl();
+  };
+  onFailure = function(message) {
+    console.error(message);
+  };
 }
 else {
-  var command = process.argv.slice(2).join(' ');
-
-  server.exec(command, function(message, isError) {
+  // Command passed in. No server/REPL and a process.exit(1) on failure to
+  // propagate test errors
+  command = process.argv.slice(2).join(' ');
+  onSuccess = function(message) {
     console.log(message);
-    if (isError) {
-      process.exit(1);
+  };
+  onFailure = function(message) {
+    console.error(message);
+    process.exit(1);
+  };
+}
+
+server.exec(command).then(onSuccess, onFailure);
+
+/**
+ * Start a NodeJS REPL to execute commands
+ */
+function startRepl() {
+  var repl = require('repl');
+
+  var gcliEval = function(command, scope, file, callback) {
+    // Why does node wrap the command in '(...)\n'?
+    command = command.replace(/^\((.*)\n\)$/, function(all, part) {
+      return part;
+    });
+
+    if (command.length !== 0) {
+      var onSuccess = function(message) {
+        console.log(message);
+        callback();
+      }
+      var onError = function(message) {
+        console.error(message);
+        callback();
+      }
+
+      server.exec(command).then(onSuccess, onError);
     }
-  });
+  };
+
+  console.log('This is also a limited GCLI REPL. ' +
+              'Type \'help\' for a list of commands, CTRL+C 3 times to exit:');
+  repl.start('\u00bb ', process, gcliEval, false, true);
 }

@@ -20,8 +20,7 @@ something that is both easy to use and learn as well as fast and powerful.
 
 GCLI has a type system to help ensure that users are inputting valid commands
 and to enable us to provide sensible context sensitive help. GCLI provides
-deep integration with JavaScript rather than being an alternative (like Coffee
-Script).
+integration with JavaScript rather than being an alternative (like CoffeeScript).
 
 
 ## Status
@@ -40,28 +39,18 @@ GCLI was born as part of the
 survived the rename of Bepsin to Skywriter and the merger with Ace, got a name
 of it's own (Cockpit) which didn't last long before the project was named GCLI.
 It is now being used in the Firefox's web console where it doesn't have a
-separate identity but it's still called GCLI outside of Firefox. It is not
-known how long it will stay being called GCLI.
+separate identity but it's still called GCLI outside of Firefox. It is also
+used in [Eclipse Orion](http://www.eclipse.org/orion/).
 
 
 ## Environments
 
 GCLI is designed to work in a number of environments:
 
-1. As a component of Firefox developer tools. As such it replaces the web
-   console command line.
-2. As an adjunct to Ace and possible component for Cloud9.
+1. As a component of Firefox developer tools.
+2. As an adjunct to Orion/Ace and other online editors.
 3. As a plugin to any web-page wishing to provide its own set of commands.
 4. As part of a standalone web browser extension with it's own set of commands.
-
-Currently only 1. and 2. of these is directly supported, support for other
-environments may follow.
-
-In order to support these environments GCLI will need to:
-
-- Be usable in the latest versions of modern browsers
-- Make the UI fairly simple to re-implement (since some environments might have
-  a styling/templating system which doesn't fit with the supplied model)
 
 
 ## Related Pages
@@ -74,14 +63,9 @@ Other sources of GCLI documentation:
 - [Running Tests](running-tests.md)
 - [The Design of GCLI](design.md)
 - Source
-  - The most up-to-date source is Joe Walker's [Github repository for GCLI]
-    (https://github.com/joewalker/gcli/).
-  - When a feature is 'done' it's merged into the [Mozilla clone]
-    (https://github.com/mozilla/gcli/).
-  - The source for the Firefox embedding springs from [this HG/MQ patch queue]
-    (http://j.mp/gcli-mq) (which is partly derived from the Git repo) from
-    which it flows into [Mozilla Central]
-    (https://hg.mozilla.org/mozilla-central/file/tip/browser/devtools/webconsole).
+  - The most up-to-date source is in [this Github repository](https://github.com/joewalker/gcli/).
+  - When a feature is 'done' it's merged into the [Mozilla clone](https://github.com/mozilla/gcli/).
+  - From which it flows into [Mozilla Central](https://hg.mozilla.org/mozilla-central/file/tip/browser/devtools/commandline).
 - [Demo of GCLI](http://mozilla.github.com/gcli/) with an arbitrary set of demo
   commands
 - Other Documentation
@@ -92,9 +76,7 @@ Other sources of GCLI documentation:
 ## Accessibility
 
 GCLI uses ARIA roles to guide a screen-reader as to the important sections to
-voice. We welcome feedback on how these roles are implemented, either by
-[raising a bug](http://j.mp/gcli-bug) or by [posting to the
-Webby-CLI mailing list](https://groups.google.com/forum/#!forum/webby-cli).
+voice. We welcome [feedback on how these roles are implemented](https://bugzilla.mozilla.org/enter_bug.cgi?product=Firefox&component=Developer+Tools:+Graphic+Commandline+and+Toolbar&rep_platform=All&op_sys=All&short_desc=GCLI).
 
 The command line uses TAB as a method of completing current input, this
 prevents use of TAB for keyboard navigation. Instead of using TAB to move to
@@ -141,11 +123,9 @@ There are 3 basic steps in using GCLI in your system.
 
 ## Backwards Compatibility
 
-Providing 100% backwards compatibility is near impossible, especially when
-combined with a desire to allow advanced users to tinker. The goals of the GCLI
-project are:
+The goals of the GCLI project are:
 
-- We aim for very good backwards compatibility with code required from an
+- Aim for very good backwards compatibility with code required from an
   'index' module. This means we will not break code without a cycle of
   deprecation warnings.
 
@@ -155,8 +135,8 @@ project are:
   - gclitest/index (GCLI test suite)
 
   Code from these modules uses the module pattern to prevent access to internal
-  functions, so in essence, if you can get to it from an index module, you're
-  ok.
+  functions, so in essence, if you can get to it from an index module, you
+  should be ok.
 
 - We try to avoid needless change to other modules, however we don't make any
   promises, and don't provide a deprecation cycle.
