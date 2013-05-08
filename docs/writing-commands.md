@@ -645,7 +645,7 @@ and available as input to other commands as a plain string.
 
 GCLI will interpret this as HTML, and parse it for display.
 
-    { returnType: "html" }
+    { returnType: "dom" }
     ...
     return util.createElement(context.document, 'div');
 
