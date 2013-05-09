@@ -32,7 +32,7 @@ exports.connect = function(prefix, host, port) {
  */
 Object.defineProperty(exports, 'defaultPort', {
   get: function() {
-    var Services = Components.utils.import("resource://gre/modules/Services.jsm", {});
+    Components.utils.import("resource://gre/modules/Services.jsm");
     return Services.prefs.getIntPref("devtools.debugger.chrome-debugging-port");
   },
   enumerable: true
