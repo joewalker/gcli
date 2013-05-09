@@ -77,13 +77,13 @@ Object.defineProperty(Setting.prototype, 'type', {
   get: function() {
     switch (imports.prefBranch.getPrefType(this.name)) {
       case imports.prefBranch.PREF_BOOL:
-        return types.getType('boolean');
+        return types.createType('boolean');
 
       case imports.prefBranch.PREF_INT:
-        return types.getType('number');
+        return types.createType('number');
 
       case imports.prefBranch.PREF_STRING:
-        return types.getType('string');
+        return types.createType('string');
 
       default:
         throw new Error('Unknown type for ' + this.name);

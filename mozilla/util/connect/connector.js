@@ -18,17 +18,25 @@ define(function(require, exports, module) {
 
 'use strict';
 
-require('gcli/index');
+/**
+ * Create a new Connection and begin the connect process so the connection
+ * object can't be used until it is connected.
+ */
+exports.connect = function(prefix, host, port) {
+  var builtinCommands = Components.utils.import('resource:///modules/devtools/BuiltinCommands.jsm', {});
+  return builtinCommands.connect(prefix, host, port);
+};
 
-require('gcli/commands/connect').startup();
-require('gcli/commands/context').startup();
-require('gcli/commands/help').startup();
-require('gcli/commands/intro').startup();
-require('gcli/commands/pref').startup();
-require('gcli/commands/pref_list').startup();
+/**
+ * What port should we use by default?
+ */
+Object.defineProperty(exports, 'defaultPort', {
+  get: function() {
+    Components.utils.import("resource://gre/modules/Services.jsm");
+    return Services.prefs.getIntPref("devtools.debugger.chrome-debugging-port");
+  },
+  enumerable: true
+});
 
-require('demo/commands/basic').startup();
-require('demo/commands/bugs').startup();
-require('demo/commands/demo').startup();
 
 });

@@ -29,5 +29,6 @@
 }
 
 .gcli-pref-list-row:hover .gcli-pref-list-command {
-  display: inline-block;
+  /* 'pref list' is a bit broken and unimportant. Band-aid follows */
+  /* display: inline-block; */
 }
