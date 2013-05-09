@@ -24,21 +24,19 @@ define(function(require, exports, module) {
  */
 exports.connect = function(prefix, host, port) {
   var builtinCommands = Components.utils.import('resource:///modules/devtools/BuiltinCommands.jsm', {});
-
-  if (exports.defaultPort != builtinCommands.DEFAULT_DEBUG_PORT) {
-    console.error('Warning contradictory default debug ports');
-  }
-
-  var connection = new builtinCommands.Connection(prefix, host, port);
-  return connection.connect().then(function() {
-    return connection;
-  });
+  return builtinCommands.connect(prefix, host, port);
 };
 
 /**
  * What port should we use by default?
  */
-exports.defaultPort = 4242;
+Object.defineProperty(exports, 'defaultPort', {
+  get: function() {
+    var Services = Components.utils.import("resource://gre/modules/Services.jsm", {});
+    return Services.prefs.getIntPref("devtools.debugger.chrome-debugging-port");
+  },
+  enumerable: true
+});
 
 
 });
