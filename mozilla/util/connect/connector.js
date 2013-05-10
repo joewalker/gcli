@@ -18,25 +18,174 @@ define(function(require, exports, module) {
 
 'use strict';
 
-/**
- * Create a new Connection and begin the connect process so the connection
- * object can't be used until it is connected.
- */
-exports.connect = function(prefix, host, port) {
-  var builtinCommands = Components.utils.import('resource:///modules/devtools/BuiltinCommands.jsm', {});
-  return builtinCommands.connect(prefix, host, port);
-};
+var debuggerSocketConnect = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).debuggerSocketConnect;
+var DebuggerClient = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).DebuggerClient;
 
 /**
  * What port should we use by default?
  */
 Object.defineProperty(exports, 'defaultPort', {
   get: function() {
-    Components.utils.import("resource://gre/modules/Services.jsm");
-    return Services.prefs.getIntPref("devtools.debugger.chrome-debugging-port");
+    var Services = Components.utils.import('resource://gre/modules/Services.jsm', {}).Services;
+    try {
+      return Services.prefs.getIntPref('devtools.debugger.chrome-debugging-port');
+    }
+    catch (ex) {
+      console.error('Can\'t use default port from prefs. Using 9999');
+      return 9999;
+    }
   },
   enumerable: true
 });
+
+
+/**
+ * Create a Connection object and initiate a connection.
+ */
+exports.connect = function(prefix, host, port) {
+  var connection = new Connection(prefix, host, port);
+  return connection.connect().then(function() {
+    return connection;
+  });
+};
+
+/**
+ * Manage a named connection to an HTTP server over web-sockets using socket.io
+ */
+function Connection(prefix, host, port) {
+  this.prefix = prefix;
+  this.host = host;
+  this.port = port;
+
+  // Properties setup by connect()
+  this.actor = undefined;
+  this.transport = undefined;
+  this.client = undefined;
+
+  this.requests = {};
+  this.nextRequestId = 0;
+}
+
+/**
+ * Setup socket.io, retrieve the list of remote commands and register them with
+ * the local canon.
+ * @return a promise which resolves (to undefined) when the connection is made
+ * or is rejected (with an error message) if the connection fails
+ */
+Connection.prototype.connect = function() {
+  var deferred = Promise.defer();
+
+  this.transport = debuggerSocketConnect(this.host, this.port);
+  this.client = new DebuggerClient(this.transport);
+
+  this.client.connect(function() {
+    this.client.listTabs(function(response) {
+      this.actor = response.gcliActor;
+      deferred.resolve();
+    }.bind(this));
+  }.bind(this));
+
+  return deferred.promise;
+};
+
+/**
+ * Retrieve the list of remote commands.
+ * @return a promise of an array of commandSpecs
+ */
+Connection.prototype.getCommandSpecs = function() {
+  var deferred = Promise.defer();
+
+  var request = { to: this.actor, type: 'getCommandSpecs' };
+
+  this.client.request(request, function(response) {
+    deferred.resolve(response.commandSpecs);
+  });
+
+  return deferred.promise;
+};
+
+/**
+ * Send an execute request. Replies are handled by the setup in connect()
+ */
+Connection.prototype.execute = function(typed, cmdArgs) {
+  var deferred = Promise.defer();
+
+  var request = {
+    to: this.actor,
+    type: 'execute',
+    typed: typed,
+    args: cmdArgs
+  };
+
+  this.client.request(request, function(response) {
+    deferred.resolve(response.reply);
+  });
+
+  return deferred.promise;
+};
+
+/**
+ * Send an execute request.
+ */
+Connection.prototype.execute = function(typed, cmdArgs) {
+  var request = new Request(this.actor, typed, cmdArgs);
+  this.requests[request.json.id] = request;
+
+  this.client.request(request.json, function(response) {
+    var request = this.requests[response.id];
+    delete this.requests[response.id];
+
+    request.complete(response.error, response.type, response.data);
+  }.bind(this));
+
+  return request.promise;
+};
+
+/**
+ * Kill this connection
+ */
+Connection.prototype.disconnect = function() {
+  var deferred = Promise.defer();
+
+  this.client.close(function() {
+    deferred.resolve();
+  });
+
+  return request.promise;
+};
+
+/**
+ * A Request is a command typed at the client which lives until the command
+ * has finished executing on the server
+ */
+function Request(actor, typed, args) {
+  this.json = {
+    to: actor,
+    type: 'execute',
+    typed: typed,
+    args: args,
+    id: Request._nextRequestId++,
+  };
+
+  this._deferred = Promise.defer();
+  this.promise = this._deferred.promise;
+}
+
+Request._nextRequestId = 0;
+
+/**
+ * Called by the connection when a remote command has finished executing
+ * @param error boolean indicating output state
+ * @param type the type of the returned data
+ * @param data the data itself
+ */
+Request.prototype.complete = function(error, type, data) {
+  this._deferred.resolve({
+    error: error,
+    type: type,
+    data: data
+  });
+};
 
 
 });

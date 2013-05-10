@@ -22,8 +22,19 @@ var mozl10n = {};
 
   var temp = {};
   Components.utils.import("resource://gre/modules/Services.jsm", temp);
-  var stringBundle = temp.Services.strings.createBundle(
-          "chrome://browser/locale/devtools/gclicommands.properties");
+
+  var stringBundle;
+  try {
+    stringBundle = temp.Services.strings.createBundle(
+            "chrome://browser/locale/devtools/gclicommands.properties");
+  }
+  catch (ex) {
+    console.error("Using string fallbacks");
+    stringBundle = {
+      GetStringFromName: function(name) { return name; },
+      formatStringFromName: function(name) { return name; }
+    };
+  }
 
   /**
    * Lookup a string in the GCLI string bundle
