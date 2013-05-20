@@ -106,6 +106,9 @@ define(function(require, exports, module) {
   exports.removeCommand = require('gcli/canon').removeCommand;
   exports.addConverter = require('gcli/converters').addConverter;
   exports.removeConverter = require('gcli/converters').removeConverter;
+  exports.addType = require('gcli/types').addType;
+  exports.removeType = require('gcli/types').removeType;
+
   exports.lookup = mozl10n.lookup;
   exports.lookupFormat = mozl10n.lookupFormat;
 
