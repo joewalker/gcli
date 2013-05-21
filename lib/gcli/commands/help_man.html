@@ -6,9 +6,7 @@
     ${l10n.helpManSynopsis}:
     <span class="gcli-out-shortcut" onclick="${onclick}" data-command="${command.name}">
       ${command.name}
-      <span foreach="param in ${command.params}">
-        ${param.defaultValue !== undefined ? '[' + param.name + ']' : param.name}
-      </span>
+      <span foreach="param in ${command.params}">${getSynopsis(param)} </span>
     </span>
   </h4>
 

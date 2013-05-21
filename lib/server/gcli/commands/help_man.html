@@ -1,7 +1,7 @@
 
 <div>## ${command.name}
 
-# ${l10n.helpManSynopsis}: ${command.name} <loop foreach="param in ${command.params}">${param.defaultValue !== undefined ? '[' + param.name + ']' : param.name} </loop>
+# ${l10n.helpManSynopsis}: ${command.name} <loop foreach="param in ${command.params}">${getSynopsis(param)} </loop>
 
 # ${l10n.helpManDescription}:
 
