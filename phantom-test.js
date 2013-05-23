@@ -45,7 +45,7 @@ if (system.args.length === 1) {
     page.open('http://localhost:9999/localtest.html?shutdown=true', pageLoaded);
   }
   else {
-    console.error('The only option is --http to load from http');
+    console.error('Options: --shutdown or --http');
     phantom.exit(-1);
   }
 }
