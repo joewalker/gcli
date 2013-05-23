@@ -16,14 +16,16 @@
 
 define(function(require, exports, module) {
 
-  'use strict';
+'use strict';
 
-  var imported = {};
-  Components.utils.import("resource://gre/modules/commonjs/sdk/core/promise.js",
-                          imported);
+var imported = {};
+Components.utils.import("resource://gre/modules/commonjs/sdk/core/promise.js",
+                        imported);
 
-  exports.defer = imported.Promise.defer;
-  exports.resolve = imported.Promise.resolve;
-  exports.reject = imported.Promise.reject;
+exports.defer = imported.Promise.defer;
+exports.resolve = imported.Promise.resolve;
+exports.reject = imported.Promise.reject;
+exports.promised = imported.Promise.promised;
+exports.all = imported.Promise.all;
 
 });
