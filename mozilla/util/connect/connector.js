@@ -21,6 +21,8 @@ define(function(require, exports, module) {
 var debuggerSocketConnect = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).debuggerSocketConnect;
 var DebuggerClient = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).DebuggerClient;
 
+var Promise = require('util/promise');
+
 /**
  * What port should we use by default?
  */
@@ -141,10 +143,12 @@ Connection.prototype.execute = function(typed, cmdArgs) {
   return request.promise;
 };
 
+exports.disconnectSupportsForce = false;
+
 /**
  * Kill this connection
  */
-Connection.prototype.disconnect = function() {
+Connection.prototype.disconnect = function(force) {
   var deferred = Promise.defer();
 
   this.client.close(function() {
