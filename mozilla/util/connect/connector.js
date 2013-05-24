@@ -110,32 +110,12 @@ Connection.prototype.getCommandSpecs = function() {
  * Send an execute request. Replies are handled by the setup in connect()
  */
 Connection.prototype.execute = function(typed, cmdArgs) {
-  var deferred = Promise.defer();
-
-  var request = {
-    to: this.actor,
-    type: 'execute',
-    typed: typed,
-    args: cmdArgs
-  };
-
-  this.client.request(request, function(response) {
-    deferred.resolve(response.reply);
-  });
-
-  return deferred.promise;
-};
-
-/**
- * Send an execute request.
- */
-Connection.prototype.execute = function(typed, cmdArgs) {
   var request = new Request(this.actor, typed, cmdArgs);
-  this.requests[request.json.id] = request;
+  this.requests[request.json.requestId] = request;
 
   this.client.request(request.json, function(response) {
-    var request = this.requests[response.id];
-    delete this.requests[response.id];
+    var request = this.requests[response.requestId];
+    delete this.requests[response.requestId];
 
     request.complete(response.error, response.type, response.data);
   }.bind(this));
@@ -168,7 +148,7 @@ function Request(actor, typed, args) {
     type: 'execute',
     typed: typed,
     args: args,
-    id: Request._nextRequestId++,
+    requestId: 'id-' + Request._nextRequestId++,
   };
 
   this._deferred = Promise.defer();
