@@ -21,6 +21,8 @@ define(function(require, exports, module) {
 var debuggerSocketConnect = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).debuggerSocketConnect;
 var DebuggerClient = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).DebuggerClient;
 
+var Promise = require('util/promise');
+
 /**
  * What port should we use by default?
  */
@@ -108,32 +110,12 @@ Connection.prototype.getCommandSpecs = function() {
  * Send an execute request. Replies are handled by the setup in connect()
  */
 Connection.prototype.execute = function(typed, cmdArgs) {
-  var deferred = Promise.defer();
-
-  var request = {
-    to: this.actor,
-    type: 'execute',
-    typed: typed,
-    args: cmdArgs
-  };
-
-  this.client.request(request, function(response) {
-    deferred.resolve(response.reply);
-  });
-
-  return deferred.promise;
-};
-
-/**
- * Send an execute request.
- */
-Connection.prototype.execute = function(typed, cmdArgs) {
   var request = new Request(this.actor, typed, cmdArgs);
-  this.requests[request.json.id] = request;
+  this.requests[request.json.requestId] = request;
 
   this.client.request(request.json, function(response) {
-    var request = this.requests[response.id];
-    delete this.requests[response.id];
+    var request = this.requests[response.requestId];
+    delete this.requests[response.requestId];
 
     request.complete(response.error, response.type, response.data);
   }.bind(this));
@@ -141,10 +123,12 @@ Connection.prototype.execute = function(typed, cmdArgs) {
   return request.promise;
 };
 
+exports.disconnectSupportsForce = false;
+
 /**
  * Kill this connection
  */
-Connection.prototype.disconnect = function() {
+Connection.prototype.disconnect = function(force) {
   var deferred = Promise.defer();
 
   this.client.close(function() {
@@ -164,7 +148,7 @@ function Request(actor, typed, args) {
     type: 'execute',
     typed: typed,
     args: args,
-    id: Request._nextRequestId++,
+    requestId: 'id-' + Request._nextRequestId++,
   };
 
   this._deferred = Promise.defer();

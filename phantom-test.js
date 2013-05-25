@@ -15,21 +15,37 @@
  */
 
 var page = require('webpage').create();
+var system = require('system');
+
+var exitOnComplete = function() {
+  var complete = page.evaluate(function() {
+    return document.complete;
+  });
+
+  if (complete === true) {
+    phantom.exit();
+  }
+};
 
 var pageLoaded = function(status) {
-  setInterval(function() {
-    var complete = page.evaluate(function() {
-      return document.complete;
-    });
-
-    if (complete === true) {
-      phantom.exit();
-    }
-  }, 50);
+  setInterval(exitOnComplete, 50);
 };
 
 page.onConsoleMessage = function() {
   console.log.apply(console, arguments);
 };
 
-page.open('localtest.html', pageLoaded);
+if (system.args.length === 1) {
+  page.open('localtest.html', pageLoaded);
+} else {
+  if (system.args[1] === '--http') {
+    page.open('http://localhost:9999/localtest.html', pageLoaded);
+  }
+  else if (system.args[1] === '--shutdown') {
+    page.open('http://localhost:9999/localtest.html?shutdown=true', pageLoaded);
+  }
+  else {
+    console.error('Options: --shutdown or --http');
+    phantom.exit(-1);
+  }
+}
