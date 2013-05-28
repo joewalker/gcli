@@ -83,7 +83,6 @@ exports.require('gcli/index');
 // Load the commands defined in Node modules
 require('./lib/server/commands/basic').startup();
 require('./lib/server/commands/firefox').startup();
-require('./lib/server/commands/make').startup();
 require('./lib/server/commands/server').startup();
 require('./lib/server/commands/standard').startup();
 require('./lib/server/commands/test').startup();
