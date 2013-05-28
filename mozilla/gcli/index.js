@@ -83,6 +83,10 @@ define(function(require, exports, module) {
   require('gcli/types/resource').startup();
   require('gcli/types/setting').startup();
 
+  require('gcli/converters').startup();
+  require('gcli/converters/basic').startup();
+  require('gcli/converters/terminal').startup();
+
   require('gcli/settings').startup();
   require('gcli/ui/intro').startup();
   require('gcli/ui/focus').startup();

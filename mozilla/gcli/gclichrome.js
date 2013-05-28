@@ -30,6 +30,10 @@ define(function(require, exports, module) {
   require('gcli/types/selection').startup();
   require('gcli/types/setting').startup();
 
+  require('gcli/converters').startup();
+  require('gcli/converters/basic').startup();
+  require('gcli/converters/terminal').startup();
+
   require('gcli/settings').startup();
   require('gcli/cli').startup();
   require('gcli/ui/intro').startup();
