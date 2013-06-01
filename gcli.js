@@ -79,21 +79,32 @@ else {
 }
 
 exports.require('gcli/index');
+var gcli = exports.require('gcli/api').getApi();
 
-// Load the commands defined in Node modules
-require('./lib/server/commands/basic').startup();
-require('./lib/server/commands/firefox').startup();
-require('./lib/server/commands/server').startup();
-require('./lib/server/commands/standard').startup();
-require('./lib/server/commands/test').startup();
-require('./lib/server/commands/unamd').startup();
+// gcli.addItems(exports.require('gcli/commands/connect').items);
+gcli.addItems(exports.require('gcli/commands/context').items);
+gcli.addItems(exports.require('gcli/commands/exec').items);
+gcli.addItems(exports.require('gcli/commands/help').items);
+gcli.addItems(exports.require('gcli/commands/intro').items);
+gcli.addItems(exports.require('gcli/commands/pref_list').items);
+gcli.addItems(exports.require('gcli/commands/pref').items);
 
-// Load the commands defined in CommonJS modules
-exports.require('gcli/commands/context').startup();
-exports.require('gcli/commands/exec').startup();
-exports.require('gcli/commands/help').startup();
-exports.require('gcli/commands/intro').startup();
-exports.require('gcli/commands/pref').startup();
+gcli.addItems(exports.require('demo/commands/alert').items);
+// gcli.addItems(exports.require('demo/commands/bugs').items);
+// gcli.addItems(exports.require('demo/commands/demo').items);
+gcli.addItems(exports.require('demo/commands/echo').items);
+// gcli.addItems(exports.require('demo/commands/edit').items);
+// gcli.addItems(exports.require('demo/commands/git').items);
+// gcli.addItems(exports.require('demo/commands/hg').items);
+gcli.addItems(exports.require('demo/commands/sleep').items);
+
+// Commands using the Nope API
+gcli.addItems(require('./lib/server/commands/exit').items);
+gcli.addItems(require('./lib/server/commands/firefox').items);
+gcli.addItems(require('./lib/server/commands/server').items);
+gcli.addItems(require('./lib/server/commands/standard').items);
+gcli.addItems(require('./lib/server/commands/test').items);
+gcli.addItems(require('./lib/server/commands/unamd').items);
 
 // Serve or execute
 var server = require('./lib/server/index');
