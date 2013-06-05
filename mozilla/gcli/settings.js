@@ -266,6 +266,10 @@ exports.getSetting = function(name) {
   // We might be able to give the answer without needing to read all system
   // settings if this is an internal setting
   var found = settingsMap.get(name);
+  if (!found) {
+    found = settingsMap.get(DEVTOOLS_PREFIX + name);
+  }
+
   if (found) {
     return found;
   }
@@ -275,7 +279,11 @@ exports.getSetting = function(name) {
   }
   else {
     readSystem();
-    return settingsMap.get(name);
+    var found = settingsMap.get(name);
+    if (!found) {
+      found = settingsMap.get(DEVTOOLS_PREFIX + name);
+    }
+    return found;
   }
 };
 
