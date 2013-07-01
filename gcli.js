@@ -74,6 +74,7 @@ else {
   };
 
   serverOverride('util/host', './lib/server/util/host');
+  serverOverride('util/filesystem', './lib/server/util/filesystem');
 
   var fs = require('fs');
   var helpManHtml = fs.readFileSync(exports.gcliHome + '/lib/server/gcli/commands/help_man.html', 'utf8');
