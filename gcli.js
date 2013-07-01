@@ -64,12 +64,16 @@ else {
 
   // The Firefox build has an override directory to enable custom code, but in
   // NodeJS it's more hacky - we inject into require
-  var host = require('./lib/server/util/host');
-  requirejs.define('util/host', function(require, exports, module) {
-    Object.keys(host).forEach(function(key) {
-      exports[key] = host[key];
+  var serverOverride = function(requirePath, nodePath) {
+    var host = require(nodePath);
+    requirejs.define(requirePath, function(require, exports, module) {
+      Object.keys(host).forEach(function(key) {
+        exports[key] = host[key];
+      });
     });
-  });
+  };
+
+  serverOverride('util/host', './lib/server/util/host');
 
   var fs = require('fs');
   var helpManHtml = fs.readFileSync(exports.gcliHome + '/lib/server/gcli/commands/help_man.html', 'utf8');
