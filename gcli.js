@@ -42,7 +42,7 @@ if (exports.useUnamd) {
   exports.require = require;
 }
 else {
-  // It's tempting to use RequireJS from npm, however that would break
+  // It's tempting to use RequireJS from NPM, however that would break
   // running GCLI in Firefox just by opening index.html
   var requirejs = require('./scripts/r.js');
   requirejs.config({
@@ -62,8 +62,8 @@ else {
 
   exports.require = requirejs;
 
-  // The Mozilla build has an override directory, to enable custom code for
-  // a platform, but in node it's more hacky - we inject into require
+  // The Firefox build has an override directory to enable custom code, but in
+  // NodeJS it's more hacky - we inject into require
   var host = require('./lib/server/util/host');
   requirejs.define('util/host', function(require, exports, module) {
     Object.keys(host).forEach(function(key) {
