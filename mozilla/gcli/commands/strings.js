@@ -8,9 +8,9 @@ define(function(require, exports, module) {
  */
 var i18n = {
   root: {
-    // The text displayed at the top of the output for the help command, just
-    // before the list of commands. This text is wrapped inside a link to a
-    // localized MDN article
+    // This text is displayed at the top of the output for the help command,
+    // just before the list of commands. This text is wrapped inside a link to
+    // a localized MDN article.
     introBody: 'For more information see MDN.'
   }
 };
