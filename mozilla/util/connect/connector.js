@@ -21,7 +21,7 @@ define(function(require, exports, module) {
 var debuggerSocketConnect = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).debuggerSocketConnect;
 var DebuggerClient = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).DebuggerClient;
 
-var Promise = require('util/promise');
+var promise = require('util/promise');
 
 /**
  * What port should we use by default?
@@ -75,7 +75,7 @@ function Connection(prefix, host, port) {
  * or is rejected (with an error message) if the connection fails
  */
 Connection.prototype.connect = function() {
-  var deferred = Promise.defer();
+  var deferred = promise.defer();
 
   this.transport = debuggerSocketConnect(this.host, this.port);
   this.client = new DebuggerClient(this.transport);
@@ -95,7 +95,7 @@ Connection.prototype.connect = function() {
  * @return a promise of an array of commandSpecs
  */
 Connection.prototype.getCommandSpecs = function() {
-  var deferred = Promise.defer();
+  var deferred = promise.defer();
 
   var request = { to: this.actor, type: 'getCommandSpecs' };
 
@@ -129,7 +129,7 @@ exports.disconnectSupportsForce = false;
  * Kill this connection
  */
 Connection.prototype.disconnect = function(force) {
-  var deferred = Promise.defer();
+  var deferred = promise.defer();
 
   this.client.close(function() {
     deferred.resolve();
@@ -151,7 +151,7 @@ function Request(actor, typed, args) {
     requestId: 'id-' + Request._nextRequestId++,
   };
 
-  this._deferred = Promise.defer();
+  this._deferred = promise.defer();
   this.promise = this._deferred.promise;
 }
 

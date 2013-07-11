@@ -19,7 +19,7 @@ define(function(require, exports, module) {
 'use strict';
 
 var OS = Components.utils.import("resource://gre/modules/osfile.jsm", {}).OS;
-var Promise = require('util/promise');
+var promise = require('util/promise');
 
 /**
  * A set of functions that don't really belong in 'fs' (because they're not
@@ -65,7 +65,7 @@ exports.ls = function(pathname, matches) {
   var iterator = new OS.File.DirectoryIterator(pathname);
   var entries = [];
 
-  var promise = iterator.forEach(function(entry) {
+  var iteratePromise = iterator.forEach(function(entry) {
     entries.push({
       exists: true,
       isDir: entry.isDir,
@@ -75,7 +75,7 @@ exports.ls = function(pathname, matches) {
     });
   });
 
-  return promise.then(function onSuccess() {
+  return iteratePromise.then(function onSuccess() {
       iterator.close();
       return entries;
     },
@@ -120,7 +120,7 @@ exports.stat = function(pathname) {
  * Right now, however, we do nothing.
  */
 exports.describe = function(pathname) {
-  return Promise.resolve('');
+  return promise.resolve('');
 };
 
 
