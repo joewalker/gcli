@@ -151,7 +151,7 @@ function Request(actor, typed, args) {
     requestId: 'id-' + Request._nextRequestId++,
   };
 
-  this._deferred = Promise.defer();
+  this._deferred = promise.defer();
   this.promise = this._deferred.promise;
 }
 
