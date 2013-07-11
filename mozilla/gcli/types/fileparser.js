@@ -20,8 +20,7 @@ define(function(require, exports, module) {
 
 var fileparser = require('util/fileparser');
 
-Object.keys(fileparser).forEach(function(key) {
-  exports[key] = fileparser[key];
-});
+fileparser.supportsPredictions = false;
+exports.parse = fileparser.parse;
 
 });
