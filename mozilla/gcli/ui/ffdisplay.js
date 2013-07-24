@@ -131,7 +131,8 @@ function FFDisplay(options) {
  * separate method
  */
 FFDisplay.prototype.maybeShowIntro = function() {
-  intro.maybeShowIntro(this.commandOutputManager);
+  intro.maybeShowIntro(this.commandOutputManager,
+                       this.requisition.conversionContext);
 };
 
 /**

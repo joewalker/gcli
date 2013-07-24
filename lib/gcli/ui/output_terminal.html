@@ -2,7 +2,8 @@
 <div class="gcli-row">
   <!-- The div for the input (i.e. what was typed) -->
   <div class="gcli-row-in" save="${elems.rowin}" aria-live="assertive"
-      onclick="${copyToInput}" ondblclick="${execute}">
+      onclick="${onclick}" ondblclick="${ondblclick}"
+      data-command="${output.canonical}">
 
     <!-- What the user actually typed -->
     <span save="${elems.prompt}" class="gcli-row-prompt ${elems.error ? 'gcli-row-error' : ''} ${elems.completed ? 'gcli-row-complete' : ''}">${prompt}</span>

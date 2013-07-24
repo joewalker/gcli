@@ -14,125 +14,119 @@
  * limitations under the License.
  */
 
-var mozl10n = {};
+define(function(require, exports, module) {
 
-(function(aMozl10n) {
+'use strict';
 
-  'use strict';
+require('gcli/settings').startup();
 
-  var temp = {};
-  Components.utils.import("resource://gre/modules/Services.jsm", temp);
+var api = require('gcli/api');
+api.populateApi(exports);
 
-  var stringBundle;
-  try {
-    stringBundle = temp.Services.strings.createBundle(
-            "chrome://browser/locale/devtools/gclicommands.properties");
-  }
-  catch (ex) {
-    console.error("Using string fallbacks");
-    stringBundle = {
-      GetStringFromName: function(name) { return name; },
-      formatStringFromName: function(name) { return name; }
-    };
-  }
+exports.addItems(require('gcli/types/selection').items);
+exports.addItems(require('gcli/types/delegate').items);
+
+exports.addItems(require('gcli/types/array').items);
+exports.addItems(require('gcli/types/boolean').items);
+exports.addItems(require('gcli/types/command').items);
+exports.addItems(require('gcli/types/date').items);
+exports.addItems(require('gcli/types/file').items);
+exports.addItems(require('gcli/types/javascript').items);
+exports.addItems(require('gcli/types/node').items);
+exports.addItems(require('gcli/types/number').items);
+exports.addItems(require('gcli/types/resource').items);
+exports.addItems(require('gcli/types/setting').items);
+exports.addItems(require('gcli/types/string').items);
+
+exports.addItems(require('gcli/converters').items);
+exports.addItems(require('gcli/converters/basic').items);
+// Don't export the 'html' type to avoid use of innerHTML
+// exports.addItems(require('gcli/converters/html').items);
+exports.addItems(require('gcli/converters/terminal').items);
+
+exports.addItems(require('gcli/ui/intro').items);
+exports.addItems(require('gcli/ui/focus').items);
+
+exports.addItems(require('gcli/ui/fields/basic').items);
+exports.addItems(require('gcli/ui/fields/javascript').items);
+exports.addItems(require('gcli/ui/fields/selection').items);
+
+// Don't export the '{' command
+// exports.addItems(require('gcli/cli').items);
+
+exports.addItems(require('gcli/commands/connect').items);
+exports.addItems(require('gcli/commands/context').items);
+exports.addItems(require('gcli/commands/help').items);
+exports.addItems(require('gcli/commands/pref').items);
+
+/**
+ * This code is internal and subject to change without notice.
+ * createDisplay() for Firefox requires an options object with the following
+ * members:
+ * - contentDocument: From the window of the attached tab
+ * - chromeDocument: GCLITerm.document
+ * - environment.hudId: GCLITerm.hudId
+ * - jsEnvironment.globalObject: 'window'
+ * - jsEnvironment.evalFunction: 'eval' in a sandbox
+ * - inputElement: GCLITerm.inputNode
+ * - completeElement: GCLITerm.completeNode
+ * - hintElement: GCLITerm.hintNode
+ * - inputBackgroundElement: GCLITerm.inputStack
+ */
+exports.createDisplay = function(opts) {
+  var FFDisplay = require('gcli/ui/ffdisplay').FFDisplay;
+  return new FFDisplay(opts);
+};
+
+var prefSvc = Components.classes['@mozilla.org/preferences-service;1']
+                        .getService(Components.interfaces.nsIPrefService);
+var prefBranch = prefSvc.getBranch(null)
+                        .QueryInterface(Components.interfaces.nsIPrefBranch2);
+
+exports.hiddenByChromePref = function() {
+  return !prefBranch.prefHasUserValue('devtools.chrome.enabled');
+};
+
+
+try {
+  var Services = Components.utils.import("resource://gre/modules/Services.jsm", {}).Services;
+  var stringBundle = Services.strings.createBundle(
+          'chrome://browser/locale/devtools/gclicommands.properties');
 
   /**
    * Lookup a string in the GCLI string bundle
-   * @param name The name to lookup
-   * @return The looked up name
    */
-  aMozl10n.lookup = function(name) {
+  exports.lookup = function(name) {
     try {
       return stringBundle.GetStringFromName(name);
     }
     catch (ex) {
-      throw new Error("Failure in lookup('" + name + "')");
+      throw new Error('Failure in lookup(\'' + name + '\')');
     }
   };
 
   /**
    * Lookup a string in the GCLI string bundle
-   * @param name The name to lookup
-   * @param swaps An array of swaps. See stringBundle.formatStringFromName
-   * @return The looked up name
    */
-  aMozl10n.lookupFormat = function(name, swaps) {
+  exports.lookupFormat = function(name, swaps) {
     try {
       return stringBundle.formatStringFromName(name, swaps, swaps.length);
     }
     catch (ex) {
-      throw new Error("Failure in lookupFormat('" + name + "')");
+      throw new Error('Failure in lookupFormat(\'' + name + '\')');
     }
   };
+}
+catch (ex) {
+  console.error('Using string fallbacks', ex);
 
-})(mozl10n);
-
-define(function(require, exports, module) {
-
-  'use strict';
-
-  // Internal startup process. Not exported
-  // The basic/selection are depended on by others so they must come first
-  require('gcli/types/basic').startup();
-  require('gcli/types/selection').startup();
-
-  require('gcli/types/command').startup();
-  require('gcli/types/date').startup();
-  require('gcli/types/javascript').startup();
-  require('gcli/types/node').startup();
-  require('gcli/types/resource').startup();
-  require('gcli/types/setting').startup();
-
-  require('gcli/settings').startup();
-  require('gcli/ui/intro').startup();
-  require('gcli/ui/focus').startup();
-  require('gcli/ui/fields/basic').startup();
-  require('gcli/ui/fields/javascript').startup();
-  require('gcli/ui/fields/selection').startup();
-
-  require('gcli/commands/connect').startup();
-  require('gcli/commands/context').startup();
-  require('gcli/commands/help').startup();
-  require('gcli/commands/pref').startup();
-
-  var Cc = Components.classes;
-  var Ci = Components.interfaces;
-  var prefSvc = "@mozilla.org/preferences-service;1";
-  var prefService = Cc[prefSvc].getService(Ci.nsIPrefService);
-  var prefBranch = prefService.getBranch(null).QueryInterface(Ci.nsIPrefBranch2);
-
-  // The API for use by command authors
-  exports.addCommand = require('gcli/canon').addCommand;
-  exports.removeCommand = require('gcli/canon').removeCommand;
-  exports.addConverter = require('gcli/converters').addConverter;
-  exports.removeConverter = require('gcli/converters').removeConverter;
-  exports.addType = require('gcli/types').addType;
-  exports.removeType = require('gcli/types').removeType;
-
-  exports.lookup = mozl10n.lookup;
-  exports.lookupFormat = mozl10n.lookupFormat;
-
-  /**
-   * This code is internal and subject to change without notice.
-   * createView() for Firefox requires an options object with the following
-   * members:
-   * - contentDocument: From the window of the attached tab
-   * - chromeDocument: GCLITerm.document
-   * - environment.hudId: GCLITerm.hudId
-   * - jsEnvironment.globalObject: 'window'
-   * - jsEnvironment.evalFunction: 'eval' in a sandbox
-   * - inputElement: GCLITerm.inputNode
-   * - completeElement: GCLITerm.completeNode
-   * - hintElement: GCLITerm.hintNode
-   * - inputBackgroundElement: GCLITerm.inputStack
-   */
-  exports.createDisplay = function(opts) {
-    var FFDisplay = require('gcli/ui/ffdisplay').FFDisplay;
-    return new FFDisplay(opts);
+  exports.lookup = function(name) {
+    return name;
   };
-
-  exports.hiddenByChromePref = function() {
-    return !prefBranch.prefHasUserValue("devtools.chrome.enabled");
+  exports.lookupFormat = function(name, swaps) {
+    return name;
   };
+}
+
 
 });
