@@ -7,12 +7,14 @@
 
 ${command.manual || command.description}
 
-<span if="${command.exec}"># ${l10n.helpManParameters}:
+<loop foreach="groupName in ${command.paramGroups}">
+<span if="${command.exec}"># ${groupName}:
 
-<span if="${command.params.length === 0}">${l10n.helpManNone}</span><loop foreach="param in ${command.params}">* ${param.name}: ${getTypeDescription(param)}
+<span if="${command.params.length === 0}">${l10n.helpManNone}</span><loop foreach="param in ${command.paramGroups[groupName]}">* ${param.name}: ${getTypeDescription(param)}
   ${param.manual || param.description}
 </loop>
 </span>
+</loop>
 
 <span if="${!command.exec}"># ${l10n.subCommands}:
 

@@ -15,16 +15,17 @@
   <p class="gcli-help-description">${describe(command)}</p>
 
   <div if="${command.exec}">
-    <h4 class="gcli-help-header">${l10n.helpManParameters}:</h4>
-
-    <ul class="gcli-help-parameter">
-      <li if="${command.params.length === 0}">${l10n.helpManNone}</li>
-      <li foreach="param in ${command.params}">
-        ${param.name} <em>${getTypeDescription(param)}</em>
-        <br/>
-        ${describe(param)}
-      </li>
-    </ul>
+    <div foreach="groupName in ${command.paramGroups}">
+      <h4 class="gcli-help-header">${groupName}:</h4>
+      <ul class="gcli-help-parameter">
+        <li if="${command.params.length === 0}">${l10n.helpManNone}</li>
+        <li foreach="param in ${command.paramGroups[groupName]}">
+          <code>${param.name}</code> <em>${getTypeDescription(param)}</em>
+          <br/>
+          ${describe(param)}
+        </li>
+      </ul>
+    </div>
   </div>
 
   <div if="${!command.exec}">
