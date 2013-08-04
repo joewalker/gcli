@@ -112,8 +112,32 @@ gcli.addItems(require('./lib/server/commands/standard').items);
 gcli.addItems(require('./lib/server/commands/test').items);
 gcli.addItems(require('./lib/server/commands/unamd').items);
 
+var Requisition = exports.require('gcli/cli').Requisition;
+var Status = exports.require('gcli/types').Status;
+
+var jsdom = require('jsdom').jsdom;
+var document = jsdom('<html><head></head><body></body></html>');
+var environment = {
+  document: document,
+  window: document.defaultView
+};
+var requisition = new Requisition(environment, document);
+
+/**
+ * Utility to call requisition.update and requisition.exec properly, returning
+ * a promise of a string formatted for output (even if the command returned
+ * a DOM structure)
+ */
+var exec = function(command) {
+  function convert(output) {
+    return output.convert('string', requisition.conversionContext);
+  }
+
+  return requisition.updateExec(command).then(convert,
+                                              function() { throw convert(); });
+};
+
 // Serve or execute
-var server = require('./lib/server/index');
 var onSuccess, onError, command;
 
 if (process.argv.length < 3) {
@@ -140,7 +164,7 @@ else {
   };
 }
 
-server.exec(command).then(onSuccess, onFailure);
+exec(command).then(onSuccess, onFailure);
 
 /**
  * Start a NodeJS REPL to execute commands
@@ -164,7 +188,7 @@ function startRepl() {
         callback();
       }
 
-      server.exec(command).then(onSuccess, onError);
+      exec(command).then(onSuccess, onError);
     }
   };
 
