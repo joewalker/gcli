@@ -123,48 +123,46 @@ var environment = {
 };
 var requisition = new Requisition(environment, document);
 
-/**
- * Utility to call requisition.update and requisition.exec properly, returning
- * a promise of a string formatted for output (even if the command returned
- * a DOM structure)
- */
-var exec = function(command) {
-  function convert(output) {
-    return output.convert('string', requisition.conversionContext);
-  }
-
-  return requisition.updateExec(command).then(convert,
-                                              function() { throw convert(); });
-};
-
-// Serve or execute
-var onSuccess, onError, command;
+var command, extraActions;
 
 if (process.argv.length < 3) {
   // No command passed in. Serve GCLI over http and start a local REPL
   command = 'server start';
-  onSuccess = function(message) {
-    console.log(message);
-    startRepl();
-  };
-  onFailure = function(message) {
-    console.error(message);
+  extraActions = function(output) {
+    if (!output.error) {
+      startRepl();
+    }
   };
 }
 else {
   // Command passed in. No server/REPL and a process.exit(1) on failure to
   // propagate test errors
   command = process.argv.slice(2).join(' ');
-  onSuccess = function(message) {
-    console.log(message);
-  };
-  onFailure = function(message) {
-    console.error(message);
-    process.exit(1);
+  extraActions = function(output) {
+    if (output.error) {
+      process.exit(1);
+    }
   };
 }
 
-exec(command).then(onSuccess, onFailure);
+/**
+ * Convert an Output object to a string, and then log that to stdout/stderr
+ * depending on the error status
+ */
+function logResults(output) {
+  var context = requisition.conversionContext;
+  return output.convert('string', context).then(function(message) {
+    if (output.error) {
+      console.error(message);
+    }
+    else {
+      console.log(message);
+    }
+    return output;
+  });
+}
+
+requisition.updateExec(command).then(logResults).then(extraActions);
 
 /**
  * Start a NodeJS REPL to execute commands
@@ -179,16 +177,7 @@ function startRepl() {
     });
 
     if (command.length !== 0) {
-      var onSuccess = function(message) {
-        console.log(message);
-        callback();
-      }
-      var onError = function(message) {
-        console.error(message);
-        callback();
-      }
-
-      exec(command).then(onSuccess, onError);
+      requisition.updateExec(command).then(logResults).then(function() { callback(); });
     }
   };
 
