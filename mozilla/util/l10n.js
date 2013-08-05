@@ -18,8 +18,8 @@ define(function(require, exports, module) {
 
 'use strict';
 
-Components.utils.import('resource://gre/modules/XPCOMUtils.jsm');
-Components.utils.import('resource://gre/modules/Services.jsm');
+var XPCOMUtils = Components.utils.import('resource://gre/modules/XPCOMUtils.jsm', {}).XPCOMUtils;
+var Services = Components.utils.import('resource://gre/modules/Services.jsm', {}).Services;
 
 var imports = {};
 XPCOMUtils.defineLazyGetter(imports, 'stringBundle', function () {

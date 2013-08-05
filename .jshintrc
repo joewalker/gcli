@@ -1,0 +1,26 @@
+{
+  "undef": true,
+  "camelcase": true,
+  "curly": true,
+  "noarg": true,
+  "quotmark": "single",
+  "strict": true,
+  "eqnull": true,
+  "evil": true,
+  "eqnull": true,
+  "browser": true,
+  "devel": true,
+  "node": true,
+  "phantom": true,
+  "laxbreak": true,
+  "globals": {
+    "define": false,
+    "Components": false,
+    "Event": false,
+    "CSSRule": false,
+    "Proxy": false,
+    "info": false,
+    "io": false,
+    "ok": false
+  }
+}

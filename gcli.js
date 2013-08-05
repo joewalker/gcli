@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+'use strict';
+
 exports.gcliHome = __dirname;
 
 /**
@@ -116,12 +118,12 @@ var Requisition = exports.require('gcli/cli').Requisition;
 var Status = exports.require('gcli/types').Status;
 
 var jsdom = require('jsdom').jsdom;
-var document = jsdom('<html><head></head><body></body></html>');
+var doc = jsdom('<html><head></head><body></body></html>');
 var environment = {
-  document: document,
-  window: document.defaultView
+  document: doc,
+  window: doc.defaultView
 };
-var requisition = new Requisition(environment, document);
+var requisition = new Requisition(environment, doc);
 
 var command, extraActions;
 

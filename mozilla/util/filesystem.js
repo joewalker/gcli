@@ -18,7 +18,7 @@ define(function(require, exports, module) {
 
 'use strict';
 
-var OS = Components.utils.import("resource://gre/modules/osfile.jsm", {}).OS;
+var OS = Components.utils.import('resource://gre/modules/osfile.jsm', {}).OS;
 var promise = require('util/promise');
 
 /**
@@ -31,11 +31,11 @@ exports.join = OS.Path.join;
 exports.sep = OS.Path.sep;
 exports.dirname = OS.Path.dirname;
 
-var dirService = Components.classes["@mozilla.org/file/directory_service;1"]
+var dirService = Components.classes['@mozilla.org/file/directory_service;1']
                            .getService(Components.interfaces.nsIProperties);
-exports.home = dirService.get("Home", Components.interfaces.nsIFile).path;
+exports.home = dirService.get('Home', Components.interfaces.nsIFile).path;
 
-if ("winGetDrive" in OS.Path) {
+if ('winGetDrive' in OS.Path) {
   exports.sep = '\\';
 }
 else {
