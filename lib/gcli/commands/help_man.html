@@ -20,7 +20,7 @@
       <ul class="gcli-help-parameter">
         <li if="${command.params.length === 0}">${l10n.helpManNone}</li>
         <li foreach="param in ${command.paramGroups[groupName]}">
-          <code>${param.name}</code> <em>${getTypeDescription(param)}</em>
+          <code>${getSynopsis(param)}</code> <em>${getTypeDescription(param)}</em>
           <br/>
           ${describe(param)}
         </li>
