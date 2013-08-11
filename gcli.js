@@ -104,7 +104,7 @@ gcli.addItems(exports.require('demo/commands/echo').items);
 // gcli.addItems(exports.require('demo/commands/hg').items);
 gcli.addItems(exports.require('demo/commands/sleep').items);
 
-// Commands using the Nope API
+// Commands using the Node API
 gcli.addItems(require('./lib/server/commands/exit').items);
 gcli.addItems(require('./lib/server/commands/firefox').items);
 gcli.addItems(require('./lib/server/commands/server').items);
