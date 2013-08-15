@@ -18,29 +18,47 @@ define(function(require, exports, module) {
 
 'use strict';
 
+var util = require('util/util');
+
 /**
  * The chromeWindow as as required by Highlighter, so it knows where to
  * create temporary highlight nodes.
  */
 exports.chromeWindow = undefined;
 
-/**
- * See docs in lib/util/host.js:flashNodes
- */
-exports.flashNodes = function(nodes, match) {
-  // Commented out until Bug 653545 is completed
-  /*
-  if (exports.chromeWindow == null) {
-    console.log('flashNodes has no chromeWindow. Skipping flash');
-    return;
-  }
+function Highlighter(document) {
+  this._document = document;
+  this._nodes = util.createEmptyNodeList(this._document);
+}
 
-  var imports = {};
-  Components.utils.import("resource:///modules/highlighter.jsm", imports);
+Object.defineProperty(Highlighter.prototype, 'nodelist', {
+  set: function(nodes) {
+    Array.prototype.forEach.call(this._nodes, this._unhighlightNode, this);
+    this._nodes = (nodes == null) ?
+        util.createEmptyNodeList(this._document) :
+        nodes;
+    Array.prototype.forEach.call(this._nodes, this._highlightNode, this);
+  },
+  get: function() {
+    return this._nodes;
+  },
+  enumerable: true
+});
 
-  imports.Highlighter.flashNodes(nodes, exports.chromeWindow, match);
-  */
+Highlighter.prototype.destroy = function() {
+  this.nodelist = null;
 };
+
+Highlighter.prototype._highlightNode = function(node) {
+  // Enable when the highlighter rewrite is done
+};
+
+Highlighter.prototype._unhighlightNode = function(node) {
+  // Enable when the highlighter rewrite is done
+};
+
+exports.Highlighter = Highlighter;
+
 
 /**
  * See docs in lib/util/host.js:exec
