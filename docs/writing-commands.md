@@ -1,3 +1,4 @@
+
 # Writing Commands
 
 ## Basics
@@ -187,15 +188,28 @@ For example, we can also invoke the greet command as follows:
 
 ## Short argument names
 
-Originally GCLI automatically assigned shortened parameter names, so these 2
-commands were equivalent:
+GCLI allows you to specify a 'short' character for any parameter:
 
-    » greet Joe -r 2 -d
-    » greet Joe --repeat 2 --debug
+    gcli.addCommand({
+      name: 'greet',
+      params: [
+        {
+          name: 'name',
+          short: 'n',
+          type: 'string',
+          ...
+        }
+      ],
+      ...
+    });
 
-There are a number of problems with this approach, so we have removed automatic
-shortening feature. We plan to add in proper short argument name support soon,
-using the ``short`` property to specify a single character shortcut.
+This is used as follows:
+
+    » greet -n Fred
+    Hello, Fred
+
+Currently GCLI does not allow short parameter merging (i.e. ```ls -la```)
+however this is planned.
 
 
 ## Parameter types
@@ -205,9 +219,16 @@ Initially the available types are:
 - string
 - boolean
 - number
-- array
 - selection
 - delegate
+- date
+- array
+- file
+- node
+- nodelist
+- resource
+- command
+- setting
 
 This list can be extended. See [Writing Types](writing-types.md) on types for
 more information.
@@ -432,17 +453,17 @@ examples of commands that should be structured as in a sub-command style -
 Groups of commands are specified with the top level command not having an
 exec function:
 
-    canon.addCommand({
+    gcli.addCommand({
       name: 'tar',
       description: 'Commands to manipulate archives',
     });
-    canon.addCommand({
+    gcli.addCommand({
       name: 'tar create',
       description: 'Create a new archive',
       exec: function(args, context) { ... },
       ...
     });
-    canon.addCommand({
+    gcli.addCommand({
       name: 'tar extract',
       description: 'Extract from an archive',
       exec: function(args, context) { ... },
@@ -567,7 +588,7 @@ The parameters to the exec function are designed to be useful when you have a
 large number of parameters, and to give direct access to the environment (if
 used).
 
-    canon.addCommand({
+    gcli.addCommand({
       name: 'echo',
       description: 'The message to display.',
       params: [
