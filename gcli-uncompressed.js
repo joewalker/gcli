@@ -204,44 +204,53 @@ var require = define.globalDomain.require.bind(define.globalDomain);
  * limitations under the License.
  */
 
-define('gcli/index', ['require', 'exports', 'module' , 'gcli/legacy', 'gcli/canon', 'gcli/types/basic', 'gcli/types/command', 'gcli/types/javascript', 'gcli/types/node', 'gcli/types/resource', 'gcli/types/selection', 'gcli/types/setting', 'gcli/settings', 'gcli/cli', 'gcli/ui/intro', 'gcli/ui/focus', 'gcli/ui/fields/basic', 'gcli/ui/fields/javascript', 'gcli/ui/fields/selection', 'gcli/ui/display'], function(require, exports, module) {
+define('gcli/index', ['require', 'exports', 'module' , 'util/legacy', 'gcli/settings', 'gcli/api', 'gcli/types/selection', 'gcli/types/delegate', 'gcli/types/array', 'gcli/types/boolean', 'gcli/types/command', 'gcli/types/date', 'gcli/types/file', 'gcli/types/javascript', 'gcli/types/node', 'gcli/types/number', 'gcli/types/resource', 'gcli/types/setting', 'gcli/types/string', 'gcli/converters', 'gcli/converters/basic', 'gcli/converters/html', 'gcli/converters/terminal', 'gcli/ui/intro', 'gcli/ui/focus', 'gcli/ui/fields/basic', 'gcli/ui/fields/javascript', 'gcli/ui/fields/selection', 'gcli/cli', 'gcli/ui/display'], function(require, exports, module) {
 
-  // Patch-up IE9
-  require('gcli/legacy');
+'use strict';
 
-  // The API for use by command authors
-  exports.addCommand = require('gcli/canon').addCommand;
-  exports.removeCommand = require('gcli/canon').removeCommand;
+// Patch-up IE9
+require('util/legacy');
 
-  require('gcli/types/basic').startup();
-  require('gcli/types/command').startup();
-  require('gcli/types/javascript').startup();
-  require('gcli/types/node').startup();
-  require('gcli/types/resource').startup();
-  require('gcli/types/selection').startup();
-  require('gcli/types/setting').startup();
+require('gcli/settings').startup();
 
-  require('gcli/settings').startup();
-  require('gcli/cli').startup();
-  require('gcli/ui/intro').startup();
-  require('gcli/ui/focus').startup();
-  require('gcli/ui/fields/basic').startup();
-  require('gcli/ui/fields/javascript').startup();
-  require('gcli/ui/fields/selection').startup();
+var api = require('gcli/api');
+api.populateApi(exports);
 
-  var display = require('gcli/ui/display');
+exports.addItems(require('gcli/types/selection').items);
+exports.addItems(require('gcli/types/delegate').items);
 
-  /**
-   * Create a basic UI for GCLI on the web
-   */
-  exports.createDisplay = function(options) {
-    return display.createDisplay(options || {});
-  };
+exports.addItems(require('gcli/types/array').items);
+exports.addItems(require('gcli/types/boolean').items);
+exports.addItems(require('gcli/types/command').items);
+exports.addItems(require('gcli/types/date').items);
+exports.addItems(require('gcli/types/file').items);
+exports.addItems(require('gcli/types/javascript').items);
+exports.addItems(require('gcli/types/node').items);
+exports.addItems(require('gcli/types/number').items);
+exports.addItems(require('gcli/types/resource').items);
+exports.addItems(require('gcli/types/setting').items);
+exports.addItems(require('gcli/types/string').items);
 
-  /**
-   * @deprecated Use createDisplay
-   */
-  exports.createView = exports.createDisplay;
+exports.addItems(require('gcli/converters').items);
+exports.addItems(require('gcli/converters/basic').items);
+exports.addItems(require('gcli/converters/html').items);
+exports.addItems(require('gcli/converters/terminal').items);
+
+exports.addItems(require('gcli/ui/intro').items);
+exports.addItems(require('gcli/ui/focus').items);
+
+exports.addItems(require('gcli/ui/fields/basic').items);
+exports.addItems(require('gcli/ui/fields/javascript').items);
+exports.addItems(require('gcli/ui/fields/selection').items);
+
+exports.addItems(require('gcli/cli').items);
+
+var display = require('gcli/ui/display');
+exports.createDisplay = function(options) {
+  return display.createDisplay(options || {});
+};
+
+
 });
 /*
  * Copyright 2012, Mozilla Foundation and contributors
@@ -259,7 +268,9 @@ define('gcli/index', ['require', 'exports', 'module' , 'gcli/legacy', 'gcli/cano
  * limitations under the License.
  */
 
-define('gcli/legacy', ['require', 'exports', 'module' ], function(require, exports, module) {
+define('util/legacy', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+  'use strict';
 
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return;
@@ -325,26 +336,6 @@ define('gcli/legacy', ['require', 'exports', 'module' ], function(require, expor
   }
 
   /**
-   * Fake Range.createContextualFragment for IE9
-   */
-  if (typeof Range.prototype.createContextualFragment === 'undefined') {
-    Range.prototype.createContextualFragment = function(html) {
-      var container = this.startContainer;
-      var doc = container.nodeType == 9 /* i.e. Node.DOCUMENT_NODE */ ?
-              container :
-              container.ownerDocument;
-      var div = doc.createElement('div');
-      div.innerHTML = html;
-      var frag = doc.createDocumentFragment();
-      var n;
-      while (n = div.firstChild) {
-        frag.appendChild(n);
-      }
-      return frag;
-    };
-  }
-
-  /**
    * String.prototype.trimLeft is non-standard, but it works in Firefox,
    * Chrome and Opera. It's easiest to create a shim here.
    */
@@ -354,6 +345,32 @@ define('gcli/legacy', ['require', 'exports', 'module' ], function(require, expor
     };
   }
 
+  /**
+   * Polyfil taken from
+   * https://developer.mozilla.org/en-US/docs/JavaScript/Reference/Global_Objects/Function/bind
+   */
+  if (!Function.prototype.bind) {
+    Function.prototype.bind = function(oThis) {
+      if (typeof this !== 'function') {
+        // closest thing possible to the ECMAScript 5 internal IsCallable function
+        throw new TypeError('Function.prototype.bind - what is trying to be bound is not callable');
+      }
+
+      var aArgs = Array.prototype.slice.call(arguments, 1),
+          fToBind = this,
+          fNOP = function () {},
+          fBound = function () {
+            return fToBind.apply(this instanceof fNOP && oThis
+                                   ? this
+                                   : oThis,
+                                 aArgs.concat(Array.prototype.slice.call(arguments)));
+          };
+
+      fNOP.prototype = this.prototype;
+      fBound.prototype = new fNOP();
+      return fBound;
+    };
+  }
 });
 /*
  * Copyright 2012, Mozilla Foundation and contributors
@@ -371,422 +388,175 @@ define('gcli/legacy', ['require', 'exports', 'module' ], function(require, expor
  * limitations under the License.
  */
 
-define('gcli/canon', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/types', 'gcli/types/basic', 'gcli/types/selection'], function(require, exports, module) {
-var canon = exports;
+define('gcli/settings', ['require', 'exports', 'module' , 'util/util', 'gcli/types'], function(require, exports, module) {
 
+'use strict';
 
-var util = require('gcli/util');
-var l10n = require('gcli/l10n');
-
+var util = require('util/util');
 var types = require('gcli/types');
-var Status = require('gcli/types').Status;
-var BooleanType = require('gcli/types/basic').BooleanType;
-var SelectionType = require('gcli/types/selection').SelectionType;
+
 
 /**
- * Implement the localization algorithm for any documentation objects (i.e.
- * description and manual) in a command.
- * @param data The data assigned to a description or manual property
- * @param onUndefined If data == null, should we return the data untouched or
- * lookup a 'we don't know' key in it's place.
+ * Where we store the settings that we've created
  */
-function lookup(data, onUndefined) {
-  if (data == null) {
-    if (onUndefined) {
-      return l10n.lookup(onUndefined);
+var settings = {};
+
+/**
+ * Where the values for the settings are stored while in use.
+ */
+var settingValues = {};
+
+/**
+ * Where the values for the settings are persisted for next use.
+ */
+var settingStorage;
+
+/**
+ * Allow a system to setup a different set of defaults from what GCLI provides
+ */
+exports.setDefaults = function(newValues) {
+  Object.keys(newValues).forEach(function(name) {
+    if (settingValues[name] === undefined) {
+      settingValues[name] = newValues[name];
     }
-
-    return data;
-  }
-
-  if (typeof data === 'string') {
-    return data;
-  }
-
-  if (typeof data === 'object') {
-    if (data.key) {
-      return l10n.lookup(data.key);
-    }
-
-    var locales = l10n.getPreferredLocales();
-    var translated;
-    locales.some(function(locale) {
-      translated = data[locale];
-      return translated != null;
-    });
-    if (translated != null) {
-      return translated;
-    }
-
-    console.error('Can\'t find locale in descriptions: ' +
-            'locales=' + JSON.stringify(locales) + ', ' +
-            'description=' + JSON.stringify(data));
-    return '(No description)';
-  }
-
-  return l10n.lookup(onUndefined);
-}
-
-
-/**
- * The command object is mostly just setup around a commandSpec (as passed to
- * #addCommand()).
- */
-function Command(commandSpec) {
-  Object.keys(commandSpec).forEach(function(key) {
-    this[key] = commandSpec[key];
-  }, this);
-
-  if (!this.name) {
-    throw new Error('All registered commands must have a name');
-  }
-
-  if (this.params == null) {
-    this.params = [];
-  }
-  if (!Array.isArray(this.params)) {
-    throw new Error('command.params must be an array in ' + this.name);
-  }
-
-  this.hasNamedParameters = false;
-  this.description = 'description' in this ? this.description : undefined;
-  this.description = lookup(this.description, 'canonDescNone');
-  this.manual = 'manual' in this ? this.manual : undefined;
-  this.manual = lookup(this.manual);
-
-  // At this point this.params has nested param groups. We want to flatten it
-  // out and replace the param object literals with Parameter objects
-  var paramSpecs = this.params;
-  this.params = [];
-
-  // Track if the user is trying to mix default params and param groups.
-  // All the non-grouped parameters must come before all the param groups
-  // because non-grouped parameters can be assigned positionally, so their
-  // index is important. We don't want 'holes' in the order caused by
-  // parameter groups.
-  var usingGroups = false;
-
-  if (this.returnType == null) {
-    this.returnType = 'string';
-  }
-
-  // In theory this could easily be made recursive, so param groups could
-  // contain nested param groups. Current thinking is that the added
-  // complexity for the UI probably isn't worth it, so this implementation
-  // prevents nesting.
-  paramSpecs.forEach(function(spec) {
-    if (!spec.group) {
-      if (usingGroups) {
-        throw new Error('Parameters can\'t come after param groups.' +
-                        ' Ignoring ' + this.name + '/' + spec.name);
-      }
-      else {
-        var param = new Parameter(spec, this, null);
-        this.params.push(param);
-
-        if (!param.isPositionalAllowed) {
-          this.hasNamedParameters = true;
-        }
-      }
-    }
-    else {
-      spec.params.forEach(function(ispec) {
-        var param = new Parameter(ispec, this, spec.group);
-        this.params.push(param);
-
-        if (!param.isPositionalAllowed) {
-          this.hasNamedParameters = true;
-        }
-      }, this);
-
-      usingGroups = true;
-    }
-  }, this);
-}
-
-canon.Command = Command;
-
-
-/**
- * A wrapper for a paramSpec so we can sort out shortened versions names for
- * option switches
- */
-function Parameter(paramSpec, command, groupName) {
-  this.command = command || { name: 'unnamed' };
-  this.paramSpec = paramSpec;
-  this.name = this.paramSpec.name;
-  this.type = this.paramSpec.type;
-  this.groupName = groupName;
-  this.defaultValue = this.paramSpec.defaultValue;
-
-  if (!this.name) {
-    throw new Error('In ' + this.command.name +
-                    ': all params must have a name');
-  }
-
-  var typeSpec = this.type;
-  this.type = types.getType(typeSpec);
-  if (this.type == null) {
-    console.error('Known types: ' + types.getTypeNames().join(', '));
-    throw new Error('In ' + this.command.name + '/' + this.name +
-                    ': can\'t find type for: ' + JSON.stringify(typeSpec));
-  }
-
-  // boolean parameters have an implicit defaultValue:false, which should
-  // not be changed. See the docs.
-  if (this.type instanceof BooleanType) {
-    if (this.defaultValue !== undefined) {
-      throw new Error('In ' + this.command.name + '/' + this.name +
-                      ': boolean parameters can not have a defaultValue.' +
-                      ' Ignoring');
-    }
-    this.defaultValue = false;
-  }
-
-  // Check the defaultValue for validity.
-  // Both undefined and null get a pass on this test. undefined is used when
-  // there is no defaultValue, and null is used when the parameter is
-  // optional, neither are required to parse and stringify.
-  if (this.defaultValue != null) {
-    try {
-      var defaultText = this.type.stringify(this.defaultValue);
-      var defaultConversion = this.type.parseString(defaultText);
-      if (defaultConversion.getStatus() !== Status.VALID) {
-        throw new Error('In ' + this.command.name + '/' + this.name +
-                        ': Error round tripping defaultValue. status = ' +
-                        defaultConversion.getStatus());
-      }
-    }
-    catch (ex) {
-      throw new Error('In ' + this.command.name + '/' + this.name +
-                      ': ' + ex);
-    }
-  }
-
-  // Some types (boolean, array) have a non 'undefined' blank value. Give the
-  // type a chance to override the default defaultValue of undefined
-  if (this.defaultValue === undefined) {
-    this.defaultValue = this.type.getBlank().value;
-  }
-
-  // All parameters that can only be set via a named parameter must have a
-  // non-undefined default value
-  if (!this.isPositionalAllowed && this.defaultValue === undefined) {
-    throw new Error('In ' + this.command.name + '/' + this.name +
-                    ': Missing defaultValue for optional parameter.');
-  }
-}
-
-/**
- * Does the given name uniquely identify this param (among the other params
- * in this command)
- * @param name The name to check
- */
-Parameter.prototype.isKnownAs = function(name) {
-  if (name === '--' + this.name) {
-    return true;
-  }
-  return false;
-};
-
-/**
- * Read the default value for this parameter either from the parameter itself
- * (if this function has been over-ridden) or from the type, or from calling
- * parseString on an empty string
- */
-Parameter.prototype.getBlank = function() {
-  if (this.type.getBlank) {
-    return this.type.getBlank();
-  }
-
-  return this.type.parseString('');
-};
-
-/**
- * Resolve the manual for this parameter, by looking in the paramSpec
- * and doing a l10n lookup
- */
-Object.defineProperty(Parameter.prototype, 'manual', {
-  get: function() {
-    return lookup(this.paramSpec.manual || undefined);
-  },
-  enumerable: true
-});
-
-/**
- * Resolve the description for this parameter, by looking in the paramSpec
- * and doing a l10n lookup
- */
-Object.defineProperty(Parameter.prototype, 'description', {
-  get: function() {
-    return lookup(this.paramSpec.description || undefined, 'canonDescNone');
-  },
-  enumerable: true
-});
-
-/**
- * Is the user required to enter data for this parameter? (i.e. has
- * defaultValue been set to something other than undefined)
- */
-Object.defineProperty(Parameter.prototype, 'isDataRequired', {
-  get: function() {
-    return this.defaultValue === undefined;
-  },
-  enumerable: true
-});
-
-/**
- * Reflect the paramSpec 'hidden' property (dynamically so it can change)
- */
-Object.defineProperty(Parameter.prototype, 'hidden', {
-  get: function() {
-    return this.paramSpec.hidden;
-  },
-  enumerable: true
-});
-
-/**
- * Are we allowed to assign data to this parameter using positional
- * parameters?
- */
-Object.defineProperty(Parameter.prototype, 'isPositionalAllowed', {
-  get: function() {
-    return this.groupName == null;
-  },
-  enumerable: true
-});
-
-canon.Parameter = Parameter;
-
-
-/**
- * A lookup hash of our registered commands
- */
-var commands = {};
-
-/**
- * A sorted list of command names, we regularly want them in order, so pre-sort
- */
-var commandNames = [];
-
-/**
- * A lookup of the original commandSpecs by command name
- */
-var commandSpecs = {};
-
-/**
- * Add a command to the canon of known commands.
- * This function is exposed to the outside world (via gcli/index). It is
- * documented in docs/index.md for all the world to see.
- * @param commandSpec The command and its metadata.
- * @return The new command
- */
-canon.addCommand = function addCommand(commandSpec) {
-  if (commands[commandSpec.name] != null) {
-    // Roughly canon.removeCommand() without the event call, which we do later
-    delete commands[commandSpec.name];
-    commandNames = commandNames.filter(function(test) {
-      return test !== commandSpec.name;
-    });
-  }
-
-  var command = new Command(commandSpec);
-  commands[commandSpec.name] = command;
-  commandNames.push(commandSpec.name);
-  commandNames.sort();
-
-  commandSpecs[commandSpec.name] = commandSpec;
-
-  canon.onCanonChange();
-  return command;
-};
-
-/**
- * Remove an individual command. The opposite of #addCommand().
- * Removing a non-existent command is a no-op.
- * @param commandOrName Either a command name or the command itself.
- * @return true if a command was removed, false otherwise.
- */
-canon.removeCommand = function removeCommand(commandOrName) {
-  var name = typeof commandOrName === 'string' ?
-          commandOrName :
-          commandOrName.name;
-
-  if (!commands[name]) {
-    return false;
-  }
-
-  // See start of canon.addCommand if changing this code
-  delete commands[name];
-  delete commandSpecs[name];
-  commandNames = commandNames.filter(function(test) {
-    return test !== name;
   });
-
-  canon.onCanonChange();
-  return true;
 };
 
 /**
- * Retrieve a command by name
- * @param name The name of the command to retrieve
+ * Initialize the settingValues store from localStorage
  */
-canon.getCommand = function getCommand(name) {
-  // '|| undefined' is to silence 'reference to undefined property' warnings
-  return commands[name] || undefined;
+exports.startup = function() {
+  settingStorage = new LocalSettingStorage();
+  settingStorage.load(settingValues);
+};
+
+exports.shutdown = function() {
 };
 
 /**
- * Get an array of all the registered commands.
+ * 'static' function to get an array containing all known Settings
  */
-canon.getCommands = function getCommands() {
-  // return Object.values(commands);
-  return Object.keys(commands).map(function(name) {
-    return commands[name];
-  }, this);
+exports.getAll = function(filter) {
+  var all = [];
+  Object.keys(settings).forEach(function(name) {
+    if (filter == null || name.indexOf(filter) !== -1) {
+      all.push(settings[name]);
+    }
+  }.bind(this));
+  all.sort(function(s1, s2) {
+    return s1.name.localeCompare(s2.name);
+  }.bind(this));
+  return all;
 };
 
 /**
- * Get an array containing the names of the registered commands.
+ * Add a new setting
+ * @return The new Setting object
  */
-canon.getCommandNames = function getCommandNames() {
-  return commandNames.slice(0);
+exports.addSetting = function(prefSpec) {
+  var type = types.createType(prefSpec.type);
+  var setting = new Setting(prefSpec.name, type, prefSpec.description,
+                            prefSpec.defaultValue);
+  settings[setting.name] = setting;
+  exports.onChange({ added: setting.name });
+  return setting;
 };
 
 /**
- * Get access to the stored commandMetaDatas (i.e. before they were made into
- * instances of Command/Parameters) so we can remote them.
+ * Getter for an existing setting. Generally use of this function should be
+ * avoided. Systems that define a setting should export it if they wish it to
+ * be available to the outside, or not otherwise. Use of this function breaks
+ * that boundary and also hides dependencies. Acceptable uses include testing
+ * and embedded uses of GCLI that pre-define all settings (e.g. Firefox)
+ * @param name The name of the setting to fetch
+ * @return The found Setting object, or undefined if the setting was not found
  */
-canon.getCommandSpecs = function getCommandSpecs() {
-  return commandSpecs;
+exports.getSetting = function(name) {
+  return settings[name];
 };
 
 /**
- * Enable people to be notified of changes to the list of commands
+ * Remove a setting
  */
-canon.onCanonChange = util.createEvent('canon.onCanonChange');
+exports.removeSetting = function(nameOrSpec) {
+  var name = typeof nameOrSpec === 'string' ? nameOrSpec : nameOrSpec.name;
+  delete settings[name];
+  exports.onChange({ removed: name });
+};
 
 /**
- * CommandOutputManager stores the output objects generated by executed
- * commands.
- *
- * CommandOutputManager is exposed (via canon.commandOutputManager) to the the
- * outside world and could (but shouldn't) be used before gcli.startup() has
- * been called. This could should be defensive to that where possible, and we
- * should certainly document if the use of it or similar will fail if used too
- * soon.
+ * Event for use to detect when the list of settings changes
  */
-function CommandOutputManager() {
-  this.onOutput = util.createEvent('CommandOutputManager.onOutput');
+exports.onChange = util.createEvent('Settings.onChange');
+
+/**
+ * Implement the load() and save() functions to write a JSON string blob to
+ * localStorage
+ */
+function LocalSettingStorage() {
 }
 
-canon.CommandOutputManager = CommandOutputManager;
+LocalSettingStorage.prototype.load = function(values) {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
+
+  var gcliSettings = localStorage.getItem('gcli-settings');
+  if (gcliSettings != null) {
+    var parsed = JSON.parse(gcliSettings);
+    Object.keys(parsed).forEach(function(name) {
+      values[name] = parsed[name];
+    });
+  }
+};
+
+LocalSettingStorage.prototype.save = function(values) {
+  if (typeof localStorage !== 'undefined') {
+    var json = JSON.stringify(values);
+    localStorage.setItem('gcli-settings', json);
+  }
+};
+
+exports.LocalSettingStorage = LocalSettingStorage;
+
 
 /**
- * We maintain a global command output manager for the majority case where
- * there is only one important set of outputs.
+ * A class to wrap up the properties of a Setting.
+ * @see toolkit/components/viewconfig/content/config.js
  */
-canon.commandOutputManager = new CommandOutputManager();
+function Setting(name, type, description, defaultValue) {
+  this.name = name;
+  this.type = type;
+  this.description = description;
+  this._defaultValue = defaultValue;
+
+  this.onChange = util.createEvent('Setting.onChange');
+  this.setDefault();
+}
+
+/**
+ * Reset this setting to it's initial default value
+ */
+Setting.prototype.setDefault = function() {
+  this.value = this._defaultValue;
+};
+
+/**
+ * All settings 'value's are saved in the settingValues object
+ */
+Object.defineProperty(Setting.prototype, 'value', {
+  get: function() {
+    return settingValues[this.name];
+  },
+
+  set: function(value) {
+    settingValues[this.name] = value;
+    settingStorage.save(settingValues);
+    this.onChange({ setting: this, value: value });
+  },
+
+  enumerable: true
+});
 
 
 });
@@ -806,16 +576,29 @@ canon.commandOutputManager = new CommandOutputManager();
  * limitations under the License.
  */
 
-define('gcli/util', ['require', 'exports', 'module' ], function(require, exports, module) {
+define('util/util', ['require', 'exports', 'module' , 'util/promise'], function(require, exports, module) {
+
+'use strict';
 
 /*
  * A number of DOM manipulation and event handling utilities.
  */
 
-
 //------------------------------------------------------------------------------
 
 var eventDebug = false;
+
+/**
+ * Patch up broken console API from node
+ */
+if (eventDebug) {
+  if (console.group == null) {
+    console.group = function() { console.log(arguments); };
+  }
+  if (console.groupEnd == null) {
+    console.groupEnd = function() { console.log(arguments); };
+  }
+}
 
 /**
  * Useful way to create a name for a handler, used in createEvent()
@@ -856,16 +639,16 @@ function nameFunction(handler) {
  */
 exports.createEvent = function(name) {
   var handlers = [];
-  var holdFire = false;
+  var fireHoldCount = 0;
   var heldEvents = [];
-  var eventCombiner = undefined;
+  var eventCombiner;
 
   /**
    * This is how the event is triggered.
    * @param ev The event object to be passed to the event listeners
    */
   var event = function(ev) {
-    if (holdFire) {
+    if (fireHoldCount > 0) {
       heldEvents.push(ev);
       if (eventDebug) {
         console.log('Held fire: ' + name, ev);
@@ -898,6 +681,10 @@ exports.createEvent = function(name) {
    * @param scope Optional 'this' object for the function call
    */
   event.add = function(func, scope) {
+    if (eventDebug) {
+      console.log('Adding listener to ' + name);
+    }
+
     handlers.push({ func: func, scope: scope });
   };
 
@@ -908,16 +695,20 @@ exports.createEvent = function(name) {
    * @param scope Optional 'this' object for the function call
    */
   event.remove = function(func, scope) {
+    if (eventDebug) {
+      console.log('Removing listener from ' + name);
+    }
+
     var found = false;
     handlers = handlers.filter(function(test) {
-      var noMatch = (test.func !== func && test.scope !== scope);
-      if (!noMatch) {
+      var match = (test.func === func && test.scope === scope);
+      if (match) {
         found = true;
       }
-      return noMatch;
+      return !match;
     });
     if (!found) {
-      console.warn('Failed to remove handler from ' + name);
+      console.warn('Handler not found. Attached to ' + name);
     }
   };
 
@@ -938,7 +729,7 @@ exports.createEvent = function(name) {
       console.group('Holding fire: ' + name);
     }
 
-    holdFire = true;
+    fireHoldCount++;
   };
 
   /**
@@ -953,11 +744,11 @@ exports.createEvent = function(name) {
       console.groupEnd('Resume fire: ' + name);
     }
 
-    if (holdFire !== true) {
-      throw new Error('Event not held: ' + name);
+    if (fireHoldCount === 0) {
+      throw new Error('fireHoldCount === 0 during resumeFire on ' + name);
     }
 
-    holdFire = false;
+    fireHoldCount--;
     if (heldEvents.length === 0) {
       return;
     }
@@ -1001,6 +792,106 @@ exports.createEvent = function(name) {
   });
 
   return event;
+};
+
+//------------------------------------------------------------------------------
+
+var promise = require('util/promise');
+
+/**
+ * Utility to convert a resolved promise to a concrete value.
+ * Warning: This is something of an experiment. The alternative of mixing
+ * concrete/promise return values could be better.
+ */
+exports.synchronize = function(p) {
+  if (p == null || typeof p.then !== 'function') {
+    return p;
+  }
+  var failure;
+  var reply;
+  var onDone = function(value) {
+    failure = false;
+    reply = value;
+  };
+  var onError = function (value) {
+    failure = true;
+    reply = value;
+  };
+  p.then(onDone, onError);
+  if (failure === undefined) {
+    throw new Error('non synchronizable promise');
+  }
+  if (failure) {
+    throw reply;
+  }
+  return reply;
+};
+
+/**
+ * promiseEach is roughly like Array.forEach except that the action is taken to
+ * be something that completes asynchronously, returning a promise, so we wait
+ * for the action to complete for each array element before moving onto the
+ * next.
+ * @param array An array of objects to enumerate
+ * @param action A function to call for each member of the array
+ * @param scope Optional object to use as 'this' for the function calls
+ * @return A promise which is resolved (with an array of resolution values)
+ * when all the array members have been passed to the action function, and
+ * rejected as soon as any of the action function calls fails 
+ */
+exports.promiseEach = function(array, action, scope) {
+  if (array.length === 0) {
+    return promise.resolve([]);
+  }
+
+  var deferred = promise.defer();
+  var replies = [];
+
+  var callNext = function(index) {
+    var onSuccess = function(reply) {
+      replies[index] = reply;
+
+      if (index + 1 >= array.length) {
+        deferred.resolve(replies);
+      }
+      else {
+        callNext(index + 1);
+      }
+    };
+
+    var onFailure = function(ex) {
+      deferred.reject(ex);
+    };
+
+    var reply = action.call(scope, array[index], index, array);
+    promise.resolve(reply).then(onSuccess).then(null, onFailure);
+  };
+
+  callNext(0);
+  return deferred.promise;
+};
+
+/**
+ * Catching errors from promises isn't as simple as:
+ *   promise.then(handler, console.error);
+ * for a number of reasons:
+ * - chrome's console doesn't have bound functions (why?)
+ * - we don't get stack traces out from console.error(ex);
+ */
+exports.errorHandler = function(ex) {
+  if (ex instanceof Error) {
+    // V8 weirdly includes the exception message in the stack
+    if (ex.stack.indexOf(ex.message) !== -1) {
+      console.error(ex.stack);
+    }
+    else {
+      console.error('' + ex);
+      console.error(ex.stack);
+    }
+  }
+  else {
+    console.error(ex);
+  }
 };
 
 
@@ -1119,17 +1010,27 @@ exports.importCss = function(cssText, doc, id) {
  * @see http://werxltd.com/wp/2010/05/13/javascript-implementation-of-javas-string-hashcode-method/
  */
 function hash(str) {
-  var hash = 0;
-  if (str.length == 0) {
-    return hash;
+  var h = 0;
+  if (str.length === 0) {
+    return h;
   }
   for (var i = 0; i < str.length; i++) {
-    var char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
+    var character = str.charCodeAt(i);
+    h = ((h << 5) - h) + character;
+    h = h & h; // Convert to 32bit integer
   }
-  return hash;
+  return h;
 }
+
+/**
+ * Shortcut for clearElement/createTextNode/appendChild to make up for the lack
+ * of standards around textContent/innerText
+ */
+exports.setTextContent = function(elem, text) {
+  exports.clearElement(elem);
+  var child = elem.ownerDocument.createTextNode(text);
+  elem.appendChild(child);
+};
 
 /**
  * There are problems with innerHTML on XML documents, so we need to do a dance
@@ -1142,7 +1043,10 @@ exports.setContents = function(elem, contents) {
     return;
   }
 
-  if (exports.isXmlDocument(elem.ownerDocument)) {
+  if ('innerHTML' in elem) {
+    elem.innerHTML = contents;
+  }
+  else {
     try {
       var ns = elem.ownerDocument.documentElement.namespaceURI;
       if (!ns) {
@@ -1162,9 +1066,18 @@ exports.setContents = function(elem, contents) {
       throw ex;
     }
   }
-  else {
-    elem.innerHTML = contents;
+};
+
+/**
+ * Utility to find elements with href attributes and add a target=_blank
+ * attribute to make sure that opened links will open in a new window.
+ */
+exports.linksToNewTab = function(element) {
+  var links = element.ownerDocument.querySelectorAll('*[href]');
+  for (var i = 0; i < links.length; i++) {
+    links[i].setAttribute('target', '_blank');
   }
+  return element;
 };
 
 /**
@@ -1209,6 +1122,16 @@ function positionInNodeList(element, nodeList) {
   }
   return -1;
 }
+
+/**
+ * We'd really like to be able to do 'new NodeList()'
+ */
+exports.createEmptyNodeList = function(doc) {
+  if (doc.createDocumentFragment) {
+    return doc.createDocumentFragment().childNodes;
+  }
+  return doc.querySelectorAll('x>:root');
+};
 
 /**
  * Find a unique CSS selector for a given element
@@ -1302,56 +1225,6 @@ exports.createUrlLookup = function(callingModule) {
       return filename + '/' + path;
     }
   };
-};
-
-/**
- * Helper to find the 'data-command' attribute and call some action on it.
- * @see |updateCommand()| and |executeCommand()|
- */
-function withCommand(element, action) {
-  var command = element.getAttribute('data-command');
-  if (!command) {
-    command = element.querySelector('*[data-command]')
-            .getAttribute('data-command');
-  }
-
-  if (command) {
-    action(command);
-  }
-  else {
-    console.warn('Missing data-command for ' + util.findCssSelector(element));
-  }
-}
-
-/**
- * Update the requisition to contain the text of the clicked element
- * @param element The clicked element, containing either a data-command
- * attribute directly or in a nested element, from which we get the command
- * to be executed.
- * @param context Either a Requisition or an ExecutionContext or another object
- * that contains an |update()| function that follows a similar contract.
- */
-exports.updateCommand = function(element, context) {
-  withCommand(element, function(command) {
-    context.update(command);
-  });
-};
-
-/**
- * Execute the text contained in the element that was clicked
- * @param element The clicked element, containing either a data-command
- * attribute directly or in a nested element, from which we get the command
- * to be executed.
- * @param context Either a Requisition or an ExecutionContext or another object
- * that contains an |update()| function that follows a similar contract.
- */
-exports.executeCommand = function(element, context) {
-  withCommand(element, function(command) {
-    context.exec({
-      visible: true,
-      typed: command
-    });
-  });
 };
 
 
@@ -1510,7 +1383,2231 @@ else {
  * limitations under the License.
  */
 
-define('gcli/l10n', ['require', 'exports', 'module' , 'gcli/nls/strings'], function(require, exports, module) {
+define('util/promise', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+'use strict';
+
+/**
+ * This is a copy of util.errorHandler to avoid dependency loops
+ */
+var util = {
+  errorHandler: function(ex) {
+    if (ex instanceof Error) {
+      // V8 weirdly includes the exception message in the stack
+      if (ex.stack.indexOf(ex.message) !== -1) {
+        console.error(ex.stack);
+      }
+      else {
+        console.error('' + ex);
+        console.error(ex.stack);
+      }
+    }
+    else {
+      console.error(ex);
+    }
+  }
+};
+
+/**
+ * Internal utility: Wraps given `value` into simplified promise, successfully
+ * fulfilled to a given `value`. Note the result is not a complete promise
+ * implementation, as its method `then` does not returns anything.
+ */
+function fulfilled(value) {
+  return { then: function then(fulfill) { fulfill(value); } };
+}
+
+/**
+ * Internal utility: Wraps given input into simplified promise, pre-rejected
+ * with a given `reason`. Note the result is not a complete promise
+ * implementation, as its method `then` does not returns anything.
+ */
+function rejected(reason) {
+  return { then: function then(fulfill, reject) { reject(reason); } };
+}
+
+/**
+ * Internal utility: Returns `true` if given `value` is a promise. Value is
+ * assumed to be a promise if it implements method `then`.
+ */
+function isPromise(value) {
+  return value && typeof(value.then) === 'function';
+}
+
+/**
+ * Creates deferred object containing fresh promise & methods to either resolve
+ * or reject it. The result is an object with the following properties:
+ * - `promise` Eventual value representation implementing CommonJS [Promises/A]
+ *   (http://wiki.commonjs.org/wiki/Promises/A) API.
+ * - `resolve` Single shot function that resolves enclosed `promise` with a
+ *   given `value`.
+ * - `reject` Single shot function that rejects enclosed `promise` with a given
+ *   `reason`.
+ *
+ * An optional `prototype` argument is used as a prototype of the returned
+ * `promise` allowing one to implement additional API. If prototype is not
+ * passed then it falls back to `Object.prototype`.
+ *
+ *  ## Example
+ *
+ *  function fetchURI(uri, type) {
+ *    var deferred = defer();
+ *    var request = new XMLHttpRequest();
+ *    request.open("GET", uri, true);
+ *    request.responseType = type;
+ *    request.onload = function onload() {
+ *      deferred.resolve(request.response);
+ *    }
+ *    request.onerror = function(event) {
+ *     deferred.reject(event);
+ *    }
+ *    request.send();
+ *
+ *    return deferred.promise;
+ *  }
+ */
+function defer(prototype) {
+  // Define FIFO queue of observer pairs. Once promise is resolved & all queued
+  // observers are forwarded to `result` and variable is set to `null`.
+  var observers = [];
+
+  // Promise `result`, which will be assigned a resolution value once promise
+  // is resolved. Note that result will always be assigned promise (or alike)
+  // object to take care of propagation through promise chains. If result is
+  // `null` promise is not resolved yet.
+  var result = null;
+
+  prototype = (prototype || prototype === null) ? prototype : Object.prototype;
+
+  // Create an object implementing promise API.
+  var promise = Object.create(prototype, {
+    then: { value: function then(onFulfill, onError) {
+      var deferred = defer(prototype);
+
+      function resolve(value) {
+        // If `onFulfill` handler is provided resolve `deferred.promise` with
+        // result of invoking it with a resolution value. If handler is not
+        // provided propagate value through.
+        try {
+          deferred.resolve(onFulfill ? onFulfill(value) : value);
+        }
+        // `onFulfill` may throw exception in which case resulting promise
+        // is rejected with thrown exception.
+        catch(error) {
+          if (exports._reportErrors && typeof(console) === 'object') {
+            util.errorHandler(error);
+          }
+          // Note: Following is equivalent of `deferred.reject(error)`,
+          // we use this shortcut to reduce a stack.
+          deferred.resolve(rejected(error));
+        }
+      }
+
+      function reject(reason) {
+        try {
+          if (onError) { deferred.resolve(onError(reason)); }
+          else { deferred.resolve(rejected(reason)); }
+        }
+        catch(error) {
+          if (exports._reportErrors && typeof(console) === 'object') {
+            util.errorHandler(error);
+          }
+          deferred.resolve(rejected(error));
+        }
+      }
+
+      // If enclosed promise (`this.promise`) observers queue is still alive
+      // enqueue a new observer pair into it. Note that this does not
+      // necessary means that promise is pending, it may already be resolved,
+      // but we still have to queue observers to guarantee an order of
+      // propagation.
+      if (observers) {
+        observers.push({ resolve: resolve, reject: reject });
+      }
+      // Otherwise just forward observer pair right to a `result` promise.
+      else {
+        result.then(resolve, reject);
+      }
+
+      return deferred.promise;
+    }}
+  });
+
+  var deferred = {
+    promise: promise,
+    /**
+     * Resolves associated `promise` to a given `value`, unless it's already
+     * resolved or rejected. Note that resolved promise is not necessary a
+     * successfully fulfilled. Promise may be resolved with a promise `value`
+     * in which case `value` promise's fulfillment / rejection will propagate
+     * up to a promise resolved with `value`.
+     */
+    resolve: function resolve(value) {
+      if (!result) {
+        // Store resolution `value` in a `result` as a promise, so that all
+        // the subsequent handlers can be simply forwarded to it. Since
+        // `result` will be a promise all the value / error propagation will
+        // be uniformly taken care of.
+        result = isPromise(value) ? value : fulfilled(value);
+
+        // Forward already registered observers to a `result` promise in the
+        // order they were registered. Note that we intentionally dequeue
+        // observer at a time until queue is exhausted. This makes sure that
+        // handlers registered as side effect of observer forwarding are
+        // queued instead of being invoked immediately, guaranteeing FIFO
+        // order.
+        while (observers.length) {
+          var observer = observers.shift();
+          result.then(observer.resolve, observer.reject);
+        }
+
+        // Once `observers` queue is exhausted we `null`-ify it, so that
+        // new handlers are forwarded straight to the `result`.
+        observers = null;
+      }
+    },
+    /**
+     * Rejects associated `promise` with a given `reason`, unless it's already
+     * resolved / rejected. This is just a (better performing) convenience
+     * shortcut for `deferred.resolve(reject(reason))`.
+     */
+    reject: function reject(reason) {
+      // Note that if promise is resolved that does not necessary means that it
+      // is successfully fulfilled. Resolution value may be a promise in which
+      // case its result propagates. In other words if promise `a` is resolved
+      // with promise `b`, `a` is either fulfilled or rejected depending
+      // on weather `b` is fulfilled or rejected. Here `deferred.promise` is
+      // resolved with a promise pre-rejected with a given `reason`, there for
+      // `deferred.promise` is rejected with a given `reason`. This may feel
+      // little awkward first, but doing it this way greatly simplifies
+      // propagation through promise chains.
+      deferred.resolve(rejected(reason));
+    }
+  };
+
+  return deferred;
+}
+exports.defer = defer;
+
+/**
+ * Returns a promise resolved to a given `value`. Optionally a second
+ * `prototype` argument may be provided to be used as a prototype for the
+ * returned promise.
+ */
+function resolve(value, prototype) {
+  var deferred = defer(prototype);
+  deferred.resolve(value);
+  return deferred.promise;
+}
+exports.resolve = resolve;
+
+/**
+ * Returns a promise rejected with a given `reason`. Optionally a second
+ * `prototype` argument may be provided to be used as a prototype for the
+ * returned promise.
+ */
+function reject(reason, prototype) {
+  var deferred = defer(prototype);
+  deferred.reject(reason);
+  return deferred.promise;
+}
+exports.reject = reject;
+
+var promised = (function() {
+  // Note: Define shortcuts and utility functions here in order to avoid
+  // slower property accesses and unnecessary closure creations on each
+  // call of this popular function.
+
+  var call = Function.call;
+  var concat = Array.prototype.concat;
+
+  // Utility function that does following:
+  // execute([ f, self, args...]) => f.apply(self, args)
+  function execute(args) { return call.apply(call, args); }
+
+  // Utility function that takes promise of `a` array and maybe promise `b`
+  // as arguments and returns promise for `a.concat(b)`.
+  function promisedConcat(promises, unknown) {
+    return promises.then(function(values) {
+      return resolve(unknown).then(function(value) {
+        return values.concat([ value ]);
+      });
+    });
+  }
+
+  return function promised(f, prototype) {
+    /**
+    Returns a wrapped `f`, which when called returns a promise that resolves to
+    `f(...)` passing all the given arguments to it, which by the way may be
+    promises. Optionally second `prototype` argument may be provided to be used
+    a prototype for a returned promise.
+
+    ## Example
+
+    var promise = promised(Array)(1, promise(2), promise(3))
+    promise.then(console.log) // => [ 1, 2, 3 ]
+    **/
+
+    return function promised() {
+      // create array of [ f, this, args... ]
+      return concat.apply([ f, this ], arguments).
+        // reduce it via `promisedConcat` to get promised array of fulfillments
+        reduce(promisedConcat, resolve([], prototype)).
+        // finally map that to promise of `f.apply(this, args...)`
+        then(execute);
+    };
+  };
+})();
+exports.promised = promised;
+
+var all = promised(Array);
+exports.all = all;
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/types', ['require', 'exports', 'module' , 'util/util', 'util/promise', 'gcli/argument'], function(require, exports, module) {
+
+'use strict';
+
+var util = require('util/util');
+var promise = require('util/promise');
+var Argument = require('gcli/argument').Argument;
+var BlankArgument = require('gcli/argument').BlankArgument;
+
+
+/**
+ * Some types can detect validity, that is to say they can distinguish between
+ * valid and invalid values.
+ * We might want to change these constants to be numbers for better performance
+ */
+var Status = {
+  /**
+   * The conversion process worked without any problem, and the value is
+   * valid. There are a number of failure states, so the best way to check
+   * for failure is (x !== Status.VALID)
+   */
+  VALID: {
+    toString: function() { return 'VALID'; },
+    valueOf: function() { return 0; }
+  },
+
+  /**
+   * A conversion process failed, however it was noted that the string
+   * provided to 'parse()' could be VALID by the addition of more characters,
+   * so the typing may not be actually incorrect yet, just unfinished.
+   * @see Status.ERROR
+   */
+  INCOMPLETE: {
+    toString: function() { return 'INCOMPLETE'; },
+    valueOf: function() { return 1; }
+  },
+
+  /**
+   * The conversion process did not work, the value should be null and a
+   * reason for failure should have been provided. In addition some
+   * completion values may be available.
+   * @see Status.INCOMPLETE
+   */
+  ERROR: {
+    toString: function() { return 'ERROR'; },
+    valueOf: function() { return 2; }
+  },
+
+  /**
+   * A combined status is the worser of the provided statuses. The statuses
+   * can be provided either as a set of arguments or a single array
+   */
+  combine: function() {
+    var combined = Status.VALID;
+    for (var i = 0; i < arguments.length; i++) {
+      var status = arguments[i];
+      if (Array.isArray(status)) {
+        status = Status.combine.apply(null, status);
+      }
+      if (status > combined) {
+        combined = status;
+      }
+    }
+    return combined;
+  },
+
+  fromString: function(str) {
+    switch (str) {
+      case Status.VALID.toString():
+        return Status.VALID;
+      case Status.INCOMPLETE.toString():
+        return Status.INCOMPLETE;
+      case Status.ERROR.toString():
+        return Status.ERROR;
+      default:
+        throw new Error('\'' + str + '\' is not a status');
+    }
+  }
+};
+
+exports.Status = Status;
+
+
+/**
+ * The type.parse() method converts an Argument into a value, Conversion is
+ * a wrapper to that value.
+ * Conversion is needed to collect a number of properties related to that
+ * conversion in one place, i.e. to handle errors and provide traceability.
+ * @param value The result of the conversion
+ * @param arg The data from which the conversion was made
+ * @param status See the Status values [VALID|INCOMPLETE|ERROR] defined above.
+ * The default status is Status.VALID.
+ * @param message If status=ERROR, there should be a message to describe the
+ * error. A message is not needed unless for other statuses, but could be
+ * present for any status including VALID (in the case where we want to note a
+ * warning, for example).
+ * See BUG 664676: GCLI conversion error messages should be localized
+ * @param predictions If status=INCOMPLETE, there could be predictions as to
+ * the options available to complete the input.
+ * We generally expect there to be about 7 predictions (to match human list
+ * comprehension ability) however it is valid to provide up to about 20,
+ * or less. It is the job of the predictor to decide a smart cut-off.
+ * For example if there are 4 very good matches and 4 very poor ones,
+ * probably only the 4 very good matches should be presented.
+ * The predictions are presented either as an array of prediction objects or as
+ * a function which returns this array when called with no parameters.
+ * Each prediction object has the following shape:
+ *     {
+ *       name: '...',     // textual completion. i.e. what the cli uses
+ *       value: { ... },  // value behind the textual completion
+ *       incomplete: true // this completion is only partial (optional)
+ *     }
+ * The 'incomplete' property could be used to denote a valid completion which
+ * could have sub-values (e.g. for tree navigation).
+ */
+function Conversion(value, arg, status, message, predictions) {
+  // The result of the conversion process. Will be null if status != VALID
+  this.value = value;
+
+  // Allow us to trace where this Conversion came from
+  this.arg = arg;
+  if (arg == null) {
+    throw new Error('Missing arg');
+  }
+
+  if (predictions != null) {
+    var toCheck = typeof predictions === 'function' ? predictions() : predictions;
+    if (typeof toCheck.then !== 'function') {
+      throw new Error('predictions is not a promise');
+    }
+    toCheck.then(function(value) {
+      if (!Array.isArray(value)) {
+        throw new Error('prediction resolves to non array');
+      }
+    }, util.errorHandler);
+  }
+
+  this._status = status || Status.VALID;
+  this.message = message;
+  this.predictions = predictions;
+}
+
+/**
+ * Ensure that all arguments that are part of this conversion know what they
+ * are assigned to.
+ * @param assignment The Assignment (param/conversion link) to inform the
+ * argument about.
+ */
+Object.defineProperty(Conversion.prototype, 'assignment', {
+  get: function() { return this.arg.assignment; },
+  set: function(assignment) { this.arg.assignment = assignment; },
+  enumerable: true
+});
+
+/**
+ * Work out if there is information provided in the contained argument.
+ */
+Conversion.prototype.isDataProvided = function() {
+  return this.arg.type !== 'BlankArgument';
+};
+
+/**
+ * 2 conversions are equal if and only if their args are equal (argEquals) and
+ * their values are equal (valueEquals).
+ * @param that The conversion object to compare against.
+ */
+Conversion.prototype.equals = function(that) {
+  if (this === that) {
+    return true;
+  }
+  if (that == null) {
+    return false;
+  }
+  return this.valueEquals(that) && this.argEquals(that);
+};
+
+/**
+ * Check that the value in this conversion is strict equal to the value in the
+ * provided conversion.
+ * @param that The conversion to compare values with
+ */
+Conversion.prototype.valueEquals = function(that) {
+  return that != null && this.value === that.value;
+};
+
+/**
+ * Check that the argument in this conversion is equal to the value in the
+ * provided conversion as defined by the argument (i.e. arg.equals).
+ * @param that The conversion to compare arguments with
+ */
+Conversion.prototype.argEquals = function(that) {
+  return that == null ? false : this.arg.equals(that.arg);
+};
+
+/**
+ * Accessor for the status of this conversion
+ */
+Conversion.prototype.getStatus = function(arg) {
+  return this._status;
+};
+
+/**
+ * Defined by the toString() value provided by the argument
+ */
+Conversion.prototype.toString = function() {
+  return this.arg.toString();
+};
+
+/**
+ * If status === INCOMPLETE, then we may be able to provide predictions as to
+ * how the argument can be completed.
+ * @return An array of items, or a promise of an array of items, where each
+ * item is an object with the following properties:
+ * - name (mandatory): Displayed to the user, and typed in. No whitespace
+ * - description (optional): Short string for display in a tool-tip
+ * - manual (optional): Longer description which details usage
+ * - incomplete (optional): Indicates that the prediction if used should not
+ *   be considered necessarily sufficient, which typically will mean that the
+ *   UI should not append a space to the completion
+ * - value (optional): If a value property is present, this will be used as the
+ *   value of the conversion, otherwise the item itself will be used.
+ */
+Conversion.prototype.getPredictions = function() {
+  if (typeof this.predictions === 'function') {
+    return this.predictions();
+  }
+  return promise.resolve(this.predictions || []);
+};
+
+/**
+ * Return a promise of an index constrained by the available predictions.
+ * i.e. (index % predicitons.length)
+ */
+Conversion.prototype.constrainPredictionIndex = function(index) {
+  if (index == null) {
+    return promise.resolve();
+  }
+
+  return this.getPredictions().then(function(value) {
+    if (value.length === 0) {
+      return undefined;
+    }
+
+    index = index % value.length;
+    if (index < 0) {
+      index = value.length + index;
+    }
+    return index;
+  }.bind(this));
+};
+
+/**
+ * Constant to allow everyone to agree on the maximum number of predictions
+ * that should be provided. We actually display 1 less than this number.
+ */
+Conversion.maxPredictions = 11;
+
+exports.Conversion = Conversion;
+
+
+/**
+ * ArrayConversion is a special Conversion, needed because arrays are converted
+ * member by member rather then as a whole, which means we can track the
+ * conversion if individual array elements. So an ArrayConversion acts like a
+ * normal Conversion (which is needed as Assignment requires a Conversion) but
+ * it can also be devolved into a set of Conversions for each array member.
+ */
+function ArrayConversion(conversions, arg) {
+  this.arg = arg;
+  this.conversions = conversions;
+  this.value = conversions.map(function(conversion) {
+    return conversion.value;
+  }, this);
+
+  this._status = Status.combine(conversions.map(function(conversion) {
+    return conversion.getStatus();
+  }));
+
+  // This message is just for reporting errors like "not enough values"
+  // rather that for problems with individual values.
+  this.message = '';
+
+  // Predictions are generally provided by individual values
+  this.predictions = [];
+}
+
+ArrayConversion.prototype = Object.create(Conversion.prototype);
+
+Object.defineProperty(ArrayConversion.prototype, 'assignment', {
+  get: function() { return this._assignment; },
+  set: function(assignment) {
+    this._assignment = assignment;
+
+    this.conversions.forEach(function(conversion) {
+      conversion.assignment = assignment;
+    }, this);
+  },
+  enumerable: true
+});
+
+ArrayConversion.prototype.getStatus = function(arg) {
+  if (arg && arg.conversion) {
+    return arg.conversion.getStatus();
+  }
+  return this._status;
+};
+
+ArrayConversion.prototype.isDataProvided = function() {
+  return this.conversions.length > 0;
+};
+
+ArrayConversion.prototype.valueEquals = function(that) {
+  if (that == null) {
+    return false;
+  }
+
+  if (!(that instanceof ArrayConversion)) {
+    throw new Error('Can\'t compare values with non ArrayConversion');
+  }
+
+  if (this.value === that.value) {
+    return true;
+  }
+
+  if (this.value.length !== that.value.length) {
+    return false;
+  }
+
+  for (var i = 0; i < this.conversions.length; i++) {
+    if (!this.conversions[i].valueEquals(that.conversions[i])) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+ArrayConversion.prototype.toString = function() {
+  return '[ ' + this.conversions.map(function(conversion) {
+    return conversion.toString();
+  }, this).join(', ') + ' ]';
+};
+
+exports.ArrayConversion = ArrayConversion;
+
+
+/**
+ * Most of our types are 'static' e.g. there is only one type of 'string',
+ * however some types like 'selection' and 'delegate' are customizable.
+ * The basic Type type isn't useful, but does provide documentation about what
+ * types do.
+ */
+function Type() {
+}
+
+/**
+ * Convert the given <tt>value</tt> to a string representation.
+ * Where possible, there should be round-tripping between values and their
+ * string representations.
+ * @param value The object to convert into a string
+ * @param context An ExecutionContext to allow basic Requisition access
+ */
+Type.prototype.stringify = function(value, context) {
+  throw new Error('Not implemented');
+};
+
+/**
+ * Convert the given <tt>arg</tt> to an instance of this type.
+ * Where possible, there should be round-tripping between values and their
+ * string representations.
+ * @param arg An instance of <tt>Argument</tt> to convert.
+ * @param context An ExecutionContext to allow basic Requisition access
+ * @return Conversion
+ */
+Type.prototype.parse = function(arg, context) {
+  throw new Error('Not implemented');
+};
+
+/**
+ * A convenience method for times when you don't have an argument to parse
+ * but instead have a string.
+ * @see #parse(arg)
+ */
+Type.prototype.parseString = function(str, context) {
+  return this.parse(new Argument(str), context);
+};
+
+/**
+ * The plug-in system, and other things need to know what this type is
+ * called. The name alone is not enough to fully specify a type. Types like
+ * 'selection' and 'delegate' need extra data, however this function returns
+ * only the name, not the extra data.
+ */
+Type.prototype.name = undefined;
+
+/**
+ * If there is some concept of a higher value, return it,
+ * otherwise return undefined.
+ */
+Type.prototype.increment = function(value, context) {
+  return undefined;
+};
+
+/**
+ * If there is some concept of a lower value, return it,
+ * otherwise return undefined.
+ */
+Type.prototype.decrement = function(value, context) {
+  return undefined;
+};
+
+/**
+ * The 'blank value' of most types is 'undefined', but there are exceptions;
+ * This allows types to specify a better conversion from empty string than
+ * 'undefined'.
+ * 2 known examples of this are boolean -> false and array -> []
+ */
+Type.prototype.getBlank = function(context) {
+  return new Conversion(undefined, new BlankArgument(), Status.INCOMPLETE, '');
+};
+
+/**
+ * This is something of a hack for the benefit of DelegateType which needs to
+ * be able to lie about it's type for fields to accept it as one of their own.
+ * Sub-types can ignore this unless they're DelegateType.
+ * @param context An ExecutionContext to allow basic Requisition access
+ */
+Type.prototype.getType = function(context) {
+  return this;
+};
+
+/**
+ * addItems allows registrations of a number of things. This allows it to know
+ * what type of item, and how it should be registered.
+ */
+Type.prototype.item = 'type';
+
+exports.Type = Type;
+
+/**
+ * Private registry of types
+ * Invariant: types[name] = type.name
+ */
+var registeredTypes = {};
+
+exports.getTypeNames = function() {
+  return Object.keys(registeredTypes);
+};
+
+/**
+ * Add a new type to the list available to the system.
+ * You can pass 2 things to this function - either an instance of Type, in
+ * which case we return this instance when #getType() is called with a 'name'
+ * that matches type.name.
+ * Also you can pass in a constructor (i.e. function) in which case when
+ * #getType() is called with a 'name' that matches Type.prototype.name we will
+ * pass the typeSpec into this constructor.
+ */
+exports.addType = function(type) {
+  if (typeof type === 'object') {
+    if (!type.name) {
+      throw new Error('All registered types must have a name');
+    }
+
+    if (type instanceof Type) {
+      registeredTypes[type.name] = type;
+    }
+    else {
+      var name = type.name;
+      var parent = type.parent;
+      type.name = parent;
+      delete type.parent;
+
+      registeredTypes[name] = exports.createType(type);
+
+      type.name = name;
+      type.parent = parent;
+    }
+  }
+  else if (typeof type === 'function') {
+    if (!type.prototype.name) {
+      throw new Error('All registered types must have a name');
+    }
+    registeredTypes[type.prototype.name] = type;
+  }
+  else {
+    throw new Error('Unknown type: ' + type);
+  }
+};
+
+/**
+ * Remove a type from the list available to the system
+ */
+exports.removeType = function(type) {
+  delete registeredTypes[type.name];
+};
+
+/**
+ * Find a type, previously registered using #addType()
+ */
+exports.createType = function(typeSpec) {
+  if (typeof typeSpec === 'string') {
+    typeSpec = { name: typeSpec };
+  }
+
+  if (typeof typeSpec !== 'object') {
+    throw new Error('Can\'t extract type from ' + typeSpec);
+  }
+
+  var type, newType;
+  if (typeSpec.name == null || typeSpec.name == 'type') {
+    type = Type;
+  }
+  else {
+    type = registeredTypes[typeSpec.name];
+  }
+
+  if (!type) {
+    console.error('Known types: ' + Object.keys(registeredTypes).join(', '));
+    throw new Error('Unknown type: \'' + typeSpec.name + '\'');
+  }
+
+  if (typeof type === 'function') {
+    newType = new type(typeSpec);
+  }
+  else {
+    // clone 'type'
+    newType = {};
+    copyProperties(type, newType);
+  }
+
+  // Copy the properties of typeSpec onto the new type
+  copyProperties(typeSpec, newType);
+
+  if (typeof type !== 'function') {
+    if (typeof newType.constructor === 'function') {
+      newType.constructor();
+    }
+  }
+
+  return newType;
+};
+
+function copyProperties(src, dest) {
+  for (var key in src) {
+    var descriptor;
+    var obj = src;
+    while (true) {
+      descriptor = Object.getOwnPropertyDescriptor(obj, key);
+      if (descriptor != null) {
+        break;
+      }
+      obj = Object.getPrototypeOf(obj);
+      if (obj == null) {
+        throw new Error('Can\'t find descriptor of ' + key);
+      }
+    }
+
+    if ('value' in descriptor) {
+      dest[key] = src[key];
+    }
+    else if ('get' in descriptor) {
+      Object.defineProperty(dest, key, {
+        get: descriptor.get,
+        set: descriptor.set,
+        enumerable: descriptor.enumerable
+      });
+    }
+    else {
+      throw new Error('Don\'t know how to copy ' + key + ' property.');
+    }
+  }
+}
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/argument', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+'use strict';
+
+/**
+ * Thinking out loud here:
+ * Arguments are an area where we could probably refactor things a bit better.
+ * The split process in Requisition creates a set of Arguments, which are then
+ * assigned. The assign process sometimes converts them into subtypes of
+ * Argument. We might consider that what gets assigned is _always_ one of the
+ * subtypes (or actually a different type hierarchy entirely) and that we
+ * don't manipulate the prefix/text/suffix but just use the 'subtypes' as
+ * filters which present a view of the underlying original Argument.
+ */
+
+/**
+ * We record where in the input string an argument comes so we can report
+ * errors against those string positions.
+ * @param text The string (trimmed) that contains the argument
+ * @param prefix Knowledge of quotation marks and whitespace used prior to the
+ * text in the input string allows us to re-generate the original input from
+ * the arguments.
+ * @param suffix Any quotation marks and whitespace used after the text.
+ * Whitespace is normally placed in the prefix to the succeeding argument, but
+ * can be used here when this is the last argument.
+ * @constructor
+ */
+function Argument(text, prefix, suffix) {
+  if (text === undefined) {
+    this.text = '';
+    this.prefix = '';
+    this.suffix = '';
+  }
+  else {
+    this.text = text;
+    this.prefix = prefix !== undefined ? prefix : '';
+    this.suffix = suffix !== undefined ? suffix : '';
+  }
+}
+
+Argument.prototype.type = 'Argument';
+
+/**
+ * Return the result of merging these arguments.
+ * case and some of the arguments are in quotation marks?
+ */
+Argument.prototype.merge = function(following) {
+  // Is it possible that this gets called when we're merging arguments
+  // for the single string?
+  return new Argument(
+    this.text + this.suffix + following.prefix + following.text,
+    this.prefix, following.suffix);
+};
+
+/**
+ * Returns a new Argument like this one but with various items changed.
+ * @param options Values to use in creating a new Argument.
+ * Warning: some implementations of beget make additions to the options
+ * argument. You should be aware of this in the unlikely event that you want to
+ * reuse 'options' arguments.
+ * Properties:
+ * - text: The new text value
+ * - prefixSpace: Should the prefix be altered to begin with a space?
+ * - prefixPostSpace: Should the prefix be altered to end with a space?
+ * - suffixSpace: Should the suffix be altered to end with a space?
+ * - type: Constructor to use in creating new instances. Default: Argument
+ * - dontQuote: Should we avoid adding prefix/suffix quotes when the text value
+ *   has a space? Needed when we're completing a sub-command.
+ */
+Argument.prototype.beget = function(options) {
+  var text = this.text;
+  var prefix = this.prefix;
+  var suffix = this.suffix;
+
+  if (options.text != null) {
+    text = options.text;
+
+    // We need to add quotes when the replacement string has spaces or is empty
+    if (!options.dontQuote) {
+      var needsQuote = text.indexOf(' ') >= 0 || text.length === 0;
+      var hasQuote = /['"]$/.test(prefix);
+      if (needsQuote && !hasQuote) {
+        prefix = prefix + '\'';
+        suffix = '\'' + suffix;
+      }
+    }
+  }
+
+  if (options.prefixSpace && prefix.charAt(0) !== ' ') {
+    prefix = ' ' + prefix;
+  }
+
+  if (options.prefixPostSpace && prefix.charAt(prefix.length - 1) !== ' ') {
+    prefix = prefix + ' ';
+  }
+
+  if (options.suffixSpace && suffix.charAt(suffix.length - 1) !== ' ') {
+    suffix = suffix + ' ';
+  }
+
+  if (text === this.text && suffix === this.suffix && prefix === this.prefix) {
+    return this;
+  }
+
+  var type = options.type || Argument;
+  return new type(text, prefix, suffix);
+};
+
+/**
+ * We need to keep track of which assignment we've been assigned to
+ */
+Object.defineProperty(Argument.prototype, 'assignment', {
+  get: function() { return this._assignment; },
+  set: function(assignment) { this._assignment = assignment; },
+  enumerable: true
+});
+
+/**
+ * Sub-classes of Argument are collections of arguments, getArgs() gets access
+ * to the members of the collection in order to do things like re-create input
+ * command lines. For the simple Argument case it's just an array containing
+ * only this.
+ */
+Argument.prototype.getArgs = function() {
+  return [ this ];
+};
+
+/**
+ * We define equals to mean all arg properties are strict equals.
+ * Used by Conversion.argEquals and Conversion.equals and ultimately
+ * Assignment.equals to avoid reporting a change event when a new conversion
+ * is assigned.
+ */
+Argument.prototype.equals = function(that) {
+  if (this === that) {
+    return true;
+  }
+  if (that == null || !(that instanceof Argument)) {
+    return false;
+  }
+
+  return this.text === that.text &&
+       this.prefix === that.prefix && this.suffix === that.suffix;
+};
+
+/**
+ * Helper when we're putting arguments back together
+ */
+Argument.prototype.toString = function() {
+  // BUG 664207: We should re-escape escaped characters
+  // But can we do that reliably?
+  return this.prefix + this.text + this.suffix;
+};
+
+/**
+ * Merge an array of arguments into a single argument.
+ * All Arguments in the array are expected to have the same emitter
+ */
+Argument.merge = function(argArray, start, end) {
+  start = (start === undefined) ? 0 : start;
+  end = (end === undefined) ? argArray.length : end;
+
+  var joined;
+  for (var i = start; i < end; i++) {
+    var arg = argArray[i];
+    if (!joined) {
+      joined = arg;
+    }
+    else {
+      joined = joined.merge(arg);
+    }
+  }
+  return joined;
+};
+
+/**
+ * For test/debug use only. The output from this function is subject to wanton
+ * random change without notice, and should not be relied upon to even exist
+ * at some later date.
+ */
+Object.defineProperty(Argument.prototype, '_summaryJson', {
+  get: function() {
+    var assignStatus = this.assignment == null ?
+            'null' :
+            this.assignment.param.name;
+    return '<' + this.prefix + ':' + this.text + ':' + this.suffix + '>' +
+        ' (a=' + assignStatus + ',' + ' t=' + this.type + ')';
+  },
+  enumerable: true
+});
+
+exports.Argument = Argument;
+
+
+/**
+ * BlankArgument is a marker that the argument wasn't typed but is there to
+ * fill a slot. Assignments begin with their arg set to a BlankArgument.
+ */
+function BlankArgument() {
+  this.text = '';
+  this.prefix = '';
+  this.suffix = '';
+}
+
+BlankArgument.prototype = Object.create(Argument.prototype);
+
+BlankArgument.prototype.type = 'BlankArgument';
+
+exports.BlankArgument = BlankArgument;
+
+
+/**
+ * ScriptArgument is a marker that the argument is designed to be Javascript.
+ * It also implements the special rules that spaces after the { or before the
+ * } are part of the pre/suffix rather than the content, and that they are
+ * never 'blank' so they can be used by Requisition._split() and not raise an
+ * ERROR status due to being blank.
+ */
+function ScriptArgument(text, prefix, suffix) {
+  this.text = text !== undefined ? text : '';
+  this.prefix = prefix !== undefined ? prefix : '';
+  this.suffix = suffix !== undefined ? suffix : '';
+
+  ScriptArgument._moveSpaces(this);
+}
+
+ScriptArgument.prototype = Object.create(Argument.prototype);
+
+ScriptArgument.prototype.type = 'ScriptArgument';
+
+/**
+ * Private/Dangerous: Alters a ScriptArgument to move the spaces at the start
+ * or end of the 'text' into the prefix/suffix. With a string, " a " is 3 chars
+ * long, but with a ScriptArgument, { a } is only one char long.
+ * Arguments are generally supposed to be immutable, so this method should only
+ * be called on a ScriptArgument that isn't exposed to the outside world yet.
+ */
+ScriptArgument._moveSpaces = function(arg) {
+  while (arg.text.charAt(0) === ' ') {
+    arg.prefix = arg.prefix + ' ';
+    arg.text = arg.text.substring(1);
+  }
+
+  while (arg.text.charAt(arg.text.length - 1) === ' ') {
+    arg.suffix = ' ' + arg.suffix;
+    arg.text = arg.text.slice(0, -1);
+  }
+};
+
+/**
+ * As Argument.beget that implements the space rule documented in the ctor.
+ */
+ScriptArgument.prototype.beget = function(options) {
+  options.type = ScriptArgument;
+  var begotten = Argument.prototype.beget.call(this, options);
+  ScriptArgument._moveSpaces(begotten);
+  return begotten;
+};
+
+exports.ScriptArgument = ScriptArgument;
+
+
+/**
+ * Commands like 'echo' with a single string argument, and used with the
+ * special format like: 'echo a b c' effectively have a number of arguments
+ * merged together.
+ */
+function MergedArgument(args, start, end) {
+  if (!Array.isArray(args)) {
+    throw new Error('args is not an array of Arguments');
+  }
+
+  if (start === undefined) {
+    this.args = args;
+  }
+  else {
+    this.args = args.slice(start, end);
+  }
+
+  var arg = Argument.merge(this.args);
+  this.text = arg.text;
+  this.prefix = arg.prefix;
+  this.suffix = arg.suffix;
+}
+
+MergedArgument.prototype = Object.create(Argument.prototype);
+
+MergedArgument.prototype.type = 'MergedArgument';
+
+/**
+ * Keep track of which assignment we've been assigned to, and allow the
+ * original args to do the same.
+ */
+Object.defineProperty(MergedArgument.prototype, 'assignment', {
+  get: function() { return this._assignment; },
+  set: function(assignment) {
+    this._assignment = assignment;
+
+    this.args.forEach(function(arg) {
+      arg.assignment = assignment;
+    }, this);
+  },
+  enumerable: true
+});
+
+MergedArgument.prototype.getArgs = function() {
+  return this.args;
+};
+
+MergedArgument.prototype.equals = function(that) {
+  if (this === that) {
+    return true;
+  }
+  if (that == null || !(that instanceof MergedArgument)) {
+    return false;
+  }
+
+  // We might need to add a check that args is the same here
+
+  return this.text === that.text &&
+       this.prefix === that.prefix && this.suffix === that.suffix;
+};
+
+exports.MergedArgument = MergedArgument;
+
+
+/**
+ * TrueNamedArguments are for when we have an argument like --verbose which
+ * has a boolean value, and thus the opposite of '--verbose' is ''.
+ */
+function TrueNamedArgument(arg) {
+  this.arg = arg;
+  this.text = arg.text;
+  this.prefix = arg.prefix;
+  this.suffix = arg.suffix;
+}
+
+TrueNamedArgument.prototype = Object.create(Argument.prototype);
+
+TrueNamedArgument.prototype.type = 'TrueNamedArgument';
+
+Object.defineProperty(TrueNamedArgument.prototype, 'assignment', {
+  get: function() { return this._assignment; },
+  set: function(assignment) {
+    this._assignment = assignment;
+
+    if (this.arg) {
+      this.arg.assignment = assignment;
+    }
+  },
+  enumerable: true
+});
+
+TrueNamedArgument.prototype.getArgs = function() {
+  return [ this.arg ];
+};
+
+TrueNamedArgument.prototype.equals = function(that) {
+  if (this === that) {
+    return true;
+  }
+  if (that == null || !(that instanceof TrueNamedArgument)) {
+    return false;
+  }
+
+  return this.text === that.text &&
+       this.prefix === that.prefix && this.suffix === that.suffix;
+};
+
+/**
+ * As Argument.beget that rebuilds nameArg and valueArg
+ */
+TrueNamedArgument.prototype.beget = function(options) {
+  if (options.text) {
+    console.error('Can\'t change text of a TrueNamedArgument', this, options);
+  }
+
+  options.type = TrueNamedArgument;
+  var begotten = Argument.prototype.beget.call(this, options);
+  begotten.arg = new Argument(begotten.text, begotten.prefix, begotten.suffix);
+  return begotten;
+};
+
+exports.TrueNamedArgument = TrueNamedArgument;
+
+
+/**
+ * FalseNamedArguments are for when we don't have an argument like --verbose
+ * which has a boolean value, and thus the opposite of '' is '--verbose'.
+ */
+function FalseNamedArgument() {
+  this.text = '';
+  this.prefix = '';
+  this.suffix = '';
+}
+
+FalseNamedArgument.prototype = Object.create(Argument.prototype);
+
+FalseNamedArgument.prototype.type = 'FalseNamedArgument';
+
+FalseNamedArgument.prototype.getArgs = function() {
+  return [ ];
+};
+
+FalseNamedArgument.prototype.equals = function(that) {
+  if (this === that) {
+    return true;
+  }
+  if (that == null || !(that instanceof FalseNamedArgument)) {
+    return false;
+  }
+
+  return this.text === that.text &&
+       this.prefix === that.prefix && this.suffix === that.suffix;
+};
+
+exports.FalseNamedArgument = FalseNamedArgument;
+
+
+/**
+ * A named argument is for cases where we have input in one of the following
+ * formats:
+ * <ul>
+ * <li>--param value
+ * <li>-p value
+ * </ul>
+ * We model this as a normal argument but with a long prefix.
+ *
+ * There are 2 ways to construct a NamedArgument. One using 2 Arguments which
+ * are taken to be the argument for the name (e.g. '--param') and one for the
+ * value to assign to that parameter.
+ * Alternatively, you can pass in the text/prefix/suffix values in the same
+ * way as an Argument is constructed. If you do this then you are expected to
+ * assign to nameArg and valueArg before exposing the new NamedArgument.
+ */
+function NamedArgument() {
+  if (typeof arguments[0] === 'string') {
+    this.nameArg = null;
+    this.valueArg = null;
+    this.text = arguments[0];
+    this.prefix = arguments[1];
+    this.suffix = arguments[2];
+  }
+  else if (arguments[1] == null) {
+    this.nameArg = arguments[0];
+    this.valueArg = null;
+    this.text = '';
+    this.prefix = this.nameArg.toString();
+    this.suffix = '';
+  }
+  else {
+    this.nameArg = arguments[0];
+    this.valueArg = arguments[1];
+    this.text = this.valueArg.text;
+    this.prefix = this.nameArg.toString() + this.valueArg.prefix;
+    this.suffix = this.valueArg.suffix;
+  }
+}
+
+NamedArgument.prototype = Object.create(Argument.prototype);
+
+NamedArgument.prototype.type = 'NamedArgument';
+
+Object.defineProperty(NamedArgument.prototype, 'assignment', {
+  get: function() { return this._assignment; },
+  set: function(assignment) {
+    this._assignment = assignment;
+
+    this.nameArg.assignment = assignment;
+    if (this.valueArg != null) {
+      this.valueArg.assignment = assignment;
+    }
+  },
+  enumerable: true
+});
+
+NamedArgument.prototype.getArgs = function() {
+  return this.valueArg ? [ this.nameArg, this.valueArg ] : [ this.nameArg ];
+};
+
+NamedArgument.prototype.equals = function(that) {
+  if (this === that) {
+    return true;
+  }
+  if (that == null) {
+    return false;
+  }
+
+  if (!(that instanceof NamedArgument)) {
+    return false;
+  }
+
+  // We might need to add a check that nameArg and valueArg are the same
+
+  return this.text === that.text &&
+       this.prefix === that.prefix && this.suffix === that.suffix;
+};
+
+/**
+ * As Argument.beget that rebuilds nameArg and valueArg
+ */
+NamedArgument.prototype.beget = function(options) {
+  options.type = NamedArgument;
+  var begotten = Argument.prototype.beget.call(this, options);
+
+  // Cut the prefix into |whitespace|non-whitespace|whitespace+quote so we can
+  // rebuild nameArg and valueArg from the parts
+  var matches = /^([\s]*)([^\s]*)([\s]*['"]?)$/.exec(begotten.prefix);
+
+  if (this.valueArg == null && begotten.text === '') {
+    begotten.nameArg = new Argument(matches[2], matches[1], matches[3]);
+    begotten.valueArg = null;
+  }
+  else {
+    begotten.nameArg = new Argument(matches[2], matches[1], '');
+    begotten.valueArg = new Argument(begotten.text, matches[3], begotten.suffix);
+  }
+
+  return begotten;
+};
+
+exports.NamedArgument = NamedArgument;
+
+
+/**
+ * An argument the groups together a number of plain arguments together so they
+ * can be jointly assigned to a single array parameter
+ */
+function ArrayArgument() {
+  this.args = [];
+}
+
+ArrayArgument.prototype = Object.create(Argument.prototype);
+
+ArrayArgument.prototype.type = 'ArrayArgument';
+
+ArrayArgument.prototype.addArgument = function(arg) {
+  this.args.push(arg);
+};
+
+ArrayArgument.prototype.addArguments = function(args) {
+  Array.prototype.push.apply(this.args, args);
+};
+
+ArrayArgument.prototype.getArguments = function() {
+  return this.args;
+};
+
+Object.defineProperty(ArrayArgument.prototype, 'assignment', {
+  get: function() { return this._assignment; },
+  set: function(assignment) {
+    this._assignment = assignment;
+
+    this.args.forEach(function(arg) {
+      arg.assignment = assignment;
+    }, this);
+  },
+  enumerable: true
+});
+
+ArrayArgument.prototype.getArgs = function() {
+  return this.args;
+};
+
+ArrayArgument.prototype.equals = function(that) {
+  if (this === that) {
+    return true;
+  }
+  if (that == null) {
+    return false;
+  }
+
+  if (that.type !== 'ArrayArgument') {
+    return false;
+  }
+
+  if (this.args.length !== that.args.length) {
+    return false;
+  }
+
+  for (var i = 0; i < this.args.length; i++) {
+    if (!this.args[i].equals(that.args[i])) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+/**
+ * Helper when we're putting arguments back together
+ */
+ArrayArgument.prototype.toString = function() {
+  return '{' + this.args.map(function(arg) {
+    return arg.toString();
+  }, this).join(',') + '}';
+};
+
+exports.ArrayArgument = ArrayArgument;
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/api', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/converters', 'gcli/types', 'gcli/settings', 'gcli/ui/fields'], function(require, exports, module) {
+
+'use strict';
+
+var canon = require('gcli/canon');
+var converters = require('gcli/converters');
+var types = require('gcli/types');
+var settings = require('gcli/settings');
+var fields = require('gcli/ui/fields');
+
+/**
+ * This is the heart of the API that we expose to the outside
+ */
+exports.getApi = function() {
+  return {
+    addCommand: canon.addCommand,
+    removeCommand: canon.removeCommand,
+    addConverter: converters.addConverter,
+    removeConverter: converters.removeConverter,
+    addType: types.addType,
+    removeType: types.removeType,
+
+    addItems: function(items) {
+      items.forEach(function(item) {
+        // Some items are registered using the constructor so we need to check
+        // the prototype for the the type of the item
+        var type = item.item;
+        if (type == null && item.prototype) {
+            type = item.prototype.item;
+        }
+        if (type === 'command') {
+          canon.addCommand(item);
+        }
+        else if (type === 'type') {
+          types.addType(item);
+        }
+        else if (type === 'converter') {
+          converters.addConverter(item);
+        }
+        else if (type === 'setting') {
+          settings.addSetting(item);
+        }
+        else if (type === 'field') {
+          fields.addField(item);
+        }
+        else {
+          console.error('Error for: ', item);
+          throw new Error('item property not found');
+        }
+      });
+    },
+
+    removeItems: function(items) {
+      items.forEach(function(item) {
+        if (item.item === 'command') {
+          canon.removeCommand(item);
+        }
+        else if (item.item === 'type') {
+          types.removeType(item);
+        }
+        else if (item.item === 'converter') {
+          converters.removeConverter(item);
+        }
+        else if (item.item === 'settings') {
+          settings.removeSetting(item);
+        }
+        else if (item.item === 'field') {
+          fields.removeField(item);
+        }
+        else {
+          throw new Error('item property not found');
+        }
+      });
+    }
+  };
+};
+
+/**
+ * api.getApi() is clean, but generally we want to add the functions to the
+ * 'exports' object. So this is a quick helper.
+ */
+exports.populateApi = function(obj) {
+  var exportable = exports.getApi();
+  Object.keys(exportable).forEach(function(key) {
+    obj[key] = exportable[key];
+  });
+};
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/canon', ['require', 'exports', 'module' , 'util/util', 'util/l10n', 'gcli/types'], function(require, exports, module) {
+
+'use strict';
+
+var util = require('util/util');
+var l10n = require('util/l10n');
+
+var types = require('gcli/types');
+var Status = require('gcli/types').Status;
+
+/**
+ * Implement the localization algorithm for any documentation objects (i.e.
+ * description and manual) in a command.
+ * @param data The data assigned to a description or manual property
+ * @param onUndefined If data == null, should we return the data untouched or
+ * lookup a 'we don't know' key in it's place.
+ */
+function lookup(data, onUndefined) {
+  if (data == null) {
+    if (onUndefined) {
+      return l10n.lookup(onUndefined);
+    }
+
+    return data;
+  }
+
+  if (typeof data === 'string') {
+    return data;
+  }
+
+  if (typeof data === 'object') {
+    if (data.key) {
+      return l10n.lookup(data.key);
+    }
+
+    var locales = l10n.getPreferredLocales();
+    var translated;
+    locales.some(function(locale) {
+      translated = data[locale];
+      return translated != null;
+    });
+    if (translated != null) {
+      return translated;
+    }
+
+    console.error('Can\'t find locale in descriptions: ' +
+            'locales=' + JSON.stringify(locales) + ', ' +
+            'description=' + JSON.stringify(data));
+    return '(No description)';
+  }
+
+  return l10n.lookup(onUndefined);
+}
+
+
+/**
+ * The command object is mostly just setup around a commandSpec (as passed to
+ * #addCommand()).
+ */
+function Command(commandSpec) {
+  Object.keys(commandSpec).forEach(function(key) {
+    this[key] = commandSpec[key];
+  }, this);
+
+  if (!this.name) {
+    throw new Error('All registered commands must have a name');
+  }
+
+  if (this.params == null) {
+    this.params = [];
+  }
+  if (!Array.isArray(this.params)) {
+    throw new Error('command.params must be an array in ' + this.name);
+  }
+
+  this.hasNamedParameters = false;
+  this.description = 'description' in this ? this.description : undefined;
+  this.description = lookup(this.description, 'canonDescNone');
+  this.manual = 'manual' in this ? this.manual : undefined;
+  this.manual = lookup(this.manual);
+
+  // At this point this.params has nested param groups. We want to flatten it
+  // out and replace the param object literals with Parameter objects
+  var paramSpecs = this.params;
+  this.params = [];
+  this.paramGroups = {};
+  this._shortParams = {};
+
+  var addParam = function(param) {
+    var groupName = param.groupName || Parameter.DEFAULT_GROUP_NAME;
+    this.params.push(param);
+    if (!this.paramGroups.hasOwnProperty(groupName)) {
+      this.paramGroups[groupName] = [];
+    }
+    this.paramGroups[groupName].push(param);
+  }.bind(this);
+
+  // Track if the user is trying to mix default params and param groups.
+  // All the non-grouped parameters must come before all the param groups
+  // because non-grouped parameters can be assigned positionally, so their
+  // index is important. We don't want 'holes' in the order caused by
+  // parameter groups.
+  var usingGroups = false;
+
+  // In theory this could easily be made recursive, so param groups could
+  // contain nested param groups. Current thinking is that the added
+  // complexity for the UI probably isn't worth it, so this implementation
+  // prevents nesting.
+  paramSpecs.forEach(function(spec) {
+    if (!spec.group) {
+      var param = new Parameter(spec, this, null);
+      addParam(param);
+
+      if (!param.isPositionalAllowed) {
+        this.hasNamedParameters = true;
+      }
+
+      if (usingGroups && param.groupName == null) {
+        throw new Error('Parameters can\'t come after param groups.' +
+                        ' Ignoring ' + this.name + '/' + spec.name);
+      }
+
+      if (param.groupName != null) {
+        usingGroups = true;
+      }
+    }
+    else {
+      spec.params.forEach(function(ispec) {
+        var param = new Parameter(ispec, this, spec.group);
+        addParam(param);
+
+        if (!param.isPositionalAllowed) {
+          this.hasNamedParameters = true;
+        }
+      }, this);
+
+      usingGroups = true;
+    }
+  }, this);
+
+  this.params.forEach(function(param) {
+    if (param.short != null) {
+      if (this._shortParams[param.short] != null) {
+        throw new Error('Multiple params using short name ' + param.short);
+      }
+      this._shortParams[param.short] = param;
+    }
+  }, this);
+}
+
+/**
+ * JSON serializer that avoids non-serializable data
+ */
+Object.defineProperty(Command.prototype, 'json', {
+  get: function() {
+    return {
+      name: this.name,
+      description: this.description,
+      manual: this.manual,
+      params: this.params.map(function(param) { return param.json; }),
+      returnType: this.returnType,
+      isParent: (this.exec == null)
+    };
+  },
+  enumerable: true
+});
+
+/**
+ * Easy way to lookup parameters by short name
+ */
+Command.prototype.getParameterByShortName = function(short) {
+  return this._shortParams[short];
+};
+
+exports.Command = Command;
+
+
+/**
+ * A wrapper for a paramSpec so we can sort out shortened versions names for
+ * option switches
+ */
+function Parameter(paramSpec, command, groupName) {
+  this.command = command || { name: 'unnamed' };
+  this.paramSpec = paramSpec;
+  this.name = this.paramSpec.name;
+  this.type = this.paramSpec.type;
+  this.short = this.paramSpec.short;
+
+  if (this.short != null && !/[0-9A-Za-z]/.test(this.short)) {
+    throw new Error('\'short\' value must be a single alphanumeric digit.');
+  }
+
+  this.groupName = groupName;
+  if (this.groupName != null) {
+    if (this.paramSpec.option != null) {
+      throw new Error('Can\'t have a "option" property in a nested parameter');
+    }
+  }
+  else {
+    if (this.paramSpec.option != null) {
+      this.groupName = this.paramSpec.option === true ?
+              Parameter.DEFAULT_GROUP_NAME :
+              '' + this.paramSpec.option;
+    }
+  }
+
+  if (!this.name) {
+    throw new Error('In ' + this.command.name +
+                    ': all params must have a name');
+  }
+
+  var typeSpec = this.type;
+  this.type = types.createType(typeSpec);
+  if (this.type == null) {
+    console.error('Known types: ' + types.getTypeNames().join(', '));
+    throw new Error('In ' + this.command.name + '/' + this.name +
+                    ': can\'t find type for: ' + JSON.stringify(typeSpec));
+  }
+
+  // boolean parameters have an implicit defaultValue:false, which should
+  // not be changed. See the docs.
+  if (this.type.name === 'boolean' &&
+      this.paramSpec.defaultValue !== undefined) {
+    throw new Error('In ' + this.command.name + '/' + this.name +
+                    ': boolean parameters can not have a defaultValue.' +
+                    ' Ignoring');
+  }
+
+  // Check the defaultValue for validity.
+  // Both undefined and null get a pass on this test. undefined is used when
+  // there is no defaultValue, and null is used when the parameter is
+  // optional, neither are required to parse and stringify.
+  if (this._defaultValue != null) {
+    try {
+      // Passing null in for a context is bound to get us into trouble some day
+      // in which case we'll need to mock one up in some way
+      var context = null;
+      var defaultText = this.type.stringify(this.paramSpec.defaultValue, context);
+      var parsed = this.type.parseString(defaultText, context);
+      parsed.then(function(defaultConversion) {
+        if (defaultConversion.getStatus() !== Status.VALID) {
+          console.error('In ' + this.command.name + '/' + this.name +
+                        ': Error round tripping defaultValue. status = ' +
+                        defaultConversion.getStatus());
+        }
+      }.bind(this), util.errorHandler);
+    }
+    catch (ex) {
+      throw new Error('In ' + this.command.name + '/' + this.name + ': ' + ex);
+    }
+  }
+
+  // All parameters that can only be set via a named parameter must have a
+  // non-undefined default value
+  if (!this.isPositionalAllowed && this.paramSpec.defaultValue === undefined &&
+      this.type.getBlank == null && this.type.name !== 'boolean') {
+    throw new Error('In ' + this.command.name + '/' + this.name +
+                    ': Missing defaultValue for optional parameter.');
+  }
+}
+
+/**
+ * The default group name, when none is given explicitly
+ */
+Parameter.DEFAULT_GROUP_NAME = l10n.lookup('canonDefaultGroupName');
+
+/**
+ * type.getBlank can be expensive, so we delay execution where we can
+ */
+Object.defineProperty(Parameter.prototype, 'defaultValue', {
+  get: function() {
+    if (!('_defaultValue' in this)) {
+      this._defaultValue = (this.paramSpec.defaultValue !== undefined) ?
+          this.paramSpec.defaultValue :
+          this.type.getBlank().value;
+    }
+
+    return this._defaultValue;
+  },
+  enumerable : true
+});
+
+/**
+ * Does the given name uniquely identify this param (among the other params
+ * in this command)
+ * @param name The name to check
+ */
+Parameter.prototype.isKnownAs = function(name) {
+  return (name === '--' + this.name) || (name === '-' + this.short);
+};
+
+/**
+ * Resolve the manual for this parameter, by looking in the paramSpec
+ * and doing a l10n lookup
+ */
+Object.defineProperty(Parameter.prototype, 'manual', {
+  get: function() {
+    return lookup(this.paramSpec.manual || undefined);
+  },
+  enumerable: true
+});
+
+/**
+ * Resolve the description for this parameter, by looking in the paramSpec
+ * and doing a l10n lookup
+ */
+Object.defineProperty(Parameter.prototype, 'description', {
+  get: function() {
+    return lookup(this.paramSpec.description || undefined, 'canonDescNone');
+  },
+  enumerable: true
+});
+
+/**
+ * Is the user required to enter data for this parameter? (i.e. has
+ * defaultValue been set to something other than undefined)
+ */
+Object.defineProperty(Parameter.prototype, 'isDataRequired', {
+  get: function() {
+    return this.defaultValue === undefined;
+  },
+  enumerable: true
+});
+
+/**
+ * Reflect the paramSpec 'hidden' property (dynamically so it can change)
+ */
+Object.defineProperty(Parameter.prototype, 'hidden', {
+  get: function() {
+    return this.paramSpec.hidden;
+  },
+  enumerable: true
+});
+
+/**
+ * Are we allowed to assign data to this parameter using positional
+ * parameters?
+ */
+Object.defineProperty(Parameter.prototype, 'isPositionalAllowed', {
+  get: function() {
+    return this.groupName == null;
+  },
+  enumerable: true
+});
+
+/**
+ * JSON serializer that avoids non-serializable data
+ */
+Object.defineProperty(Parameter.prototype, 'json', {
+  get: function() {
+    var json = {
+      name: this.name,
+      type: this.paramSpec.type,
+      description: this.description
+    };
+    if (this.defaultValue !== undefined && json.type !== 'boolean') {
+      json.defaultValue = this.defaultValue;
+    }
+    if (this.option !== undefined) {
+      json.option = this.option;
+    }
+    if (this.short !== undefined) {
+      json.short = this.short;
+    }
+    return json;
+  },
+  enumerable: true
+});
+
+exports.Parameter = Parameter;
+
+
+/**
+ * A canon is a store for a list of commands
+ */
+function Canon() {
+  // A lookup hash of our registered commands
+  this._commands = {};
+  // A sorted list of command names, we regularly want them in order, so pre-sort
+  this._commandNames = [];
+  // A lookup of the original commandSpecs by command name
+  this._commandSpecs = {};
+
+  // Enable people to be notified of changes to the list of commands
+  this.onCanonChange = util.createEvent('canon.onCanonChange');
+}
+
+/**
+ * Add a command to the canon of known commands.
+ * This function is exposed to the outside world (via gcli/index). It is
+ * documented in docs/index.md for all the world to see.
+ * @param commandSpec The command and its metadata.
+ * @return The new command
+ */
+Canon.prototype.addCommand = function(commandSpec) {
+  if (this._commands[commandSpec.name] != null) {
+    // Roughly canon.removeCommand() without the event call, which we do later
+    delete this._commands[commandSpec.name];
+    this._commandNames = this._commandNames.filter(function(test) {
+      return test !== commandSpec.name;
+    });
+  }
+
+  var command = new Command(commandSpec);
+  this._commands[commandSpec.name] = command;
+  this._commandNames.push(commandSpec.name);
+  this._commandNames.sort();
+
+  this._commandSpecs[commandSpec.name] = commandSpec;
+
+  this.onCanonChange();
+  return command;
+};
+
+/**
+ * Remove an individual command. The opposite of #addCommand().
+ * Removing a non-existent command is a no-op.
+ * @param commandOrName Either a command name or the command itself.
+ * @return true if a command was removed, false otherwise.
+ */
+Canon.prototype.removeCommand = function(commandOrName) {
+  var name = typeof commandOrName === 'string' ?
+          commandOrName :
+          commandOrName.name;
+
+  if (!this._commands[name]) {
+    return false;
+  }
+
+  // See start of canon.addCommand if changing this code
+  delete this._commands[name];
+  delete this._commandSpecs[name];
+  this._commandNames = this._commandNames.filter(function(test) {
+    return test !== name;
+  });
+
+  this.onCanonChange();
+  return true;
+};
+
+/**
+ * Retrieve a command by name
+ * @param name The name of the command to retrieve
+ */
+Canon.prototype.getCommand = function(name) {
+  // '|| undefined' is to silence 'reference to undefined property' warnings
+  return this._commands[name] || undefined;
+};
+
+/**
+ * Get an array of all the registered commands.
+ */
+Canon.prototype.getCommands = function() {
+  return Object.keys(this._commands).map(function(name) {
+    return this._commands[name];
+  }, this);
+};
+
+/**
+ * Get an array containing the names of the registered commands.
+ */
+Canon.prototype.getCommandNames = function() {
+  return this._commandNames.slice(0);
+};
+
+/**
+ * Get access to the stored commandMetaDatas (i.e. before they were made into
+ * instances of Command/Parameters) so we can remote them.
+ */
+Canon.prototype.getCommandSpecs = function() {
+  var specs = {};
+
+  Object.keys(this._commands).forEach(function(name) {
+    var command = this._commands[name];
+    if (!command.noRemote) {
+      specs[name] = command.json;
+    }
+  }.bind(this));
+
+  return specs;
+};
+
+/**
+ * Add a set of commands that are executed somewhere else.
+ * @param prefix The name prefix that we assign to all command names
+ * @param commandSpecs Presumably as obtained from getCommandSpecs on remote
+ * @param remoter Function to call on exec of a new remote command. This is
+ * defined just like an exec function (i.e. that takes args/context as params
+ * and returns a promise) with one extra feature, that the context includes a
+ * 'commandName' property that contains the original command name.
+ * @param to URL-like string that describes where the commands are executed.
+ * This is to complete the parent command description.
+ */
+Canon.prototype.addProxyCommands = function(prefix, commandSpecs, remoter, to) {
+  var names = Object.keys(commandSpecs);
+
+  if (this._commands[prefix] != null) {
+    throw new Error(l10n.lookupFormat('canonProxyExists', [ prefix ]));
+  }
+
+  // We need to add the parent command so all the commands from the other
+  // system have a parent
+  this.addCommand({
+    name: prefix,
+    isProxy: true,
+    description: l10n.lookupFormat('canonProxyDesc', [ to ]),
+    manual: l10n.lookupFormat('canonProxyManual', [ to ])
+  });
+
+  names.forEach(function(name) {
+    var commandSpec = commandSpecs[name];
+
+    if (commandSpec.noRemote) {
+      return;
+    }
+
+    if (!commandSpec.isParent) {
+      commandSpec.exec = function(args, context) {
+        context.commandName = name;
+        return remoter(args, context);
+      }.bind(this);
+    }
+
+    commandSpec.name = prefix + ' ' + commandSpec.name;
+    commandSpec.isProxy = true;
+    this.addCommand(commandSpec);
+  }.bind(this));
+};
+
+/**
+ * Add a set of commands that are executed somewhere else.
+ * @param prefix The name prefix that we assign to all command names
+ * @param commandSpecs Presumably as obtained from getCommandSpecs on remote
+ * @param remoter Function to call on exec of a new remote command. This is
+ * defined just like an exec function (i.e. that takes args/context as params
+ * and returns a promise) with one extra feature, that the context includes a
+ * 'commandName' property that contains the original command name.
+ * @param to URL-like string that describes where the commands are executed.
+ * This is to complete the parent command description.
+ */
+Canon.prototype.removeProxyCommands = function(prefix) {
+  var toRemove = [];
+  Object.keys(this._commandSpecs).forEach(function(name) {
+    if (name.indexOf(prefix) === 0) {
+      toRemove.push(name);
+    }
+  }.bind(this));
+
+  var removed = [];
+  toRemove.forEach(function(name) {
+    var command = this.getCommand(name);
+    if (command.isProxy) {
+      this.removeCommand(name);
+      removed.push(name);
+    }
+    else {
+      console.error('Skipping removal of \'' + name +
+                    '\' because it is not a proxy command.');
+    }
+  }.bind(this));
+
+  return removed;
+};
+
+var canon = new Canon();
+
+exports.Canon = Canon;
+exports.addCommand = canon.addCommand.bind(canon);
+exports.removeCommand = canon.removeCommand.bind(canon);
+exports.onCanonChange = canon.onCanonChange;
+exports.getCommands = canon.getCommands.bind(canon);
+exports.getCommand = canon.getCommand.bind(canon);
+exports.getCommandNames = canon.getCommandNames.bind(canon);
+exports.getCommandSpecs = canon.getCommandSpecs.bind(canon);
+exports.addProxyCommands = canon.addProxyCommands.bind(canon);
+exports.removeProxyCommands = canon.removeProxyCommands.bind(canon);
+
+/**
+ * CommandOutputManager stores the output objects generated by executed
+ * commands.
+ *
+ * CommandOutputManager is exposed to the the outside world and could (but
+ * shouldn't) be used before gcli.startup() has been called.
+ * This could should be defensive to that where possible, and we should
+ * certainly document if the use of it or similar will fail if used too soon.
+ */
+function CommandOutputManager() {
+  this.onOutput = util.createEvent('CommandOutputManager.onOutput');
+}
+
+exports.CommandOutputManager = CommandOutputManager;
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('util/l10n', ['require', 'exports', 'module' , 'gcli/nls/strings'], function(require, exports, module) {
+
+'use strict';
 
 var strings = {};
 
@@ -1940,7 +4037,7 @@ var pluralRules = [
     get: function(n) {
       return n % 10 == 1 && n % 100 != 11 ?
         1 :
-        n != 0 ?
+        n !== 0 ?
           2 :
           0;
     }
@@ -1974,7 +4071,7 @@ var pluralRules = [
     get: function(n) {
       return n == 1 ?
         0 :
-        n == 0 || n % 100 > 0 && n % 100 < 20 ?
+        n === 0 || n % 100 > 0 && n % 100 < 20 ?
           1 :
           2;
     }
@@ -2099,7 +4196,7 @@ var pluralRules = [
     locales: [ 'ar' ],
     numForms: 6,
     get: function(n) {
-      return n == 0 ?
+      return n === 0 ?
         5 :
         n == 1 ?
           0 :
@@ -2123,7 +4220,7 @@ var pluralRules = [
     get: function(n) {
       return n == 1 ?
         0 :
-        n == 0 || n % 100 > 0 && n % 100 <= 10 ?
+        n === 0 || n % 100 > 0 && n % 100 <= 10 ?
           1 :
           n % 100 > 10 && n % 100 < 20 ?
             2 :
@@ -2176,6 +4273,9 @@ var pluralRule;
 });
 
 define('gcli/nls/strings', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+'use strict';
+
 /**
  * This file has detailed comments as to the usage of these strings so when
  * translators work on these strings separately from the code, (but with the
@@ -2184,21 +4284,61 @@ define('gcli/nls/strings', ['require', 'exports', 'module' ], function(require, 
  */
 var i18n = {
   root: {
-    // Short string used to describe any command or command parameter when
+    // This message is used to describe any command or command parameter when
     // no description has been provided.
     canonDescNone: '(No description)',
 
-    // The special '{' command allows entry of JavaScript like traditional
-    // developer tool command lines. This describes the '{' command.
+    // The default name for a group of parameters.
+    canonDefaultGroupName: 'Options',
+
+    // These commands are used to execute commands on a remote system (using a
+    // proxy). Parameters: %S is the name of the remote system.
+    canonProxyDesc: 'Execute a command on %S',
+    canonProxyManual: 'A set of commands that are executed on a remote system. The remote system is reached via %S',
+
+    // This error message is displayed when we try to add a new command (using
+    // a proxy) where one already exists with the same name.
+    canonProxyExists: 'There is already a command called \'%S\'',
+
+    // This message describes the '{' command, which allows entry of JavaScript
+    // like traditional developer tool command lines.
     cliEvalJavascript: 'Enter JavaScript directly',
 
-    // When the command line has more arguments than the current command can
-    // understand this is the error message shown to the user.
+    // This message is displayed when the command line has more arguments than
+    // the current command can understand.
     cliUnusedArg: 'Too many arguments',
 
     // The title of the dialog which displays the options that are available
     // to the current command.
     cliOptions: 'Available Options',
+
+    // The error message when the user types a command that isn't registered
+    cliUnknownCommand: 'Invalid Command',
+
+    // Error message given when a file argument points to a file that does not
+    // exist, but should (e.g. for use with File->Open)
+    // %1$S is a filename
+    fileErrNotExists: '\'%1$S\' doesn\'t exist',
+
+    // Error message given when a file argument points to a file that exists,
+    // but should not (e.g. for use with File->Save As)
+    // %1$S is a filename
+    fileErrExists: '\'%1$S\' already exists',
+
+    // Error message given when a file argument points to a non-file, when a
+    // file is needed. %1$S is a filename
+    fileErrIsNotFile: '\'%1$S\' is not a file',
+
+    // Error message given when a file argument points to a non-directory,
+    // when a directory is needed (e.g. for use with 'cd')
+    // %1$S is a filename
+    fileErrIsNotDirectory: '\'%1$S\' is not a directory',
+
+    // Error message given when a file argument does not match the specified
+    // regular expression
+    // %1$S is a filename
+    // %2$S is a regular expression
+    fileErrDoesntMatch: '\'%1$S\' does not match \'%2$S\'',
 
     // When a command has a parameter that has a number of pre-defined options
     // the user interface presents these in a drop-down menu, where the first
@@ -2206,16 +4346,10 @@ var i18n = {
     // describes that first option.
     fieldSelectionSelect: 'Select a %S…',
 
-    // When a command has a parameter that can be repeated a number of times
-    // (e.g. like the 'cat a.txt b.txt' command) the user interface presents
-    // buttons to add and remove arguments. This string is used to add
-    // arguments.
+    // When a command has a parameter that can be repeated multiple times (e.g.
+    // like the 'cat a.txt b.txt' command) the user interface presents buttons
+    // to add and remove arguments. This string is used to add arguments.
     fieldArrayAdd: 'Add',
-
-    // When a command has a parameter that can be repeated a number of times
-    // (e.g. like the 'cat a.txt b.txt' command) the user interface presents
-    // buttons to add and remove arguments. This string is used to remove
-    // arguments.
     fieldArrayDel: 'Delete',
 
     // When the menu has displayed all the matches that it should (i.e. about
@@ -2228,286 +4362,217 @@ var i18n = {
     // be used. This error message is displayed when this happens.
     jstypeParseScope: 'Scope lost',
 
-    // When the command line is doing JavaScript completion, sometimes the
-    // property to be completed does not exist. This error message is displayed
-    // when this happens.
+    // These error messages are displayed when the command line is doing
+    // JavaScript completion and encounters errors.
     jstypeParseMissing: 'Can\'t find property \'%S\'',
-
-    // When the command line is doing JavaScript completion using invalid
-    // JavaScript, this error message is displayed.
     jstypeBeginSyntax: 'Syntax error',
-
-    // When the command line is doing JavaScript completion using a string
-    // that is not properly terminated, this error message is displayed.
     jstypeBeginUnterm: 'Unterminated string literal',
 
-    // If the system for providing JavaScript completions encounters and error
-    // it displays this.
+    // This message is displayed if the system for providing JavaScript
+    // completions encounters and error it displays this.
     jstypeParseError: 'Error',
 
-    // When the command line is passed a number, however the input string is
-    // not a valid number, this error message is displayed.
+    // These error messages are displayed when the command line is passed a
+    // variable which has the wrong format and can't be converted.
+    // Parameters: %S is the passed variable.
     typesNumberNan: 'Can\'t convert "%S" to a number.',
+    typesNumberNotInt2: 'Can\'t convert "%S" to an integer.',
+    typesDateNan: 'Can\'t convert "%S" to a date.',
 
-    // When the command line is passed a number, but the number is bigger than
-    // the largest allowed number, this error message is displayed.
+    // These error messages are displayed when the command line is passed a
+    // variable which has a value out of range (number or date).
+    // Parameters: %1$S is the passed variable, %2$S is the limit value.
     typesNumberMax: '%1$S is greater than maximum allowed: %2$S.',
-
-    // When the command line is passed a number, but the number is lower than
-    // the smallest allowed number, this error message is displayed.
     typesNumberMin: '%1$S is smaller than minimum allowed: %2$S.',
+    typesDateMax: '%1$S is later than maximum allowed: %2$S.',
+    typesDateMin: '%1$S is earlier than minimum allowed: %2$S.',
 
-    // When the command line is passed an option with a limited number of
-    // correct values, but the passed value is not one of them, this error
-    // message is displayed.
+    // This error message is displayed when the command line is passed an
+    // option with a limited number of correct values, but the passed value is
+    // not one of them.
     typesSelectionNomatch: 'Can\'t use \'%S\'.',
 
-    // When the command line is expecting a CSS query string, however the
-    // passed string is not valid, this error message is displayed.
+    // This error message is displayed when the command line is expecting a CSS
+    // query string, however the passed string is not valid.
     nodeParseSyntax: 'Syntax error in CSS query',
 
-    // When the command line is expecting a CSS string that matches a single
-    // node, but more than one node matches, this error message is displayed.
+    // These error messages are displayed when the command line is expecting a
+    // CSS string that matches a single node, but more nodes (or none) match.
     nodeParseMultiple: 'Too many matches (%S)',
-
-    // When the command line is expecting a CSS string that matches a single
-    // node, but no nodes match, this error message is displayed.
     nodeParseNone: 'No matches',
 
-    // A very short description of the 'help' command.
-    // This string is designed to be shown in a menu alongside the command name,
-    // which is why it should be as short as possible.
-    // See helpManual for a fuller description of what it does.
+    // These strings describe the "help" command, used to display a description
+    // of a command (e.g. "help pref"), and its parameter 'search'.
     helpDesc: 'Get help on the available commands',
-
-    // A fuller description of the 'help' command.
-    // Displayed when the user asks for help on what it does.
     helpManual: 'Provide help either on a specific command (if a search string is provided and an exact match is found) or on the available commands (if a search string is not provided, or if no exact match is found).',
-
-    // A very short description of the 'search' parameter to the 'help' command.
-    // See helpSearchManual2 for a fuller description of what it does.
-    // This string is designed to be shown in a dialog with restricted space,
-    // which is why it should be as short as possible.
     helpSearchDesc: 'Search string',
+    helpSearchManual3: 'search string to use in narrowing down the displayed commands. Regular expressions not supported.',
 
-    // A fuller description of the 'search' parameter to the 'help' command.
-    // Displayed when the user asks for help on what it does. Inline HTML
-    // (e.g. <strong>) can be used to emphasize the core concept.
-    helpSearchManual2: '<strong>search string</strong> to use in narrowing down the displayed commands. Regular expressions not supported.',
-
-    // A heading shown at the top of a help page for a command in the console
-    // It labels a summary of the parameters to the command
+    // These strings are displayed in the help page for a command in the
+    // console.
     helpManSynopsis: 'Synopsis',
-
-    // A heading shown in a help page for a command in the console.
-    // This heading precedes the top level description.
     helpManDescription: 'Description',
 
-    // A heading shown above the parameters in a help page for a command in the
-    // console.
-    helpManParameters: 'Parameters',
-
-    // Some text shown under the parameters heading in a help page for a
-    // command which has no parameters.
+    // This message is displayed in the help page if the command has no
+    // parameters.
     helpManNone: 'None',
 
-    // The heading shown in response to the 'help' command when used without a
-    // filter, just above the list of known commands.
+    // This message is displayed in response to the 'help' command when used
+    // without a filter, just above the list of known commands.
     helpListAll: 'Available Commands:',
 
-    // The heading shown in response to the 'help <search>' command (i.e. with
-    // a search string), just above the list of matching commands.
-    helpListPrefix: 'Commands starting with \'%1$S\':',
+    // These messages are displayed in response to the 'help <search>' command
+    // (i.e. with a search string), just above the list of matching commands.
+    // Parameters: %S is the search string.
+    helpListPrefix: 'Commands starting with \'%S\':',
+    helpListNone: 'No commands starting with \'%S\'',
 
-    // The heading shown in response to the 'help <search>' command (i.e. with
-    // a search string), when there are no matching commands.
-    helpListNone: 'No commands starting with \'%1$S\'',
-
-    // When the 'help x' command wants to show the manual for the 'x' command
+    // When the 'help x' command wants to show the manual for the 'x' command,
     // it needs to be able to describe the parameters as either required or
-    // optional. See also 'helpManOptional'.
+    // optional, or if they have a default value.
     helpManRequired: 'required',
-
-    // See description of 'helpManRequired'
     helpManOptional: 'optional',
+    helpManDefault: 'optional, default=%S',
 
     // Text shown as part of the output of the 'help' command when the command
-    // in question has sub-commands, before a list of the matching sub-commands
+    // in question has sub-commands, before a list of the matching sub-commands.
     subCommands: 'Sub-Commands',
 
     // Text shown as part of the output of the 'help' command when the command
-    // in question should have sub-commands but in fact has none
+    // in question should have sub-commands but in fact has none.
     subCommandsNone: 'None',
 
-    // A very short description of the 'pref' command.
-    // This string is designed to be shown in a menu alongside the command name,
-    // which is why it should be as short as possible.
-    // See prefManual for a fuller description of what it does.
+    // These strings are used to describe the 'context' command and its
+    // 'prefix' parameter. See localization comment for 'connect' for an
+    // explanation about 'prefix'.
+    contextDesc: 'Concentrate on a group of commands',
+    contextManual: 'Setup a default prefix to future commands. For example \'context git\' would allow you to type \'commit\' rather than \'git commit\'.',
+    contextPrefixDesc: 'The command prefix',
+
+    // This message message displayed during the processing of the 'context'
+    // command, when the found command is not a parent command.
+    contextNotParentError: 'Can\'t use \'%S\' as a prefix because it is not a parent command.',
+
+    // These messages are displayed during the processing of the 'context'
+    // command, to indicate success or that there is no command prefix.
+    contextReply: 'Using %S as a command prefix',
+    contextEmptyReply: 'Command prefix is unset',
+
+    // These strings describe the 'connect' command and all its available
+    // parameters. A 'prefix' is an  alias for the remote server (think of it
+    // as a "connection name"), and it allows to identify a specific server
+    // when connected to multiple remote servers.
+    connectDesc: 'Proxy commands to server',
+    connectManual: 'Connect to the server, creating local versions of the commands on the server. Remote commands initially have a prefix to distinguish them from local commands (but see the context command to get past this)',
+    connectPrefixDesc: 'Parent prefix for imported commands',
+    connectPortDesc: 'The TCP port to listen on',
+    connectHostDesc: 'The hostname to bind to',
+    connectDupReply: 'Connection called %S already exists.',
+
+    // The output of the 'connect' command, telling the user what it has done.
+    // Parameters: %S is the prefix command. See localization comment for
+    // 'connect' for an explanation about 'prefix'.
+    connectReply: 'Added %S commands.',
+
+    // These strings describe the 'disconnect' command and all its available
+    // parameters. See localization comment for 'connect' for an explanation
+    // about 'prefix'.
+    disconnectDesc2: 'Disconnect from server',
+    disconnectManual2: 'Disconnect from a server currently connected for remote commands execution',
+    disconnectPrefixDesc: 'Parent prefix for imported commands',
+    disconnectForceDesc: 'Ignore outstanding requests',
+
+    // This is the output of the 'disconnect' command, explaining the user what
+    // has been done. Parameters: %S is the number of commands removed.
+    disconnectReply: 'Removed %S commands.',
+
+    // This error message is displayed when the user attempts to disconnect
+    // before all requests have completed. Parameters: %S is a list of
+    // incomplete requests.
+    disconnectOutstanding: 'Outstanding requests (%S)',
+
+    // These strings describe the 'cd' command and it's parameters.
+    cdDesc: 'Change working directory',
+    cdManual: 'Change the current working directory as used by the exec command',
+    cdDirectoryDesc: 'The new working directory',
+    cdOutput: 'Working directory is now %S',
+
+    // These strings describe the 'exec' command and it's parameters.
+    execDesc: 'Execute a system command',
+    execManual: '',
+    execCommandDesc: 'The command to execute',
+
+    // These strings describe the 'pref' command and all its available
+    // sub-commands and parameters.
     prefDesc: 'Commands to control settings',
-
-    // A fuller description of the 'pref' command.
-    // Displayed when the user asks for help on what it does.
     prefManual: 'Commands to display and alter preferences both for GCLI and the surrounding environment',
-
-    // A very short description of the 'pref list' command.
-    // This string is designed to be shown in a menu alongside the command name,
-    // which is why it should be as short as possible.
-    // See prefListManual for a fuller description of what it does.
     prefListDesc: 'Display available settings',
-
-    // A fuller description of the 'pref list' command.
-    // Displayed when the user asks for help on what it does.
     prefListManual: 'Display a list of preferences, optionally filtered when using the \'search\' parameter',
-
-    // A short description of the 'search' parameter to the 'pref list' command.
-    // See prefListSearchManual for a fuller description of what it does.
-    // This string is designed to be shown in a dialog with restricted space,
-    // which is why it should be as short as possible.
     prefListSearchDesc: 'Filter the list of settings displayed',
-
-    // A fuller description of the 'search' parameter to the 'pref list' command.
-    // Displayed when the user asks for help on what it does.
     prefListSearchManual: 'Search for the given string in the list of available preferences',
-
-    // A very short description of the 'pref show' command.
-    // This string is designed to be shown in a menu alongside the command name,
-    // which is why it should be as short as possible.
-    // See prefShowManual for a fuller description of what it does.
     prefShowDesc: 'Display setting value',
-
-    // A fuller description of the 'pref show' command.
-    // Displayed when the user asks for help on what it does.
     prefShowManual: 'Display the value of a given preference',
-
-    // A short description of the 'setting' parameter to the 'pref show' command.
-    // See prefShowSettingManual for a fuller description of what it does.
-    // This string is designed to be shown in a dialog with restricted space,
-    // which is why it should be as short as possible.
     prefShowSettingDesc: 'Setting to display',
-
-    // A fuller description of the 'setting' parameter to the 'pref show' command.
-    // Displayed when the user asks for help on what it does.
     prefShowSettingManual: 'The name of the setting to display',
 
-    // A very short description of the 'pref set' command.
-    // This string is designed to be shown in a menu alongside the command name,
-    // which is why it should be as short as possible.
-    // See prefSetManual for a fuller description of what it does.
+    // This message is used to show the preference name and the associated
+    // preference value. Parameters: %1$S is the preference name, %2$S is the
+    // preference value.
+    prefShowSettingValue: '%1$S: %2$S',
+
+    // These strings describe the 'pref set' command and all its parameters.
     prefSetDesc: 'Alter a setting',
-
-    // A fuller description of the 'pref set' command.
-    // Displayed when the user asks for help on what it does.
     prefSetManual: 'Alter preferences defined by the environment',
-
-    // A short description of the 'setting' parameter to the 'pref set' command.
-    // See prefSetSettingManual for a fuller description of what it does.
-    // This string is designed to be shown in a dialog with restricted space,
-    // which is why it should be as short as possible.
     prefSetSettingDesc: 'Setting to alter',
-
-    // A fuller description of the 'setting' parameter to the 'pref set' command.
-    // Displayed when the user asks for help on what it does.
     prefSetSettingManual: 'The name of the setting to alter.',
-
-    // A short description of the 'value' parameter to the 'pref set' command.
-    // See prefSetValueManual for a fuller description of what it does.
-    // This string is designed to be shown in a dialog with restricted space,
-    // which is why it should be as short as possible.
     prefSetValueDesc: 'New value for setting',
-
-    // A fuller description of the 'value' parameter to the 'pref set' command.
-    // Displayed when the user asks for help on what it does.
     prefSetValueManual: 'The new value for the specified setting',
 
-    // Title displayed to the user the first time they try to alter a setting
-    // This is displayed directly above prefSetCheckBody and prefSetCheckGo.
+    // These strings are displayed to the user the first time they try to alter
+    // a setting.
     prefSetCheckHeading: 'This might void your warranty!',
-
-    // The main text of the warning displayed to the user the first time they
-    // try to alter a setting. See also prefSetCheckHeading and prefSetCheckGo.
     prefSetCheckBody: 'Changing these advanced settings can be harmful to the stability, security, and performance of this application. You should only continue if you are sure of what you are doing.',
-
-    // The text to enable preference editing. Displayed in a button directly
-    // under prefSetCheckHeading and prefSetCheckBody
     prefSetCheckGo: 'I\'ll be careful, I promise!',
 
-    // A very short description of the 'pref reset' command.
-    // This string is designed to be shown in a menu alongside the command name,
-    // which is why it should be as short as possible.
-    // See prefResetManual for a fuller description of what it does.
+    // These strings describe the 'pref reset' command and all its parameters.
     prefResetDesc: 'Reset a setting',
-
-    // A fuller description of the 'pref reset' command.
-    // Displayed when the user asks for help on what it does.
     prefResetManual: 'Reset the value of a setting to the system defaults',
-
-    // A short description of the 'setting' parameter to the 'pref reset' command.
-    // See prefResetSettingManual for a fuller description of what it does.
-    // This string is designed to be shown in a dialog with restricted space,
-    // which is why it should be as short as possible.
     prefResetSettingDesc: 'Setting to reset',
-
-    // A fuller description of the 'setting' parameter to the 'pref reset' command.
-    // Displayed when the user asks for help on what it does.
     prefResetSettingManual: 'The name of the setting to reset to the system default value',
 
-    // Displayed in the output from the 'pref list' command as a label to an
-    // input element that allows the user to filter the results
+    // This string is displayed in the output from the 'pref list' command as a
+    // label to an input element that allows the user to filter the results.
     prefOutputFilter: 'Filter',
 
-    // Displayed in the output from the 'pref list' command as a heading to
-    // a table. The column contains the names of the available preferences
+    // These strings are displayed in the output from the 'pref list' command
+    // as table headings.
     prefOutputName: 'Name',
-
-    // Displayed in the output from the 'pref list' command as a heading to
-    // a table. The column contains the values of the available preferences
     prefOutputValue: 'Value',
 
-    // A very short description of the 'intro' command.
-    // This string is designed to be shown in a menu alongside the command name,
-    // which is why it should be as short as possible.
-    // See introManual for a fuller description of what it does.
+    // These strings describe the 'intro' command. The localization of
+    // 'Got it!' should be the same used in introTextGo.
     introDesc: 'Show the opening message',
-
-    // A fuller description of the 'intro' command.
-    // Displayed when the user asks for help on what it does.
     introManual: 'Redisplay the message that is shown to new users until they click the \'Got it!\' button',
 
-    // The 'intro text' opens when the user first opens the developer toolbar
-    // to explain the command line, and is shown each time it is opened until
-    // the user clicks the 'Got it!' button.
-    // This string is the opening paragraph of the intro text.
-    introTextOpening: 'The Firefox command line is designed for developers. It focuses on speed of input over JavaScript syntax and a rich display over monospace output.',
-
-    // For information about the 'intro text' see introTextOpening.
-    // The second paragraph is in 2 sections, the first section points the user
-    // to the 'help' command.
+    // These strings are displayed when the user first opens the developer
+    // toolbar to explain the command line, and is shown each time it is
+    // opened until the user clicks the 'Got it!' button.
+    introTextOpening2: 'This command line is designed for developers. It focuses on speed of input over JavaScript syntax and a rich display over monospace output.',
     introTextCommands: 'For a list of commands type',
-
-    // For information about the 'intro text' see introTextOpening.
-    // The second section in the second paragraph points the user to the
-    // F1/Escape keys which show and hide hints.
-    introTextKeys: 'or to show/hide command hints press',
-
-    // For information about the 'intro text' see introTextOpening.
-    // This string is used with introTextKeys, and contains the keys that are
-    // pressed to open and close hints.
+    introTextKeys2: ', or to show/hide command hints press',
     introTextF1Escape: 'F1/Escape',
-
-    // For information about the 'intro text' see introTextOpening.
-    // The text on the button that dismisses the intro text.
     introTextGo: 'Got it!',
 
-    // Short description of the 'hideIntro' setting. Displayed when the user
-    // asks for help on the settings.
+    // This is a short description of the 'hideIntro' setting.
     hideIntroDesc: 'Show the initial welcome message',
 
-    // Short description of the 'eagerHelper' setting. Displayed when the user
-    // asks for help on the settings.
+    // This is a description of the 'eagerHelper' setting. It's displayed when
+    // the user asks for help on the settings. eagerHelper allows users to
+    // select between showing no tooltips, permanent tooltips, and only
+    // important tooltips.
     eagerHelperDesc: 'How eager are the tooltips',
 
-    // Short description of the 'allowSetDesc' setting. Displayed when the user
-    // asks for help on the settings.
+    // This is a short description of the 'allowSetDesc' setting.
     allowSetDesc: 'Has the user enabled the \'pref set\' command?'
   }
 };
@@ -2529,479 +4594,433 @@ exports.root = i18n.root;
  * limitations under the License.
  */
 
-define('gcli/types', ['require', 'exports', 'module' , 'gcli/argument'], function(require, exports, module) {
+define('gcli/converters', ['require', 'exports', 'module' , 'util/promise'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+
+// It's probably easiest to read this bottom to top
+
+/**
+ * Best guess at creating a DOM element from random data
+ */
+var fallbackDomConverter = {
+  from: '*',
+  to: 'dom',
+  exec: function(data, conversionContext) {
+    return conversionContext.document.createTextNode(data || '');
+  }
+};
+
+/**
+ * Best guess at creating a string from random data
+ */
+var fallbackStringConverter = {
+  from: '*',
+  to: 'string',
+  exec: function(data, conversionContext) {
+    return data == null ? '' : data.toString();
+  }
+};
+
+/**
+ * Convert a view object to a DOM element
+ */
+var viewDomConverter = {
+  item: 'converter',
+  from: 'view',
+  to: 'dom',
+  exec: function(view, conversionContext) {
+    return view.toDom(conversionContext.document);
+  }
+};
+
+/**
+ * Convert a view object to a string
+ */
+var viewStringConverter = {
+  item: 'converter',
+  from: 'view',
+  to: 'string',
+  exec: function(view, conversionContext) {
+    return view.toDom(conversionContext.document).textContent;
+  }
+};
+
+/**
+ * Create a new converter by using 2 converters, one after the other
+ */
+function getChainConverter(first, second) {
+  if (first.to !== second.from) {
+    throw new Error('Chain convert impossible: ' + first.to + '!=' + second.from);
+  }
+  return {
+    from: first.from,
+    to: second.to,
+    exec: function(data, conversionContext) {
+      var intermediate = first.exec(data, conversionContext);
+      return second.exec(intermediate, conversionContext);
+    }
+  };
+}
+
+/**
+ * This is where we cache the converters that we know about
+ */
+var converters = {
+  from: {}
+};
+
+/**
+ * Add a new converter to the cache
+ */
+exports.addConverter = function(converter) {
+  var fromMatch = converters.from[converter.from];
+  if (fromMatch == null) {
+    fromMatch = {};
+    converters.from[converter.from] = fromMatch;
+  }
+
+  fromMatch[converter.to] = converter;
+};
+
+/**
+ * Remove an existing converter from the cache
+ */
+exports.removeConverter = function(converter) {
+  var fromMatch = converters.from[converter.from];
+  if (fromMatch == null) {
+    return;
+  }
+
+  if (fromMatch[converter.to] === converter) {
+    fromMatch[converter.to] = null;
+  }
+};
+
+/**
+ * Work out the best converter that we've got, for a given conversion.
+ */
+function getConverter(from, to) {
+  var fromMatch = converters.from[from];
+  if (fromMatch == null) {
+    return getFallbackConverter(from, to);
+  }
+
+  var converter = fromMatch[to];
+  if (converter == null) {
+    // Someone is going to love writing a graph search algorithm to work out
+    // the smallest number of conversions, or perhaps the least 'lossy'
+    // conversion but for now the only 2 step conversion is foo->view->dom,
+    // which we are going to special case.
+    if (to === 'dom') {
+      converter = fromMatch.view;
+      if (converter != null) {
+        return getChainConverter(converter, viewDomConverter);
+      }
+    }
+    if (to === 'string') {
+      converter = fromMatch.view;
+      if (converter != null) {
+        return getChainConverter(converter, viewStringConverter);
+      }
+    }
+    return getFallbackConverter(from, to);
+  }
+  return converter;
+}
+
+/**
+ * Helper for getConverter to pick the best fallback converter
+ */
+function getFallbackConverter(from, to) {
+  console.error('No converter from ' + from + ' to ' + to + '. Using fallback');
+
+  if (to === 'dom') {
+    return fallbackDomConverter;
+  }
+
+  if (to === 'string') {
+    return fallbackStringConverter;
+  }
+
+  throw new Error('No conversion possible from ' + from + ' to ' + to + '.');
+}
+
+/**
+ * Convert some data from one type to another
+ * @param data The object to convert
+ * @param from The type of the data right now
+ * @param to The type that we would like the data in
+ * @param conversionContext An execution context (i.e. simplified requisition) which is
+ * often required for access to a document, or createView function
+ */
+exports.convert = function(data, from, to, conversionContext) {
+  if (from === to) {
+    return promise.resolve(data);
+  }
+  return promise.resolve(getConverter(from, to).exec(data, conversionContext));
+};
+
+/**
+ * Items for export
+ */
+exports.items = [ viewDomConverter, viewStringConverter ];
 
 
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/ui/fields', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'gcli/argument'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var util = require('util/util');
+var KeyEvent = require('util/util').KeyEvent;
 var Argument = require('gcli/argument').Argument;
-var BlankArgument = require('gcli/argument').BlankArgument;
-
 
 /**
- * Some types can detect validity, that is to say they can distinguish between
- * valid and invalid values.
- * We might want to change these constants to be numbers for better performance
+ * A Field is a way to get input for a single parameter.
+ * This class is designed to be inherited from. It's important that all
+ * subclasses have a similar constructor signature because they are created
+ * via getField(...)
+ * @param type The type to use in conversions
+ * @param options A set of properties to help fields configure themselves:
+ * - document: The document we use in calling createElement
+ * - named: Is this parameter named? That is to say, are positional
+ *         arguments disallowed, if true, then we need to provide updates to
+ *         the command line that explicitly name the parameter in use
+ *         (e.g. --verbose, or --name Fred rather than just true or Fred)
+ * - name: If this parameter is named, what name should we use
+ * - requisition: The requisition that we're attached to
+ * - required: Boolean to indicate if this is a mandatory field
  */
-var Status = {
-  /**
-   * The conversion process worked without any problem, and the value is
-   * valid. There are a number of failure states, so the best way to check
-   * for failure is (x !== Status.VALID)
-   */
-  VALID: {
-    toString: function() { return 'VALID'; },
-    valueOf: function() { return 0; }
-  },
-
-  /**
-   * A conversion process failed, however it was noted that the string
-   * provided to 'parse()' could be VALID by the addition of more characters,
-   * so the typing may not be actually incorrect yet, just unfinished.
-   * @see Status.ERROR
-   */
-  INCOMPLETE: {
-    toString: function() { return 'INCOMPLETE'; },
-    valueOf: function() { return 1; }
-  },
-
-  /**
-   * The conversion process did not work, the value should be null and a
-   * reason for failure should have been provided. In addition some
-   * completion values may be available.
-   * @see Status.INCOMPLETE
-   */
-  ERROR: {
-    toString: function() { return 'ERROR'; },
-    valueOf: function() { return 2; }
-  },
-
-  /**
-   * A combined status is the worser of the provided statuses. The statuses
-   * can be provided either as a set of arguments or a single array
-   */
-  combine: function() {
-    var combined = Status.VALID;
-    for (var i = 0; i < arguments.length; i++) {
-      var status = arguments[i];
-      if (Array.isArray(status)) {
-        status = Status.combine.apply(null, status);
-      }
-      if (status > combined) {
-        combined = status;
-      }
-    }
-    return combined;
-  }
-};
-
-exports.Status = Status;
-
-
-/**
- * The type.parse() method converts an Argument into a value, Conversion is
- * a wrapper to that value.
- * Conversion is needed to collect a number of properties related to that
- * conversion in one place, i.e. to handle errors and provide traceability.
- * @param value The result of the conversion
- * @param arg The data from which the conversion was made
- * @param status See the Status values [VALID|INCOMPLETE|ERROR] defined above.
- * The default status is Status.VALID.
- * @param message If status=ERROR, there should be a message to describe the
- * error. A message is not needed unless for other statuses, but could be
- * present for any status including VALID (in the case where we want to note a
- * warning, for example).
- * See BUG 664676: GCLI conversion error messages should be localized
- * @param predictions If status=INCOMPLETE, there could be predictions as to
- * the options available to complete the input.
- * We generally expect there to be about 7 predictions (to match human list
- * comprehension ability) however it is valid to provide up to about 20,
- * or less. It is the job of the predictor to decide a smart cut-off.
- * For example if there are 4 very good matches and 4 very poor ones,
- * probably only the 4 very good matches should be presented.
- * The predictions are presented either as an array of prediction objects or as
- * a function which returns this array when called with no parameters.
- * Each prediction object has the following shape:
- *     {
- *       name: '...',     // textual completion. i.e. what the cli uses
- *       value: { ... },  // value behind the textual completion
- *       incomplete: true // this completion is only partial (optional)
- *     }
- * The 'incomplete' property could be used to denote a valid completion which
- * could have sub-values (e.g. for tree navigation).
- */
-function Conversion(value, arg, status, message, predictions) {
-  // The result of the conversion process. Will be null if status != VALID
-  this.value = value;
-
-  // Allow us to trace where this Conversion came from
-  this.arg = arg;
-  if (arg == null) {
-    throw new Error('Missing arg');
-  }
-
-  this._status = status || Status.VALID;
-  this.message = message;
-  this.predictions = predictions;
+function Field(type, options) {
+  this.type = type;
+  this.document = options.document;
+  this.requisition = options.requisition;
 }
 
 /**
- * Ensure that all arguments that are part of this conversion know what they
- * are assigned to.
- * @param assignment The Assignment (param/conversion link) to inform the
- * argument about.
+ * Enable registration of fields using addItems
  */
-Conversion.prototype.assign = function(assignment) {
-  this.arg.assign(assignment);
+Field.prototype.item = 'field';
+
+/**
+ * Subclasses should assign their element with the DOM node that gets added
+ * to the 'form'. It doesn't have to be an input node, just something that
+ * contains it.
+ */
+Field.prototype.element = undefined;
+
+/**
+ * Indicates that this field should drop any resources that it has created
+ */
+Field.prototype.destroy = function() {
+  delete this.messageElement;
+};
+
+// Note: We could/should probably change Fields from working with Conversions
+// to working with Arguments (Tokens), which makes for less calls to parse()
+
+/**
+ * Update this field display with the value from this conversion.
+ * Subclasses should provide an implementation of this function.
+ */
+Field.prototype.setConversion = function(conversion) {
+  throw new Error('Field should not be used directly');
 };
 
 /**
- * Work out if there is information provided in the contained argument.
+ * Extract a conversion from the values in this field.
+ * Subclasses should provide an implementation of this function.
  */
-Conversion.prototype.isDataProvided = function() {
-  return this.arg.type !== 'BlankArgument';
+Field.prototype.getConversion = function() {
+  throw new Error('Field should not be used directly');
 };
 
 /**
- * 2 conversions are equal if and only if their args are equal (argEquals) and
- * their values are equal (valueEquals).
- * @param that The conversion object to compare against.
+ * Set the element where messages and validation errors will be displayed
+ * @see setMessage()
  */
-Conversion.prototype.equals = function(that) {
-  if (this === that) {
-    return true;
-  }
-  if (that == null) {
-    return false;
-  }
-  return this.valueEquals(that) && this.argEquals(that);
+Field.prototype.setMessageElement = function(element) {
+  this.messageElement = element;
 };
 
 /**
- * Check that the value in this conversion is strict equal to the value in the
- * provided conversion.
- * @param that The conversion to compare values with
+ * Display a validation message in the UI
  */
-Conversion.prototype.valueEquals = function(that) {
-  return this.value === that.value;
+Field.prototype.setMessage = function(message) {
+  if (this.messageElement) {
+    util.setTextContent(this.messageElement, message || '');
+  }
 };
 
 /**
- * Check that the argument in this conversion is equal to the value in the
- * provided conversion as defined by the argument (i.e. arg.equals).
- * @param that The conversion to compare arguments with
+ * Method to be called by subclasses when their input changes, which allows us
+ * to properly pass on the onFieldChange event.
  */
-Conversion.prototype.argEquals = function(that) {
-  return that == null ? false : this.arg.equals(that.arg);
-};
+Field.prototype.onInputChange = function(ev) {
+  promise.resolve(this.getConversion()).then(function(conversion) {
+    this.onFieldChange({ conversion: conversion });
+    this.setMessage(conversion.message);
 
-/**
- * Accessor for the status of this conversion
- */
-Conversion.prototype.getStatus = function(arg) {
-  return this._status;
-};
-
-/**
- * Defined by the toString() value provided by the argument
- */
-Conversion.prototype.toString = function() {
-  return this.arg.toString();
-};
-
-/**
- * If status === INCOMPLETE, then we may be able to provide predictions as to
- * how the argument can be completed.
- * @return An array of items, where each item is an object with the following
- * properties:
- * - name (mandatory): Displayed to the user, and typed in. No whitespace
- * - description (optional): Short string for display in a tool-tip
- * - manual (optional): Longer description which details usage
- * - incomplete (optional): Indicates that the prediction if used should not
- *   be considered necessarily sufficient, which typically will mean that the
- *   UI should not append a space to the completion
- * - value (optional): If a value property is present, this will be used as the
- *   value of the conversion, otherwise the item itself will be used.
- */
-Conversion.prototype.getPredictions = function() {
-  if (typeof this.predictions === 'function') {
-    return this.predictions();
-  }
-  return this.predictions || [];
-};
-
-/**
- * Return an index constrained by the available predictions. Basically
- * (index % predicitons.length)
- */
-Conversion.prototype.constrainPredictionIndex = function(index) {
-  if (index == null) {
-    return undefined;
-  }
-
-  var predictions = this.getPredictions();
-  if (predictions.length === 0) {
-    return undefined;
-  }
-
-  index = index % predictions.length;
-  if (index < 0) {
-    index = predictions.length + index;
-  }
-  return index;
-};
-
-/**
- * Constant to allow everyone to agree on the maximum number of predictions
- * that should be provided. We actually display 1 less than this number.
- */
-Conversion.maxPredictions = 11;
-
-exports.Conversion = Conversion;
-
-
-/**
- * ArrayConversion is a special Conversion, needed because arrays are converted
- * member by member rather then as a whole, which means we can track the
- * conversion if individual array elements. So an ArrayConversion acts like a
- * normal Conversion (which is needed as Assignment requires a Conversion) but
- * it can also be devolved into a set of Conversions for each array member.
- */
-function ArrayConversion(conversions, arg) {
-  this.arg = arg;
-  this.conversions = conversions;
-  this.value = conversions.map(function(conversion) {
-    return conversion.value;
-  }, this);
-
-  this._status = Status.combine(conversions.map(function(conversion) {
-    return conversion.getStatus();
-  }));
-
-  // This message is just for reporting errors like "not enough values"
-  // rather that for problems with individual values.
-  this.message = '';
-
-  // Predictions are generally provided by individual values
-  this.predictions = [];
-}
-
-ArrayConversion.prototype = Object.create(Conversion.prototype);
-
-ArrayConversion.prototype.assign = function(assignment) {
-  this.conversions.forEach(function(conversion) {
-    conversion.assign(assignment);
-  }, this);
-  this.assignment = assignment;
-};
-
-ArrayConversion.prototype.getStatus = function(arg) {
-  if (arg && arg.conversion) {
-    return arg.conversion.getStatus();
-  }
-  return this._status;
-};
-
-ArrayConversion.prototype.isDataProvided = function() {
-  return this.conversions.length > 0;
-};
-
-ArrayConversion.prototype.valueEquals = function(that) {
-  if (!(that instanceof ArrayConversion)) {
-    throw new Error('Can\'t compare values with non ArrayConversion');
-  }
-
-  if (this.value === that.value) {
-    return true;
-  }
-
-  if (this.value.length !== that.value.length) {
-    return false;
-  }
-
-  for (var i = 0; i < this.conversions.length; i++) {
-    if (!this.conversions[i].valueEquals(that.conversions[i])) {
-      return false;
+    if (ev.keyCode === KeyEvent.DOM_VK_RETURN) {
+      this.requisition.exec();
     }
+  }.bind(this), util.errorHandler);
+};
+
+/**
+ * Some fields contain information that is more important to the user, for
+ * example error messages and completion menus.
+ */
+Field.prototype.isImportant = false;
+
+/**
+ * 'static/abstract' method to allow implementations of Field to lay a claim
+ * to a type. This allows claims of various strength to be weighted up.
+ * See the Field.*MATCH values.
+ */
+Field.claim = function(type, context) {
+  throw new Error('Field should not be used directly');
+};
+
+/**
+ * About minimalism - If we're producing a dialog, we want a field for every
+ * parameter. If we're providing a quick tooltip, we only want a field when
+ * it's really going to help.
+ * The getField() function takes an option of 'tooltip: true'. Fields are
+ * expected to reply with a TOOLTIP_* constant if they should be shown in the
+ * tooltip case.
+ */
+Field.TOOLTIP_MATCH = 5;   // A best match, that works for a tooltip
+Field.TOOLTIP_DEFAULT = 4; // A default match that should show in a tooltip
+Field.MATCH = 3;           // Match, but ignorable if we're being minimalist
+Field.DEFAULT = 2;         // This is a default (non-minimalist) match
+Field.BASIC = 1;           // OK in an emergency. i.e. assume Strings
+Field.NO_MATCH = 0;        // This field can't help with the given type
+
+exports.Field = Field;
+
+
+/**
+ * Internal array of known fields
+ */
+var fieldCtors = [];
+
+/**
+ * Add a field definition by field constructor
+ * @param fieldCtor Constructor function of new Field
+ */
+exports.addField = function(fieldCtor) {
+  if (typeof fieldCtor !== 'function') {
+    console.error('addField erroring on ', fieldCtor);
+    throw new Error('addField requires a Field constructor');
   }
-
-  return true;
-};
-
-ArrayConversion.prototype.toString = function() {
-  return '[ ' + this.conversions.map(function(conversion) {
-    return conversion.toString();
-  }, this).join(', ') + ' ]';
-};
-
-exports.ArrayConversion = ArrayConversion;
-
-
-/**
- * Most of our types are 'static' e.g. there is only one type of 'string',
- * however some types like 'selection' and 'deferred' are customizable.
- * The basic Type type isn't useful, but does provide documentation about what
- * types do.
- */
-function Type() {
-}
-
-/**
- * Convert the given <tt>value</tt> to a string representation.
- * Where possible, there should be round-tripping between values and their
- * string representations.
- */
-Type.prototype.stringify = function(value) {
-  throw new Error('Not implemented');
+  fieldCtors.push(fieldCtor);
 };
 
 /**
- * Convert the given <tt>arg</tt> to an instance of this type.
- * Where possible, there should be round-tripping between values and their
- * string representations.
- * @param arg An instance of <tt>Argument</tt> to convert.
- * @return Conversion
+ * Remove a Field definition
+ * @param field A previously registered field, specified either with a field
+ * name or from the field name
  */
-Type.prototype.parse = function(arg) {
-  throw new Error('Not implemented');
-};
-
-/**
- * A convenience method for times when you don't have an argument to parse
- * but instead have a string.
- * @see #parse(arg)
- */
-Type.prototype.parseString = function(str) {
-  return this.parse(new Argument(str));
-},
-
-/**
- * The plug-in system, and other things need to know what this type is
- * called. The name alone is not enough to fully specify a type. Types like
- * 'selection' and 'deferred' need extra data, however this function returns
- * only the name, not the extra data.
- */
-Type.prototype.name = undefined;
-
-/**
- * If there is some concept of a higher value, return it,
- * otherwise return undefined.
- */
-Type.prototype.increment = function(value) {
-  return undefined;
-};
-
-/**
- * If there is some concept of a lower value, return it,
- * otherwise return undefined.
- */
-Type.prototype.decrement = function(value) {
-  return undefined;
-};
-
-/**
- * The 'blank value' of most types is 'undefined', but there are exceptions;
- * This allows types to specify a better conversion from empty string than
- * 'undefined'.
- * 2 known examples of this are boolean -> false and array -> []
- */
-Type.prototype.getBlank = function() {
-  return this.parse(new BlankArgument());
-};
-
-/**
- * This is something of a hack for the benefit of DeferredType which needs to
- * be able to lie about it's type for fields to accept it as one of their own.
- * Sub-types can ignore this unless they're DeferredType.
- */
-Type.prototype.getType = function() {
-  return this;
-};
-
-exports.Type = Type;
-
-/**
- * Private registry of types
- * Invariant: types[name] = type.name
- */
-var registeredTypes = {};
-
-exports.getTypeNames = function() {
-  return Object.keys(registeredTypes);
-};
-
-/**
- * Add a new type to the list available to the system.
- * You can pass 2 things to this function - either an instance of Type, in
- * which case we return this instance when #getType() is called with a 'name'
- * that matches type.name.
- * Also you can pass in a constructor (i.e. function) in which case when
- * #getType() is called with a 'name' that matches Type.prototype.name we will
- * pass the typeSpec into this constructor.
- */
-exports.registerType = function(type) {
-  if (typeof type === 'object') {
-    if (type instanceof Type) {
-      if (!type.name) {
-        throw new Error('All registered types must have a name');
-      }
-      registeredTypes[type.name] = type;
-    }
-    else {
-      throw new Error('Can\'t registerType using: ' + type);
-    }
+exports.removeField = function(field) {
+  if (typeof field !== 'string') {
+    fieldCtors = fieldCtors.filter(function(test) {
+      return test !== field;
+    });
   }
-  else if (typeof type === 'function') {
-    if (!type.prototype.name) {
-      throw new Error('All registered types must have a name');
-    }
-    registeredTypes[type.prototype.name] = type;
+  else if (field instanceof Field) {
+    exports.removeField(field.name);
   }
   else {
-    throw new Error('Unknown type: ' + type);
+    console.error('removeField erroring on ', field);
+    throw new Error('removeField requires an instance of Field');
   }
 };
 
-exports.registerTypes = function registerTypes(newTypes) {
-  Object.keys(newTypes).forEach(function(name) {
-    var type = newTypes[name];
-    type.name = name;
-    newTypes.registerType(type);
+/**
+ * Find the best possible matching field from the specification of the type
+ * of field required.
+ * @param type An instance of Type that we will represent
+ * @param options A set of properties that we should attempt to match, and use
+ * in the construction of the new field object:
+ * - document: The document to use in creating new elements
+ * - name: The parameter name, (i.e. assignment.param.name)
+ * - requisition: The requisition we're monitoring,
+ * - required: Is this a required parameter (i.e. param.isDataRequired)
+ * - named: Is this a named parameters (i.e. !param.isPositionalAllowed)
+ * @return A newly constructed field that best matches the input options
+ */
+exports.getField = function(type, options) {
+  var ctor;
+  var highestClaim = -1;
+  fieldCtors.forEach(function(fieldCtor) {
+    var claim = fieldCtor.claim(type, options.requisition.executionContext);
+    if (claim > highestClaim) {
+      highestClaim = claim;
+      ctor = fieldCtor;
+    }
   });
-};
 
-/**
- * Remove a type from the list available to the system
- */
-exports.deregisterType = function(type) {
-  delete registeredTypes[type.name];
-};
-
-/**
- * Find a type, previously registered using #registerType()
- */
-exports.getType = function(typeSpec) {
-  var type;
-  if (typeof typeSpec === 'string') {
-    type = registeredTypes[typeSpec];
-    if (typeof type === 'function') {
-      type = new type({});
-    }
-    return type;
+  if (!ctor) {
+    console.error('Unknown field type ', type, ' in ', fieldCtors);
+    throw new Error('Can\'t find field for ' + type);
   }
 
-  if (typeof typeSpec === 'object') {
-    if (!typeSpec.name) {
-      throw new Error('Missing \'name\' member to typeSpec');
-    }
-
-    type = registeredTypes[typeSpec.name];
-    if (typeof type === 'function') {
-      type = new type(typeSpec);
-    }
-    return type;
+  if (options.tooltip && highestClaim < Field.TOOLTIP_DEFAULT) {
+    return new BlankField(type, options);
   }
 
-  throw new Error('Can\'t extract type from ' + typeSpec);
+  return new ctor(type, options);
 };
+
+
+/**
+ * For use with delegate types that do not yet have anything to resolve to.
+ * BlankFields are not for general use.
+ */
+function BlankField(type, options) {
+  Field.call(this, type, options);
+
+  this.element = util.createElement(this.document, 'div');
+
+  this.onFieldChange = util.createEvent('BlankField.onFieldChange');
+}
+
+BlankField.prototype = Object.create(Field.prototype);
+
+BlankField.claim = function(type, context) {
+  return type.name === 'blank' ? Field.MATCH : Field.NO_MATCH;
+};
+
+BlankField.prototype.setConversion = function(conversion) {
+  this.setMessage(conversion.message);
+};
+
+BlankField.prototype.getConversion = function() {
+  return this.type.parse(new Argument(), this.requisition.executionContext);
+};
+
+exports.addField(BlankField);
 
 
 });
@@ -3021,986 +5040,18 @@ exports.getType = function(typeSpec) {
  * limitations under the License.
  */
 
-define('gcli/argument', ['require', 'exports', 'module' ], function(require, exports, module) {
+define('gcli/types/selection', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'util/l10n', 'util/spell', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
 
+'use strict';
 
-/**
- * Thinking out loud here:
- * Arguments are an area where we could probably refactor things a bit better.
- * The split process in Requisition creates a set of Arguments, which are then
- * assigned. The assign process sometimes converts them into subtypes of
- * Argument. We might consider that what gets assigned is _always_ one of the
- * subtypes (or actually a different type hierarchy entirely) and that we
- * don't manipulate the prefix/text/suffix but just use the 'subtypes' as
- * filters which present a view of the underlying original Argument.
- */
-
-/**
- * We record where in the input string an argument comes so we can report
- * errors against those string positions.
- * @param text The string (trimmed) that contains the argument
- * @param prefix Knowledge of quotation marks and whitespace used prior to the
- * text in the input string allows us to re-generate the original input from
- * the arguments.
- * @param suffix Any quotation marks and whitespace used after the text.
- * Whitespace is normally placed in the prefix to the succeeding argument, but
- * can be used here when this is the last argument.
- * @constructor
- */
-function Argument(text, prefix, suffix) {
-  if (text === undefined) {
-    this.text = '';
-    this.prefix = '';
-    this.suffix = '';
-  }
-  else {
-    this.text = text;
-    this.prefix = prefix !== undefined ? prefix : '';
-    this.suffix = suffix !== undefined ? suffix : '';
-  }
-}
-
-Argument.prototype.type = 'Argument';
-
-/**
- * Return the result of merging these arguments.
- * case and some of the arguments are in quotation marks?
- */
-Argument.prototype.merge = function(following) {
-  // Is it possible that this gets called when we're merging arguments
-  // for the single string?
-  return new Argument(
-    this.text + this.suffix + following.prefix + following.text,
-    this.prefix, following.suffix);
-};
-
-/**
- * Returns a new Argument like this one but with various items changed.
- * @param options Values to use in creating a new Argument.
- * Warning: some implementations of beget make additions to the options
- * argument. You should be aware of this in the unlikely event that you want to
- * reuse 'options' arguments.
- * Properties:
- * - text: The new text value
- * - prefixSpace: Should the prefix be altered to begin with a space?
- * - prefixPostSpace: Should the prefix be altered to end with a space?
- * - suffixSpace: Should the suffix be altered to end with a space?
- * - type: Constructor to use in creating new instances. Default: Argument
- */
-Argument.prototype.beget = function(options) {
-  var text = this.text;
-  var prefix = this.prefix;
-  var suffix = this.suffix;
-
-  if (options.text != null) {
-    text = options.text;
-
-    // We need to add quotes when the replacement string has spaces or is empty
-    var needsQuote = text.indexOf(' ') >= 0 || text.length == 0;
-    if (needsQuote && /['"]/.test(prefix)) {
-      prefix = prefix + '\'';
-      suffix = '\'' + suffix;
-    }
-  }
-
-  if (options.prefixSpace && prefix.charAt(0) !== ' ') {
-    prefix = ' ' + prefix;
-  }
-
-  if (options.prefixPostSpace && prefix.charAt(prefix.length - 1) !== ' ') {
-    prefix = prefix + ' ';
-  }
-
-  if (options.suffixSpace && suffix.charAt(suffix.length - 1) !== ' ') {
-    suffix = suffix + ' ';
-  }
-
-  if (text === this.text && suffix === this.suffix && prefix === this.prefix) {
-    return this;
-  }
-
-  var type = options.type || Argument;
-  return new type(text, prefix, suffix);
-};
-
-/**
- * We need to keep track of which assignment we've been assigned to
- */
-Argument.prototype.assign = function(assignment) {
-  this.assignment = assignment;
-};
-
-/**
- * Sub-classes of Argument are collections of arguments, getArgs() gets access
- * to the members of the collection in order to do things like re-create input
- * command lines. For the simple Argument case it's just an array containing
- * only this.
- */
-Argument.prototype.getArgs = function() {
-  return [ this ];
-};
-
-/**
- * We define equals to mean all arg properties are strict equals.
- * Used by Conversion.argEquals and Conversion.equals and ultimately
- * Assignment.equals to avoid reporting a change event when a new conversion
- * is assigned.
- */
-Argument.prototype.equals = function(that) {
-  if (this === that) {
-    return true;
-  }
-  if (that == null || !(that instanceof Argument)) {
-    return false;
-  }
-
-  return this.text === that.text &&
-       this.prefix === that.prefix && this.suffix === that.suffix;
-};
-
-/**
- * Helper when we're putting arguments back together
- */
-Argument.prototype.toString = function() {
-  // BUG 664207: We should re-escape escaped characters
-  // But can we do that reliably?
-  return this.prefix + this.text + this.suffix;
-};
-
-/**
- * Merge an array of arguments into a single argument.
- * All Arguments in the array are expected to have the same emitter
- */
-Argument.merge = function(argArray, start, end) {
-  start = (start === undefined) ? 0 : start;
-  end = (end === undefined) ? argArray.length : end;
-
-  var joined;
-  for (var i = start; i < end; i++) {
-    var arg = argArray[i];
-    if (!joined) {
-      joined = arg;
-    }
-    else {
-      joined = joined.merge(arg);
-    }
-  }
-  return joined;
-};
-
-/**
- * For test/debug use only. The output from this function is subject to wanton
- * random change without notice, and should not be relied upon to even exist
- * at some later date.
- */
-Object.defineProperty(Argument.prototype, '_summaryJson', {
-  get: function() {
-    var assignStatus = this.assignment == null ?
-            'null' :
-            this.assignment.param.name;
-    return '<' + this.prefix + ':' + this.text + ':' + this.suffix + '>' +
-        ' (a=' + assignStatus + ',' + ' t=' + this.type + ')';
-  },
-  enumerable: true
-});
-
-exports.Argument = Argument;
-
-
-/**
- * BlankArgument is a marker that the argument wasn't typed but is there to
- * fill a slot. Assignments begin with their arg set to a BlankArgument.
- */
-function BlankArgument() {
-  this.text = '';
-  this.prefix = '';
-  this.suffix = '';
-}
-
-BlankArgument.prototype = Object.create(Argument.prototype);
-
-BlankArgument.prototype.type = 'BlankArgument';
-
-exports.BlankArgument = BlankArgument;
-
-
-/**
- * ScriptArgument is a marker that the argument is designed to be Javascript.
- * It also implements the special rules that spaces after the { or before the
- * } are part of the pre/suffix rather than the content, and that they are
- * never 'blank' so they can be used by Requisition._split() and not raise an
- * ERROR status due to being blank.
- */
-function ScriptArgument(text, prefix, suffix) {
-  this.text = text !== undefined ? text : '';
-  this.prefix = prefix !== undefined ? prefix : '';
-  this.suffix = suffix !== undefined ? suffix : '';
-
-  ScriptArgument._moveSpaces(this);
-}
-
-ScriptArgument.prototype = Object.create(Argument.prototype);
-
-ScriptArgument.prototype.type = 'ScriptArgument';
-
-/**
- * Private/Dangerous: Alters a ScriptArgument to move the spaces at the start
- * or end of the 'text' into the prefix/suffix. With a string, " a " is 3 chars
- * long, but with a ScriptArgument, { a } is only one char long.
- * Arguments are generally supposed to be immutable, so this method should only
- * be called on a ScriptArgument that isn't exposed to the outside world yet.
- */
-ScriptArgument._moveSpaces = function(arg) {
-  while (arg.text.charAt(0) === ' ') {
-    arg.prefix = arg.prefix + ' ';
-    arg.text = arg.text.substring(1);
-  }
-
-  while (arg.text.charAt(arg.text.length - 1) === ' ') {
-    arg.suffix = ' ' + arg.suffix;
-    arg.text = arg.text.slice(0, -1);
-  }
-};
-
-/**
- * As Argument.beget that implements the space rule documented in the ctor.
- */
-ScriptArgument.prototype.beget = function(options) {
-  options.type = ScriptArgument;
-  var begotten = Argument.prototype.beget.call(this, options);
-  ScriptArgument._moveSpaces(begotten);
-  return begotten;
-};
-
-exports.ScriptArgument = ScriptArgument;
-
-
-/**
- * Commands like 'echo' with a single string argument, and used with the
- * special format like: 'echo a b c' effectively have a number of arguments
- * merged together.
- */
-function MergedArgument(args, start, end) {
-  if (!Array.isArray(args)) {
-    throw new Error('args is not an array of Arguments');
-  }
-
-  if (start === undefined) {
-    this.args = args;
-  }
-  else {
-    this.args = args.slice(start, end);
-  }
-
-  var arg = Argument.merge(this.args);
-  this.text = arg.text;
-  this.prefix = arg.prefix;
-  this.suffix = arg.suffix;
-}
-
-MergedArgument.prototype = Object.create(Argument.prototype);
-
-MergedArgument.prototype.type = 'MergedArgument';
-
-/**
- * Keep track of which assignment we've been assigned to, and allow the
- * original args to do the same.
- */
-MergedArgument.prototype.assign = function(assignment) {
-  this.args.forEach(function(arg) {
-    arg.assign(assignment);
-  }, this);
-
-  this.assignment = assignment;
-};
-
-MergedArgument.prototype.getArgs = function() {
-  return this.args;
-};
-
-MergedArgument.prototype.equals = function(that) {
-  if (this === that) {
-    return true;
-  }
-  if (that == null || !(that instanceof MergedArgument)) {
-    return false;
-  }
-
-  // We might need to add a check that args is the same here
-
-  return this.text === that.text &&
-       this.prefix === that.prefix && this.suffix === that.suffix;
-};
-
-exports.MergedArgument = MergedArgument;
-
-
-/**
- * TrueNamedArguments are for when we have an argument like --verbose which
- * has a boolean value, and thus the opposite of '--verbose' is ''.
- */
-function TrueNamedArgument(arg) {
-  this.arg = arg;
-  this.text = arg.text;
-  this.prefix = arg.prefix;
-  this.suffix = arg.suffix;
-}
-
-TrueNamedArgument.prototype = Object.create(Argument.prototype);
-
-TrueNamedArgument.prototype.type = 'TrueNamedArgument';
-
-TrueNamedArgument.prototype.assign = function(assignment) {
-  if (this.arg) {
-    this.arg.assign(assignment);
-  }
-  this.assignment = assignment;
-};
-
-TrueNamedArgument.prototype.getArgs = function() {
-  return [ this.arg ];
-};
-
-TrueNamedArgument.prototype.equals = function(that) {
-  if (this === that) {
-    return true;
-  }
-  if (that == null || !(that instanceof TrueNamedArgument)) {
-    return false;
-  }
-
-  return this.text === that.text &&
-       this.prefix === that.prefix && this.suffix === that.suffix;
-};
-
-/**
- * As Argument.beget that rebuilds nameArg and valueArg
- */
-TrueNamedArgument.prototype.beget = function(options) {
-  if (options.text) {
-    console.error('Can\'t change text of a TrueNamedArgument', this, options);
-  }
-
-  options.type = TrueNamedArgument;
-  var begotten = Argument.prototype.beget.call(this, options);
-  begotten.arg = new Argument(begotten.text, begotten.prefix, begotten.suffix);
-  return begotten;
-};
-
-exports.TrueNamedArgument = TrueNamedArgument;
-
-
-/**
- * FalseNamedArguments are for when we don't have an argument like --verbose
- * which has a boolean value, and thus the opposite of '' is '--verbose'.
- */
-function FalseNamedArgument() {
-  this.text = '';
-  this.prefix = '';
-  this.suffix = '';
-}
-
-FalseNamedArgument.prototype = Object.create(Argument.prototype);
-
-FalseNamedArgument.prototype.type = 'FalseNamedArgument';
-
-FalseNamedArgument.prototype.getArgs = function() {
-  return [ ];
-};
-
-FalseNamedArgument.prototype.equals = function(that) {
-  if (this === that) {
-    return true;
-  }
-  if (that == null || !(that instanceof FalseNamedArgument)) {
-    return false;
-  }
-
-  return this.text === that.text &&
-       this.prefix === that.prefix && this.suffix === that.suffix;
-};
-
-exports.FalseNamedArgument = FalseNamedArgument;
-
-
-/**
- * A named argument is for cases where we have input in one of the following
- * formats:
- * <ul>
- * <li>--param value
- * <li>-p value
- * </ul>
- * We model this as a normal argument but with a long prefix.
- *
- * There are 2 ways to construct a NamedArgument. One using 2 Arguments which
- * are taken to be the argument for the name (e.g. '--param') and one for the
- * value to assign to that parameter.
- * Alternatively, you can pass in the text/prefix/suffix values in the same
- * way as an Argument is constructed. If you do this then you are expected to
- * assign to nameArg and valueArg before exposing the new NamedArgument.
- */
-function NamedArgument() {
-  if (typeof arguments[0] === 'string') {
-    this.nameArg = null;
-    this.valueArg = null;
-    this.text = arguments[0];
-    this.prefix = arguments[1];
-    this.suffix = arguments[2];
-  }
-  else if (arguments[1] == null) {
-    this.nameArg = arguments[0];
-    this.valueArg = null;
-    this.text = '';
-    this.prefix = this.nameArg.toString();
-    this.suffix = '';
-  }
-  else {
-    this.nameArg = arguments[0];
-    this.valueArg = arguments[1];
-    this.text = this.valueArg.text;
-    this.prefix = this.nameArg.toString() + this.valueArg.prefix;
-    this.suffix = this.valueArg.suffix;
-  }
-}
-
-NamedArgument.prototype = Object.create(Argument.prototype);
-
-NamedArgument.prototype.type = 'NamedArgument';
-
-NamedArgument.prototype.assign = function(assignment) {
-  this.nameArg.assign(assignment);
-  if (this.valueArg != null) {
-    this.valueArg.assign(assignment);
-  }
-  this.assignment = assignment;
-};
-
-NamedArgument.prototype.getArgs = function() {
-  return this.valueArg ? [ this.nameArg, this.valueArg ] : [ this.nameArg ];
-};
-
-NamedArgument.prototype.equals = function(that) {
-  if (this === that) {
-    return true;
-  }
-  if (that == null) {
-    return false;
-  }
-
-  if (!(that instanceof NamedArgument)) {
-    return false;
-  }
-
-  // We might need to add a check that nameArg and valueArg are the same
-
-  return this.text === that.text &&
-       this.prefix === that.prefix && this.suffix === that.suffix;
-};
-
-/**
- * As Argument.beget that rebuilds nameArg and valueArg
- */
-NamedArgument.prototype.beget = function(options) {
-  options.type = NamedArgument;
-  var begotten = Argument.prototype.beget.call(this, options);
-
-  // Cut the prefix into |whitespace|non-whitespace|whitespace| so we can
-  // rebuild nameArg and valueArg from the parts
-  var matches = /^([\s]*)([^\s]*)([\s]*)$/.exec(begotten.prefix);
-
-  if (this.valueArg == null && begotten.text === '') {
-    begotten.nameArg = new Argument(matches[2], matches[1], matches[3]);
-    begotten.valueArg = null;
-  }
-  else {
-    begotten.nameArg = new Argument(matches[2], matches[1], '');
-    begotten.valueArg = new Argument(begotten.text, matches[3], begotten.suffix);
-  }
-
-  return begotten;
-};
-
-exports.NamedArgument = NamedArgument;
-
-
-/**
- * An argument the groups together a number of plain arguments together so they
- * can be jointly assigned to a single array parameter
- */
-function ArrayArgument() {
-  this.args = [];
-}
-
-ArrayArgument.prototype = Object.create(Argument.prototype);
-
-ArrayArgument.prototype.type = 'ArrayArgument';
-
-ArrayArgument.prototype.addArgument = function(arg) {
-  this.args.push(arg);
-};
-
-ArrayArgument.prototype.addArguments = function(args) {
-  Array.prototype.push.apply(this.args, args);
-};
-
-ArrayArgument.prototype.getArguments = function() {
-  return this.args;
-};
-
-ArrayArgument.prototype.assign = function(assignment) {
-  this.args.forEach(function(arg) {
-    arg.assign(assignment);
-  }, this);
-
-  this.assignment = assignment;
-};
-
-ArrayArgument.prototype.getArgs = function() {
-  return this.args;
-};
-
-ArrayArgument.prototype.equals = function(that) {
-  if (this === that) {
-    return true;
-  }
-  if (that == null) {
-    return false;
-  }
-
-  if (!(that.type === 'ArrayArgument')) {
-    return false;
-  }
-
-  if (this.args.length !== that.args.length) {
-    return false;
-  }
-
-  for (var i = 0; i < this.args.length; i++) {
-    if (!this.args[i].equals(that.args[i])) {
-      return false;
-    }
-  }
-
-  return true;
-};
-
-/**
- * Helper when we're putting arguments back together
- */
-ArrayArgument.prototype.toString = function() {
-  return '{' + this.args.map(function(arg) {
-    return arg.toString();
-  }, this).join(',') + '}';
-};
-
-exports.ArrayArgument = ArrayArgument;
-
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/types/basic', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types', 'gcli/types/selection', 'gcli/argument'], function(require, exports, module) {
-
-
-var l10n = require('gcli/l10n');
-var types = require('gcli/types');
+var promise = require('util/promise');
+var util = require('util/util');
+var l10n = require('util/l10n');
+var spell = require('util/spell');
 var Type = require('gcli/types').Type;
 var Status = require('gcli/types').Status;
 var Conversion = require('gcli/types').Conversion;
-var ArrayConversion = require('gcli/types').ArrayConversion;
-var SelectionType = require('gcli/types/selection').SelectionType;
-
 var BlankArgument = require('gcli/argument').BlankArgument;
-var ArrayArgument = require('gcli/argument').ArrayArgument;
-
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  types.registerType(StringType);
-  types.registerType(NumberType);
-  types.registerType(BooleanType);
-  types.registerType(BlankType);
-  types.registerType(DeferredType);
-  types.registerType(ArrayType);
-};
-
-exports.shutdown = function() {
-  types.unregisterType(StringType);
-  types.unregisterType(NumberType);
-  types.unregisterType(BooleanType);
-  types.unregisterType(BlankType);
-  types.unregisterType(DeferredType);
-  types.unregisterType(ArrayType);
-};
-
-
-/**
- * 'string' the most basic string type that doesn't need to convert
- */
-function StringType(typeSpec) {
-}
-
-StringType.prototype = Object.create(Type.prototype);
-
-StringType.prototype.stringify = function(value) {
-  if (value == null) {
-    return '';
-  }
-  return value.toString();
-};
-
-StringType.prototype.parse = function(arg) {
-  if (arg.text == null || arg.text === '') {
-    return new Conversion(undefined, arg, Status.INCOMPLETE, '');
-  }
-  return new Conversion(arg.text, arg);
-};
-
-StringType.prototype.name = 'string';
-
-exports.StringType = StringType;
-
-
-/**
- * We don't currently plan to distinguish between integers and floats
- */
-function NumberType(typeSpec) {
-  if (typeSpec) {
-    this._min = typeSpec.min;
-    this._max = typeSpec.max;
-    this._step = typeSpec.step || 1;
-  }
-  else {
-    this._step = 1;
-  }
-}
-
-NumberType.prototype = Object.create(Type.prototype);
-
-NumberType.prototype.stringify = function(value) {
-  if (value == null) {
-    return '';
-  }
-  return '' + value;
-};
-
-NumberType.prototype.getMin = function() {
-  if (this._min) {
-    if (typeof this._min === 'function') {
-      return this._min();
-    }
-    if (typeof this._min === 'number') {
-      return this._min;
-    }
-  }
-  return undefined;
-};
-
-NumberType.prototype.getMax = function() {
-  if (this._max) {
-    if (typeof this._max === 'function') {
-      return this._max();
-    }
-    if (typeof this._max === 'number') {
-      return this._max;
-    }
-  }
-  return undefined;
-};
-
-NumberType.prototype.parse = function(arg) {
-  if (arg.text.replace(/^\s*-?/, '').length === 0) {
-    return new Conversion(undefined, arg, Status.INCOMPLETE, '');
-  }
-
-  var value = parseInt(arg.text, 10);
-  if (isNaN(value)) {
-    return new Conversion(undefined, arg, Status.ERROR,
-        l10n.lookupFormat('typesNumberNan', [ arg.text ]));
-  }
-
-  var max = this.getMax();
-  if (max != null && value > max) {
-    return new Conversion(undefined, arg, Status.ERROR,
-        l10n.lookupFormat('typesNumberMax', [ value, max ]));
-  }
-
-  var min = this.getMin();
-  if (min != null && value < min) {
-    return new Conversion(undefined, arg, Status.ERROR,
-        l10n.lookupFormat('typesNumberMin', [ value, min ]));
-  }
-
-  return new Conversion(value, arg);
-};
-
-NumberType.prototype.decrement = function(value) {
-  if (typeof value !== 'number' || isNaN(value)) {
-    return this.getMax() || 1;
-  }
-  var newValue = value - this._step;
-  // Snap to the nearest incremental of the step
-  newValue = Math.ceil(newValue / this._step) * this._step;
-  return this._boundsCheck(newValue);
-};
-
-NumberType.prototype.increment = function(value) {
-  if (typeof value !== 'number' || isNaN(value)) {
-    var min = this.getMin();
-    return min != null ? min : 0;
-  }
-  var newValue = value + this._step;
-  // Snap to the nearest incremental of the step
-  newValue = Math.floor(newValue / this._step) * this._step;
-  if (this.getMax() == null) {
-    return newValue;
-  }
-  return this._boundsCheck(newValue);
-};
-
-/**
- * Return the input value so long as it is within the max/min bounds. If it is
- * lower than the minimum, return the minimum. If it is bigger than the maximum
- * then return the maximum.
- */
-NumberType.prototype._boundsCheck = function(value) {
-  var min = this.getMin();
-  if (min != null && value < min) {
-    return min;
-  }
-  var max = this.getMax();
-  if (max != null && value > max) {
-    return max;
-  }
-  return value;
-};
-
-NumberType.prototype.name = 'number';
-
-exports.NumberType = NumberType;
-
-
-/**
- * true/false values
- */
-function BooleanType(typeSpec) {
-}
-
-BooleanType.prototype = Object.create(SelectionType.prototype);
-
-BooleanType.prototype.lookup = [
-  { name: 'false', value: false },
-  { name: 'true', value: true }
-];
-
-BooleanType.prototype.parse = function(arg) {
-  if (arg.type === 'TrueNamedArgument') {
-    return new Conversion(true, arg);
-  }
-  if (arg.type === 'FalseNamedArgument') {
-    return new Conversion(false, arg);
-  }
-  return SelectionType.prototype.parse.call(this, arg);
-};
-
-BooleanType.prototype.stringify = function(value) {
-  if (value == null) {
-    return '';
-  }
-  return '' + value;
-};
-
-BooleanType.prototype.getBlank = function() {
-  return new Conversion(false, new BlankArgument(), Status.VALID, '', this.lookup);
-};
-
-BooleanType.prototype.name = 'boolean';
-
-exports.BooleanType = BooleanType;
-
-
-/**
- * A type for "we don't know right now, but hope to soon".
- */
-function DeferredType(typeSpec) {
-  if (typeof typeSpec.defer !== 'function') {
-    throw new Error('Instances of DeferredType need typeSpec.defer to be a function that returns a type');
-  }
-  Object.keys(typeSpec).forEach(function(key) {
-    this[key] = typeSpec[key];
-  }, this);
-}
-
-DeferredType.prototype = Object.create(Type.prototype);
-
-DeferredType.prototype.stringify = function(value) {
-  return this.defer().stringify(value);
-};
-
-DeferredType.prototype.parse = function(arg) {
-  return this.defer().parse(arg);
-};
-
-DeferredType.prototype.decrement = function(value) {
-  var deferred = this.defer();
-  return (deferred.decrement ? deferred.decrement(value) : undefined);
-};
-
-DeferredType.prototype.increment = function(value) {
-  var deferred = this.defer();
-  return (deferred.increment ? deferred.increment(value) : undefined);
-};
-
-DeferredType.prototype.increment = function(value) {
-  var deferred = this.defer();
-  return (deferred.increment ? deferred.increment(value) : undefined);
-};
-
-DeferredType.prototype.getType = function() {
-  return this.defer();
-};
-
-Object.defineProperty(DeferredType.prototype, 'isImportant', {
-  get: function() {
-    return this.defer().isImportant;
-  },
-  enumerable: true
-});
-
-DeferredType.prototype.name = 'deferred';
-
-exports.DeferredType = DeferredType;
-
-
-/**
- * 'blank' is a type for use with DeferredType when we don't know yet.
- * It should not be used anywhere else.
- */
-function BlankType(typeSpec) {
-}
-
-BlankType.prototype = Object.create(Type.prototype);
-
-BlankType.prototype.stringify = function(value) {
-  return '';
-};
-
-BlankType.prototype.parse = function(arg) {
-  return new Conversion(undefined, arg);
-};
-
-BlankType.prototype.name = 'blank';
-
-exports.BlankType = BlankType;
-
-
-/**
- * A set of objects of the same type
- */
-function ArrayType(typeSpec) {
-  if (!typeSpec.subtype) {
-    console.error('Array.typeSpec is missing subtype. Assuming string.' +
-        JSON.stringify(typeSpec));
-    typeSpec.subtype = 'string';
-  }
-
-  Object.keys(typeSpec).forEach(function(key) {
-    this[key] = typeSpec[key];
-  }, this);
-  this.subtype = types.getType(this.subtype);
-}
-
-ArrayType.prototype = Object.create(Type.prototype);
-
-ArrayType.prototype.stringify = function(values) {
-  if (values == null) {
-    return '';
-  }
-  // BUG 664204: Check for strings with spaces and add quotes
-  return values.join(' ');
-};
-
-ArrayType.prototype.parse = function(arg) {
-  if (arg.type === 'ArrayArgument') {
-    var conversions = arg.getArguments().map(function(subArg) {
-      var conversion = this.subtype.parse(subArg);
-      // Hack alert. ArrayConversion needs to be able to answer questions
-      // about the status of individual conversions in addition to the
-      // overall state. This allows us to do that easily.
-      subArg.conversion = conversion;
-      return conversion;
-    }, this);
-    return new ArrayConversion(conversions, arg);
-  }
-  else {
-    console.error('non ArrayArgument to ArrayType.parse', arg);
-    throw new Error('non ArrayArgument to ArrayType.parse');
-  }
-};
-
-ArrayType.prototype.getBlank = function(values) {
-  return new ArrayConversion([], new ArrayArgument());
-};
-
-ArrayType.prototype.name = 'array';
-
-exports.ArrayType = ArrayType;
-
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/types/selection', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types', 'gcli/types/spell'], function(require, exports, module) {
-
-
-var l10n = require('gcli/l10n');
-var types = require('gcli/types');
-var Type = require('gcli/types').Type;
-var Status = require('gcli/types').Status;
-var Conversion = require('gcli/types').Conversion;
-var spell = require('gcli/types/spell');
-
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  types.registerType(SelectionType);
-};
-
-exports.shutdown = function() {
-  types.unregisterType(SelectionType);
-};
 
 
 /**
@@ -4022,6 +5073,9 @@ exports.shutdown = function() {
  * - cacheable: If lookup is a function, then we normally assume that
  *   the values fetched can change. Setting 'cacheable:true' enables internal
  *   caching.
+ * - neverForceAsync: It's useful for testing purposes to be able to force all
+ *   selection types to be asynchronous. This flag prevents that happening for
+ *   types that are fundamentally synchronous.
  */
 function SelectionType(typeSpec) {
   if (typeSpec) {
@@ -4033,23 +5087,32 @@ function SelectionType(typeSpec) {
 
 SelectionType.prototype = Object.create(Type.prototype);
 
-SelectionType.prototype.stringify = function(value) {
+SelectionType.prototype.stringify = function(value, context) {
   if (value == null) {
     return '';
   }
   if (this.stringifyProperty != null) {
     return value[this.stringifyProperty];
   }
-  var name = null;
-  var lookup = this.getLookup();
-  lookup.some(function(item) {
-    if (item.value === value) {
-      name = item.name;
-      return true;
-    }
-    return false;
-  }, this);
-  return name;
+
+  try {
+    var name = null;
+    var lookup = util.synchronize(this.getLookup(context));
+    lookup.some(function(item) {
+      if (item.value === value) {
+        name = item.name;
+        return true;
+      }
+      return false;
+    }, this);
+    return name;
+  }
+  catch (ex) {
+    // Types really need to ensure stringify can happen synchronously
+    // which means using stringifyProperty if getLookup is asynchronous, but
+    // if this fails we need a bailout ...
+    return value.toString();
+  }
 };
 
 /**
@@ -4065,160 +5128,192 @@ SelectionType.prototype.clearCache = function() {
  * single function.
  * @return An array of objects with name and value properties.
  */
-SelectionType.prototype.getLookup = function() {
-  if (this._cachedLookup) {
+SelectionType.prototype.getLookup = function(context) {
+  if (this._cachedLookup != null) {
     return this._cachedLookup;
   }
 
-  if (this.lookup) {
-    if (typeof this.lookup === 'function') {
-      if (this.cacheable) {
-        this._cachedLookup = this.lookup();
-        return this._cachedLookup;
-      }
-      return this.lookup();
-    }
-    return this.lookup;
+  var reply;
+  if (this.lookup == null) {
+    reply = resolve(this.data, context, this.neverForceAsync).then(dataToLookup);
+  }
+  else {
+    var lookup = (typeof this.lookup === 'function') ?
+            this.lookup.bind(this) :
+            this.lookup;
+
+    reply = resolve(lookup, context, this.neverForceAsync);
   }
 
-  if (Array.isArray(this.data)) {
-    this.lookup = this._dataToLookup(this.data);
-    return this.lookup;
+  if (this.cacheable && !forceAsync) {
+    this._cachedLookup = reply;
   }
 
-  if (typeof(this.data) === 'function') {
-    return this._dataToLookup(this.data());
-  }
-
-  throw new Error('SelectionType has no data');
+  return reply;
 };
+
+var forceAsync = false;
+
+/**
+ * Both 'lookup' and 'data' properties (see docs on SelectionType constructor)
+ * in addition to being real data can be a function or a promise, or even a
+ * function which returns a promise of real data, etc. This takes a thing and
+ * returns a promise of actual values.
+ */
+function resolve(thing, context, neverForceAsync) {
+  if (forceAsync && !neverForceAsync) {
+    var deferred = promise.defer();
+    setTimeout(function() {
+      promise.resolve(thing).then(function(resolved) {
+        if (typeof resolved === 'function') {
+          resolved = resolve(resolved(), neverForceAsync);
+        }
+
+        deferred.resolve(resolved);
+      });
+    }, 500);
+    return deferred.promise;
+  }
+
+  return promise.resolve(thing).then(function(resolved) {
+    if (typeof resolved === 'function') {
+      return resolve(resolved(context), context, neverForceAsync);
+    }
+    return resolved;
+  });
+}
 
 /**
  * Selection can be provided with either a lookup object (in the 'lookup'
  * property) or an array of strings (in the 'data' property). Internally we
  * always use lookup, so we need a way to convert a 'data' array to a lookup.
  */
-SelectionType.prototype._dataToLookup = function(data) {
+function dataToLookup(data) {
+  if (!Array.isArray(data)) {
+    throw new Error('SelectionType has no lookup or data');
+  }
+
   return data.map(function(option) {
     return { name: option, value: option };
-  }, this);
-};
+  });
+}
 
 /**
  * Return a list of possible completions for the given arg.
  * @param arg The initial input to match
  * @return A trimmed array of string:value pairs
  */
-SelectionType.prototype._findPredictions = function(arg) {
-  var predictions = [];
-  var lookup = this.getLookup();
-  var i, option;
-  var maxPredictions = Conversion.maxPredictions;
-  var match = arg.text.toLowerCase();
+SelectionType.prototype._findPredictions = function(arg, context) {
+  return promise.resolve(this.getLookup(context)).then(function(lookup) {
+    var predictions = [];
+    var i, option;
+    var maxPredictions = Conversion.maxPredictions;
+    var match = arg.text.toLowerCase();
 
-  // If the arg has a suffix then we're kind of 'done'. Only an exact match
-  // will do.
-  if (arg.suffix.length > 0) {
+    // If the arg has a suffix then we're kind of 'done'. Only an exact match
+    // will do.
+    if (arg.suffix.length > 0) {
+      for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
+        option = lookup[i];
+        if (option.name === arg.text) {
+          predictions.push(option);
+        }
+      }
+
+      return predictions;
+    }
+
+    // Cache lower case versions of all the option names
+    for (i = 0; i < lookup.length; i++) {
+      option = lookup[i];
+      if (option._gcliLowerName == null) {
+        option._gcliLowerName = option.name.toLowerCase();
+      }
+    }
+
+    // Exact hidden matches. If 'hidden: true' then we only allow exact matches
+    // All the tests after here check that !option.value.hidden
     for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
       option = lookup[i];
       if (option.name === arg.text) {
-        this._addToPredictions(predictions, option, arg);
+        predictions.push(option);
+      }
+    }
+
+    // Start with prefix matching
+    for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
+      option = lookup[i];
+      if (option._gcliLowerName.indexOf(match) === 0 && !option.value.hidden) {
+        if (predictions.indexOf(option) === -1) {
+          predictions.push(option);
+        }
+      }
+    }
+
+    // Try infix matching if we get less half max matched
+    if (predictions.length < (maxPredictions / 2)) {
+      for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
+        option = lookup[i];
+        if (option._gcliLowerName.indexOf(match) !== -1 && !option.value.hidden) {
+          if (predictions.indexOf(option) === -1) {
+            predictions.push(option);
+          }
+        }
+      }
+    }
+
+    // Try fuzzy matching if we don't get a prefix match
+    if (predictions.length === 0) {
+      var names = [];
+      lookup.forEach(function(opt) {
+        if (!opt.value.hidden) {
+          names.push(opt.name);
+        }
+      });
+      var corrected = spell.correct(match, names);
+      if (corrected) {
+        lookup.forEach(function(opt) {
+          if (opt.name === corrected) {
+            predictions.push(opt);
+          }
+        }, this);
       }
     }
 
     return predictions;
-  }
+  }.bind(this));
+};
 
-  // Cache lower case versions of all the option names
-  for (i = 0; i < lookup.length; i++) {
-    option = lookup[i];
-    if (option._gcliLowerName == null) {
-      option._gcliLowerName = option.name.toLowerCase();
+SelectionType.prototype.parse = function(arg, context) {
+  return this._findPredictions(arg, context).then(function(predictions) {
+    if (predictions.length === 0) {
+      var msg = l10n.lookupFormat('typesSelectionNomatch', [ arg.text ]);
+      return new Conversion(undefined, arg, Status.ERROR, msg,
+                            promise.resolve(predictions));
     }
-  }
 
-  // Exact hidden matches. If 'hidden: true' then we only allow exact matches
-  // All the tests after here check that !option.value.hidden
-  for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
-    option = lookup[i];
-    if (option.name === arg.text) {
-      this._addToPredictions(predictions, option, arg);
+    if (predictions[0].name === arg.text) {
+      var value = predictions[0].value;
+      return new Conversion(value, arg, Status.VALID, '',
+                            promise.resolve(predictions));
     }
-  }
 
-  // Start with prefix matching
-  for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
-    option = lookup[i];
-    if (option._gcliLowerName.indexOf(match) === 0 && !option.value.hidden) {
-      if (predictions.indexOf(option) === -1) {
-        this._addToPredictions(predictions, option, arg);
-      }
-    }
-  }
+    return new Conversion(undefined, arg, Status.INCOMPLETE, '',
+                          promise.resolve(predictions));
+  }.bind(this));
+};
 
-  // Try infix matching if we get less half max matched
-  if (predictions.length < (maxPredictions / 2)) {
-    for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
-      option = lookup[i];
-      if (option._gcliLowerName.indexOf(match) !== -1 && !option.value.hidden) {
-        if (predictions.indexOf(option) === -1) {
-          this._addToPredictions(predictions, option, arg);
-        }
-      }
-    }
-  }
-
-  // Try fuzzy matching if we don't get a prefix match
-  if (predictions.length === 0) {
-    var names = [];
-    lookup.forEach(function(opt) {
-      if (!opt.value.hidden) {
-        names.push(opt.name);
-      }
+SelectionType.prototype.getBlank = function(context) {
+  var predictFunc = function() {
+    return promise.resolve(this.getLookup(context)).then(function(lookup) {
+      return lookup.filter(function(option) {
+        return !option.value.hidden;
+      }).slice(0, Conversion.maxPredictions - 1);
     });
-    var corrected = spell.correct(match, names);
-    if (corrected) {
-      lookup.forEach(function(opt) {
-        if (opt.name === corrected) {
-          predictions.push(opt);
-        }
-      }, this);
-    }
-  }
+  }.bind(this);
 
-  return predictions;
-};
-
-/**
- * Add an option to our list of predicted options.
- * We abstract out this portion of _findPredictions() because CommandType needs
- * to make an extra check before actually adding which SelectionType does not
- * need to make.
- */
-SelectionType.prototype._addToPredictions = function(predictions, option, arg) {
-  predictions.push(option);
-};
-
-SelectionType.prototype.parse = function(arg) {
-  var predictions = this._findPredictions(arg);
-
-  if (predictions.length === 0) {
-    var msg = l10n.lookupFormat('typesSelectionNomatch', [ arg.text ]);
-    return new Conversion(undefined, arg, Status.ERROR, msg, predictions);
-  }
-
-  // This is something of a hack it basically allows us to tell the
-  // setting type to forget its last setting hack.
-  if (this.noMatch) {
-    this.noMatch();
-  }
-
-  if (predictions[0].name === arg.text) {
-    var value = predictions[0].value;
-    return new Conversion(value, arg, Status.VALID, '', predictions);
-  }
-
-  return new Conversion(undefined, arg, Status.INCOMPLETE, '', predictions);
+  return new Conversion(undefined, new BlankArgument(), Status.INCOMPLETE, '',
+                        predictFunc);
 };
 
 /**
@@ -4228,8 +5323,8 @@ SelectionType.prototype.parse = function(arg) {
  * for SelectionType, up is down and down is up.
  * Sorry.
  */
-SelectionType.prototype.decrement = function(value) {
-  var lookup = this.getLookup();
+SelectionType.prototype.decrement = function(value, context) {
+  var lookup = util.synchronize(this.getLookup(context));
   var index = this._findValue(lookup, value);
   if (index === -1) {
     index = 0;
@@ -4244,8 +5339,8 @@ SelectionType.prototype.decrement = function(value) {
 /**
  * See note on SelectionType.decrement()
  */
-SelectionType.prototype.increment = function(value) {
-  var lookup = this.getLookup();
+SelectionType.prototype.increment = function(value, context) {
+  var lookup = util.synchronize(this.getLookup(context));
   var index = this._findValue(lookup, value);
   if (index === -1) {
     // For an increment operation when there is nothing to start from, we
@@ -4280,9 +5375,16 @@ SelectionType.prototype._findValue = function(lookup, value) {
   return index;
 };
 
+/**
+ * SelectionType is designed to be inherited from, so SelectionField needs a way
+ * to check if something works like a selection without using 'name'
+ */
+SelectionType.prototype.isSelection = true;
+
 SelectionType.prototype.name = 'selection';
 
 exports.SelectionType = SelectionType;
+exports.items = [ SelectionType ];
 
 
 });
@@ -4302,58 +5404,74 @@ exports.SelectionType = SelectionType;
  * limitations under the License.
  */
 
-define('gcli/types/spell', ['require', 'exports', 'module' ], function(require, exports, module) {
+define('util/spell', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+'use strict';
 
 /*
  * A spell-checker based on Damerau-Levenshtein distance.
  */
 
-var INSERTION_COST = 1;
-var DELETION_COST = 1;
-var SWAP_COST = 1;
-var SUBSTITUTION_COST = 2;
-var MAX_EDIT_DISTANCE = 4;
+var CASE_CHANGE_COST = 1;
+var INSERTION_COST = 10;
+var DELETION_COST = 10;
+var SWAP_COST = 10;
+var SUBSTITUTION_COST = 20;
+var MAX_EDIT_DISTANCE = 40;
 
 /**
- * Compute Damerau-Levenshtein Distance
+ * Compute Damerau-Levenshtein Distance, with a modification to allow a low
+ * case-change cost (1/10th of a swap-cost)
  * @see http://en.wikipedia.org/wiki/Damerau%E2%80%93Levenshtein_distance
  */
-function damerauLevenshteinDistance(wordi, wordj) {
-  var N = wordi.length;
-  var M = wordj.length;
+var distance = exports.distance = function(wordi, wordj) {
+  var wordiLen = wordi.length;
+  var wordjLen = wordj.length;
 
   // We only need to store three rows of our dynamic programming matrix.
   // (Without swap, it would have been two.)
-  var row0 = new Array(N+1);
-  var row1 = new Array(N+1);
-  var row2 = new Array(N+1);
+  var row0 = new Array(wordiLen+1);
+  var row1 = new Array(wordiLen+1);
+  var row2 = new Array(wordiLen+1);
   var tmp;
 
   var i, j;
 
   // The distance between the empty string and a string of size i is the cost
   // of i insertions.
-  for (i = 0; i <= N; i++) {
+  for (i = 0; i <= wordiLen; i++) {
     row1[i] = i * INSERTION_COST;
   }
 
   // Row-by-row, we're computing the edit distance between substrings wordi[0..i]
   // and wordj[0..j].
-  for (j = 1; j <= M; j++)
-  {
+  for (j = 1; j <= wordjLen; j++) {
     // Edit distance between wordi[0..0] and wordj[0..j] is the cost of j
     // insertions.
     row0[0] = j * INSERTION_COST;
 
-    for (i = 1; i <= N; i++)
-    {
+    for (i = 1; i <= wordiLen; i++) {
       // Handle deletion, insertion and substitution: we can reach each cell
       // from three other cells corresponding to those three operations. We
       // want the minimum cost.
-      row0[i] = Math.min(
-          row0[i-1] + DELETION_COST,
-          row1[i] + INSERTION_COST,
-          row1[i-1] + (wordi[i-1] === wordj[j-1] ? 0 : SUBSTITUTION_COST));
+      var dc = row0[i - 1] + DELETION_COST;
+      var ic = row1[i] + INSERTION_COST;
+      var sc0;
+      if (wordi[i-1] === wordj[j-1]) {
+        sc0 = 0;
+      }
+      else {
+        if (wordi[i-1].toLowerCase() === wordj[j-1].toLowerCase()) {
+          sc0 = CASE_CHANGE_COST;
+        }
+        else {
+          sc0 = SUBSTITUTION_COST;
+        }
+      }
+      var sc = row1[i-1] + sc0;
+
+      row0[i] = Math.min(dc, ic, sc);
+
       // We handle swap too, eg. distance between help and hlep should be 1. If
       // we find such a swap, there's a chance to update row0[1] to be lower.
       if (i > 1 && j > 1 && wordi[i-1] === wordj[j-2] && wordj[j-1] === wordi[i-2]) {
@@ -4367,37 +5485,109 @@ function damerauLevenshteinDistance(wordi, wordj) {
     row0 = tmp;
   }
 
-  return row1[N];
+  return row1[wordiLen];
+};
+
+/**
+ * As distance() except that we say that if word is a prefix of name then we
+ * only count the case changes. This allows us to use words that can be
+ * completed by typing as more likely than short words
+ */
+var distancePrefix = exports.distancePrefix = function(word, name) {
+  var dist = 0;
+
+  for (var i = 0; i < word.length; i++) {
+    if (name[i] !== word[i]) {
+      if (name[i].toLowerCase() === word[i].toLowerCase()) {
+        dist++;
+      }
+      else {
+        // name does not start with word, even ignoring case, use
+        // Damerau-Levenshtein
+        return exports.distance(word, name);
+      }
+    }
+  }
+
+  return dist;
 };
 
 /**
  * A function that returns the correction for the specified word.
  */
 exports.correct = function(word, names) {
-  var distance = {};
-  var sorted_candidates;
+  if (names.length === 0) {
+    return undefined;
+  }
+
+  var distances = {};
+  var sortedCandidates;
 
   names.forEach(function(candidate) {
-    distance[candidate] = damerauLevenshteinDistance(word, candidate);
+    distances[candidate] = exports.distance(word, candidate);
   });
 
-  sorted_candidates = names.sort(function(worda, wordb) {
-    if (distance[worda] !== distance[wordb]) {
-      return distance[worda] - distance[wordb];
-    } else {
+  sortedCandidates = names.sort(function(worda, wordb) {
+    if (distances[worda] !== distances[wordb]) {
+      return distances[worda] - distances[wordb];
+    }
+    else {
       // if the score is the same, always return the first string
       // in the lexicographical order
       return worda < wordb;
     }
   });
 
-  if (distance[sorted_candidates[0]] <= MAX_EDIT_DISTANCE) {
-    return sorted_candidates[0];
-  } else {
+  if (distances[sortedCandidates[0]] <= MAX_EDIT_DISTANCE) {
+    return sortedCandidates[0];
+  }
+  else {
     return undefined;
   }
 };
 
+/**
+ * Return a ranked list of matches:
+ *
+ *   spell.rank('fred', [ 'banana', 'fred', 'ed', 'red' ]);
+ *     ↓
+ *   [
+ *      { name: 'fred', dist: 0 },
+ *      { name: 'red', dist: 1 },
+ *      { name: 'ed', dist: 2 },
+ *      { name: 'banana', dist: 10 },
+ *   ]
+ *
+ * @param word The string that we're comparing names against
+ * @param names An array of strings to compare word against
+ * @param options Comparison options:
+ * - noSort: Do not sort the output by distance
+ * - prefixZero: Count prefix matches as edit distance 0 (i.e. word='bana' and
+ *   names=['banana'], would return { name:'banana': dist: 0 }) This is useful
+ *   if someone is typing the matches and may not have finished yet
+ */
+exports.rank = function(word, names, options) {
+  options = options || {};
+
+  var reply = names.map(function(name) {
+    // If any name starts with the word then the distance is based on the
+    // number of case changes rather than Damerau-Levenshtein
+    var algo = options.prefixZero ? distancePrefix : distance;
+    return {
+      name: name,
+      dist: algo(word, name)
+    };
+  });
+
+  if (!options.noSort) {
+    reply = reply.sort(function(d1, d2) {
+      return d1.dist - d2.dist;
+    });
+  }
+
+  return reply;
+};
+
 
 });
 /*
@@ -4416,137 +5606,735 @@ exports.correct = function(word, names) {
  * limitations under the License.
  */
 
-define('gcli/types/command', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/types', 'gcli/types/selection'], function(require, exports, module) {
+define('gcli/types/delegate', ['require', 'exports', 'module' , 'util/promise', 'gcli/types'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var Conversion = require('gcli/types').Conversion;
+
+/**
+ * A type for "we don't know right now, but hope to soon"
+ */
+var delegate = {
+  item: 'type',
+  name: 'delegate',
+
+  constructor: function() {
+    if (typeof this.delegateType !== 'function') {
+      throw new Error('Instances of DelegateType need typeSpec.delegateType' +
+                      ' to be a function that returns a type');
+    }
+  },
+
+  // Child types should implement this method to return an instance of the type
+  // that should be used. If no type is available, or some sort of temporary
+  // placeholder is required, BlankType can be used.
+  delegateType: function(context) {
+    throw new Error('Not implemented');
+  },
+
+  stringify: function(value, context) {
+    return this.delegateType(context).stringify(value, context);
+  },
+
+  parse: function(arg, context) {
+    return this.delegateType(context).parse(arg, context);
+  },
+
+  decrement: function(value, context) {
+    var delegated = this.delegateType(context);
+    return (delegated.decrement ? delegated.decrement(value, context) : undefined);
+  },
+
+  increment: function(value, context) {
+    var delegated = this.delegateType(context);
+    return (delegated.increment ? delegated.increment(value, context) : undefined);
+  },
+
+  getType: function(context) {
+    return this.delegateType(context);
+  },
+
+  // DelegateType is designed to be inherited from, so DelegateField needs a way
+  // to check if something works like a delegate without using 'name'
+  isDelegate: true,
+};
+
+Object.defineProperty(delegate, 'isImportant', {
+  get: function() {
+    return this.delegateType().isImportant;
+  },
+  enumerable: true
+});
+
+/**
+ * 'blank' is a type for use with DelegateType when we don't know yet.
+ * It should not be used anywhere else.
+ */
+var blank = {
+  item: 'type',
+  name: 'blank',
+
+  stringify: function(value, context) {
+    return '';
+  },
+
+  parse: function(arg, context) {
+    return promise.resolve(new Conversion(undefined, arg));
+  }
+};
+
+/**
+ * The types we expose for registration
+ */
+exports.items = [ delegate, blank ];
 
 
-var canon = require('gcli/canon');
-var l10n = require('gcli/l10n');
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/types/array', ['require', 'exports', 'module' , 'util/promise', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
 var types = require('gcli/types');
+var ArrayConversion = require('gcli/types').ArrayConversion;
+var ArrayArgument = require('gcli/argument').ArrayArgument;
+
+exports.items = [
+  {
+    // A set of objects of the same type
+    item: 'type',
+    name: 'array',
+    subtype: undefined,
+
+    constructor: function() {
+      if (!this.subtype) {
+        console.error('Array.typeSpec is missing subtype. Assuming string.' +
+            this.name);
+        this.subtype = 'string';
+      }
+      this.subtype = types.createType(this.subtype);
+    },
+
+    stringify: function(values, context) {
+      if (values == null) {
+        return '';
+      }
+      // BUG 664204: Check for strings with spaces and add quotes
+      return values.join(' ');
+    },
+
+    parse: function(arg, context) {
+      if (arg.type !== 'ArrayArgument') {
+        console.error('non ArrayArgument to ArrayType.parse', arg);
+        throw new Error('non ArrayArgument to ArrayType.parse');
+      }
+
+      // Parse an argument to a conversion
+      // Hack alert. ArrayConversion needs to be able to answer questions about
+      // the status of individual conversions in addition to the overall state.
+      // |subArg.conversion| allows us to do that easily.
+      var subArgParse = function(subArg) {
+        return this.subtype.parse(subArg, context).then(function(conversion) {
+          subArg.conversion = conversion;
+          return conversion;
+        }.bind(this));
+      }.bind(this);
+
+      var conversionPromises = arg.getArguments().map(subArgParse);
+      return promise.all(conversionPromises).then(function(conversions) {
+        return new ArrayConversion(conversions, arg);
+      });
+    },
+
+    getBlank: function() {
+      return new ArrayConversion([], new ArrayArgument());
+    }
+  },
+];
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/types/boolean', ['require', 'exports', 'module' , 'util/promise', 'gcli/types', 'gcli/types/selection', 'gcli/argument'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var Status = require('gcli/types').Status;
+var Conversion = require('gcli/types').Conversion;
+var SelectionType = require('gcli/types/selection').SelectionType;
+
+var BlankArgument = require('gcli/argument').BlankArgument;
+
+exports.items = [
+  {
+    // 'boolean' type
+    item: 'type',
+    name: 'boolean',
+    parent: 'selection',
+
+    lookup: [
+      { name: 'false', value: false },
+      { name: 'true', value: true }
+    ],
+
+    parse: function(arg, context) {
+      if (arg.type === 'TrueNamedArgument') {
+        return promise.resolve(new Conversion(true, arg));
+      }
+      if (arg.type === 'FalseNamedArgument') {
+        return promise.resolve(new Conversion(false, arg));
+      }
+      return SelectionType.prototype.parse.call(this, arg, context);
+    },
+
+    stringify: function(value, context) {
+      if (value == null) {
+        return '';
+      }
+      return '' + value;
+    },
+
+    getBlank: function(context) {
+      return new Conversion(false, new BlankArgument(), Status.VALID, '',
+                            promise.resolve(this.lookup));
+    }
+  }
+];
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/types/command', ['require', 'exports', 'module' , 'util/promise', 'util/l10n', 'util/spell', 'gcli/canon', 'gcli/types/selection', 'gcli/types'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var l10n = require('util/l10n');
+var spell = require('util/spell');
+var canon = require('gcli/canon');
 var SelectionType = require('gcli/types/selection').SelectionType;
 var Status = require('gcli/types').Status;
 var Conversion = require('gcli/types').Conversion;
 
+exports.items = [
+  {
+    // Select from the available parameters to a command
+    item: 'type',
+    name: 'param',
+    parent: 'selection',
+    stringifyProperty: 'name',
+    neverForceAsync: true,
+    requisition: undefined,
+    isIncompleteName: undefined,
 
-/**
- * Registration and de-registration.
+    lookup: function() {
+      var displayedParams = [];
+      var command = this.requisition.commandAssignment.value;
+      if (command != null) {
+        command.params.forEach(function(param) {
+          var arg = this.requisition.getAssignment(param.name).arg;
+          if (!param.isPositionalAllowed && arg.type === 'BlankArgument') {
+            displayedParams.push({ name: '--' + param.name, value: param });
+          }
+        }, this);
+      }
+      return displayedParams;
+    },
+
+    parse: function(arg, context) {
+      if (this.isIncompleteName) {
+        return SelectionType.prototype.parse.call(this, arg, context);
+      }
+      else {
+        var message = l10n.lookup('cliUnusedArg');
+        return promise.resolve(new Conversion(undefined, arg, Status.ERROR, message));
+      }
+    }
+  },
+  {
+    // Select from the available commands
+    // This is very similar to a SelectionType, however the level of hackery in
+    // SelectionType to make it handle Commands correctly was to high, so we
+    // simplified.
+    // If you are making changes to this code, you should check there too.
+    item: 'type',
+    name: 'command',
+    parent: 'selection',
+    stringifyProperty: 'name',
+    neverForceAsync: true,
+    allowNonExec: true,
+
+    lookup: function() {
+      var commands = canon.getCommands();
+      commands.sort(function(c1, c2) {
+        return c1.name.localeCompare(c2.name);
+      });
+      return commands.map(function(command) {
+        return { name: command.name, value: command };
+      }, this);
+    },
+
+    parse: function(arg, context) {
+      // Helper function - Commands like 'context' work best with parent
+      // commands which are not executable. However obviously to execute a
+      // command, it needs an exec function.
+      var execWhereNeeded = function(command) {
+        return this.allowNonExec || typeof command.exec === 'function';
+      }.bind(this);
+
+      var command = canon.getCommand(arg.text);
+
+      // Predictions live over the time that things change so we provide a
+      // completion function rather than completion values
+      var predictFunc = function() {
+        return this._findPredictions(arg).then(function(predictions) {
+          // If it's an exact match of an executable command (rather than just
+          // the only possibility) then we don't want alternatives
+          if (command && command.name === arg.text &&
+              execWhereNeeded(command) && predictions.length === 1) {
+            return [];
+          }
+
+          return predictions;
+        }.bind(this));
+      }.bind(this);
+
+      if (command) {
+        var status = execWhereNeeded(command) ? Status.VALID : Status.INCOMPLETE;
+        var conversion = new Conversion(command, arg, status, '', predictFunc);
+        return promise.resolve(conversion);
+      }
+
+      return this._findPredictions(arg).then(function(predictions) {
+        if (predictions.length === 0) {
+          var msg = l10n.lookupFormat('typesSelectionNomatch', [ arg.text ]);
+          return new Conversion(undefined, arg, Status.ERROR, msg, predictFunc);
+        }
+
+        command = predictions[0].value;
+
+        if (predictions.length === 1) {
+          // Is it an exact match of an executable command,
+          // or just the only possibility?
+          if (command.name === arg.text && execWhereNeeded(command)) {
+            return new Conversion(command, arg, Status.VALID, '');
+          }
+
+          return new Conversion(undefined, arg, Status.INCOMPLETE, '', predictFunc);
+        }
+
+        // It's valid if the text matches, even if there are several options
+        if (predictions[0].name === arg.text) {
+          return new Conversion(command, arg, Status.VALID, '', predictFunc);
+        }
+
+        return new Conversion(undefined, arg, Status.INCOMPLETE, '', predictFunc);
+      }.bind(this));
+    },
+
+    _findPredictions: function(arg, context) {
+      return promise.resolve(this.getLookup(context)).then(function(lookup) {
+        var predictions = [];
+        var i, option;
+        var maxPredictions = Conversion.maxPredictions;
+        var match = arg.text.toLowerCase();
+
+        // Add an option to our list of predicted options
+        var addToPredictions = function(option) {
+          if (arg.text.length === 0) {
+            // If someone hasn't typed anything, we only show top level commands in
+            // the menu. i.e. sub-commands (those with a space in their name) are
+            // excluded. We do this to keep the list at an overview level.
+            if (option.name.indexOf(' ') === -1) {
+              predictions.push(option);
+            }
+          }
+          else {
+            // If someone has typed something, then we exclude parent commands
+            // (those without an exec). We do this because the user is drilling
+            // down and doesn't need the summary level.
+            if (option.value.exec != null) {
+              predictions.push(option);
+            }
+          }
+        };
+
+        // If the arg has a suffix then we're kind of 'done'. Only an exact
+        // match will do.
+        if (arg.suffix.match(/ +/)) {
+          for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
+            option = lookup[i];
+            if (option.name === arg.text ||
+                option.name.indexOf(arg.text + ' ') === 0) {
+              addToPredictions(option);
+            }
+          }
+
+          return predictions;
+        }
+
+        // Cache lower case versions of all the option names
+        for (i = 0; i < lookup.length; i++) {
+          option = lookup[i];
+          if (option._gcliLowerName == null) {
+            option._gcliLowerName = option.name.toLowerCase();
+          }
+        }
+
+        // Exact hidden matches. If 'hidden: true' then we only allow exact matches
+        // All the tests after here check that !option.value.hidden
+        for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
+          option = lookup[i];
+          if (option.name === arg.text) {
+            addToPredictions(option);
+          }
+        }
+
+        // Start with prefix matching
+        for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
+          option = lookup[i];
+          if (option._gcliLowerName.indexOf(match) === 0 && !option.value.hidden) {
+            if (predictions.indexOf(option) === -1) {
+              addToPredictions(option);
+            }
+          }
+        }
+
+        // Try infix matching if we get less half max matched
+        if (predictions.length < (maxPredictions / 2)) {
+          for (i = 0; i < lookup.length && predictions.length < maxPredictions; i++) {
+            option = lookup[i];
+            if (option._gcliLowerName.indexOf(match) !== -1 && !option.value.hidden) {
+              if (predictions.indexOf(option) === -1) {
+                addToPredictions(option);
+              }
+            }
+          }
+        }
+
+        // Try fuzzy matching if we don't get a prefix match
+        if (predictions.length === 0) {
+          var names = [];
+          lookup.forEach(function(opt) {
+            if (!opt.value.hidden) {
+              names.push(opt.name);
+            }
+          });
+          var corrected = spell.correct(match, names);
+          if (corrected) {
+            lookup.forEach(function(opt) {
+              if (opt.name === corrected) {
+                predictions.push(opt);
+              }
+            }, this);
+          }
+        }
+
+        return predictions;
+      }.bind(this));
+    }
+  }
+];
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-exports.startup = function() {
-  types.registerType(CommandType);
-  types.registerType(ParamType);
-};
 
-exports.shutdown = function() {
-  types.unregisterType(CommandType);
-  types.unregisterType(ParamType);
-};
+define('gcli/types/date', ['require', 'exports', 'module' , 'util/promise', 'util/l10n', 'gcli/types'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var l10n = require('util/l10n');
+var Type = require('gcli/types').Type;
+var Status = require('gcli/types').Status;
+var Conversion = require('gcli/types').Conversion;
 
 
-/**
- * Select from the available commands.
- * This is very similar to a SelectionType, however the level of hackery in
- * SelectionType to make it handle Commands correctly was to high, so we
- * simplified.
- * If you are making changes to this code, you should check there too.
- */
-function ParamType(typeSpec) {
-  this.requisition = typeSpec.requisition;
-  this.isIncompleteName = typeSpec.isIncompleteName;
-  this.stringifyProperty = 'name';
+function DateType(typeSpec) {
+  // ECMA 5.1 §15.9.1.1
+  // @see http://stackoverflow.com/questions/11526504/minimum-and-maximum-date
+  typeSpec = typeSpec || {};
+
+  this._step = typeSpec.step || 1;
+  this._min = new Date(-8640000000000000);
+  this._max = new Date(8640000000000000);
+
+  if (typeSpec.min != null) {
+    if (typeof typeSpec.min === 'string') {
+      this._min = toDate(typeSpec.min);
+    }
+    else if (isDate(typeSpec.min) || typeof typeSpec.min === 'function') {
+      this._min = typeSpec.min;
+    }
+    else {
+      throw new Error('date min value must be a string a date or a function');
+    }
+  }
+
+  if (typeSpec.max != null) {
+    if (typeof typeSpec.max === 'string') {
+      this._max = toDate(typeSpec.max);
+    }
+    else if (isDate(typeSpec.max) || typeof typeSpec.max === 'function') {
+      this._max = typeSpec.max;
+    }
+    else {
+      throw new Error('date max value must be a string a date or a function');
+    }
+  }
 }
 
-ParamType.prototype = Object.create(SelectionType.prototype);
-
-ParamType.prototype.name = 'param';
-
-ParamType.prototype.lookup = function() {
-  var displayedParams = [];
-  var command = this.requisition.commandAssignment.value;
-  command.params.forEach(function(param) {
-    var arg = this.requisition.getAssignment(param.name).arg;
-    if (!param.isPositionalAllowed && arg.type === "BlankArgument") {
-      displayedParams.push({ name: '--' + param.name, value: param });
-    }
-  }, this);
-  return displayedParams;
-};
-
-ParamType.prototype.parse = function(arg) {
-  return this.isIncompleteName ?
-      SelectionType.prototype.parse.call(this, arg) :
-      new Conversion(undefined, arg, Status.ERROR, l10n.lookup('cliUnusedArg'));
-};
-
+DateType.prototype = Object.create(Type.prototype);
 
 /**
- * Select from the available commands.
- * This is very similar to a SelectionType, however the level of hackery in
- * SelectionType to make it handle Commands correctly was to high, so we
- * simplified.
- * If you are making changes to this code, you should check there too.
+ * Helper for stringify() to left pad a single digit number with a single '0'
+ * so 1 -> '01', 42 -> '42', etc.
  */
-function CommandType() {
-  this.stringifyProperty = 'name';
+function pad(number) {
+  var r = String(number);
+  return r.length === 1 ? '0' + r : r;
 }
 
-CommandType.prototype = Object.create(SelectionType.prototype);
+DateType.prototype.stringify = function(value) {
+  if (!isDate(value)) {
+    return '';
+  }
 
-CommandType.prototype.name = 'command';
+  var str = pad(value.getFullYear()) + '-' +
+            pad(value.getMonth() + 1) + '-' +
+            pad(value.getDate());
 
-CommandType.prototype.lookup = function() {
-  var commands = canon.getCommands();
-  commands.sort(function(c1, c2) {
-    return c1.name.localeCompare(c2.name);
-  });
-  return commands.map(function(command) {
-    return { name: command.name, value: command };
-  }, this);
+  // Only add in the time if it's not midnight
+  if (value.getHours() !== 0 || value.getMinutes() !== 0 ||
+      value.getSeconds() !== 0 || value.getMilliseconds() !== 0) {
+
+    // What string should we use to separate the date from the time?
+    // There are 3 options:
+    // 'T': This is the standard from ISO8601. i.e. 2013-05-20T11:05
+    //      The good news - it's a standard. The bad news - it's weird and
+    //      alien to many if not most users
+    // ' ': This looks nicest, but needs escaping (which GCLI will do
+    //      automatically) so it would look like: '2013-05-20 11:05'
+    //      Good news: looks best, bad news: on completion we place the cursor
+    //      after the final ', so repeated increment/decrement doesn't work
+    // '\ ': It's possible that we could find a way to use a \ to escape the
+    //      space, so the output would look like: 2013-05-20\ 11:05
+    //      This would involve changes to a number of parts, and is probably
+    //      too complex a solution for this problem for now
+    // In the short term I'm going for ' ', and raising the priority of cursor
+    // positioning on actions like increment/decrement/tab.
+
+    str += ' ' + pad(value.getHours());
+    str += ':' + pad(value.getMinutes());
+
+    // Only add in seconds/milliseconds if there is anything to report
+    if (value.getSeconds() !== 0 || value.getMilliseconds() !== 0) {
+      str += ':' + pad(value.getSeconds());
+      if (value.getMilliseconds() !== 0) {
+        str += '.' + String((value.getUTCMilliseconds()/1000).toFixed(3)).slice(2, 5);
+      }
+    }
+  }
+
+  return str;
 };
+
+DateType.prototype.getMin = function(context) {
+  if (typeof this._min === 'function') {
+    return this._min(context);
+  }
+  if (isDate(this._min)) {
+    return this._min;
+  }
+  return undefined;
+};
+
+DateType.prototype.getMax = function(context) {
+  if (typeof this._max === 'function') {
+    return this._max(context);
+  }
+  if (isDate(this._max)) {
+    return this._max;
+  }
+  return undefined;
+};
+
+DateType.prototype.parse = function(arg, context) {
+  var value;
+
+  if (arg.text.replace(/\s/g, '').length === 0) {
+    return promise.resolve(new Conversion(undefined, arg, Status.INCOMPLETE, ''));
+  }
+
+  // Lots of room for improvement here: 1h ago, in two days, etc.
+  // Should "1h ago" dynamically update the step?
+  if (arg.text.toLowerCase() === 'now' || arg.text.toLowerCase() === 'today') {
+    value = new Date();
+  }
+  else if (arg.text.toLowerCase() === 'yesterday') {
+    value = new Date();
+    value.setDate(value.getDate() - 1);
+  }
+  else if (arg.text.toLowerCase() === 'tomorrow') {
+    value = new Date();
+    value.setDate(value.getDate() + 1);
+  }
+  else {
+    // So now actual date parsing.
+    // Javascript dates are a mess. Like the default date libraries in most
+    // common languages, but with added browser weirdness.
+    // There is an argument for saying that the user will expect dates to be
+    // formatted as JavaScript dates, except that JS dates are of themselves
+    // very unexpected.
+    // See http://blog.dygraphs.com/2012/03/javascript-and-dates-what-mess.html
+
+    // The timezone used by Date.parse depends on whether or not the string
+    // can be interpreted as ISO-8601, so "2000-01-01" is not the same as
+    // "2000/01/01" (unless your TZ aligns with UTC) because the first is
+    // ISO-8601 and therefore assumed to be UTC, where the latter is assumed to
+    // be in the local timezone.
+
+    // First, if the user explicitly includes a 'Z' timezone marker, then we
+    // assume they know what they are doing with timezones. ISO-8601 uses 'Z'
+    // as a marker for 'Zulu time', zero hours offset i.e. UTC
+    if (arg.text.indexOf('Z') !== -1) {
+      value = new Date(arg.text);
+    }
+    else {
+      // Now we don't want the browser to assume ISO-8601 and therefore use UTC
+      // so we replace the '-' with '/'
+      value = new Date(arg.text.replace(/-/g, '/'));
+    }
+
+    if (isNaN(value.getTime())) {
+      var msg = l10n.lookupFormat('typesDateNan', [ arg.text ]);
+      return promise.resolve(new Conversion(undefined, arg, Status.ERROR, msg));
+    }
+  }
+
+  return promise.resolve(new Conversion(value, arg));
+};
+
+DateType.prototype.decrement = function(value, context) {
+  if (!isDate(value)) {
+    return new Date();
+  }
+
+  var newValue = new Date(value);
+  newValue.setDate(value.getDate() - this._step);
+
+  if (newValue >= this.getMin(context)) {
+    return newValue;
+  }
+  else {
+    return this.getMin(context);
+  }
+};
+
+DateType.prototype.increment = function(value, context) {
+  if (!isDate(value)) {
+    return new Date();
+  }
+
+  var newValue = new Date(value);
+  newValue.setDate(value.getDate() + this._step);
+
+  if (newValue <= this.getMax(context)) {
+    return newValue;
+  }
+  else {
+    return this.getMax();
+  }
+};
+
+DateType.prototype.name = 'date';
+
+exports.items = [ DateType ];
+
 
 /**
- * Add an option to our list of predicted options
+ * Utility to convert a string to a date, throwing if the date can't be
+ * parsed rather than having an invalid date
  */
-CommandType.prototype._addToPredictions = function(predictions, option, arg) {
-  // The command type needs to exclude sub-commands when the CLI
-  // is blank, but include them when we're filtering. This hack
-  // excludes matches when the filter text is '' and when the
-  // name includes a space.
-  if (arg.text.length !== 0 || option.name.indexOf(' ') === -1) {
-    predictions.push(option);
+function toDate(str) {
+  var millis = Date.parse(str);
+  if (isNaN(millis)) {
+    throw new Error(l10n.lookupFormat('typesDateNan', [ str ]));
   }
-};
+  return new Date(millis);
+}
 
-CommandType.prototype.parse = function(arg) {
-  // Especially at startup, predictions live over the time that things change
-  // so we provide a completion function rather than completion values
-  var predictFunc = function() {
-    return this._findPredictions(arg);
-  }.bind(this);
-
-  var predictions = this._findPredictions(arg);
-
-  if (predictions.length === 0) {
-    var msg = l10n.lookupFormat('typesSelectionNomatch', [ arg.text ]);
-    return new Conversion(undefined, arg, Status.ERROR, msg, predictFunc);
-  }
-
-  var command = predictions[0].value;
-
-  if (predictions.length === 1) {
-    // Is it an exact match of an executable command,
-    // or just the only possibility?
-    if (command.name === arg.text && typeof command.exec === 'function') {
-      return new Conversion(command, arg, Status.VALID, '');
-    }
-    return new Conversion(undefined, arg, Status.INCOMPLETE, '', predictFunc);
-  }
-
-  // It's valid if the text matches, even if there are several options
-  if (predictions[0].name === arg.text) {
-    return new Conversion(command, arg, Status.VALID, '', predictFunc);
-  }
-
-  return new Conversion(undefined, arg, Status.INCOMPLETE, '', predictFunc);
-};
+/**
+ * Is |thing| a valid date?
+ * @see http://stackoverflow.com/questions/1353684/detecting-an-invalid-date-date-instance-in-javascript
+ */
+function isDate(thing) {
+  return Object.prototype.toString.call(thing) === '[object Date]'
+          && !isNaN(thing.getTime());
+}
 
 
 });
@@ -4566,27 +6354,270 @@ CommandType.prototype.parse = function(arg) {
  * limitations under the License.
  */
 
-define('gcli/types/javascript', ['require', 'exports', 'module' , 'gcli/l10n', 'gcli/types'], function(require, exports, module) {
+define('gcli/types/file', ['require', 'exports', 'module' , 'gcli/types/fileparser', 'gcli/types'], function(require, exports, module) {
 
+'use strict';
 
-var l10n = require('gcli/l10n');
+/*
+ * The file type is a bit of a spiders-web, but there isn't a nice solution
+ * yet. The core of the problem is that the modules used by Firefox and NodeJS
+ * intersect with the modules used by the web, but not each other. Except here.
+ * So we have to do something fancy to get the sharing but not mess up the web.
+ *
+ * This file requires 'gcli/types/fileparser', and there are 4 implementations
+ * of this:
+ * - '/lib/gcli/types/fileparser.js', the default web version that uses XHR to
+ *   talk to the node server
+ * - '/lib/server/gcli/types/fileparser.js', an NodeJS stub, and ...
+ * - '/mozilla/gcli/types/fileparser.js', the Firefox implementation both of
+ *   these are shims which import
+ * - 'util/fileparser', which does the real work, except the actual file access
+ *
+ * The file access comes from the 'util/filesystem' module, and there are 2
+ * implementations of this:
+ * - '/lib/server/util/filesystem.js', which uses NodeJS APIs
+ * - '/mozilla/util/filesystem.js', which uses OS.File APIs
+ */
+
+var fileparser = require('gcli/types/fileparser');
+var Conversion = require('gcli/types').Conversion;
+
+exports.items = [
+  {
+    item: 'type',
+    name: 'file',
+
+    filetype: 'any',    // One of 'file', 'directory', 'any'
+    existing: 'maybe',  // Should be one of 'yes', 'no', 'maybe'
+    matches: undefined, // RegExp to match the file part of the path
+
+    isSelection: true,  // It's not really a selection, but acts like one
+
+    constructor: function() {
+      if (this.filetype !== 'any' && this.filetype !== 'file' &&
+          this.filetype !== 'directory') {
+        throw new Error('filetype must be one of [any|file|directory]');
+      }
+
+      if (this.existing !== 'yes' && this.existing !== 'no' &&
+          this.existing !== 'maybe') {
+        throw new Error('existing must be one of [yes|no|maybe]');
+      }
+    },
+
+    stringify: function(file) {
+      if (file == null) {
+        return '';
+      }
+
+      return file.toString();
+    },
+
+    parse: function(arg, context) {
+      var options = {
+        filetype: this.filetype,
+        existing: this.existing,
+        matches: this.matches
+      };
+      var promise = fileparser.parse(arg.text, options);
+
+      return promise.then(function(reply) {
+        return new Conversion(reply.value, arg, reply.status,
+                              reply.message, reply.predictor);
+      });
+    }
+  }
+];
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/types/fileparser', ['require', 'exports', 'module' , 'util/xhr', 'util/promise', 'gcli/types'], function(require, exports, module) {
+
+'use strict';
+
+var xhr = require('util/xhr');
+var promise = require('util/promise');
+var Status = require('gcli/types').Status;
+
+/**
+ * Helper for the parse() function from the file type.
+ * @param typed i.e. arg.text, the string typed by the user
+ * @param options An object describing what type of file is expected:
+ * - filetype: One of 'file', 'directory', 'any'
+ * - existing: Should be one of 'yes', 'no', 'maybe'
+ * - matches: RegExp to match the file part of the path
+ * @return An object that describes the results of the parse, to help the file
+ * type create a Conversion object. Returned properties are:
+ * - value: The parsed type, while we are just using strings for file values,
+ *          this will be equal to 'typed' (if status=VALID, undefined otherwise)
+ * - status: A Status value (i.e. VALID, INCOMPLETE, ERROR)
+ * - message: Message explaining any errors to the user,
+ * - predictor: A function with no parameters that returns a promise of an
+ *              array of prediction objects, each of which contains a 'name'
+ *              and can contain a boolean 'complete' property
+ */
+exports.parse = function(typed, options) {
+  var data = {
+    typed: typed,
+    filetype: options.filetype,
+    existing: options.existing,
+    matches: options.matches == null ? undefined : options.matches.source
+  };
+
+  return xhr.post('/filesystem/parse', data).then(function(reply) {
+
+    reply.status = Status.fromString(reply.status);
+    if (reply.predictions != null) {
+      reply.predictor = function() {
+        return promise.resolve(reply.predictions);
+      };
+    }
+    return reply;
+  });
+};
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('util/xhr', ['require', 'exports', 'module' , 'util/promise', 'util/util'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var util = require('util/util');
+
+/**
+ * Internal helper to send JSON to a url via XHR and return the JSON reply in a
+ * promise.
+ */
+exports.post = function(url, data) {
+  var deferred = promise.defer();
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', url, true);
+  xhr.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
+
+  xhr.onreadystatechange = function(event) {
+    if (xhr.readyState === 4) {
+      if (xhr.status >= 300 || xhr.status < 200) {
+        deferred.reject({
+          data: xhr.responseText,
+          code: xhr.status
+        });
+      }
+      else {
+        var output = JSON.parse(xhr.responseText);
+        deferred.resolve(output);
+      }
+    }
+  }.bind(this);
+
+  xhr.send(JSON.stringify(data));
+
+  return deferred.promise;
+};
+
+/**
+ * Counterpart to POST above that takes JSON-able data from a promise and
+ * sends it across XHR
+ */
+exports.sendReply = function(dataPromise, res) {
+  var onResolve = function(data) {
+    var text = stringify(data);
+    res.send(text);
+  };
+
+  var onReject = function(data) {
+    if (data.code == null) {
+      util.errorHandler(data);
+      data = {
+        code: -1,
+        data: stringify(data)
+      };
+    }
+    var text = stringify(data);
+    res.status(500).send(text);
+  };
+
+  return dataPromise.then(onResolve).then(null, onReject);
+};
+
+/**
+ * A wrapper around JSON.stringify to fail gracefully
+ */
+function stringify(data) {
+  try {
+    return JSON.stringify(data);
+  }
+  catch (ex) {
+    console.error('Failed to JSON.stringify', data);
+    util.errorHandler(ex);
+
+    data = {
+      code: -1,
+      data: ex.toString()
+    };
+    return JSON.stringify(data);
+  }
+}
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/types/javascript', ['require', 'exports', 'module' , 'util/promise', 'util/l10n', 'gcli/types'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var l10n = require('util/l10n');
 var types = require('gcli/types');
 
 var Conversion = types.Conversion;
 var Type = types.Type;
 var Status = types.Status;
-
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  types.registerType(JavascriptType);
-};
-
-exports.shutdown = function() {
-  types.unregisterType(JavascriptType);
-};
 
 /**
  * The object against which we complete, which is usually 'window' if it exists
@@ -4628,7 +6659,7 @@ function JavascriptType(typeSpec) {
 
 JavascriptType.prototype = Object.create(Type.prototype);
 
-JavascriptType.prototype.stringify = function(value) {
+JavascriptType.prototype.stringify = function(value, context) {
   if (value == null) {
     return '';
   }
@@ -4641,21 +6672,21 @@ JavascriptType.prototype.stringify = function(value) {
  */
 JavascriptType.MAX_COMPLETION_MATCHES = 10;
 
-JavascriptType.prototype.parse = function(arg) {
+JavascriptType.prototype.parse = function(arg, context) {
   var typed = arg.text;
   var scope = globalObject;
 
   // No input is undefined
   if (typed === '') {
-    return new Conversion(undefined, arg, Status.INCOMPLETE);
+    return promise.resolve(new Conversion(undefined, arg, Status.INCOMPLETE));
   }
   // Just accept numbers
   if (!isNaN(parseFloat(typed)) && isFinite(typed)) {
-    return new Conversion(typed, arg);
+    return promise.resolve(new Conversion(typed, arg));
   }
   // Just accept constants like true/false/null/etc
   if (typed.trim().match(/(null|undefined|NaN|Infinity|true|false)/)) {
-    return new Conversion(typed, arg);
+    return promise.resolve(new Conversion(typed, arg));
   }
 
   // Analyze the input text and find the beginning of the last part that
@@ -4664,19 +6695,19 @@ JavascriptType.prototype.parse = function(arg) {
 
   // There was an error analyzing the string.
   if (beginning.err) {
-    return new Conversion(typed, arg, Status.ERROR, beginning.err);
+    return promise.resolve(new Conversion(typed, arg, Status.ERROR, beginning.err));
   }
 
   // If the current state is ParseState.COMPLEX, then we can't do completion.
   // so bail out now
   if (beginning.state === ParseState.COMPLEX) {
-    return new Conversion(typed, arg);
+    return promise.resolve(new Conversion(typed, arg));
   }
 
   // If the current state is not ParseState.NORMAL, then we are inside of a
   // string which means that no completion is possible.
   if (beginning.state !== ParseState.NORMAL) {
-    return new Conversion(typed, arg, Status.INCOMPLETE, '');
+    return promise.resolve(new Conversion(typed, arg, Status.INCOMPLETE, ''));
   }
 
   var completionPart = typed.substring(beginning.startPos);
@@ -4691,18 +6722,18 @@ JavascriptType.prototype.parse = function(arg) {
 
       // We can't complete on null.foo, so bail out
       if (scope == null) {
-        return new Conversion(typed, arg, Status.ERROR,
-                l10n.lookup('jstypeParseScope'));
+        return promise.resolve(new Conversion(typed, arg, Status.ERROR,
+                                        l10n.lookup('jstypeParseScope')));
       }
 
       if (prop === '') {
-        return new Conversion(typed, arg, Status.INCOMPLETE, '');
+        return promise.resolve(new Conversion(typed, arg, Status.INCOMPLETE, ''));
       }
 
       // Check if prop is a getter function on 'scope'. Functions can change
       // other stuff so we can't execute them to get the next object. Stop here.
       if (this._isSafeProperty(scope, prop)) {
-        return new Conversion(typed, arg);
+        return promise.resolve(new Conversion(typed, arg));
       }
 
       try {
@@ -4712,7 +6743,7 @@ JavascriptType.prototype.parse = function(arg) {
         // It would be nice to be able to report this error in some way but
         // as it can happen just when someone types '{sessionStorage.', it
         // almost doesn't really count as an error, so we ignore it
-        return new Conversion(typed, arg, Status.VALID, '');
+        return promise.resolve(new Conversion(typed, arg, Status.VALID, ''));
       }
     }
   }
@@ -4723,24 +6754,24 @@ JavascriptType.prototype.parse = function(arg) {
   // If the reason we just stopped adjusting the scope was a non-simple string,
   // then we're not sure if the input is valid or invalid, so accept it
   if (prop && !prop.match(/^[0-9A-Za-z]*$/)) {
-    return new Conversion(typed, arg);
+    return promise.resolve(new Conversion(typed, arg));
   }
 
   // However if the prop was a simple string, it is an error
   if (scope == null) {
-    return new Conversion(typed, arg, Status.ERROR,
-        l10n.lookupFormat('jstypeParseMissing', [ prop ]));
+    var msg = l10n.lookupFormat('jstypeParseMissing', [ prop ]);
+    return promise.resolve(new Conversion(typed, arg, Status.ERROR, msg));
   }
 
   // If the thing we're looking for isn't a simple string, then we're not going
   // to find it, but we're not sure if it's valid or invalid, so accept it
   if (!matchProp.match(/^[0-9A-Za-z]*$/)) {
-    return new Conversion(typed, arg);
+    return promise.resolve(new Conversion(typed, arg));
   }
 
   // Skip Iterators and Generators.
   if (this._isIteratorOrGenerator(scope)) {
-    return null;
+    return promise.resolve(new Conversion(typed, arg));
   }
 
   var matchLen = matchProp.length;
@@ -4779,7 +6810,7 @@ JavascriptType.prototype.parse = function(arg) {
     }
   }
   catch (ex) {
-    return new Conversion(typed, arg, Status.INCOMPLETE, '');
+    return promise.resolve(new Conversion(typed, arg, Status.INCOMPLETE, ''));
   }
 
   // Convert to an array for sorting, and while we're at it, note if we got
@@ -4870,10 +6901,11 @@ JavascriptType.prototype.parse = function(arg) {
 
   // If the match is the only one possible, and its VALID, predict nothing
   if (predictions.length === 1 && status === Status.VALID) {
-    predictions = undefined;
+    predictions = [];
   }
 
-  return new Conversion(typed, arg, status, message, predictions);
+  return promise.resolve(new Conversion(typed, arg, status, message,
+                                  promise.resolve(predictions)));
 };
 
 /**
@@ -5107,7 +7139,7 @@ JavascriptType.prototype._isSafeProperty = function(scope, prop) {
 
 JavascriptType.prototype.name = 'javascript';
 
-exports.JavascriptType = JavascriptType;
+exports.items = [ JavascriptType ];
 
 
 });
@@ -5127,30 +7159,18 @@ exports.JavascriptType = JavascriptType;
  * limitations under the License.
  */
 
-define('gcli/types/node', ['require', 'exports', 'module' , 'gcli/host', 'gcli/l10n', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
+define('gcli/types/node', ['require', 'exports', 'module' , 'util/promise', 'util/host', 'util/l10n', 'util/util', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
 
+'use strict';
 
-var host = require('gcli/host');
-var l10n = require('gcli/l10n');
-var types = require('gcli/types');
-var Type = require('gcli/types').Type;
+var promise = require('util/promise');
+var Highlighter = require('util/host').Highlighter;
+var l10n = require('util/l10n');
+var util = require('util/util');
 var Status = require('gcli/types').Status;
 var Conversion = require('gcli/types').Conversion;
 var BlankArgument = require('gcli/argument').BlankArgument;
 
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  types.registerType(NodeType);
-  types.registerType(NodeListType);
-};
-
-exports.shutdown = function() {
-  types.unregisterType(NodeType);
-  types.unregisterType(NodeListType);
-};
 
 /**
  * The object against which we complete, which is usually 'window' if it exists
@@ -5175,7 +7195,7 @@ exports._empty = [];
 exports.setDocument = function(document) {
   doc = document;
   if (doc != null) {
-    exports._empty = doc.querySelectorAll('x>:root');
+    exports._empty = util.createEmptyNodeList(doc);
   }
 };
 
@@ -5184,6 +7204,7 @@ exports.setDocument = function(document) {
  */
 exports.unsetDocument = function() {
   doc = undefined;
+  exports._empty = undefined;
 };
 
 /**
@@ -5194,118 +7215,160 @@ exports.getDocument = function() {
   return doc;
 };
 
-
 /**
- * A CSS expression that refers to a single node
+ * Helper functions to be attached to the prototypes of NodeType and
+ * NodeListType to allow inputter to tell us which nodes should be highlighted
  */
-function NodeType(typeSpec) {
+function onEnter(assignment) {
+  assignment.highlighter = new Highlighter(doc);
+  assignment.highlighter.nodelist = assignment.conversion.matches;
 }
 
-NodeType.prototype = Object.create(Type.prototype);
-
-NodeType.prototype.stringify = function(value) {
-  if (value == null) {
-    return '';
-  }
-  return value.__gcliQuery || 'Error';
-};
-
-NodeType.prototype.parse = function(arg) {
-  if (arg.text === '') {
-    return new Conversion(undefined, arg, Status.INCOMPLETE);
+/** @see #onEnter() */
+function onLeave(assignment) {
+  if (!assignment.highlighter) {
+    return;
   }
 
-  var nodes;
-  try {
-    nodes = doc.querySelectorAll(arg.text);
+  assignment.highlighter.destroy();
+  delete assignment.highlighter;
+}
+/** @see #onEnter() */
+function onChange(assignment) {
+  if (assignment.conversion.matches == null) {
+    return;
   }
-  catch (ex) {
-    return new Conversion(undefined, arg, Status.ERROR,
-            l10n.lookup('nodeParseSyntax'));
-  }
-
-  if (nodes.length === 0) {
-    return new Conversion(undefined, arg, Status.INCOMPLETE,
-        l10n.lookup('nodeParseNone'));
+  if (!assignment.highlighter) {
+    return;
   }
 
-  if (nodes.length === 1) {
-    var node = nodes.item(0);
-    node.__gcliQuery = arg.text;
-
-    host.flashNodes(node, true);
-
-    return new Conversion(node, arg, Status.VALID, '');
-  }
-
-  host.flashNodes(nodes, false);
-
-  return new Conversion(undefined, arg, Status.ERROR,
-          l10n.lookupFormat('nodeParseMultiple', [ nodes.length ]));
-};
-
-NodeType.prototype.name = 'node';
-
-
-
-/**
- * A CSS expression that refers to a node list.
- *
- * The 'allowEmpty' option ensures that we do not complain if the entered CSS
- * selector is valid, but does not match any nodes. There is some overlap
- * between this option and 'defaultValue'. What the user wants, in most cases,
- * would be to use 'defaultText' (i.e. what is typed rather than the value that
- * it represents). However this isn't a concept that exists yet and should
- * probably be a part of GCLI if/when it does.
- * All NodeListTypes have an automatic defaultValue of an empty NodeList so
- * they can easily be used in named parameters.
- */
-function NodeListType(typeSpec) {
-  if ('allowEmpty' in typeSpec && typeof typeSpec.allowEmpty !== 'boolean') {
-    throw new Error('Legal values for allowEmpty are [true|false]');
-  }
-
-  this.allowEmpty = typeSpec.allowEmpty;
+  assignment.highlighter.nodelist = assignment.conversion.matches;
 }
 
-NodeListType.prototype = Object.create(Type.prototype);
+/**
+ * The exported 'node' and 'nodelist' types
+ */
+exports.items = [
+  {
+    // The 'node' type is a CSS expression that refers to a single node
+    item: 'type',
+    name: 'node',
 
-NodeListType.prototype.getBlank = function() {
-  return new Conversion(exports._empty, new BlankArgument(), Status.VALID);
-};
+    stringify: function(value, context) {
+      if (value == null) {
+        return '';
+      }
+      return value.__gcliQuery || 'Error';
+    },
 
-NodeListType.prototype.stringify = function(value) {
-  if (value == null) {
-    return '';
+    parse: function(arg, context) {
+      var reply;
+
+      if (arg.text === '') {
+        reply = new Conversion(undefined, arg, Status.INCOMPLETE);
+        reply.matches = util.createEmptyNodeList(doc);
+      }
+      else {
+        var nodes;
+        try {
+          nodes = doc.querySelectorAll(arg.text);
+          if (nodes.length === 0) {
+            reply = new Conversion(undefined, arg, Status.INCOMPLETE,
+                                   l10n.lookup('nodeParseNone'));
+          }
+          else if (nodes.length === 1) {
+            var node = nodes.item(0);
+            node.__gcliQuery = arg.text;
+
+            reply = new Conversion(node, arg, Status.VALID, '');
+          }
+          else {
+            var msg = l10n.lookupFormat('nodeParseMultiple', [ nodes.length ]);
+            reply = new Conversion(undefined, arg, Status.ERROR, msg);
+          }
+
+          reply.matches = nodes;
+        }
+        catch (ex) {
+          reply = new Conversion(undefined, arg, Status.ERROR,
+                                 l10n.lookup('nodeParseSyntax'));
+        }
+      }
+
+      return promise.resolve(reply);
+    },
+
+    onEnter: onEnter,
+    onLeave: onLeave,
+    onChange: onChange
+  },
+  {
+    // The 'nodelist' type is a CSS expression that refers to a node list
+    item: 'type',
+    name: 'nodelist',
+
+    // The 'allowEmpty' option ensures that we do not complain if the entered
+    // CSS selector is valid, but does not match any nodes. There is some
+    // overlap between this option and 'defaultValue'. What the user wants, in
+    // most cases, would be to use 'defaultText' (i.e. what is typed rather than
+    // the value that it represents). However this isn't a concept that exists
+    // yet and should probably be a part of GCLI if/when it does.
+    // All NodeListTypes have an automatic defaultValue of an empty NodeList so
+    // they can easily be used in named parameters.
+    allowEmpty: false,
+
+    constructor: function() {
+      if (typeof this.allowEmpty !== 'boolean') {
+        throw new Error('Legal values for allowEmpty are [true|false]');
+      }
+    },
+
+    getBlank: function(context) {
+      return new Conversion(exports._empty, new BlankArgument(), Status.VALID);
+    },
+
+    stringify: function(value, context) {
+      if (value == null) {
+        return '';
+      }
+      return value.__gcliQuery || 'Error';
+    },
+
+    parse: function(arg, context) {
+      var reply;
+      try {
+        if (arg.text === '') {
+          reply = new Conversion(undefined, arg, Status.INCOMPLETE);
+          reply.matches = util.createEmptyNodeList(doc);
+        }
+        else {
+          var nodes = doc.querySelectorAll(arg.text);
+
+          if (nodes.length === 0 && !this.allowEmpty) {
+            reply = new Conversion(undefined, arg, Status.INCOMPLETE,
+                                   l10n.lookup('nodeParseNone'));
+          }
+          else {
+            reply = new Conversion(nodes, arg, Status.VALID, '');
+          }
+
+          reply.matches = nodes;
+        }
+      }
+      catch (ex) {
+        reply = new Conversion(undefined, arg, Status.ERROR,
+                               l10n.lookup('nodeParseSyntax'));
+        reply.matches = util.createEmptyNodeList(doc);
+      }
+
+      return promise.resolve(reply);
+    },
+
+    onEnter: onEnter,
+    onLeave: onLeave,
+    onChange: onChange
   }
-  return value.__gcliQuery || 'Error';
-};
-
-NodeListType.prototype.parse = function(arg) {
-  if (arg.text === '') {
-    return new Conversion(undefined, arg, Status.INCOMPLETE);
-  }
-
-  var nodes;
-  try {
-    nodes = doc.querySelectorAll(arg.text);
-  }
-  catch (ex) {
-    return new Conversion(undefined, arg, Status.ERROR,
-            l10n.lookup('nodeParseSyntax'));
-  }
-
-  if (nodes.length === 0 && !this.allowEmpty) {
-    return new Conversion(undefined, arg, Status.INCOMPLETE,
-        l10n.lookup('nodeParseNone'));
-  }
-
-  host.flashNodes(nodes, false);
-  return new Conversion(nodes, arg, Status.VALID, '');
-};
-
-NodeListType.prototype.name = 'nodelist';
-
+];
 
 });
 /*
@@ -5324,98 +7387,87 @@ NodeListType.prototype.name = 'nodelist';
  * limitations under the License.
  */
 
-define('gcli/host', ['require', 'exports', 'module' ], function(require, exports, module) {
+define('util/host', ['require', 'exports', 'module' , 'util/xhr', 'util/util'], function(require, exports, module) {
 
+'use strict';
 
-/**
- * Helper to turn a set of nodes background another color for 0.5 seconds.
- * There is likely a better way to do this, but this will do for now.
- */
-exports.flashNodes = function(nodes, match) {
-  if (nodes.style) {
-    flashNode(nodes, match);
-  }
-  else {
-    Array.prototype.forEach.call(nodes, function(node) {
-      flashNode(node, match);
-    });
-  }
+var xhr = require('util/xhr');
+var util = require('util/util');
+
+var ATTR_NAME = '__gcli_border';
+var HIGHLIGHT_STYLE = '1px dashed black';
+
+function Highlighter(document) {
+  this._document = document;
+  this._nodes = util.createEmptyNodeList(this._document);
+}
+
+Object.defineProperty(Highlighter.prototype, 'nodelist', {
+  set: function(nodes) {
+    Array.prototype.forEach.call(this._nodes, this._unhighlightNode, this);
+    this._nodes = (nodes == null) ?
+        util.createEmptyNodeList(this._document) :
+        nodes;
+    Array.prototype.forEach.call(this._nodes, this._highlightNode, this);
+  },
+  get: function() {
+    return this._nodes;
+  },
+  enumerable: true
+});
+
+Highlighter.prototype.destroy = function() {
+  this.nodelist = null;
 };
 
-/**
- * Internal helper to turn a single nodes background another color for 0.5
- * second. There is likely a better way to do this, but this will do for now.
- */
-function flashNode(node, match) {
-  if (!node.__gcliHighlighting) {
-    node.__gcliHighlighting = true;
-    var original = node.style.background;
-    node.style.background = match ? 'green' : 'red';
-    setTimeout(function() {
-      node.style.background = original;
-      delete node.__gcliHighlighting;
-    }, 500);
+Highlighter.prototype._highlightNode = function(node) {
+  if (node.hasAttribute(ATTR_NAME)) {
+    return;
   }
-}
+
+  var styles = this._document.defaultView.getComputedStyle(node);
+  node.setAttribute(ATTR_NAME, styles.border);
+  node.style.border = HIGHLIGHT_STYLE;
+};
+
+Highlighter.prototype._unhighlightNode = function(node) {
+  var previous = node.getAttribute(ATTR_NAME);
+  node.style.border = previous;
+  node.removeAttribute(ATTR_NAME);
+};
+
+exports.Highlighter = Highlighter;
+
 
 /**
  * Helper to execute an arbitrary OS-level command.
- * @param promise the thing we resolve/reject on completion
  * @param execSpec Object containing some of the following properties:
  * - cmd (string): The command to execute (required)
  * - args (string[]): The arguments to pass to the command (default: [])
- * - cwd: (string): The current working directory
- * - env: (object): A map of properties to append to the default environment
+ * - cwd (string): The current working directory
+ * - env (object): A map of properties to append to the default environment
+ * @return A promise of an object containing the following properties:
+ * - data (string): The text of the output from the command
+ * - code (number): The exit code of the command
  */
-exports.exec = function(promise, execSpec) {
-  var data = JSON.stringify(execSpec);
+exports.exec = function(execSpec) {
+  // Make sure we're only sending strings across XHR
+  var cleanArgs = (execSpec.args || []).map(function(arg) {
+    return '' + arg;
+  });
+  var cleanEnv = Object.keys(execSpec.env || {}).reduce(function(prev, key) {
+    prev[key] = '' + execSpec.env[key];
+    return prev;
+  }, {});
 
-  var xhr = new XMLHttpRequest();
-  xhr.open('POST', '/exec/', true);
-  xhr.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
-  xhr.setRequestHeader('Content-Length', data.length);
+  var data = JSON.stringify({
+    cmd: '' + execSpec.cmd,
+    args: cleanArgs,
+    cwd: '' + execSpec.cwd,
+    env: cleanEnv
+  });
 
-  xhr.onreadystatechange = function(event) {
-    if (xhr.readyState == 4) {
-      if (xhr.status >= 300 || xhr.status < 200) {
-        promise.reject(xhr.responseText);
-        return;
-      }
-
-      promise.resolve(xhr.responseText);
-    }
-  };
-
-  xhr.send(data);
-};
-
-/**
- * Helper to execute an arbitrary server-side JS function.
- * @param promise the thing we resolve/reject on completion
- * @param funcSpec Object containing some of the following properties:
- * - func (string): The function to execute (required)
- * - args (string[]): The arguments to pass to the command (default: [])
- */
-exports.func = function(promise, funcSpec) {
-  var data = JSON.stringify(funcSpec);
-
-  var xhr = new XMLHttpRequest();
-  xhr.open('POST', '/func/', true);
-  xhr.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
-  xhr.setRequestHeader('Content-Length', data.length);
-
-  xhr.onreadystatechange = function(event) {
-    if (xhr.readyState == 4) {
-      if (xhr.status >= 300 || xhr.status < 200) {
-        promise.reject(JSON.parse(xhr.responseText));
-        return;
-      }
-
-      promise.resolve(JSON.parse(xhr.responseText));
-    }
-  };
-
-  xhr.send(data);
+  return xhr.post('/exec', data);
 };
 
 
@@ -5436,24 +7488,178 @@ exports.func = function(promise, funcSpec) {
  * limitations under the License.
  */
 
-define('gcli/types/resource', ['require', 'exports', 'module' , 'gcli/types', 'gcli/types/selection'], function(require, exports, module) {
+define('gcli/types/number', ['require', 'exports', 'module' , 'util/promise', 'util/l10n', 'gcli/types'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var l10n = require('util/l10n');
+var Status = require('gcli/types').Status;
+var Conversion = require('gcli/types').Conversion;
+
+exports.items = [
+  {
+    // 'number' type
+    // Has custom max / min / step values to control increment and decrement
+    // and a boolean allowFloat property to clamp values to integers
+    item: 'type',
+    name: 'number',
+    allowFloat: false,
+    max: undefined,
+    min: undefined,
+    step: 1,
+
+    constructor: function() {
+      if (!this.allowFloat &&
+          (this._isFloat(this.min) ||
+           this._isFloat(this.max) ||
+           this._isFloat(this.step))) {
+        throw new Error('allowFloat is false, but non-integer values given in type spec');
+      }
+    },
+
+    stringify: function(value, context) {
+      if (value == null) {
+        return '';
+      }
+      return '' + value;
+    },
+
+    getMin: function(context) {
+      if (this.min) {
+        if (typeof this.min === 'function') {
+          return this.min(context);
+        }
+        if (typeof this.min === 'number') {
+          return this.min;
+        }
+      }
+      return undefined;
+    },
+
+    getMax: function(context) {
+      if (this.max) {
+        if (typeof this.max === 'function') {
+          return this.max(context);
+        }
+        if (typeof this.max === 'number') {
+          return this.max;
+        }
+      }
+      return undefined;
+    },
+
+    parse: function(arg, context) {
+      var msg;
+      if (arg.text.replace(/^\s*-?/, '').length === 0) {
+        return promise.resolve(new Conversion(undefined, arg, Status.INCOMPLETE, ''));
+      }
+
+      if (!this.allowFloat && (arg.text.indexOf('.') !== -1)) {
+        msg = l10n.lookupFormat('typesNumberNotInt2', [ arg.text ]);
+        return promise.resolve(new Conversion(undefined, arg, Status.ERROR, msg));
+      }
+
+      var value;
+      if (this.allowFloat) {
+        value = parseFloat(arg.text);
+      }
+      else {
+        value = parseInt(arg.text, 10);
+      }
+
+      if (isNaN(value)) {
+        msg = l10n.lookupFormat('typesNumberNan', [ arg.text ]);
+        return promise.resolve(new Conversion(undefined, arg, Status.ERROR, msg));
+      }
+
+      var max = this.getMax(context);
+      if (max != null && value > max) {
+        msg = l10n.lookupFormat('typesNumberMax', [ value, max ]);
+        return promise.resolve(new Conversion(undefined, arg, Status.ERROR, msg));
+      }
+
+      var min = this.getMin(context);
+      if (min != null && value < min) {
+        msg = l10n.lookupFormat('typesNumberMin', [ value, min ]);
+        return promise.resolve(new Conversion(undefined, arg, Status.ERROR, msg));
+      }
+
+      return promise.resolve(new Conversion(value, arg));
+    },
+
+    decrement: function(value, context) {
+      if (typeof value !== 'number' || isNaN(value)) {
+        return this.getMax(context) || 1;
+      }
+      var newValue = value - this.step;
+      // Snap to the nearest incremental of the step
+      newValue = Math.ceil(newValue / this.step) * this.step;
+      return this._boundsCheck(newValue, context);
+    },
+
+    increment: function(value, context) {
+      if (typeof value !== 'number' || isNaN(value)) {
+        var min = this.getMin(context);
+        return min != null ? min : 0;
+      }
+      var newValue = value + this.step;
+      // Snap to the nearest incremental of the step
+      newValue = Math.floor(newValue / this.step) * this.step;
+      if (this.getMax(context) == null) {
+        return newValue;
+      }
+      return this._boundsCheck(newValue, context);
+    },
+
+    // Return the input value so long as it is within the max/min bounds.
+    // If it is lower than the minimum, return the minimum. If it is bigger
+    // than the maximum then return the maximum.
+    _boundsCheck: function(value, context) {
+      var min = this.getMin(context);
+      if (min != null && value < min) {
+        return min;
+      }
+      var max = this.getMax(context);
+      if (max != null && value > max) {
+        return max;
+      }
+      return value;
+    },
+
+    // Return true if the given value is a finite number and not an integer,
+    // else return false.
+    _isFloat: function(value) {
+      return ((typeof value === 'number') && isFinite(value) && (value % 1 !== 0));
+    }
+  }
+];
 
 
-var types = require('gcli/types');
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/types/resource', ['require', 'exports', 'module' , 'util/promise', 'gcli/types/selection'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
 var SelectionType = require('gcli/types/selection').SelectionType;
 
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  types.registerType(ResourceType);
-};
-
-exports.shutdown = function() {
-  types.unregisterType(ResourceType);
-  exports.clearResourceCache();
-};
 
 exports.clearResourceCache = function() {
   ResourceCache.clear();
@@ -5662,42 +7868,6 @@ function dedupe(resources, onDupe) {
 }
 
 /**
- * Use the Resource implementations to create a type based on SelectionType
- */
-function ResourceType(typeSpec) {
-  this.include = typeSpec.include;
-  if (this.include !== Resource.TYPE_SCRIPT &&
-      this.include !== Resource.TYPE_CSS &&
-      this.include != null) {
-    throw new Error('invalid include property: ' + this.include);
-  }
-}
-
-ResourceType.prototype = Object.create(SelectionType.prototype);
-
-/**
- * There are several ways to get selection data. This unifies them into one
- * single function.
- * @return A map of names to values.
- */
-ResourceType.prototype.getLookup = function() {
-  var resources = [];
-  if (this.include !== Resource.TYPE_SCRIPT) {
-    Array.prototype.push.apply(resources, CssResource._getAllStyles());
-  }
-  if (this.include !== Resource.TYPE_CSS) {
-    Array.prototype.push.apply(resources, ScriptResource._getAllScripts());
-  }
-
-  return resources.map(function(resource) {
-    return { name: resource.name, value: resource };
-  });
-};
-
-ResourceType.prototype.name = 'resource';
-
-
-/**
  * A quick cache of resources against nodes
  * TODO: Potential memory leak when the target document has css or script
  * resources repeatedly added and removed. Solution might be to use a weak
@@ -5733,6 +7903,38 @@ var ResourceCache = {
   }
 };
 
+/**
+ * The resource type itself
+ */
+exports.items = [
+  {
+    item: 'type',
+    constructor: function() {
+      if (this.include !== Resource.TYPE_SCRIPT &&
+          this.include !== Resource.TYPE_CSS &&
+          this.include != null) {
+        throw new Error('invalid include property: ' + this.include);
+      }
+    },
+    name: 'resource',
+    parent: 'selection',
+    include: null,
+    cacheable: false,
+    lookup: function() {
+      var resources = [];
+      if (this.include !== Resource.TYPE_SCRIPT) {
+        Array.prototype.push.apply(resources, CssResource._getAllStyles());
+      }
+      if (this.include !== Resource.TYPE_CSS) {
+        Array.prototype.push.apply(resources, ScriptResource._getAllScripts());
+      }
+
+      return promise.resolve(resources.map(function(resource) {
+        return { name: resource.name, value: resource };
+      }));
+    }
+  }
+];
 
 });
 /*
@@ -5751,93 +7953,143 @@ var ResourceCache = {
  * limitations under the License.
  */
 
-define('gcli/types/setting', ['require', 'exports', 'module' , 'gcli/settings', 'gcli/types', 'gcli/types/selection', 'gcli/types/basic'], function(require, exports, module) {
+define('gcli/types/setting', ['require', 'exports', 'module' , 'gcli/settings', 'gcli/types'], function(require, exports, module) {
 
+'use strict';
 
 var settings = require('gcli/settings');
 var types = require('gcli/types');
-var SelectionType = require('gcli/types/selection').SelectionType;
-var DeferredType = require('gcli/types/basic').DeferredType;
 
+exports.items = [
+  {
+    // A type for selecting a known setting
+    item: 'type',
+    name: 'setting',
+    parent: 'selection',
+    cacheable: true,
+    constructor: function() {
+      settings.onChange.add(function(ev) {
+        this.clearCache();
+      }, this);
+    },
+    lookup: function() {
+      return settings.getAll().map(function(setting) {
+        return { name: setting.name, value: setting };
+      });
+    }
+  },
+  {
+    // A type for entering the value of a known setting
+    // Customizations:
+    // - settingParamName The name of the setting parameter so we can customize the
+    //   type that we are expecting to read
+    item: 'type',
+    name: 'settingValue',
+    parent: 'delegate',
+    settingParamName: 'setting',
+    delegateType: function(context) {
+      if (context != null) {
+        var setting = context.getArgsObject()[this.settingParamName];
+        if (setting != null) {
+          return setting.type;
+        }
+      }
 
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  types.registerType(SettingType);
-  types.registerType(SettingValueType);
-};
-
-exports.shutdown = function() {
-  types.unregisterType(SettingType);
-  types.unregisterType(SettingValueType);
-};
-
-/**
- * This is a whole new level of nasty. 'setting' and 'settingValue' are a pair
- * for obvious reasons. settingValue is a deferred type - it defers to the type
- * of the setting, but how do we implement the defer function - how does it
- * work out its paired setting?
- * In another parallel universe we pass the requisition to all the parse
- * methods so we can extract the args in SettingValueType.parse, however that
- * seems like a lot of churn for a simple way to connect 2 things. So we're
- * hacking. SettingType tries to keep 'lastSetting' up to date.
- */
-var lastSetting = null;
-
-/**
- * A type for selecting a known setting
- */
-function SettingType(typeSpec) {
-  settings.onChange.add(function(ev) {
-    this.clearCache();
-  }, this);
-}
-
-SettingType.prototype = new SelectionType({ cacheable: true });
-
-SettingType.prototype.lookup = function() {
-  return settings.getAll().map(function(setting) {
-    return { name: setting.name, value: setting };
-  });
-};
-
-SettingType.prototype.noMatch = function() {
-  lastSetting = null;
-};
-
-SettingType.prototype.stringify = function(option) {
-  lastSetting = option;
-  return SelectionType.prototype.stringify.call(this, option);
-};
-
-SettingType.prototype.parse = function(arg) {
-  var conversion = SelectionType.prototype.parse.call(this, arg);
-  lastSetting = conversion.value;
-  return conversion;
-};
-
-SettingType.prototype.name = 'setting';
-
-
-/**
- * A type for entering the value of a known setting
- */
-function SettingValueType(typeSpec) {
-}
-
-SettingValueType.prototype = Object.create(DeferredType.prototype);
-
-SettingValueType.prototype.defer = function() {
-  if (lastSetting != null) {
-    return lastSetting.type;
+      return types.createType('blank');
+    }
   }
-  else {
-    return types.getType('blank');
-  }
-};
+];
 
-SettingValueType.prototype.name = 'settingValue';
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/types/string', ['require', 'exports', 'module' , 'util/promise', 'gcli/types'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var Status = require('gcli/types').Status;
+var Conversion = require('gcli/types').Conversion;
+
+exports.items = [
+  {
+    // 'string' the most basic string type where all we need to do is to take
+    // care of converting escaped characters like \t, \n, etc.
+    // For the full list see
+    // https://developer.mozilla.org/en-US/docs/JavaScript/Guide/Values,_variables,_and_literals
+    // The exception is that we ignore \b because replacing '\b' characters in
+    // stringify() with their escaped version injects '\\b' all over the place
+    // and the need to support \b seems low)
+    // Customizations:
+    // allowBlank: Allow a blank string to be counted as valid
+    item: 'type',
+    name: 'string',
+    allowBlank: false,
+
+    stringify: function(value, context) {
+      if (value == null) {
+        return '';
+      }
+
+      return value
+           .replace(/\\/g, '\\\\')
+           .replace(/\f/g, '\\f')
+           .replace(/\n/g, '\\n')
+           .replace(/\r/g, '\\r')
+           .replace(/\t/g, '\\t')
+           .replace(/\v/g, '\\v')
+           .replace(/\n/g, '\\n')
+           .replace(/\r/g, '\\r')
+           .replace(/ /g, '\\ ')
+           .replace(/'/g, '\\\'')
+           .replace(/"/g, '\\"')
+           .replace(/{/g, '\\{')
+           .replace(/}/g, '\\}');
+    },
+
+    parse:function(arg, context) {
+      if (!this.allowBlank && (arg.text == null || arg.text === '')) {
+        return promise.resolve(new Conversion(undefined, arg, Status.INCOMPLETE, ''));
+      }
+
+      // The string '\\' (i.e. an escaped \ (represented here as '\\\\' because it
+      // is double escaped)) is first converted to a private unicode character and
+      // then at the end from \uF000 to a single '\' to avoid the string \\n being
+      // converted first to \n and then to a <LF>
+      var value = arg.text
+           .replace(/\\\\/g, '\uF000')
+           .replace(/\\f/g, '\f')
+           .replace(/\\n/g, '\n')
+           .replace(/\\r/g, '\r')
+           .replace(/\\t/g, '\t')
+           .replace(/\\v/g, '\v')
+           .replace(/\\n/g, '\n')
+           .replace(/\\r/g, '\r')
+           .replace(/\\ /g, ' ')
+           .replace(/\\'/g, '\'')
+           .replace(/\\"/g, '"')
+           .replace(/\\{/g, '{')
+           .replace(/\\}/g, '}')
+           .replace(/\uF000/g, '\\');
+
+      return promise.resolve(new Conversion(value, arg));
+    }
+  }
+];
 
 
 });
@@ -5857,174 +8109,349 @@ SettingValueType.prototype.name = 'settingValue';
  * limitations under the License.
  */
 
-define('gcli/settings', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types'], function(require, exports, module) {
+define('gcli/converters/basic', ['require', 'exports', 'module' , 'util/util'], function(require, exports, module) {
 
+'use strict';
 
-var util = require('gcli/util');
-var types = require('gcli/types');
-
-
-/**
- * Where we store the settings that we've created
- */
-var settings = {};
+var util = require('util/util');
 
 /**
- * Where the values for the settings are stored while in use.
+ * Several converters are just data.toString inside a 'p' element
  */
-var settingValues = {};
-
-/**
- * Where the values for the settings are persisted for next use.
- */
-var settingStorage;
-
-/**
- * Allow a system to setup a different set of defaults from what GCLI provides
- */
-exports.setDefaults = function(newValues) {
-  Object.keys(newValues).forEach(function(name) {
-    if (settingValues[name] === undefined) {
-      settingValues[name] = newValues[name];
-    }
-  });
-};
-
-/**
- * Initialize the settingValues store from localStorage
- */
-exports.startup = function() {
-  settingStorage = new LocalSettingStorage();
-  settingStorage.load(settingValues);
-};
-
-exports.shutdown = function() {
-};
-
-/**
- * 'static' function to get an array containing all known Settings
- */
-exports.getAll = function(filter) {
-  var all = [];
-  Object.keys(settings).forEach(function(name) {
-    if (filter == null || name.indexOf(filter) !== -1) {
-      all.push(settings[name]);
-    }
-  }.bind(this));
-  all.sort(function(s1, s2) {
-    return s1.name.localeCompare(s2.name);
-  }.bind(this));
-  return all;
-};
-
-/**
- * Add a new setting
- * @return The new Setting object
- */
-exports.addSetting = function(prefSpec) {
-  var type = types.getType(prefSpec.type);
-  var setting = new Setting(prefSpec.name, type, prefSpec.description,
-                            prefSpec.defaultValue);
-  settings[setting.name] = setting;
-  exports.onChange({ added: setting.name });
-  return setting;
-};
-
-/**
- * Getter for an existing setting. Generally use of this function should be
- * avoided. Systems that define a setting should export it if they wish it to
- * be available to the outside, or not otherwise. Use of this function breaks
- * that boundary and also hides dependencies. Acceptable uses include testing
- * and embedded uses of GCLI that pre-define all settings (e.g. Firefox)
- * @param name The name of the setting to fetch
- * @return The found Setting object, or undefined if the setting was not found
- */
-exports.getSetting = function(name) {
-  return settings[name];
-};
-
-/**
- * Remove a setting
- */
-exports.removeSetting = function(nameOrSpec) {
-  var name = typeof nameOrPrefSpec === 'string' ? nameOrSpec : nameOrSpec.name;
-  delete settings[name];
-  exports.onChange({ removed: name });
-};
-
-/**
- * Event for use to detect when the list of settings changes
- */
-exports.onChange = util.createEvent('Settings.onChange');
-
-/**
- * Implement the load() and save() functions to write a JSON string blob to
- * localStorage
- */
-function LocalSettingStorage() {
+function nodeFromDataToString(data, conversionContext) {
+  var node = util.createElement(conversionContext.document, 'p');
+  node.textContent = data.toString();
+  return node;
 }
 
-LocalSettingStorage.prototype.load = function(values) {
-  if (typeof localStorage === 'undefined') {
+exports.items = [
+  {
+    item: 'converter',
+    from: 'string',
+    to: 'dom',
+    exec: nodeFromDataToString
+  },
+  {
+    item: 'converter',
+    from: 'number',
+    to: 'dom',
+    exec: nodeFromDataToString
+  },
+  {
+    item: 'converter',
+    from: 'boolean',
+    to: 'dom',
+    exec: nodeFromDataToString
+  },
+  {
+    item: 'converter',
+    from: 'undefined',
+    to: 'dom',
+    exec: function(data, conversionContext) {
+      return util.createElement(conversionContext.document, 'span');
+    }
+  },
+  {
+    item: 'converter',
+    from: 'error',
+    to: 'dom',
+    exec: function(ex, conversionContext) {
+      var node = util.createElement(conversionContext.document, 'p');
+      node.className = 'gcli-error';
+      node.textContent = ex;
+      return node;
+    }
+  },
+  {
+    item: 'converter',
+    from: 'error',
+    to: 'string',
+    exec: function(ex, conversionContext) {
+      return '' + ex;
+    }
+  }
+];
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/converters/html', ['require', 'exports', 'module' , 'util/util'], function(require, exports, module) {
+
+'use strict';
+
+var util = require('util/util');
+
+/**
+ * 'html' means a string containing HTML markup. We use innerHTML to inject
+ * this into a DOM which has security implications, so this module will not
+ * be used in all implementations.
+ */
+exports.items = [
+  {
+    item: 'converter',
+    from: 'html',
+    to: 'dom',
+    exec: function(html, conversionContext) {
+      var div = util.createElement(conversionContext.document, 'div');
+      div.innerHTML = html;
+      return div;
+    }
+  },
+  {
+    item: 'converter',
+    from: 'html',
+    to: 'string',
+    exec: function(html, conversionContext) {
+      var div = util.createElement(conversionContext.document, 'div');
+      div.innerHTML = html;
+      return div.textContent;
+    }
+  }
+];
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/converters/terminal', ['require', 'exports', 'module' , 'util/util'], function(require, exports, module) {
+
+'use strict';
+
+var util = require('util/util');
+
+/**
+ * A 'terminal' object is a string or an array of strings, which are typically
+ * the output from a shell command
+ */
+exports.items = [
+  {
+    item: 'converter',
+    from: 'terminal',
+    to: 'dom',
+    createTextArea: function(text, conversionContext) {
+      var node = util.createElement(conversionContext.document, 'textarea');
+      node.classList.add('gcli-row-subterminal');
+      node.readOnly = true;
+      node.textContent = text;
+      return node;
+    },
+    exec: function(data, conversionContext) {
+      if (Array.isArray(data)) {
+        var node = util.createElement(conversionContext.document, 'div');
+        data.forEach(function(member) {
+          node.appendChild(this.createTextArea(member, conversionContext));
+        });
+        return node;
+      }
+      return this.createTextArea(data);
+    }
+  },
+  {
+    item: 'converter',
+    from: 'terminal',
+    to: 'string',
+    exec: function(data, conversionContext) {
+      return Array.isArray(data) ? data.join('') : '' + data;
+    }
+  }
+];
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/ui/intro', ['require', 'exports', 'module' , 'util/l10n', 'gcli/settings', 'gcli/ui/view', 'gcli/cli', 'text!gcli/ui/intro.html'], function(require, exports, module) {
+
+'use strict';
+
+var l10n = require('util/l10n');
+var settings = require('gcli/settings');
+var view = require('gcli/ui/view');
+var Output = require('gcli/cli').Output;
+
+/**
+ * Record if the user has clicked on 'Got It!'
+ */
+exports.items = [
+  {
+    item: 'setting',
+    name: 'hideIntro',
+    type: 'boolean',
+    description: l10n.lookup('hideIntroDesc'),
+    defaultValue: false
+  }
+];
+
+/**
+ * Called when the UI is ready to add a welcome message to the output
+ */
+exports.maybeShowIntro = function(commandOutputManager, conversionContext) {
+  var hideIntro = settings.getSetting('hideIntro');
+  if (hideIntro.value) {
     return;
   }
 
-  var gcliSettings = localStorage.getItem('gcli-settings');
-  if (gcliSettings != null) {
-    var parsed = JSON.parse(gcliSettings);
-    Object.keys(parsed).forEach(function(name) {
-      values[name] = parsed[name];
-    });
-  }
-};
+  var output = new Output();
+  output.type = 'view';
+  commandOutputManager.onOutput({ output: output });
 
-LocalSettingStorage.prototype.save = function(values) {
-  if (typeof localStorage !== 'undefined') {
-    var json = JSON.stringify(values);
-    localStorage.setItem('gcli-settings', json);
-  }
-};
+  var viewData = this.createView(null, conversionContext, output);
 
-exports.LocalSettingStorage = LocalSettingStorage;
-
-
-/**
- * A class to wrap up the properties of a Setting.
- * @see toolkit/components/viewconfig/content/config.js
- */
-function Setting(name, type, description, defaultValue) {
-  this.name = name;
-  this.type = type;
-  this.description = description;
-  this._defaultValue = defaultValue;
-
-  this.onChange = util.createEvent('Setting.onChange');
-  this.setDefault();
-}
-
-/**
- * Reset this setting to it's initial default value
- */
-Setting.prototype.setDefault = function() {
-  this.value = this._defaultValue;
+  output.complete({ isTypedData: true, type: 'view', data: viewData });
 };
 
 /**
- * All settings 'value's are saved in the settingValues object
+ * Called when the UI is ready to add a welcome message to the output
  */
-Object.defineProperty(Setting.prototype, 'value', {
-  get: function() {
-    return settingValues[this.name];
-  },
+exports.createView = function(ignore, conversionContext, output) {
+  return view.createView({
+    html: require('text!gcli/ui/intro.html'),
+    options: { stack: 'intro.html' },
+    data: {
+      l10n: l10n.propertyLookup,
+      onclick: conversionContext.update,
+      ondblclick: conversionContext.updateExec,
+      showHideButton: (output != null),
+      onGotIt: function(ev) {
+        var hideIntro = settings.getSetting('hideIntro');
+        hideIntro.value = true;
+        output.onClose();
+      }
+    }
+  });
+};
 
-  set: function(value) {
-    settingValues[this.name] = value;
-    settingStorage.save(settingValues);
-    this.onChange({ setting: this, value: value });
-  },
-
-  enumerable: true
 });
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/ui/view', ['require', 'exports', 'module' , 'util/util', 'util/domtemplate'], function(require, exports, module) {
+
+'use strict';
+
+var util = require('util/util');
+var domtemplate = require('util/domtemplate');
+
+
+/**
+ * We want to avoid commands having to create DOM structures because that's
+ * messy and because we're going to need to have command output displayed in
+ * different documents. A View is a way to wrap an HTML template (for
+ * domtemplate) in with the data and options to render the template, so anyone
+ * can later run the template in the context of any document.
+ * View also cuts out a chunk of boiler place code.
+ * @param options The information needed to create the DOM from HTML. Includes:
+ * - html (required): The HTML source, probably from a call to require
+ * - options (default={}): The domtemplate options. See domtemplate for details
+ * - data (default={}): The data to domtemplate. See domtemplate for details.
+ * - css (default=none): Some CSS to be added to the final document. If 'css'
+ *   is used, use of cssId is strongly recommended.
+ * - cssId (default=none): An ID to prevent multiple CSS additions. See
+ *   util.importCss for more details.
+ * @return An object containing a single function 'appendTo()' which runs the
+ * template adding the result to the specified element. Takes 2 parameters:
+ * - element (required): the element to add to
+ * - clear (default=false): if clear===true then remove all pre-existing
+ *   children of 'element' before appending the results of this template.
+ */
+exports.createView = function(options) {
+  if (options.html == null) {
+    throw new Error('options.html is missing');
+  }
+
+  return {
+    /**
+     * RTTI. Yeah.
+     */
+    isView: true,
+
+    /**
+     * Run the template against the document to which element belongs.
+     * @param element The element to append the result to
+     * @param clear Set clear===true to remove all children of element
+     */
+    appendTo: function(element, clear) {
+      // Strict check on the off-chance that we later think of other options
+      // and want to replace 'clear' with an 'options' parameter, but want to
+      // support backwards compat.
+      if (clear === true) {
+        util.clearElement(element);
+      }
+
+      element.appendChild(this.toDom(element.ownerDocument));
+    },
+
+    /**
+     * Actually convert the view data into a DOM suitable to be appended to
+     * an element
+     * @param document to use in realizing the template
+     */
+    toDom: function(document) {
+      if (options.css) {
+        util.importCss(options.css, document, options.cssId);
+      }
+
+      var child = util.toDom(document, options.html);
+      domtemplate.template(child, options.data || {}, options.options || {});
+      return child;
+    }
+  };
+};
 
 
 });
@@ -6044,22 +8471,618 @@ Object.defineProperty(Setting.prototype, 'value', {
  * limitations under the License.
  */
 
-define('gcli/cli', ['require', 'exports', 'module' , 'gcli/util', 'gcli/ui/view', 'gcli/l10n', 'gcli/canon', 'gcli/promise', 'gcli/types', 'gcli/types/basic', 'gcli/argument'], function(require, exports, module) {
+define('util/domtemplate', ['require', 'exports', 'module' ], function(require, exports, module) {
+//
+//
+//
 
+// WARNING: do not 'use_strict' without reading the notes in _envEval();
 
-var util = require('gcli/util');
+/**
+ * For full documentation, see:
+ * https://github.com/mozilla/domtemplate/blob/master/README.md
+ */
+
+/**
+ * Begin a new templating process.
+ * @param node A DOM element or string referring to an element's id
+ * @param data Data to use in filling out the template
+ * @param options Options to customize the template processing. One of:
+ * - allowEval: boolean (default false) Basic template interpolations are
+ *   either property paths (e.g. ${a.b.c.d}), or if allowEval=true then we
+ *   allow arbitrary JavaScript
+ * - stack: string or array of strings (default empty array) The template
+ *   engine maintains a stack of tasks to help debug where it is. This allows
+ *   this stack to be prefixed with a template name
+ * - blankNullUndefined: By default DOMTemplate exports null and undefined
+ *   values using the strings 'null' and 'undefined', which can be helpful for
+ *   debugging, but can introduce unnecessary extra logic in a template to
+ *   convert null/undefined to ''. By setting blankNullUndefined:true, this
+ *   conversion is handled by DOMTemplate
+ */
+function template(node, data, options) {
+  var templater = new Templater(options || {});
+  templater.processNode(node, data);
+  return templater;
+}
+
+/**
+ * Construct a Templater object. Use template() in preference to this ctor.
+ * @deprecated Use template(node, data, options);
+ */
+function Templater(options) {
+  if (options == null) {
+    options = { allowEval: true };
+  }
+  this.options = options;
+  if (options.stack && Array.isArray(options.stack)) {
+    this.stack = options.stack;
+  }
+  else if (typeof options.stack === 'string') {
+    this.stack = [ options.stack ];
+  }
+  else {
+    this.stack = [];
+  }
+  this.nodes = [];
+}
+
+/**
+ * Cached regex used to find ${...} sections in some text.
+ * Performance note: This regex uses ( and ) to capture the 'script' for
+ * further processing. Not all of the uses of this regex use this feature so
+ * if use of the capturing group is a performance drain then we should split
+ * this regex in two.
+ */
+Templater.prototype._templateRegion = /\$\{([^}]*)\}/g;
+
+/**
+ * Cached regex used to split a string using the unicode chars F001 and F002.
+ * See Templater._processTextNode() for details.
+ */
+Templater.prototype._splitSpecial = /\uF001|\uF002/;
+
+/**
+ * Cached regex used to detect if a script is capable of being interpreted
+ * using Template._property() or if we need to use Template._envEval()
+ */
+Templater.prototype._isPropertyScript = /^[_a-zA-Z0-9.]*$/;
+
+/**
+ * Recursive function to walk the tree processing the attributes as it goes.
+ * @param node the node to process. If you pass a string in instead of a DOM
+ * element, it is assumed to be an id for use with document.getElementById()
+ * @param data the data to use for node processing.
+ */
+Templater.prototype.processNode = function(node, data) {
+  if (typeof node === 'string') {
+    node = document.getElementById(node);
+  }
+  if (data == null) {
+    data = {};
+  }
+  this.stack.push(node.nodeName + (node.id ? '#' + node.id : ''));
+  var pushedNode = false;
+  try {
+    // Process attributes
+    if (node.attributes && node.attributes.length) {
+      // We need to handle 'foreach' and 'if' first because they might stop
+      // some types of processing from happening, and foreach must come first
+      // because it defines new data on which 'if' might depend.
+      if (node.hasAttribute('foreach')) {
+        this._processForEach(node, data);
+        return;
+      }
+      if (node.hasAttribute('if')) {
+        if (!this._processIf(node, data)) {
+          return;
+        }
+      }
+      // Only make the node available once we know it's not going away
+      this.nodes.push(data.__element);
+      data.__element = node;
+      pushedNode = true;
+      // It's good to clean up the attributes when we've processed them,
+      // but if we do it straight away, we mess up the array index
+      var attrs = Array.prototype.slice.call(node.attributes);
+      for (var i = 0; i < attrs.length; i++) {
+        var value = attrs[i].value;
+        var name = attrs[i].name;
+
+        this.stack.push(name);
+        try {
+          if (name === 'save') {
+            // Save attributes are a setter using the node
+            value = this._stripBraces(value);
+            this._property(value, data, node);
+            node.removeAttribute('save');
+          }
+          else if (name.substring(0, 2) === 'on') {
+            // If this attribute value contains only an expression
+            if (value.substring(0, 2) === '${' && value.slice(-1) === '}' &&
+                    value.indexOf('${', 2) === -1) {
+              value = this._stripBraces(value);
+              var func = this._property(value, data);
+              if (typeof func === 'function') {
+                node.removeAttribute(name);
+                var capture = node.hasAttribute('capture' + name.substring(2));
+                node.addEventListener(name.substring(2), func, capture);
+                if (capture) {
+                  node.removeAttribute('capture' + name.substring(2));
+                }
+              }
+              else {
+                // Attribute value is not a function - use as a DOM-L0 string
+                node.setAttribute(name, func);
+              }
+            }
+            else {
+              // Attribute value is not a single expression use as DOM-L0
+              node.setAttribute(name, this._processString(value, data));
+            }
+          }
+          else {
+            node.removeAttribute(name);
+            // Remove '_' prefix of attribute names so the DOM won't try
+            // to use them before we've processed the template
+            if (name.charAt(0) === '_') {
+              name = name.substring(1);
+            }
+
+            // Async attributes can only work if the whole attribute is async
+            var replacement;
+            if (value.indexOf('${') === 0 && value.charAt(value.length - 1) === '}') {
+              replacement = this._envEval(value.slice(2, -1), data, value);
+              if (replacement && typeof replacement.then === 'function') {
+                node.setAttribute(name, '');
+                replacement.then(function(newValue) {
+                  node.setAttribute(name, newValue);
+                }.bind(this)).then(null, function(ex) {
+                  this._handleError('Promise error from \'' + value + '\'', ex);
+                }.bind(this));
+              }
+              else {
+                if (this.options.blankNullUndefined && replacement == null) {
+                  replacement = '';
+                }
+                node.setAttribute(name, replacement);
+              }
+            }
+            else {
+              node.setAttribute(name, this._processString(value, data));
+            }
+          }
+        }
+        finally {
+          this.stack.pop();
+        }
+      }
+    }
+
+    // Loop through our children calling processNode. First clone them, so the
+    // set of nodes that we visit will be unaffected by additions or removals.
+    var childNodes = Array.prototype.slice.call(node.childNodes);
+    for (var j = 0; j < childNodes.length; j++) {
+      this.processNode(childNodes[j], data);
+    }
+
+    if (node.nodeType === 3 /*Node.TEXT_NODE*/) {
+      this._processTextNode(node, data);
+    }
+  }
+  finally {
+    if (pushedNode) {
+      data.__element = this.nodes.pop();
+    }
+    this.stack.pop();
+  }
+};
+
+/**
+ * Handle attribute values where the output can only be a string
+ */
+Templater.prototype._processString = function(value, data) {
+  return value.replace(this._templateRegion, function(path) {
+    var insert = this._envEval(path.slice(2, -1), data, value);
+    return this.options.blankNullUndefined && insert == null ? '' : insert;
+  }.bind(this));
+};
+
+/**
+ * Handle <x if="${...}">
+ * @param node An element with an 'if' attribute
+ * @param data The data to use with _envEval()
+ * @returns true if processing should continue, false otherwise
+ */
+Templater.prototype._processIf = function(node, data) {
+  this.stack.push('if');
+  try {
+    var originalValue = node.getAttribute('if');
+    var value = this._stripBraces(originalValue);
+    var recurse = true;
+    try {
+      var reply = this._envEval(value, data, originalValue);
+      recurse = !!reply;
+    }
+    catch (ex) {
+      this._handleError('Error with \'' + value + '\'', ex);
+      recurse = false;
+    }
+    if (!recurse) {
+      node.parentNode.removeChild(node);
+    }
+    node.removeAttribute('if');
+    return recurse;
+  }
+  finally {
+    this.stack.pop();
+  }
+};
+
+/**
+ * Handle <x foreach="param in ${array}"> and the special case of
+ * <loop foreach="param in ${array}">.
+ * This function is responsible for extracting what it has to do from the
+ * attributes, and getting the data to work on (including resolving promises
+ * in getting the array). It delegates to _processForEachLoop to actually
+ * unroll the data.
+ * @param node An element with a 'foreach' attribute
+ * @param data The data to use with _envEval()
+ */
+Templater.prototype._processForEach = function(node, data) {
+  this.stack.push('foreach');
+  try {
+    var originalValue = node.getAttribute('foreach');
+    var value = originalValue;
+
+    var paramName = 'param';
+    if (value.charAt(0) === '$') {
+      // No custom loop variable name. Use the default: 'param'
+      value = this._stripBraces(value);
+    }
+    else {
+      // Extract the loop variable name from 'NAME in ${ARRAY}'
+      var nameArr = value.split(' in ');
+      paramName = nameArr[0].trim();
+      value = this._stripBraces(nameArr[1].trim());
+    }
+    node.removeAttribute('foreach');
+    try {
+      var evaled = this._envEval(value, data, originalValue);
+      this._handleAsync(evaled, node, function(reply, siblingNode) {
+        this._processForEachLoop(reply, node, siblingNode, data, paramName);
+      }.bind(this));
+      node.parentNode.removeChild(node);
+    }
+    catch (ex) {
+      this._handleError('Error with \'' + value + '\'', ex);
+    }
+  }
+  finally {
+    this.stack.pop();
+  }
+};
+
+/**
+ * Called by _processForEach to handle looping over the data in a foreach loop.
+ * This works with both arrays and objects.
+ * Calls _processForEachMember() for each member of 'set'
+ * @param set The object containing the data to loop over
+ * @param template The node to copy for each set member
+ * @param sibling The sibling node to which we add things
+ * @param data the data to use for node processing
+ * @param paramName foreach loops have a name for the parameter currently being
+ * processed. The default is 'param'. e.g. <loop foreach="param in ${x}">...
+ */
+Templater.prototype._processForEachLoop = function(set, template, sibling, data, paramName) {
+  if (Array.isArray(set)) {
+    set.forEach(function(member, i) {
+      this._processForEachMember(member, template, sibling, data, paramName, '' + i);
+    }, this);
+  }
+  else {
+    for (var member in set) {
+      if (set.hasOwnProperty(member)) {
+        this._processForEachMember(member, template, sibling, data, paramName, member);
+      }
+    }
+  }
+};
+
+/**
+ * Called by _processForEachLoop() to resolve any promises in the array (the
+ * array itself can also be a promise, but that is resolved by
+ * _processForEach()). Handle <LOOP> elements (which are taken out of the DOM),
+ * clone the template, and pass the processing on to processNode().
+ * @param member The data item to use in templating
+ * @param template The node to copy for each set member
+ * @param siblingNode The parent node to which we add things
+ * @param data the data to use for node processing
+ * @param paramName The name given to 'member' by the foreach attribute
+ * @param frame A name to push on the stack for debugging
+ */
+Templater.prototype._processForEachMember = function(member, template, siblingNode, data, paramName, frame) {
+  this.stack.push(frame);
+  try {
+    this._handleAsync(member, siblingNode, function(reply, node) {
+      data[paramName] = reply;
+      if (node.parentNode != null) {
+        var clone;
+        if (template.nodeName.toLowerCase() === 'loop') {
+          for (var i = 0; i < template.childNodes.length; i++) {
+            clone = template.childNodes[i].cloneNode(true);
+            node.parentNode.insertBefore(clone, node);
+            this.processNode(clone, data);
+          }
+        }
+        else {
+          clone = template.cloneNode(true);
+          clone.removeAttribute('foreach');
+          node.parentNode.insertBefore(clone, node);
+          this.processNode(clone, data);
+        }
+      }
+      delete data[paramName];
+    }.bind(this));
+  }
+  finally {
+    this.stack.pop();
+  }
+};
+
+/**
+ * Take a text node and replace it with another text node with the ${...}
+ * sections parsed out. We replace the node by altering node.parentNode but
+ * we could probably use a DOM Text API to achieve the same thing.
+ * @param node The Text node to work on
+ * @param data The data to use in calls to _envEval()
+ */
+Templater.prototype._processTextNode = function(node, data) {
+  // Replace references in other attributes
+  var value = node.data;
+  // We can't use the string.replace() with function trick (see generic
+  // attribute processing in processNode()) because we need to support
+  // functions that return DOM nodes, so we can't have the conversion to a
+  // string.
+  // Instead we process the string as an array of parts. In order to split
+  // the string up, we first replace '${' with '\uF001$' and '}' with '\uF002'
+  // We can then split using \uF001 or \uF002 to get an array of strings
+  // where scripts are prefixed with $.
+  // \uF001 and \uF002 are just unicode chars reserved for private use.
+  value = value.replace(this._templateRegion, '\uF001$$$1\uF002');
+  var parts = value.split(this._splitSpecial);
+  if (parts.length > 1) {
+    parts.forEach(function(part) {
+      if (part === null || part === undefined || part === '') {
+        return;
+      }
+      if (part.charAt(0) === '$') {
+        part = this._envEval(part.slice(1), data, node.data);
+      }
+      this._handleAsync(part, node, function(reply, siblingNode) {
+        var doc = siblingNode.ownerDocument;
+        if (reply == null) {
+          reply = this.options.blankNullUndefined ? '' : '' + reply;
+        }
+        if (typeof reply.cloneNode === 'function') {
+          // i.e. if (reply instanceof Element) { ...
+          reply = this._maybeImportNode(reply, doc);
+          siblingNode.parentNode.insertBefore(reply, siblingNode);
+        }
+        else if (typeof reply.item === 'function' && reply.length) {
+          // NodeLists can be live, in which case _maybeImportNode can
+          // remove them from the document, and thus the NodeList, which in
+          // turn breaks iteration. So first we clone the list
+          var list = Array.prototype.slice.call(reply, 0);
+          list.forEach(function(child) {
+            var imported = this._maybeImportNode(child, doc);
+            siblingNode.parentNode.insertBefore(imported, siblingNode);
+          }.bind(this));
+        }
+        else {
+          // if thing isn't a DOM element then wrap its string value in one
+          reply = doc.createTextNode(reply.toString());
+          siblingNode.parentNode.insertBefore(reply, siblingNode);
+        }
+      }.bind(this));
+    }, this);
+    node.parentNode.removeChild(node);
+  }
+};
+
+/**
+ * Return node or a import of node, if it's not in the given document
+ * @param node The node that we want to be properly owned
+ * @param doc The document that the given node should belong to
+ * @return A node that belongs to the given document
+ */
+Templater.prototype._maybeImportNode = function(node, doc) {
+  return node.ownerDocument === doc ? node : doc.importNode(node, true);
+};
+
+/**
+ * A function to handle the fact that some nodes can be promises, so we check
+ * and resolve if needed using a marker node to keep our place before calling
+ * an inserter function.
+ * @param thing The object which could be real data or a promise of real data
+ * we use it directly if it's not a promise, or resolve it if it is.
+ * @param siblingNode The element before which we insert new elements.
+ * @param inserter The function to to the insertion. If thing is not a promise
+ * then _handleAsync() is just 'inserter(thing, siblingNode)'
+ */
+Templater.prototype._handleAsync = function(thing, siblingNode, inserter) {
+  if (thing != null && typeof thing.then === 'function') {
+    // Placeholder element to be replaced once we have the real data
+    var tempNode = siblingNode.ownerDocument.createElement('span');
+    siblingNode.parentNode.insertBefore(tempNode, siblingNode);
+    thing.then(function(delayed) {
+      inserter(delayed, tempNode);
+      if (tempNode.parentNode != null) {
+        tempNode.parentNode.removeChild(tempNode);
+      }
+    }.bind(this)).then(null, function(error) {
+      console.error(error.stack);
+    });
+  }
+  else {
+    inserter(thing, siblingNode);
+  }
+};
+
+/**
+ * Warn of string does not begin '${' and end '}'
+ * @param str the string to check.
+ * @return The string stripped of ${ and }, or untouched if it does not match
+ */
+Templater.prototype._stripBraces = function(str) {
+  if (!str.match(this._templateRegion)) {
+    this._handleError('Expected ' + str + ' to match ${...}');
+    return str;
+  }
+  return str.slice(2, -1);
+};
+
+/**
+ * Combined getter and setter that works with a path through some data set.
+ * For example:
+ * <ul>
+ * <li>_property('a.b', { a: { b: 99 }}); // returns 99
+ * <li>_property('a', { a: { b: 99 }}); // returns { b: 99 }
+ * <li>_property('a', { a: { b: 99 }}, 42); // returns 99 and alters the
+ * input data to be { a: { b: 42 }}
+ * </ul>
+ * @param path An array of strings indicating the path through the data, or
+ * a string to be cut into an array using <tt>split('.')</tt>
+ * @param data the data to use for node processing
+ * @param newValue (optional) If defined, this value will replace the
+ * original value for the data at the path specified.
+ * @return The value pointed to by <tt>path</tt> before any
+ * <tt>newValue</tt> is applied.
+ */
+Templater.prototype._property = function(path, data, newValue) {
+  try {
+    if (typeof path === 'string') {
+      path = path.split('.');
+    }
+    var value = data[path[0]];
+    if (path.length === 1) {
+      if (newValue !== undefined) {
+        data[path[0]] = newValue;
+      }
+      if (typeof value === 'function') {
+        return value.bind(data);
+      }
+      return value;
+    }
+    if (!value) {
+      this._handleError('"' + path[0] + '" is undefined');
+      return null;
+    }
+    return this._property(path.slice(1), value, newValue);
+  }
+  catch (ex) {
+    this._handleError('Path error with \'' + path + '\'', ex);
+    return '${' + path + '}';
+  }
+};
+
+/**
+ * Like eval, but that creates a context of the variables in <tt>env</tt> in
+ * which the script is evaluated.
+ * WARNING: This script uses 'with' which is generally regarded to be evil.
+ * The alternative is to create a Function at runtime that takes X parameters
+ * according to the X keys in the env object, and then call that function using
+ * the values in the env object. This is likely to be slow, but workable.
+ * @param script The string to be evaluated.
+ * @param data The environment in which to eval the script.
+ * @param frame Optional debugging string in case of failure.
+ * @return The return value of the script, or the error message if the script
+ * execution failed.
+ */
+Templater.prototype._envEval = function(script, data, frame) {
+  try {
+    this.stack.push(frame.replace(/\s+/g, ' '));
+    if (this._isPropertyScript.test(script)) {
+      return this._property(script, data);
+    }
+    else {
+      if (!this.options.allowEval) {
+        this._handleError('allowEval is not set, however \'' + script + '\'' +
+            ' can not be resolved using a simple property path.');
+        return '${' + script + '}';
+      }
+      with (data) {
+        return eval(script);
+      }
+    }
+  }
+  catch (ex) {
+    this._handleError('Template error evaluating \'' + script + '\'', ex);
+    return '${' + script + '}';
+  }
+  finally {
+    this.stack.pop();
+  }
+};
+
+/**
+ * A generic way of reporting errors, for easy overloading in different
+ * environments.
+ * @param message the error message to report.
+ * @param ex optional associated exception.
+ */
+Templater.prototype._handleError = function(message, ex) {
+  this._logError(message + ' (In: ' + this.stack.join(' > ') + ')');
+  if (ex) {
+    this._logError(ex);
+  }
+};
+
+/**
+ * A generic way of reporting errors, for easy overloading in different
+ * environments.
+ * @param message the error message to report.
+ */
+Templater.prototype._logError = function(message) {
+  console.log(message);
+};
+
+if (typeof exports !== 'undefined') {
+  exports.template = template;
+}
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/cli', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'util/l10n', 'gcli/ui/view', 'gcli/converters', 'gcli/canon', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var util = require('util/util');
+var l10n = require('util/l10n');
+
 var view = require('gcli/ui/view');
-var l10n = require('gcli/l10n');
-
+var converters = require('gcli/converters');
 var canon = require('gcli/canon');
-var Q = require('gcli/promise');
+var CommandOutputManager = require('gcli/canon').CommandOutputManager;
 
 var Status = require('gcli/types').Status;
 var Conversion = require('gcli/types').Conversion;
-var ArrayType = require('gcli/types/basic').ArrayType;
-var StringType = require('gcli/types/basic').StringType;
-var BooleanType = require('gcli/types/basic').BooleanType;
-var NumberType = require('gcli/types/basic').NumberType;
 
 var Argument = require('gcli/argument').Argument;
 var ArrayArgument = require('gcli/argument').ArrayArgument;
@@ -6068,20 +9091,15 @@ var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
 var MergedArgument = require('gcli/argument').MergedArgument;
 var ScriptArgument = require('gcli/argument').ScriptArgument;
 
-var evalCommand;
-
 /**
- * Registration and de-registration.
+ * Some manual intervention is needed in parsing the { command.
  */
-exports.startup = function() {
-  evalCommand = canon.addCommand(evalCommandSpec);
-};
-
-exports.shutdown = function() {
-  canon.removeCommand(evalCommandSpec.name);
-  evalCommand = undefined;
-};
-
+function getEvalCommand() {
+  if (getEvalCommand._cmd == null) {
+    getEvalCommand._cmd = canon.getCommand(evalCmd.name);
+  }
+  return getEvalCommand._cmd;
+}
 
 /**
  * Assignment is a link between a parameter and the data for that parameter.
@@ -6093,14 +9111,6 @@ exports.shutdown = function() {
  * Thus, null is a valid default value, and common because it identifies an
  * parameter that is optional. undefined means there is no value from
  * the command line.
- *
- * <h2>Events<h2>
- * Assignment publishes the following event:<ul>
- * <li>onAssignmentChange: Either the value or the text has changed. It is
- * likely that any UI component displaying this argument will need to be
- * updated.
- * The event object looks like:
- * <tt>{ assignment: ..., conversion: ..., oldConversion: ... }</tt>
  * @constructor
  */
 function Assignment(param, paramIndex) {
@@ -6113,8 +9123,6 @@ function Assignment(param, paramIndex) {
   // is the command assignment although this should not be relied upon, it is
   // better to test param instanceof CommandAssignment
   this.paramIndex = paramIndex;
-
-  this.onAssignmentChange = util.createEvent('Assignment.onAssignmentChange');
 }
 
 /**
@@ -6124,7 +9132,7 @@ function Assignment(param, paramIndex) {
  */
 Object.defineProperty(Assignment.prototype, 'arg', {
   get: function() {
-    return this.conversion.arg;
+    return this.conversion == null ? undefined : this.conversion.arg;
   },
   enumerable: true
 });
@@ -6136,7 +9144,7 @@ Object.defineProperty(Assignment.prototype, 'arg', {
  */
 Object.defineProperty(Assignment.prototype, 'value', {
   get: function() {
-    return this.conversion.value;
+    return this.conversion == null ? undefined : this.conversion.value;
   },
   enumerable: true
 });
@@ -6144,9 +9152,13 @@ Object.defineProperty(Assignment.prototype, 'value', {
 /**
  * Easy (and safe) accessor for conversion.message
  */
-Assignment.prototype.getMessage = function() {
-  return this.conversion.message ? this.conversion.message : '';
-};
+Object.defineProperty(Assignment.prototype, 'message', {
+  get: function() {
+    return this.conversion == null || !this.conversion.message ?
+        '' : this.conversion.message;
+  },
+  enumerable: true
+});
 
 /**
  * Easy (and safe) accessor for conversion.getPredictions()
@@ -6154,7 +9166,7 @@ Assignment.prototype.getMessage = function() {
  * [ { name:'bestmatch', value:foo1 }, { name:'next', value:foo2 }, ... ]
  */
 Assignment.prototype.getPredictions = function() {
-  return this.conversion.getPredictions();
+  return this.conversion == null ? [] : this.conversion.getPredictions();
 };
 
 /**
@@ -6171,19 +9183,20 @@ Assignment.prototype.getPredictionAt = function(index) {
   }
 
   if (this.isInName()) {
-    return undefined;
+    return promise.resolve(undefined);
   }
 
-  var predictions = this.getPredictions();
-  if (predictions.length === 0) {
-    return undefined;
-  }
+  return this.getPredictions().then(function(predictions) {
+    if (predictions.length === 0) {
+      return undefined;
+    }
 
-  index = index % predictions.length;
-  if (index < 0) {
-    index = predictions.length + index;
-  }
-  return predictions[index];
+    index = index % predictions.length;
+    if (index < 0) {
+      index = predictions.length + index;
+    }
+    return predictions[index];
+  }.bind(this));
 };
 
 /**
@@ -6196,30 +9209,6 @@ Assignment.prototype.getPredictionAt = function(index) {
 Assignment.prototype.isInName = function() {
   return this.conversion.arg.type === 'NamedArgument' &&
          this.conversion.arg.prefix.slice(-1) !== ' ';
-};
-
-/**
- * Make sure that there is some content for this argument by using an
- * Argument of '' if needed.
- */
-Assignment.prototype.ensureVisibleArgument = function() {
-  // It isn't clear if we should be sending events from this method.
-  // It should only be called when structural changes are happening in which
-  // case we're going to ignore the event anyway. But on the other hand
-  // perhaps this function shouldn't need to know how it is used, and should
-  // do the inefficient thing.
-  if (this.conversion.arg.type !== 'BlankArgument') {
-    return false;
-  }
-
-  var arg = this.conversion.arg.beget({
-    text: '',
-    prefixSpace: this.param instanceof CommandAssignment
-  });
-  this.conversion = this.param.type.parse(arg);
-  this.conversion.assign(this);
-
-  return true;
 };
 
 /**
@@ -6258,14 +9247,18 @@ Assignment.prototype.toString = function() {
  */
 Object.defineProperty(Assignment.prototype, '_summaryJson', {
   get: function() {
+    var predictionCount = '<async>';
+    this.getPredictions().then(function(predictions) {
+      predictionCount = predictions.length;
+    }, console.log);
     return {
       param: this.param.name + '/' + this.param.type.name,
       defaultValue: this.param.defaultValue,
       arg: this.conversion.arg._summaryJson,
       value: this.value,
-      message: this.getMessage(),
+      message: this.message,
       status: this.getStatus().toString(),
-      predictionCount: this.getPredictions().length
+      predictionCount: predictionCount
     };
   },
   enumerable: true
@@ -6304,7 +9297,8 @@ exports.unsetEvalFunction = function() {
 /**
  * 'eval' command
  */
-var evalCommandSpec = {
+var evalCmd = {
+  item: 'command',
   name: '{',
   params: [
     {
@@ -6319,15 +9313,19 @@ var evalCommandSpec = {
   exec: function(args, context) {
     return customEval(args.javascript);
   },
-  evalRegexp: /^\s*{\s*/
+  isCommandRegexp: /^\s*{\s*/
 };
 
+exports.items = [ evalCmd ];
 
 /**
  * This is a special assignment to reflect the command itself.
  */
 function CommandAssignment() {
-  var commandParamMetadata = { name: '__command', type: 'command' };
+  var commandParamMetadata = {
+    name: '__command',
+    type: { name: 'command', allowNonExec: false }
+  };
   // This is a hack so that rather than reply with a generic description of the
   // command assignment, we reply with the description of the assigned command,
   // (using a generic term if there is no assigned command)
@@ -6343,7 +9341,6 @@ function CommandAssignment() {
   });
   this.param = new canon.Parameter(commandParamMetadata);
   this.paramIndex = -1;
-  this.onAssignmentChange = util.createEvent('CommandAssignment.onAssignmentChange');
 }
 
 CommandAssignment.prototype = Object.create(Assignment.prototype);
@@ -6370,13 +9367,14 @@ function UnassignedAssignment(requisition, arg) {
       name: 'param',
       requisition: requisition,
       isIncompleteName: (arg.text.charAt(0) === '-')
-    },
+    }
   });
   this.paramIndex = -1;
-  this.onAssignmentChange = util.createEvent('UnassignedAssignment.onAssignmentChange');
 
-  this.conversion = this.param.type.parse(arg);
-  this.conversion.assign(this);
+  // synchronize is ok because we can be sure that param type is synchronous
+  var parsed = this.param.type.parse(arg, requisition.executionContext);
+  this.conversion = util.synchronize(parsed);
+  this.conversion.assignment = this;
 }
 
 UnassignedAssignment.prototype = Object.create(Assignment.prototype);
@@ -6385,6 +9383,7 @@ UnassignedAssignment.prototype.getStatus = function(arg) {
   return this.conversion.getStatus();
 };
 
+exports.logErrors = true;
 
 /**
  * A Requisition collects the information needed to execute a command.
@@ -6400,9 +9399,6 @@ UnassignedAssignment.prototype.getStatus = function(arg) {
  * <h2>Events<h2>
  * <p>Requisition publishes the following events:
  * <ul>
- * <li>onAssignmentChange: This is a forward of the onAssignmentChange event on
- * Assignment. It is fired when any assignment (except the commandAssignment)
- * changes.
  * <li>onTextChange: The text to be mirrored in a command line has changed.
  * </ul>
  *
@@ -6411,9 +9407,11 @@ UnassignedAssignment.prototype.getStatus = function(arg) {
  * @param doc A DOM Document passed to commands using the Execution Context in
  * order to allow creation of DOM nodes. If missing Requisition will use the
  * global 'document'.
+ * @param commandOutputManager A custom commandOutputManager to which output
+ * should be sent (optional)
  * @constructor
  */
-function Requisition(environment, doc) {
+function Requisition(environment, doc, commandOutputManager) {
   this.environment = environment;
   this.document = doc;
   if (this.document == null) {
@@ -6425,10 +9423,20 @@ function Requisition(environment, doc) {
     }
   }
 
+  this.commandOutputManager = commandOutputManager || new CommandOutputManager();
+  this.shell = {
+    cwd: '/', // Where we store the current working directory
+    env: {}   // Where we store the current environment
+  };
+
+  this.onTextChange = util.createEvent('Requisition.onTextChange');
+
   // The command that we are about to execute.
   // @see setCommandConversion()
   this.commandAssignment = new CommandAssignment();
-  this._setAssignment(this.commandAssignment, null, true);
+  var assignPromise = this.setAssignment(this.commandAssignment, null,
+                                   { internal: true });
+  util.synchronize(assignPromise);
 
   // The object that stores of Assignment objects that we are filling out.
   // The Assignment objects are stored under their param.name for named
@@ -6447,81 +9455,171 @@ function Requisition(environment, doc) {
   // Used to store cli arguments that were not assigned to parameters
   this._unassigned = [];
 
-  // Temporarily set this to true to prevent _assignmentChanged resetting
-  // argument positions
-  this._structuralChangeInProgress = false;
+  // Changes can be asynchronous, when one update starts before another
+  // finishes we abandon the former change
+  this._nextUpdateId = 0;
 
-  this.commandAssignment.onAssignmentChange.add(this._commandAssignmentChanged, this);
-  this.commandAssignment.onAssignmentChange.add(this._assignmentChanged, this);
-
-  this.commandOutputManager = canon.commandOutputManager;
-
-  this.onAssignmentChange = util.createEvent('Requisition.onAssignmentChange');
-  this.onTextChange = util.createEvent('Requisition.onTextChange');
+  // We can set a prefix to typed commands to make it easier to focus on
+  // Allowing us to type "add -a; commit" in place of "git add -a; git commit"
+  this.prefix = '';
 }
 
 /**
  * Avoid memory leaks
  */
 Requisition.prototype.destroy = function() {
-  this.commandAssignment.onAssignmentChange.remove(this._commandAssignmentChanged, this);
-  this.commandAssignment.onAssignmentChange.remove(this._assignmentChanged, this);
-
   delete this.document;
   delete this.environment;
 };
 
 /**
- * When any assignment changes, we might need to update the _args array to
- * match and inform people of changes to the typed input text.
+ * If we're about to make an asynchronous change when other async changes could
+ * overtake this one, then we want to be able to bail out if overtaken. The
+ * value passed back from beginChange should be passed to endChangeCheckOrder
+ * on completion of calculation, before the results are applied in order to
+ * check that the calculation has not been overtaken
  */
-Requisition.prototype._assignmentChanged = function(ev) {
-  // Don't report an event if the value is unchanged
-  if (ev.oldConversion != null &&
-      ev.conversion.valueEquals(ev.oldConversion)) {
-    return;
-  }
+Requisition.prototype._beginChange = function() {
+  this.onTextChange.holdFire();
 
-  if (this._structuralChangeInProgress) {
-    return;
-  }
-
-  this.onAssignmentChange(ev);
-
-  // Both for argument position and the onTextChange event, we only care
-  // about changes to the argument.
-  if (ev.conversion.argEquals(ev.oldConversion)) {
-    return;
-  }
-
-  this.onTextChange();
+  var updateId = this._nextUpdateId;
+  this._nextUpdateId++;
+  return updateId;
 };
 
 /**
- * When the command changes, we need to keep a bunch of stuff in sync
+ * Check to see if another change has started since updateId started.
+ * This allows us to bail out of an update.
+ * It's hard to make updates atomic because until you've responded to a parse
+ * of the command argument, you don't know how to parse the arguments to that
+ * command.
  */
-Requisition.prototype._commandAssignmentChanged = function(ev) {
-  // Assignments fire AssignmentChange events on any change, including minor
-  // things like whitespace change in arg prefix, so we ignore anything but
-  // an actual value change
-  if (ev.conversion.valueEquals(ev.oldConversion)) {
-    return;
-  }
-
-  this._assignments = {};
-
-  var command = this.commandAssignment.value;
-  if (command) {
-    for (var i = 0; i < command.params.length; i++) {
-      var param = command.params[i];
-      var assignment = new Assignment(param, i);
-      this._setAssignment(assignment, null, true);
-      assignment.onAssignmentChange.add(this._assignmentChanged, this);
-      this._assignments[param.name] = assignment;
-    }
-  }
-  this.assignmentCount = Object.keys(this._assignments).length;
+Requisition.prototype._isChangeCurrent = function(updateId) {
+  return updateId + 1 === this._nextUpdateId;
 };
+
+/**
+ * See notes on beginChange
+ */
+Requisition.prototype._endChangeCheckOrder = function(updateId) {
+  this.onTextChange.resumeFire();
+
+  if (updateId + 1 !== this._nextUpdateId) {
+    // An update that started after we did has already finished, so our
+    // changes are out of date. Abandon further work.
+    return false;
+  }
+
+  return true;
+};
+
+var legacy = false;
+
+/**
+ * Functions and data related to the execution of a command
+ */
+Object.defineProperty(Requisition.prototype, 'executionContext', {
+  get: function() {
+    if (this._executionContext == null) {
+      this._executionContext = {
+        defer: function() {
+          return promise.defer();
+        },
+        typedData: function(type, data) {
+          return {
+            isTypedData: true,
+            data: data,
+            type: type
+          };
+        },
+        getArgsObject: this.getArgsObject.bind(this)
+      };
+
+      // Alias requisition so we're clear about what's what
+      var requisition = this;
+      Object.defineProperty(this._executionContext, 'typed', {
+        get: function() { return requisition.toString(); },
+        enumerable: true
+      });
+      Object.defineProperty(this._executionContext, 'environment', {
+        get: function() { return requisition.environment; },
+        enumerable: true
+      });
+      Object.defineProperty(this._executionContext, 'shell', {
+        get: function() { return requisition.shell; },
+        enumerable : true
+      });
+
+      /**
+       * This is a temporary property that will change and/or be removed.
+       * Do not use it
+       */
+      Object.defineProperty(this._executionContext, '__dlhjshfw', {
+        get: function() { return requisition; },
+        enumerable: false
+      });
+
+      if (legacy) {
+        this._executionContext.createView = view.createView;
+        this._executionContext.exec = this.exec.bind(this);
+        this._executionContext.update = this.update.bind(this);
+        this._executionContext.updateExec = this.updateExec.bind(this);
+
+        Object.defineProperty(this._executionContext, 'document', {
+          get: function() { return requisition.document; },
+          enumerable: true
+        });
+      }
+    }
+
+    return this._executionContext;
+  },
+  enumerable: true
+});
+
+/**
+ * Functions and data related to the conversion of the output of a command
+ */
+Object.defineProperty(Requisition.prototype, 'conversionContext', {
+  get: function() {
+    if (this._conversionContext == null) {
+      this._conversionContext = {
+        defer: function() {
+          return promise.defer();
+        },
+
+        createView: view.createView,
+        exec: this.exec.bind(this),
+        update: this.update.bind(this),
+        updateExec: this.updateExec.bind(this)
+      };
+
+      // Alias requisition so we're clear about what's what
+      var requisition = this;
+
+      Object.defineProperty(this._conversionContext, 'document', {
+        get: function() { return requisition.document; },
+        enumerable: true
+      });
+      Object.defineProperty(this._conversionContext, 'environment', {
+        get: function() { return requisition.environment; },
+        enumerable: true
+      });
+
+      /**
+       * This is a temporary property that will change and/or be removed.
+       * Do not use it
+       */
+      Object.defineProperty(this._conversionContext, '__dlhjshfw', {
+        get: function() { return requisition; },
+        enumerable: false
+      });
+    }
+
+    return this._conversionContext;
+  },
+  enumerable: true
+});
 
 /**
  * Assignments have an order, so we need to store them in an array.
@@ -6582,28 +9680,57 @@ Requisition.prototype.cloneAssignments = function() {
  * isn't quite ERROR because the user can fix it by typing', however overall,
  * this is still an error status.
  */
-Requisition.prototype.getStatus = function() {
-  var status = Status.VALID;
-  if (this._unassigned.length !== 0) {
-    var isAllIncomplete = true;
-    this._unassigned.forEach(function(assignment) {
-      if (!assignment.param.type.isIncompleteName) {
-        isAllIncomplete = false;
+Object.defineProperty(Requisition.prototype, 'status', {
+  get : function() {
+    var status = Status.VALID;
+    if (this._unassigned.length !== 0) {
+      var isAllIncomplete = true;
+      this._unassigned.forEach(function(assignment) {
+        if (!assignment.param.type.isIncompleteName) {
+          isAllIncomplete = false;
+        }
+      });
+      status = isAllIncomplete ? Status.INCOMPLETE : Status.ERROR;
+    }
+
+    this.getAssignments(true).forEach(function(assignment) {
+      var assignStatus = assignment.getStatus();
+      if (assignStatus > status) {
+        status = assignStatus;
       }
-    });
-    status = isAllIncomplete ? Status.INCOMPLETE : Status.ERROR;
+    }, this);
+    if (status === Status.INCOMPLETE) {
+      status = Status.ERROR;
+    }
+    return status;
+  },
+  enumerable : true
+});
+
+/**
+ * If ``requisition.status != VALID`` message then return a string which
+ * best describes what is wrong. Generally error messages are delivered by
+ * looking at the error associated with the argument at the cursor, but there
+ * are times when you just want to say 'tell me the worst'.
+ * If ``requisition.status != VALID`` then return ``null``.
+ */
+Requisition.prototype.getStatusMessage = function() {
+  if (this.commandAssignment.getStatus() !== Status.VALID) {
+    return l10n.lookup('cliUnknownCommand');
   }
 
-  this.getAssignments(true).forEach(function(assignment) {
-    var assignStatus = assignment.getStatus();
-    if (assignStatus > status) {
-      status = assignStatus;
+  var assignments = this.getAssignments();
+  for (var i = 0; i < assignments.length; i++) {
+    if (assignments[i].getStatus() !== Status.VALID) {
+      return assignments[i].message;
     }
-  }, this);
-  if (status === Status.INCOMPLETE) {
-    status = Status.ERROR;
   }
-  return status;
+
+  if (this._unassigned.length !== 0) {
+    return l10n.lookup('cliUnusedArg');
+  }
+
+  return null;
 };
 
 /**
@@ -6638,13 +9765,45 @@ Requisition.prototype.getAssignments = function(includeCommand) {
 };
 
 /**
- * Alter the given assignment using the given arg.
- * @param assignment The assignment to alter
- * @param arg The new value for the assignment. An instance of Argument, or an
- * instance of Conversion, or null to set the blank value.
+ * When any assignment changes, we might need to update the _args array to
+ * match and inform people of changes to the typed input text.
  */
-Requisition.prototype.setAssignment = function(assignment, arg) {
-  this._setAssignment(assignment, arg, false);
+Requisition.prototype._setAssignmentInternal = function(assignment, conversion) {
+  var oldConversion = assignment.conversion;
+
+  assignment.conversion = conversion;
+  assignment.conversion.assignment = assignment;
+
+  // Do nothing if the conversion is unchanged
+  if (assignment.conversion.equals(oldConversion)) {
+    if (assignment === this.commandAssignment) {
+      this.setBlankArguments();
+    }
+    return;
+  }
+
+  // When the command changes, we need to keep a bunch of stuff in sync
+  if (assignment === this.commandAssignment) {
+    this._assignments = {};
+
+    var command = this.commandAssignment.value;
+    if (command) {
+      for (var i = 0; i < command.params.length; i++) {
+        var param = command.params[i];
+        var newAssignment = new Assignment(param, i);
+        var assignPromise = this.setAssignment(newAssignment, null, { internal: true });
+        util.synchronize(assignPromise);
+
+        this._assignments[param.name] = newAssignment;
+      }
+    }
+    this.assignmentCount = Object.keys(this._assignments).length;
+  }
+
+  // For the onTextChange event, we only care about changes to the argument
+  if (!assignment.conversion.argEquals(oldConversion)) {
+    this.onTextChange();
+  }
 };
 
 /**
@@ -6652,12 +9811,21 @@ Requisition.prototype.setAssignment = function(assignment, arg) {
  * @param assignment The assignment to alter
  * @param arg The new value for the assignment. An instance of Argument, or an
  * instance of Conversion, or null to set the blank value.
- * @param skipArgUpdate (default=false) Adjusts the args in this requisition to
- * keep things up to date. Args should only be skipped when setAssignment is
- * being called as part of the update process.
+ * @param options There are a number of ways to customize how the assignment
+ * is made, including:
+ * - internal: (default:false) External updates are required to do more work,
+ *   including adjusting the args in this requisition to stay in sync.
+ *   On the other hand non internal changes use beginChange to back out of
+ *   changes when overtaken asynchronously.
+ *   Setting internal:true effectively means this is being called as part of
+ *   the update process.
+ * - matchPadding: (default:false) Alter the whitespace on the prefix and
+ *   suffix of the new argument to match that of the old argument. This only
+ *   makes sense with internal=false
  */
-Requisition.prototype._setAssignment = function(assignment, arg, skipArgUpdate) {
-  if (!skipArgUpdate) {
+Requisition.prototype.setAssignment = function(assignment, arg, options) {
+  options = options || {};
+  if (!options.internal) {
     var originalArgs = assignment.arg.getArgs();
 
     // Update the args array
@@ -6683,36 +9851,43 @@ Requisition.prototype._setAssignment = function(assignment, arg, skipArgUpdate) 
         this._args.splice(index, 1);
       }
       else {
+        if (options.matchPadding) {
+          if (replacementArgs[i].prefix.length === 0 &&
+              this._args[index].prefix.length !== 0) {
+            replacementArgs[i].prefix = this._args[index].prefix;
+          }
+          if (replacementArgs[i].suffix.length === 0 &&
+              this._args[index].suffix.length !== 0) {
+            replacementArgs[i].suffix = this._args[index].suffix;
+          }
+        }
         this._args[index] = replacementArgs[i];
       }
     }
   }
 
-  var conversion;
+  var updateId = options.internal ? null : this._beginChange();
+
+  var setAssignmentInternal = function(conversion) {
+    if (options.internal || this._endChangeCheckOrder(updateId)) {
+      this._setAssignmentInternal(assignment, conversion);
+    }
+
+    return promise.resolve(undefined);
+  }.bind(this);
+
   if (arg == null) {
-    conversion = assignment.param.type.getBlank();
-  }
-  else if (typeof arg.getStatus === 'function') {
-    conversion = arg;
-  }
-  else {
-    conversion = assignment.param.type.parse(arg);
+    var blank = assignment.param.type.getBlank(this.executionContext);
+    return setAssignmentInternal(blank);
   }
 
-  var oldConversion = assignment.conversion;
-
-  assignment.conversion = conversion;
-  assignment.conversion.assign(assignment);
-
-  if (assignment.conversion.equals(oldConversion)) {
-    return;
+  if (typeof arg.getStatus === 'function') {
+    // It's not really an arg, it's a conversion already
+    return setAssignmentInternal(arg);
   }
 
-  assignment.onAssignmentChange({
-    assignment: assignment,
-    conversion: assignment.conversion,
-    oldConversion: oldConversion
-  });
+  var parsed = assignment.param.type.parse(arg, this.executionContext);
+  return parsed.then(setAssignmentInternal);
 };
 
 /**
@@ -6720,7 +9895,8 @@ Requisition.prototype._setAssignment = function(assignment, arg, skipArgUpdate) 
  */
 Requisition.prototype.setBlankArguments = function() {
   this.getAssignments().forEach(function(assignment) {
-    this._setAssignment(assignment, null, true);
+    var assignPromise = this.setAssignment(assignment, null, { internal: true });
+    util.synchronize(assignPromise);
   }, this);
 };
 
@@ -6731,56 +9907,89 @@ Requisition.prototype.setBlankArguments = function() {
  *   assignment.value = assignment.conversion.predictions[0];
  * Except it's done safely, and with particular care to where we place the
  * space, which is complex, and annoying if we get it wrong.
+ *
+ * WARNING: complete() can happen asynchronously.
+ *
  * @param cursor The cursor configuration. Should have start and end properties
  * which should be set to start and end of the selection.
  * @param predictionChoice The index of the prediction that we should choose.
  * This number is not bounded by the size of the prediction array, we take the
  * modulus to get it within bounds
+ * @return A promise which completes (with undefined) when any outstanding
+ * completion tasks are done.
  */
 Requisition.prototype.complete = function(cursor, predictionChoice) {
   var assignment = this.getAssignmentAt(cursor.start);
 
-  this.onTextChange.holdFire();
+  var predictionPromise = assignment.getPredictionAt(predictionChoice);
+  return predictionPromise.then(function(prediction) {
+    var outstanding = [];
+    this.onTextChange.holdFire();
 
-  var prediction = assignment.getPredictionAt(predictionChoice);
-  if (prediction == null) {
-    // No predictions generally means we shouldn't change anything on TAB, but
-    // TAB has the connotation of 'next thing' and when we're at the end of
-    // a thing that implies that we should add a space. i.e.
-    // 'help<TAB>' -> 'help '
-    // But we should only do this if the thing that we're 'completing' is valid
-    // and doesn't already end in a space.
-    if (assignment.arg.suffix.slice(-1) !== ' ' &&
-            assignment.getStatus() === Status.VALID) {
-      this._addSpace(assignment);
-    }
+    // Note: Since complete is asynchronous we should perhaps have a system to
+    // bail out of making changes if the command line has changed since TAB
+    // was pressed. It's not yet clear if this will be a problem.
 
-    // Also add a space if we are in the name part of an assignment, however
-    // this time we don't want the 'push the space to the next assignment'
-    // logic, so we don't use addSpace
-    if (assignment.isInName()) {
-      var newArg = assignment.conversion.arg.beget({ prefixPostSpace: true });
-      this.setAssignment(assignment, newArg);
-    }
-  }
-  else {
-    // Mutate this argument to hold the completion
-    var arg = assignment.arg.beget({ text: prediction.name });
-    this.setAssignment(assignment, arg);
+    if (prediction == null) {
+      // No predictions generally means we shouldn't change anything on TAB,
+      // but TAB has the connotation of 'next thing' and when we're at the end
+      // of a thing that implies that we should add a space. i.e.
+      // 'help<TAB>' -> 'help '
+      // But we should only do this if the thing that we're 'completing' is
+      // valid and doesn't already end in a space.
+      if (assignment.arg.suffix.slice(-1) !== ' ' &&
+              assignment.getStatus() === Status.VALID) {
+        outstanding.push(this._addSpace(assignment));
+      }
 
-    if (!prediction.incomplete) {
-      // The prediction is complete, add a space to let the user move-on
-      this._addSpace(assignment);
-
-      // Bug 779443 - Remove or explain the reparse
-      if (assignment instanceof UnassignedAssignment) {
-        this.update(this.toString());
+      // Also add a space if we are in the name part of an assignment, however
+      // this time we don't want the 'push the space to the next assignment'
+      // logic, so we don't use addSpace
+      if (assignment.isInName()) {
+        var newArg = assignment.arg.beget({ prefixPostSpace: true });
+        outstanding.push(this.setAssignment(assignment, newArg));
       }
     }
-  }
+    else {
+      // Mutate this argument to hold the completion
+      var arg = assignment.arg.beget({
+        text: prediction.name,
+        dontQuote: (assignment === this.commandAssignment)
+      });
+      var assignPromise = this.setAssignment(assignment, arg);
 
-  this.onTextChange();
-  this.onTextChange.resumeFire();
+      if (!prediction.incomplete) {
+        assignPromise = assignPromise.then(function() {
+          // The prediction is complete, add a space to let the user move-on
+          return this._addSpace(assignment).then(function() {
+            // Bug 779443 - Remove or explain the re-parse
+            if (assignment instanceof UnassignedAssignment) {
+              return this.update(this.toString());
+            }
+          }.bind(this));
+        }.bind(this));
+      }
+
+      outstanding.push(assignPromise);
+    }
+
+    return promise.all(outstanding).then(function() {
+      this.onTextChange();
+      this.onTextChange.resumeFire();
+      return true;
+    }.bind(this));
+  }.bind(this));
+};
+
+/**
+ * A test method to check that all args are assigned in some way
+ */
+Requisition.prototype._assertArgsAssigned = function() {
+  this._args.forEach(function(arg) {
+    if (arg.assignment == null) {
+      console.log('No assignment for ' + arg);
+    }
+  }, this);
 };
 
 /**
@@ -6789,9 +9998,12 @@ Requisition.prototype.complete = function(cursor, predictionChoice) {
  * @param assignment The assignment to which to append the space
  */
 Requisition.prototype._addSpace = function(assignment) {
-  var arg = assignment.conversion.arg.beget({ suffixSpace: true });
-  if (arg !== assignment.conversion.arg) {
-    this.setAssignment(assignment, arg);
+  var arg = assignment.arg.beget({ suffixSpace: true });
+  if (arg !== assignment.arg) {
+    return this.setAssignment(assignment, arg);
+  }
+  else {
+    return promise.resolve(undefined);
   }
 };
 
@@ -6799,11 +10011,14 @@ Requisition.prototype._addSpace = function(assignment) {
  * Replace the current value with the lower value if such a concept exists.
  */
 Requisition.prototype.decrement = function(assignment) {
-  var replacement = assignment.param.type.decrement(assignment.conversion.value);
+  var replacement = assignment.param.type.decrement(assignment.value,
+                                                    this.executionContext);
   if (replacement != null) {
-    var str = assignment.param.type.stringify(replacement);
-    var arg = assignment.conversion.arg.beget({ text: str });
-    this.setAssignment(assignment, arg);
+    var str = assignment.param.type.stringify(replacement,
+                                              this.executionContext);
+    var arg = assignment.arg.beget({ text: str });
+    var assignPromise = this.setAssignment(assignment, arg);
+    util.synchronize(assignPromise);
   }
 };
 
@@ -6811,11 +10026,14 @@ Requisition.prototype.decrement = function(assignment) {
  * Replace the current value with the higher value if such a concept exists.
  */
 Requisition.prototype.increment = function(assignment) {
-  var replacement = assignment.param.type.increment(assignment.conversion.value);
+  var replacement = assignment.param.type.increment(assignment.value,
+                                                    this.executionContext);
   if (replacement != null) {
-    var str = assignment.param.type.stringify(replacement);
-    var arg = assignment.conversion.arg.beget({ text: str });
-    this.setAssignment(assignment, arg);
+    var str = assignment.param.type.stringify(replacement,
+                                              this.executionContext);
+    var arg = assignment.arg.beget({ text: str });
+    var assignPromise = this.setAssignment(assignment, arg);
+    util.synchronize(assignPromise);
   }
 };
 
@@ -6838,7 +10056,7 @@ Requisition.prototype.toCanonicalString = function() {
     // named parameters in place of positional params. Both can wait.
     if (assignment.value !== assignment.param.defaultValue) {
       line.push(' ');
-      line.push(type.stringify(assignment.value));
+      line.push(type.stringify(assignment.value, this.executionContext));
     }
   }, this);
 
@@ -6858,19 +10076,19 @@ Requisition.prototype.toCanonicalString = function() {
  * to display this typed input. It's a bit like toString on steroids.
  * <p>
  * The returned object has the following members:<ul>
- * <li>char: The character to which this arg trace refers.
+ * <li>character: The character to which this arg trace refers.
  * <li>arg: The Argument to which this character is assigned.
  * <li>part: One of ['prefix'|'text'|suffix'] - how was this char understood
  * </ul>
  * <p>
- * The Argument objects are as output from #_tokenize() rather than as applied
- * to Assignments by #_assign() (i.e. they are not instances of NamedArgument,
+ * The Argument objects are as output from tokenize() rather than as applied
+ * to Assignments by _assign() (i.e. they are not instances of NamedArgument,
  * ArrayArgument, etc).
  * <p>
  * To get at the arguments applied to the assignments simply call
  * <tt>arg.assignment.arg</tt>. If <tt>arg.assignment.arg !== arg</tt> then
  * the arg applied to the assignment will contain the original arg.
- * See #_assign() for details.
+ * See _assign() for details.
  */
 Requisition.prototype.createInputArgTrace = function() {
   if (!this._args) {
@@ -6883,13 +10101,13 @@ Requisition.prototype.createInputArgTrace = function() {
   var i;
   this._args.forEach(function(arg) {
     for (i = 0; i < arg.prefix.length; i++) {
-      args.push({ arg: arg, char: arg.prefix[i], part: 'prefix' });
+      args.push({ arg: arg, character: arg.prefix[i], part: 'prefix' });
     }
     for (i = 0; i < arg.text.length; i++) {
-      args.push({ arg: arg, char: arg.text[i], part: 'text' });
+      args.push({ arg: arg, character: arg.text[i], part: 'text' });
     }
     for (i = 0; i < arg.suffix.length; i++) {
-      args.push({ arg: arg, char: arg.suffix[i], part: 'suffix' });
+      args.push({ arg: arg, character: arg.suffix[i], part: 'suffix' });
     }
   });
 
@@ -6977,11 +10195,11 @@ Requisition.prototype.getInputStatusMarkup = function(cursor) {
       }
     }
 
-    markup.push({ status: status, string: argTrace.char });
+    markup.push({ status: status, string: argTrace.character });
   }
 
   // De-dupe: merge entries where 2 adjacent have same status
-  var i = 0;
+  i = 0;
   while (i < markup.length - 1) {
     if (markup[i].status === markup[i + 1].status) {
       markup[i].string += markup[i + 1].string;
@@ -7063,44 +10281,32 @@ Requisition.prototype.getAssignmentAt = function(cursor) {
 
 /**
  * Entry point for keyboard accelerators or anything else that wants to execute
- * a command. There are 3 ways to call <tt>exec()</tt>:
- * 1. Without any parameters. This assumes that the command to be executed has
- *    already been parsed by the requisition using <tt>update()</tt>.
- * 2. With a string parameter, or an object with a 'typed' property. This is
- *    effectively a shortcut for calling <tt>update(typed); exec();</tt>
- * 3. With input having a 'command' property which is either a command object
- *    (i.e. from canon.getCommand) or a string which can be passed to
- *    canon.getCommand() plus and optional 'args' property which contains the
- *    argument values as passed to command.exec. This method is significantly
- *    faster, and designed for use from keyboard shortcuts.
- * In addition to these properties, the input parameter can contain a 'hidden'
- * property which can be set to true to hide the output from the
- * CommandOutputManager.
- * @param input (optional) The command to execute. See above.
+ * a command.
+ * @param options Object describing how the execution should be handled.
+ * (optional). Contains some of the following properties:
+ * - hidden (boolean, default=false) Should the output be hidden from the
+ *   commandOutputManager for this requisition
+ * - command/args A fast shortcut to executing a known command with a known
+ *   set of parsed arguments.
  */
-Requisition.prototype.exec = function(input) {
+Requisition.prototype.exec = function(options) {
   var command = null;
   var args = null;
   var hidden = false;
-  if (input && input.hidden) {
-    hidden = true;
-  }
 
-  if (input) {
-    if (typeof input === 'string') {
-      this.update(input);
+  if (options) {
+    if (options.hidden) {
+      hidden = true;
     }
-    else if (typeof input.typed === 'string') {
-      this.update(input.typed);
-    }
-    else if (input.command != null) {
+
+    if (options.command != null) {
       // Fast track by looking up the command directly since passed args
       // means there is no command line to parse.
-      command = canon.getCommand(input.command);
+      command = canon.getCommand(options.command);
       if (!command) {
-        console.error('Command not found: ' + input.command);
+        console.error('Command not found: ' + options.command);
       }
-      args = input.args;
+      args = options.args;
     }
   }
 
@@ -7109,14 +10315,10 @@ Requisition.prototype.exec = function(input) {
     args = this.getArgsObject();
   }
 
-  if (!command) {
-    throw new Error('Unknown command');
-  }
-
   // Display JavaScript input without the initial { or closing }
   var typed = this.toString();
-  if (evalCommandSpec.evalRegexp.test(typed)) {
-    typed = typed.replace(evalCommandSpec.evalRegexp, '');
+  if (evalCmd.isCommandRegexp.test(typed)) {
+    typed = typed.replace(evalCmd.isCommandRegexp, '');
     // Bug 717763: What if the JavaScript naturally ends with a }?
     typed = typed.replace(/\s*}\s*$/, '');
   }
@@ -7132,71 +10334,119 @@ Requisition.prototype.exec = function(input) {
   this.commandOutputManager.onOutput({ output: output });
 
   var onDone = function(data) {
-    output.complete(data);
+    output.complete(data, false);
+    return output;
   };
 
-  var onError = function(error) {
-    console.error(error);
-    output.error = true;
-    output.complete(error);
+  var onError = function(ex) {
+    if (exports.logErrors) {
+      util.errorHandler(ex);
+    }
+
+    var data = ex.isTypedData ? ex : {
+      isTypedData: true,
+      data: ex,
+      type: 'error'
+    };
+    output.complete(data, true);
+    return output;
   };
 
-  try {
-    var context = exports.createExecutionContext(this);
-    var reply = command.exec(args, context);
-
-    this._then(reply, onDone, onError);
+  if (this.status !== Status.VALID) {
+    var ex = new Error(this.getStatusMessage());
+    return promise.resolve(onError(ex)).then(function(output) {
+      this.clear();
+      return output;
+    });
   }
-  catch (ex) {
-    onError(ex);
+  else {
+    try {
+      var reply = command.exec(args, this.executionContext);
+      return promise.resolve(reply).then(onDone, onError);
+    }
+    catch (ex) {
+      return promise.resolve(onError(ex));
+    }
+    finally {
+      this.clear();
+    }
   }
-
-  this.update('');
-  return output;
 };
 
 /**
- * Different types of promise have different ways of doing 'then'. This is a
- * catch-all so we can ignore the differences. It also handles concrete values
- * and calls onDone directly if thing is not a promise.
- * @param thing The value to test for 'promiseness'
- * @param onDone The action to take if thing is resolved
- * @param onError The action to take if thing is rejected
+ * A shortcut for calling update, resolving the promise and then exec.
+ * @param input The string to execute
+ * @param options Passed to exec
+ * @return A promise of an output object
  */
-Requisition.prototype._then = function(thing, onDone, onError) {
-  var then = null;
-  if (thing != null && typeof thing.then === 'function') {
-    // Old GCLI style / simple promises with a then function
-    then = thing.then;
-  }
-  else if (thing != null && thing.promise != null &&
-                typeof thing.promise.then === 'function') {
-    // Q / Mozilla add-ons style
-    then = thing.promise.then;
-  }
-
-  if (then != null) {
-    then(onDone, onError);
-  }
-  else {
-    onDone(thing);
-  }
+Requisition.prototype.updateExec = function(input, options) {
+  return this.update(input).then(function() {
+    return this.exec(options);
+  }.bind(this));
 };
+
+/**
+ * Similar to update('') except that it's guaranteed to execute synchronously
+ */
+Requisition.prototype.clear = function() {
+  this.onTextChange.holdFire();
+
+  var arg = new Argument('', '', '');
+  this._args = [ arg ];
+
+  var commandType = this.commandAssignment.param.type;
+  var parsePromise = commandType.parse(arg, this.executionContext);
+  this.setAssignment(this.commandAssignment,
+                     util.synchronize(parsePromise),
+                     { internal: true });
+
+  this.onTextChange.resumeFire();
+  this.onTextChange();
+};
+
+/**
+ * Helper to find the 'data-command' attribute, used by |update()|
+ */
+function getDataCommandAttribute(element) {
+  var command = element.getAttribute('data-command');
+  if (!command) {
+    command = element.querySelector('*[data-command]')
+                     .getAttribute('data-command');
+  }
+  return command;
+}
 
 /**
  * Called by the UI when ever the user interacts with a command line input
  * @param typed The contents of the input field
  */
 Requisition.prototype.update = function(typed) {
-  this._structuralChangeInProgress = true;
+  if (typeof HTMLElement !== 'undefined' && typed instanceof HTMLElement) {
+    typed = getDataCommandAttribute(typed);
+  }
+  if (typeof Event !== 'undefined' && typed instanceof Event) {
+    typed = getDataCommandAttribute(typed.currentTarget);
+  }
 
-  this._args = this._tokenize(typed);
+  var updateId = this._beginChange();
+
+  this._args = exports.tokenize(typed);
   var args = this._args.slice(0); // i.e. clone
-  this._split(args);
-  this._assign(args);
 
-  this._structuralChangeInProgress = false;
-  this.onTextChange();
+  return this._split(args).then(function() {
+    if (!this._isChangeCurrent(updateId)) {
+      return false;
+    }
+
+    return this._assign(args).then(function() {
+      if (this._endChangeCheckOrder(updateId)) {
+        this.onTextChange();
+        return true;
+      }
+
+      return false;
+    }.bind(this));
+  }.bind(this));
 };
 
 /**
@@ -7226,7 +10476,7 @@ Object.defineProperty(Requisition.prototype, '_summaryJson', {
 });
 
 /**
- * Requisition._tokenize() is a state machine. These are the states.
+ * tokenize() is a state machine. These are the states.
  */
 var In = {
   /**
@@ -7279,7 +10529,7 @@ var In = {
  * if the user has gone to the trouble of pasting a TAB character into the
  * input field (or whatever it takes), they probably mean it.
  */
-Requisition.prototype._tokenize = function(typed) {
+exports.tokenize = function(typed) {
   // For blank input, place a dummy empty argument into the list
   if (typed == null || typed.length === 0) {
     return [ new Argument('', '', '') ];
@@ -7291,35 +10541,25 @@ Requisition.prototype._tokenize = function(typed) {
 
   var mode = In.WHITESPACE;
 
-  // First we un-escape. This list was taken from:
-  // https://developer.mozilla.org/en/Core_JavaScript_1.5_Guide/Core_Language_Features#Unicode
-  // We are generally converting to their real values except for the strings
-  // '\'', '\"', '\ ', '{' and '}' which we are converting to unicode private
-  // characters so we can distinguish them from '"', ' ', '{', '}' and ''',
-  // which are special. They need swapping back post-split - see unescape2()
+  // First we swap out escaped characters that are special to the tokenizer.
+  // So a backslash followed by any of ['"{} ] is turned into a unicode private
+  // char so we can swap back later
   typed = typed
-      .replace(/\\\\/g, '\\')
-      .replace(/\\b/g, '\b')
-      .replace(/\\f/g, '\f')
-      .replace(/\\n/g, '\n')
-      .replace(/\\r/g, '\r')
-      .replace(/\\t/g, '\t')
-      .replace(/\\v/g, '\v')
-      .replace(/\\n/g, '\n')
-      .replace(/\\r/g, '\r')
-      .replace(/\\ /g, '\uF000')
-      .replace(/\\'/g, '\uF001')
-      .replace(/\\"/g, '\uF002')
-      .replace(/\\{/g, '\uF003')
-      .replace(/\\}/g, '\uF004');
+      .replace(/\\\\/g, '\uF000')
+      .replace(/\\ /g, '\uF001')
+      .replace(/\\'/g, '\uF002')
+      .replace(/\\"/g, '\uF003')
+      .replace(/\\{/g, '\uF004')
+      .replace(/\\}/g, '\uF005');
 
   function unescape2(escaped) {
     return escaped
-        .replace(/\uF000/g, ' ')
-        .replace(/\uF001/g, '\'')
-        .replace(/\uF002/g, '"')
-        .replace(/\uF003/g, '{')
-        .replace(/\uF004/g, '}');
+        .replace(/\uF000/g, '\\\\')
+        .replace(/\uF001/g, '\\ ')
+        .replace(/\uF002/g, '\\\'')
+        .replace(/\uF003/g, '\\\"')
+        .replace(/\uF004/g, '\\{')
+        .replace(/\uF005/g, '\\}');
   }
 
   var i = 0;          // The index of the current character
@@ -7465,6 +10705,10 @@ function isSimple(typed) {
  * typed at the command line.
  */
 Requisition.prototype._split = function(args) {
+  // We're processing args, so we don't want the assignments that we make to
+  // try to adjust other args assuming this is an external update
+  var noArgUp = { internal: true };
+
   // Handle the special case of the user typing { javascript(); }
   // We use the hidden 'eval' command directly rather than shift()ing one of
   // the parameters, and parse()ing it.
@@ -7472,18 +10716,38 @@ Requisition.prototype._split = function(args) {
   if (args[0].type === 'ScriptArgument') {
     // Special case: if the user enters { console.log('foo'); } then we need to
     // use the hidden 'eval' command
-    conversion = new Conversion(evalCommand, new ScriptArgument());
-    this._setAssignment(this.commandAssignment, conversion, true);
-    return;
+    conversion = new Conversion(getEvalCommand(), new ScriptArgument());
+    return this.setAssignment(this.commandAssignment, conversion, noArgUp);
   }
 
   var argsUsed = 1;
 
+  var parsePromise;
+  var commandType = this.commandAssignment.param.type;
   while (argsUsed <= args.length) {
     var arg = (argsUsed === 1) ?
               args[0] :
               new MergedArgument(args, 0, argsUsed);
-    conversion = this.commandAssignment.param.type.parse(arg);
+
+    // Making the commandType.parse() promise as synchronous is OK because we
+    // know that commandType is a synchronous type.
+
+    if (this.prefix != null && this.prefix !== '') {
+      var prefixArg = new Argument(this.prefix, '', ' ');
+      var prefixedArg = new MergedArgument([ prefixArg, arg ]);
+
+      parsePromise = commandType.parse(prefixedArg, this.executionContext);
+      conversion = util.synchronize(parsePromise);
+
+      if (conversion.value == null) {
+        parsePromise = commandType.parse(arg, this.executionContext);
+        conversion = util.synchronize(parsePromise);
+      }
+    }
+    else {
+      parsePromise = commandType.parse(arg, this.executionContext);
+      conversion = util.synchronize(parsePromise);
+    }
 
     // We only want to carry on if this command is a parent command,
     // which means that there is a commandAssignment, but not one with
@@ -7500,13 +10764,16 @@ Requisition.prototype._split = function(args) {
     argsUsed++;
   }
 
-  this._setAssignment(this.commandAssignment, conversion, true);
-
+  // This could probably be re-written to consume args as we go
   for (var i = 0; i < argsUsed; i++) {
     args.shift();
   }
 
-  // This could probably be re-written to consume args as we go
+  // Warning: we're returning a promise (from setAssignment) which tells us
+  // when we're done setting the current command, but mutating the args array
+  // as we go, so we're conflicted on when we're done
+
+  return this.setAssignment(this.commandAssignment, conversion, noArgUp);
 };
 
 /**
@@ -7522,33 +10789,37 @@ Requisition.prototype._addUnassignedArgs = function(args) {
  * Work out which arguments are applicable to which parameters.
  */
 Requisition.prototype._assign = function(args) {
+  // See comment in _split. Avoid multiple updates
+  var noArgUp = { internal: true };
+
   this._unassigned = [];
+  var outstanding = [];
 
   if (!this.commandAssignment.value) {
     this._addUnassignedArgs(args);
-    return;
+    return promise.all(outstanding);
   }
 
   if (args.length === 0) {
     this.setBlankArguments();
-    return;
+    return promise.all(outstanding);
   }
 
   // Create an error if the command does not take parameters, but we have
   // been given them ...
   if (this.assignmentCount === 0) {
     this._addUnassignedArgs(args);
-    return;
+    return promise.all(outstanding);
   }
 
   // Special case: if there is only 1 parameter, and that's of type
   // text, then we put all the params into the first param
   if (this.assignmentCount === 1) {
     var assignment = this.getAssignment(0);
-    if (assignment.param.type instanceof StringType) {
+    if (assignment.param.type.name === 'string') {
       var arg = (args.length === 1) ? args[0] : new MergedArgument(args);
-      this._setAssignment(assignment, arg, true);
-      return;
+      outstanding.push(this.setAssignment(assignment, arg, noArgUp));
+      return promise.all(outstanding);
     }
   }
 
@@ -7572,7 +10843,7 @@ Requisition.prototype._assign = function(args) {
         });
 
         // boolean parameters don't have values, default to false
-        if (assignment.param.type instanceof BooleanType) {
+        if (assignment.param.type.name === 'boolean') {
           arg = new TrueNamedArgument(arg);
         }
         else {
@@ -7583,7 +10854,7 @@ Requisition.prototype._assign = function(args) {
           arg = new NamedArgument(arg, valueArg);
         }
 
-        if (assignment.param.type instanceof ArrayType) {
+        if (assignment.param.type.name === 'array') {
           var arrayArg = arrayArgs[assignment.param.name];
           if (!arrayArg) {
             arrayArg = new ArrayArgument();
@@ -7592,7 +10863,12 @@ Requisition.prototype._assign = function(args) {
           arrayArg.addArgument(arg);
         }
         else {
-          this._setAssignment(assignment, arg, true);
+          if (assignment.arg.type === 'BlankArgument') {
+            outstanding.push(this.setAssignment(assignment, arg, noArgUp));
+          }
+          else {
+            this._addUnassignedArgs(arg.getArgs());
+          }
         }
       }
       else {
@@ -7602,20 +10878,20 @@ Requisition.prototype._assign = function(args) {
     }
   }, this);
 
-  // What's left are positional parameters assign in order
+  // What's left are positional parameters: assign in order
   unassignedParams.forEach(function(name) {
     var assignment = this.getAssignment(name);
 
     // If not set positionally, and we can't set it non-positionally,
     // we have to default it to prevent previous values surviving
     if (!assignment.param.isPositionalAllowed) {
-      this._setAssignment(assignment, null, true);
+      outstanding.push(this.setAssignment(assignment, null, noArgUp));
       return;
     }
 
     // If this is a positional array argument, then it swallows the
     // rest of the arguments.
-    if (assignment.param.type instanceof ArrayType) {
+    if (assignment.param.type.name === 'array') {
       var arrayArg = arrayArgs[assignment.param.name];
       if (!arrayArg) {
         arrayArg = new ArrayArgument();
@@ -7623,37 +10899,41 @@ Requisition.prototype._assign = function(args) {
       }
       arrayArg.addArguments(args);
       args = [];
+      // The actual assignment to the array parameter is done below
+      return;
+    }
+
+    // Set assignment to defaults if there are no more arguments
+    if (args.length === 0) {
+      outstanding.push(this.setAssignment(assignment, null, noArgUp));
+      return;
+    }
+
+    var arg = args.splice(0, 1)[0];
+    // --foo and -f are named parameters, -4 is a number. So '-' is either
+    // the start of a named parameter or a number depending on the context
+    var isIncompleteName = assignment.param.type.name === 'number' ?
+        /-[-a-zA-Z_]/.test(arg.text) :
+        arg.text.charAt(0) === '-';
+
+    if (isIncompleteName) {
+      this._unassigned.push(new UnassignedAssignment(this, arg));
     }
     else {
-      if (args.length === 0) {
-        this._setAssignment(assignment, null, true);
-      }
-      else {
-        var arg = args.splice(0, 1)[0];
-        // --foo and -f are named parameters, -4 is a number. So '-' is either
-        // the start of a named parameter or a number depending on the context
-        var isIncompleteName = assignment.param.type instanceof NumberType ?
-            /-[-a-zA-Z_]/.test(arg.text) :
-            arg.text.charAt(0) === '-';
-
-        if (isIncompleteName) {
-          this._unassigned.push(new UnassignedAssignment(this, arg));
-        }
-        else {
-          this._setAssignment(assignment, arg, true);
-        }
-      }
+      outstanding.push(this.setAssignment(assignment, arg, noArgUp));
     }
   }, this);
 
   // Now we need to assign the array argument (if any)
   Object.keys(arrayArgs).forEach(function(name) {
     var assignment = this.getAssignment(name);
-    this._setAssignment(assignment, arrayArgs[name], true);
+    outstanding.push(this.setAssignment(assignment, arrayArgs[name], noArgUp));
   }, this);
 
-  // What's left is can't be assigned, but we need to extract
+  // What's left is can't be assigned, but we need to officially unassign them
   this._addUnassignedArgs(args);
+
+  return promise.all(outstanding);
 };
 
 exports.Requisition = Requisition;
@@ -7669,1083 +10949,67 @@ function Output(options) {
   this.canonical = options.canonical || '';
   this.hidden = options.hidden === true ? true : false;
 
+  this.type = undefined;
   this.data = undefined;
   this.completed = false;
   this.error = false;
   this.start = new Date();
 
+  this._deferred = promise.defer();
+  this.promise = this._deferred.promise;
+
   this.onClose = util.createEvent('Output.onClose');
-  this.onChange = util.createEvent('Output.onChange');
 }
-
-/**
- * Called when there is data to display, but the command is still executing
- * @param data The new data. If the data structure has been altered but the
- * root object is still the same, The same root object should be passed in the
- * data parameter.
- * @param ev Optional additional event data, for example to explain how the
- * data structure has changed
- */
-Output.prototype.changed = function(data, ev) {
-  this.data = data;
-
-  ev = ev || {};
-  ev.output = this;
-  this.onChange(ev);
-};
 
 /**
  * Called when there is data to display, and the command has finished executing
  * See changed() for details on parameters.
  */
-Output.prototype.complete = function(data, ev) {
+Output.prototype.complete = function(data, error) {
   this.end = new Date();
   this.duration = this.end.getTime() - this.start.getTime();
   this.completed = true;
+  this.error = error;
 
-  this.changed(data, ev);
-};
-
-/**
- * Convert to a DOM element for display.
- * @param element The DOM node to which the data should be written. Existing
- * content of 'element' will be removed before 'outputData' is added.
- */
-Output.prototype.toDom = function(element) {
-  util.clearElement(element);
-  var document = element.ownerDocument;
-
-  var output = this.data;
-  if (output == null) {
-    return;
-  }
-
-  var node;
-  if (typeof HTMLElement !== 'undefined' && output instanceof HTMLElement) {
-    node = output;
-  }
-  else if (output.isView) {
-    node = output.toDom(document);
+  if (data != null && data.isTypedData) {
+    this.data = data.data;
+    this.type = data.type;
   }
   else {
-    if (this.command.returnType === 'terminal') {
-      if (Array.isArray(output)) {
-        node = util.createElement(document, 'div');
-        output.forEach(function() {
-          var child = util.createElement(document, 'textarea');
-          child.classList.add('gcli-row-subterminal');
-          child.readOnly = true;
-
-          node.appendChild(child);
-        });
-      }
-      else {
-        node = util.createElement(document, 'textarea');
-        node.classList.add('gcli-row-terminal');
-        node.readOnly = true;
-      }
+    this.data = data;
+    this.type = this.command.returnType;
+    if (this.type == null) {
+      this.type = (this.data == null) ? 'undefined' : typeof this.data;
     }
-    else {
-      node = util.createElement(document, 'p');
-    }
-
-    util.setContents(node, output.toString());
   }
 
-  // Make sure that links open in a new window.
-  var links = node.querySelectorAll('*[href]');
-  for (var i = 0; i < links.length; i++) {
-    links[i].setAttribute('target', '_blank');
+  if (this.type === 'object') {
+    throw new Error('No type from output of ' + this.typed);
   }
 
-  element.appendChild(node);
+  this._deferred.resolve();
 };
 
 /**
- * Convert this object to a string so GCLI can be used in traditional character
- * based terminals.
+ * Call converters.convert using the data in this Output object
  */
-Output.prototype.toString = function(document) {
-  var output = this.data;
-  if (output == null) {
-    return '';
-  }
-
-  if (typeof HTMLElement !== 'undefined' && output instanceof HTMLElement) {
-    return output.textContent;
-  }
-
-  if (output.isView) {
-    return output.toDom(document).textContent;
-  }
-
-  return output.toString();
+Output.prototype.convert = function(type, conversionContext) {
+  return converters.convert(this.data, this.type, type, conversionContext);
 };
 
 exports.Output = Output;
 
-/**
- * Functions and data related to the execution of a command
- */
-exports.createExecutionContext = function(requisition) {
-  return {
-    exec: requisition.exec.bind(requisition),
-    update: requisition.update.bind(requisition),
-    document: requisition.document,
-    environment: requisition.environment,
-    createView: view.createView,
-    defer: function() {
-      return Q.defer();
-    },
-    /**
-     * @deprecated Use defer() instead, which does the same thing, but is not
-     * confusingly named
-     */
-    createPromise: function() {
-      return Q.defer();
-    }
-  };
-};
 
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/ui/view', ['require', 'exports', 'module' , 'gcli/util', 'gcli/ui/domtemplate'], function(require, exports, module) {
-
-
-var util = require('gcli/util');
-var domtemplate = require('gcli/ui/domtemplate');
-
-
-/**
- * We want to avoid commands having to create DOM structures because that's
- * messy and because we're going to need to have command output displayed in
- * different documents. A View is a way to wrap an HTML template (for
- * domtemplate) in with the data and options to render the template, so anyone
- * can later run the template in the context of any document.
- * View also cuts out a chunk of boiler place code.
- * @param options The information needed to create the DOM from HTML. Includes:
- * - html (required): The HTML source, probably from a call to require
- * - options (default={}): The domtemplate options. See domtemplate for details
- * - data (default={}): The data to domtemplate. See domtemplate for details.
- * - css (default=none): Some CSS to be added to the final document. If 'css'
- *   is used, use of cssId is strongly recommended.
- * - cssId (default=none): An ID to prevent multiple CSS additions. See
- *   util.importCss for more details.
- * @return An object containing a single function 'appendTo()' which runs the
- * template adding the result to the specified element. Takes 2 parameters:
- * - element (required): the element to add to
- * - clear (default=false): if clear===true then remove all pre-existing
- *   children of 'element' before appending the results of this template.
- */
-exports.createView = function(options) {
-  if (options.html == null) {
-    throw new Error('options.html is missing');
-  }
-
-  return {
-    /**
-     * RTTI. Yeah.
-     */
-    isView: true,
-
-    /**
-     * Run the template against the document to which element belongs.
-     * @param element The element to append the result to
-     * @param clear Set clear===true to remove all children of element
-     */
-    appendTo: function(element, clear) {
-      // Strict check on the off-chance that we later think of other options
-      // and want to replace 'clear' with an 'options' parameter, but want to
-      // support backwards compat.
-      if (clear === true) {
-        util.clearElement(element);
-      }
-
-      element.appendChild(this.toDom(element.ownerDocument));
-    },
-
-    /**
-     * Actually convert the view data into a DOM suitable to be appended to
-     * an element
-     * @param document to use in realizing the template
-     */
-    toDom: function(document) {
-      if (options.css) {
-        util.importCss(options.css, document, options.cssId);
-      }
-
-      var child = util.toDom(document, options.html);
-      domtemplate.template(child, options.data || {}, options.options || {});
-      return child;
-    }
-  };
-};
-
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/ui/domtemplate', ['require', 'exports', 'module' ], function(require, exports, module) {
-
-
-/**
- * For full documentation, see:
- * https://github.com/mozilla/domtemplate/blob/master/README.md
- */
-
-// WARNING: do not 'use_strict' without reading the notes in _envEval();
-
-/**
- * Begin a new templating process.
- * @param node A DOM element or string referring to an element's id
- * @param data Data to use in filling out the template
- * @param options Options to customize the template processing. One of:
- * - allowEval: boolean (default false) Basic template interpolations are
- *   either property paths (e.g. ${a.b.c.d}), or if allowEval=true then we
- *   allow arbitrary JavaScript
- * - stack: string or array of strings (default empty array) The template
- *   engine maintains a stack of tasks to help debug where it is. This allows
- *   this stack to be prefixed with a template name
- * - blankNullUndefined: By default DOMTemplate exports null and undefined
- *   values using the strings 'null' and 'undefined', which can be helpful for
- *   debugging, but can introduce unnecessary extra logic in a template to
- *   convert null/undefined to ''. By setting blankNullUndefined:true, this
- *   conversion is handled by DOMTemplate
- */
-function template(node, data, options) {
-  var template = new Templater(options || {});
-  template.processNode(node, data);
-  return template;
-}
-
-/**
- * Construct a Templater object. Use template() in preference to this ctor.
- * @deprecated Use template(node, data, options);
- */
-function Templater(options) {
-  if (options == null) {
-    options = { allowEval: true };
-  }
-  this.options = options;
-  if (options.stack && Array.isArray(options.stack)) {
-    this.stack = options.stack;
-  }
-  else if (typeof options.stack === 'string') {
-    this.stack = [ options.stack ];
-  }
-  else {
-    this.stack = [];
-  }
-  this.nodes = [];
-}
-
-/**
- * Cached regex used to find ${...} sections in some text.
- * Performance note: This regex uses ( and ) to capture the 'script' for
- * further processing. Not all of the uses of this regex use this feature so
- * if use of the capturing group is a performance drain then we should split
- * this regex in two.
- */
-Templater.prototype._templateRegion = /\$\{([^}]*)\}/g;
-
-/**
- * Cached regex used to split a string using the unicode chars F001 and F002.
- * See Templater._processTextNode() for details.
- */
-Templater.prototype._splitSpecial = /\uF001|\uF002/;
-
-/**
- * Cached regex used to detect if a script is capable of being interpreted
- * using Template._property() or if we need to use Template._envEval()
- */
-Templater.prototype._isPropertyScript = /^[_a-zA-Z0-9.]*$/;
-
-/**
- * Recursive function to walk the tree processing the attributes as it goes.
- * @param node the node to process. If you pass a string in instead of a DOM
- * element, it is assumed to be an id for use with document.getElementById()
- * @param data the data to use for node processing.
- */
-Templater.prototype.processNode = function(node, data) {
-  if (typeof node === 'string') {
-    node = document.getElementById(node);
-  }
-  if (data == null) {
-    data = {};
-  }
-  this.stack.push(node.nodeName + (node.id ? '#' + node.id : ''));
-  var pushedNode = false;
-  try {
-    // Process attributes
-    if (node.attributes && node.attributes.length) {
-      // We need to handle 'foreach' and 'if' first because they might stop
-      // some types of processing from happening, and foreach must come first
-      // because it defines new data on which 'if' might depend.
-      if (node.hasAttribute('foreach')) {
-        this._processForEach(node, data);
-        return;
-      }
-      if (node.hasAttribute('if')) {
-        if (!this._processIf(node, data)) {
-          return;
-        }
-      }
-      // Only make the node available once we know it's not going away
-      this.nodes.push(data.__element);
-      data.__element = node;
-      pushedNode = true;
-      // It's good to clean up the attributes when we've processed them,
-      // but if we do it straight away, we mess up the array index
-      var attrs = Array.prototype.slice.call(node.attributes);
-      for (var i = 0; i < attrs.length; i++) {
-        var value = attrs[i].value;
-        var name = attrs[i].name;
-        this.stack.push(name);
-        try {
-          if (name === 'save') {
-            // Save attributes are a setter using the node
-            value = this._stripBraces(value);
-            this._property(value, data, node);
-            node.removeAttribute('save');
-          } else if (name.substring(0, 2) === 'on') {
-            // Event registration relies on property doing a bind
-            value = this._stripBraces(value);
-            var func = this._property(value, data);
-            if (typeof func !== 'function') {
-              this._handleError('Expected ' + value +
-                ' to resolve to a function, but got ' + typeof func);
-            }
-            node.removeAttribute(name);
-            var capture = node.hasAttribute('capture' + name.substring(2));
-            node.addEventListener(name.substring(2), func, capture);
-            if (capture) {
-              node.removeAttribute('capture' + name.substring(2));
-            }
-          } else {
-            // Replace references in all other attributes
-            var newValue = value.replace(this._templateRegion, function(path) {
-              var insert = this._envEval(path.slice(2, -1), data, value);
-              if (this.options.blankNullUndefined && insert == null) {
-                insert = '';
-              }
-              return insert;
-            }.bind(this));
-            // Remove '_' prefix of attribute names so the DOM won't try
-            // to use them before we've processed the template
-            if (name.charAt(0) === '_') {
-              node.removeAttribute(name);
-              node.setAttribute(name.substring(1), newValue);
-            } else if (value !== newValue) {
-              attrs[i].value = newValue;
-            }
-          }
-        } finally {
-          this.stack.pop();
-        }
-      }
-    }
-
-    // Loop through our children calling processNode. First clone them, so the
-    // set of nodes that we visit will be unaffected by additions or removals.
-    var childNodes = Array.prototype.slice.call(node.childNodes);
-    for (var j = 0; j < childNodes.length; j++) {
-      this.processNode(childNodes[j], data);
-    }
-
-    if (node.nodeType === 3 /*Node.TEXT_NODE*/) {
-      this._processTextNode(node, data);
-    }
-  } finally {
-    if (pushedNode) {
-      data.__element = this.nodes.pop();
-    }
-    this.stack.pop();
-  }
-};
-
-/**
- * Handle <x if="${...}">
- * @param node An element with an 'if' attribute
- * @param data The data to use with _envEval()
- * @returns true if processing should continue, false otherwise
- */
-Templater.prototype._processIf = function(node, data) {
-  this.stack.push('if');
-  try {
-    var originalValue = node.getAttribute('if');
-    var value = this._stripBraces(originalValue);
-    var recurse = true;
-    try {
-      var reply = this._envEval(value, data, originalValue);
-      recurse = !!reply;
-    } catch (ex) {
-      this._handleError('Error with \'' + value + '\'', ex);
-      recurse = false;
-    }
-    if (!recurse) {
-      node.parentNode.removeChild(node);
-    }
-    node.removeAttribute('if');
-    return recurse;
-  } finally {
-    this.stack.pop();
-  }
-};
-
-/**
- * Handle <x foreach="param in ${array}"> and the special case of
- * <loop foreach="param in ${array}">.
- * This function is responsible for extracting what it has to do from the
- * attributes, and getting the data to work on (including resolving promises
- * in getting the array). It delegates to _processForEachLoop to actually
- * unroll the data.
- * @param node An element with a 'foreach' attribute
- * @param data The data to use with _envEval()
- */
-Templater.prototype._processForEach = function(node, data) {
-  this.stack.push('foreach');
-  try {
-    var originalValue = node.getAttribute('foreach');
-    var value = originalValue;
-
-    var paramName = 'param';
-    if (value.charAt(0) === '$') {
-      // No custom loop variable name. Use the default: 'param'
-      value = this._stripBraces(value);
-    } else {
-      // Extract the loop variable name from 'NAME in ${ARRAY}'
-      var nameArr = value.split(' in ');
-      paramName = nameArr[0].trim();
-      value = this._stripBraces(nameArr[1].trim());
-    }
-    node.removeAttribute('foreach');
-    try {
-      var evaled = this._envEval(value, data, originalValue);
-      this._handleAsync(evaled, node, function(reply, siblingNode) {
-        this._processForEachLoop(reply, node, siblingNode, data, paramName);
-      }.bind(this));
-      node.parentNode.removeChild(node);
-    } catch (ex) {
-      this._handleError('Error with \'' + value + '\'', ex);
-    }
-  } finally {
-    this.stack.pop();
-  }
-};
-
-/**
- * Called by _processForEach to handle looping over the data in a foreach loop.
- * This works with both arrays and objects.
- * Calls _processForEachMember() for each member of 'set'
- * @param set The object containing the data to loop over
- * @param template The node to copy for each set member
- * @param sibling The sibling node to which we add things
- * @param data the data to use for node processing
- * @param paramName foreach loops have a name for the parameter currently being
- * processed. The default is 'param'. e.g. <loop foreach="param in ${x}">...
- */
-Templater.prototype._processForEachLoop = function(set, template, sibling, data, paramName) {
-  if (Array.isArray(set)) {
-    set.forEach(function(member, i) {
-      this._processForEachMember(member, template, sibling, data, paramName, '' + i);
-    }, this);
-  } else {
-    for (var member in set) {
-      if (set.hasOwnProperty(member)) {
-        this._processForEachMember(member, template, sibling, data, paramName, member);
-      }
-    }
-  }
-};
-
-/**
- * Called by _processForEachLoop() to resolve any promises in the array (the
- * array itself can also be a promise, but that is resolved by
- * _processForEach()). Handle <LOOP> elements (which are taken out of the DOM),
- * clone the template, and pass the processing on to processNode().
- * @param member The data item to use in templating
- * @param template The node to copy for each set member
- * @param siblingNode The parent node to which we add things
- * @param data the data to use for node processing
- * @param paramName The name given to 'member' by the foreach attribute
- * @param frame A name to push on the stack for debugging
- */
-Templater.prototype._processForEachMember = function(member, template, siblingNode, data, paramName, frame) {
-  this.stack.push(frame);
-  try {
-    this._handleAsync(member, siblingNode, function(reply, node) {
-      data[paramName] = reply;
-      if (template.nodeName.toLowerCase() === 'loop') {
-        for (var i = 0; i < template.childNodes.length; i++) {
-          var clone = template.childNodes[i].cloneNode(true);
-          node.parentNode.insertBefore(clone, node);
-          this.processNode(clone, data);
-        }
-      } else {
-        var clone = template.cloneNode(true);
-        clone.removeAttribute('foreach');
-        node.parentNode.insertBefore(clone, node);
-        this.processNode(clone, data);
-      }
-      delete data[paramName];
-    }.bind(this));
-  } finally {
-    this.stack.pop();
-  }
-};
-
-/**
- * Take a text node and replace it with another text node with the ${...}
- * sections parsed out. We replace the node by altering node.parentNode but
- * we could probably use a DOM Text API to achieve the same thing.
- * @param node The Text node to work on
- * @param data The data to use in calls to _envEval()
- */
-Templater.prototype._processTextNode = function(node, data) {
-  // Replace references in other attributes
-  var value = node.data;
-  // We can't use the string.replace() with function trick (see generic
-  // attribute processing in processNode()) because we need to support
-  // functions that return DOM nodes, so we can't have the conversion to a
-  // string.
-  // Instead we process the string as an array of parts. In order to split
-  // the string up, we first replace '${' with '\uF001$' and '}' with '\uF002'
-  // We can then split using \uF001 or \uF002 to get an array of strings
-  // where scripts are prefixed with $.
-  // \uF001 and \uF002 are just unicode chars reserved for private use.
-  value = value.replace(this._templateRegion, '\uF001$$$1\uF002');
-  var parts = value.split(this._splitSpecial);
-  if (parts.length > 1) {
-    parts.forEach(function(part) {
-      if (part === null || part === undefined || part === '') {
-        return;
-      }
-      if (part.charAt(0) === '$') {
-        part = this._envEval(part.slice(1), data, node.data);
-      }
-      this._handleAsync(part, node, function(reply, siblingNode) {
-        var doc = siblingNode.ownerDocument;
-        if (reply == null) {
-          reply = this.options.blankNullUndefined ? '' : '' + reply;
-        }
-        if (typeof reply.cloneNode === 'function') {
-          // i.e. if (reply instanceof Element) { ...
-          reply = this._maybeImportNode(reply, doc);
-          siblingNode.parentNode.insertBefore(reply, siblingNode);
-        } else if (typeof reply.item === 'function' && reply.length) {
-          // NodeLists can be live, in which case _maybeImportNode can
-          // remove them from the document, and thus the NodeList, which in
-          // turn breaks iteration. So first we clone the list
-          var list = Array.prototype.slice.call(reply, 0);
-          list.forEach(function(child) {
-            var imported = this._maybeImportNode(child, doc);
-            siblingNode.parentNode.insertBefore(imported, siblingNode);
-          }.bind(this));
-        }
-        else {
-          // if thing isn't a DOM element then wrap its string value in one
-          reply = doc.createTextNode(reply.toString());
-          siblingNode.parentNode.insertBefore(reply, siblingNode);
-        }
-
-      }.bind(this));
-    }, this);
-    node.parentNode.removeChild(node);
-  }
-};
-
-/**
- * Return node or a import of node, if it's not in the given document
- * @param node The node that we want to be properly owned
- * @param doc The document that the given node should belong to
- * @return A node that belongs to the given document
- */
-Templater.prototype._maybeImportNode = function(node, doc) {
-  return node.ownerDocument === doc ? node : doc.importNode(node, true);
-};
-
-/**
- * A function to handle the fact that some nodes can be promises, so we check
- * and resolve if needed using a marker node to keep our place before calling
- * an inserter function.
- * @param thing The object which could be real data or a promise of real data
- * we use it directly if it's not a promise, or resolve it if it is.
- * @param siblingNode The element before which we insert new elements.
- * @param inserter The function to to the insertion. If thing is not a promise
- * then _handleAsync() is just 'inserter(thing, siblingNode)'
- */
-Templater.prototype._handleAsync = function(thing, siblingNode, inserter) {
-  if (thing != null && typeof thing.then === 'function') {
-    // Placeholder element to be replaced once we have the real data
-    var tempNode = siblingNode.ownerDocument.createElement('span');
-    siblingNode.parentNode.insertBefore(tempNode, siblingNode);
-    thing.then(function(delayed) {
-      inserter(delayed, tempNode);
-      tempNode.parentNode.removeChild(tempNode);
-    }.bind(this));
-  }
-  else {
-    inserter(thing, siblingNode);
-  }
-};
-
-/**
- * Warn of string does not begin '${' and end '}'
- * @param str the string to check.
- * @return The string stripped of ${ and }, or untouched if it does not match
- */
-Templater.prototype._stripBraces = function(str) {
-  if (!str.match(this._templateRegion)) {
-    this._handleError('Expected ' + str + ' to match ${...}');
-    return str;
-  }
-  return str.slice(2, -1);
-};
-
-/**
- * Combined getter and setter that works with a path through some data set.
- * For example:
- * <ul>
- * <li>_property('a.b', { a: { b: 99 }}); // returns 99
- * <li>_property('a', { a: { b: 99 }}); // returns { b: 99 }
- * <li>_property('a', { a: { b: 99 }}, 42); // returns 99 and alters the
- * input data to be { a: { b: 42 }}
- * </ul>
- * @param path An array of strings indicating the path through the data, or
- * a string to be cut into an array using <tt>split('.')</tt>
- * @param data the data to use for node processing
- * @param newValue (optional) If defined, this value will replace the
- * original value for the data at the path specified.
- * @return The value pointed to by <tt>path</tt> before any
- * <tt>newValue</tt> is applied.
- */
-Templater.prototype._property = function(path, data, newValue) {
-  try {
-    if (typeof path === 'string') {
-      path = path.split('.');
-    }
-    var value = data[path[0]];
-    if (path.length === 1) {
-      if (newValue !== undefined) {
-        data[path[0]] = newValue;
-      }
-      if (typeof value === 'function') {
-        return value.bind(data);
-      }
-      return value;
-    }
-    if (!value) {
-      this._handleError('"' + path[0] + '" is undefined');
-      return null;
-    }
-    return this._property(path.slice(1), value, newValue);
-  } catch (ex) {
-    this._handleError('Path error with \'' + path + '\'', ex);
-    return '${' + path + '}';
-  }
-};
-
-/**
- * Like eval, but that creates a context of the variables in <tt>env</tt> in
- * which the script is evaluated.
- * WARNING: This script uses 'with' which is generally regarded to be evil.
- * The alternative is to create a Function at runtime that takes X parameters
- * according to the X keys in the env object, and then call that function using
- * the values in the env object. This is likely to be slow, but workable.
- * @param script The string to be evaluated.
- * @param data The environment in which to eval the script.
- * @param frame Optional debugging string in case of failure.
- * @return The return value of the script, or the error message if the script
- * execution failed.
- */
-Templater.prototype._envEval = function(script, data, frame) {
-  try {
-    this.stack.push(frame.replace(/\s+/g, ' '));
-    if (this._isPropertyScript.test(script)) {
-      return this._property(script, data);
-    } else {
-      if (!this.options.allowEval) {
-        this._handleError('allowEval is not set, however \'' + script + '\'' +
-            ' can not be resolved using a simple property path.');
-        return '${' + script + '}';
-      }
-      with (data) {
-        return eval(script);
-      }
-    }
-  } catch (ex) {
-    this._handleError('Template error evaluating \'' + script + '\'', ex);
-    return '${' + script + '}';
-  } finally {
-    this.stack.pop();
-  }
-};
-
-/**
- * A generic way of reporting errors, for easy overloading in different
- * environments.
- * @param message the error message to report.
- * @param ex optional associated exception.
- */
-Templater.prototype._handleError = function(message, ex) {
-  this._logError(message + ' (In: ' + this.stack.join(' > ') + ')');
-  if (ex) {
-    this._logError(ex);
-  }
-};
-
-
-/**
- * A generic way of reporting errors, for easy overloading in different
- * environments.
- * @param message the error message to report.
- */
-Templater.prototype._logError = function(message) {
-  console.log(message);
-};
-
-exports.Templater = Templater;
-exports.template = template;
-
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/promise', ['require', 'exports', 'module' ], function(require, exports, module) {
-
-'use strict';
-
-/**
- * Internal utility: Wraps given `value` into simplified promise, successfully
- * fulfilled to a given `value`. Note the result is not a complete promise
- * implementation, as its method `then` does not returns anything.
- */
-function fulfilled(value) {
-  return { then: function then(fulfill) { fulfill(value); } };
-}
-
-/**
- * Internal utility: Wraps given input into simplified promise, pre-rejected
- * with a given `reason`. Note the result is not a complete promise
- * implementation, as its method `then` does not returns anything.
- */
-function rejected(reason) {
-  return { then: function then(fulfill, reject) { reject(reason); } };
-}
-
-/**
- * Internal utility: Decorates given `f` function, so that on exception promise
- * rejected with thrown error is returned.
- */
-function attempt(f) {
-  return function effort(input) {
-    try {
-      return f(input);
-    }
-    catch(error) {
-      return rejected(error);
-    }
-  };
-}
-
-/**
- * Internal utility: Returns `true` if given `value` is a promise. Value is
- * assumed to be a promise if it implements method `then`.
- */
-function isPromise(value) {
-  return value && typeof(value.then) === 'function';
-}
-
-/**
- * Creates deferred object containing fresh promise & methods to either resolve
- * or reject it. The result is an object with the following properties:
- * - `promise` Eventual value representation implementing CommonJS [Promises/A]
- *   (http://wiki.commonjs.org/wiki/Promises/A) API.
- * - `resolve` Single shot function that resolves enclosed `promise` with a
- *   given `value`.
- * - `reject` Single shot function that rejects enclosed `promise` with a given
- *   `reason`.
- *
- *  ## Example
- *
- *  function fetchURI(uri, type) {
- *    var deferred = defer();
- *    var request = new XMLHttpRequest();
- *    request.open("GET", uri, true);
- *    request.responseType = type;
- *    request.onload = function onload() {
- *      deferred.resolve(request.response);
- *    }
- *    request.onerror = function(event) {
- *     deferred.reject(event);
- *    }
- *    request.send();
- *
- *    return deferred.promise;
- *  }
- */
-function defer() {
-  // Define FIFO queue of observer pairs. Once promise is resolved & all queued
-  // observers are forwarded to `result` and variable is set to `null`.
-  var observers = [];
-
-  // Promise `result`, which will be assigned a resolution value once promise
-  // is resolved. Note that result will always be assigned promise (or alike)
-  // object to take care of propagation through promise chains. If result is
-  // `null` promise is not resolved yet.
-  var result = null;
-
-  var deferred = {
-    promise: {
-      then: function then(onFulfill, onError) {
-        var deferred = defer();
-
-        // Decorate `onFulfill` / `onError` handlers with `attempt`, that
-        // way if wrapped handler throws exception decorator will catch and
-        // return promise rejected with it, which will cause rejection of
-        // `deferred.promise`. If handler is missing, substitute it with an
-        // utility function that takes one argument and returns promise
-        // fulfilled / rejected with it. This takes care of propagation
-        // through the rest of the promise chain.
-        onFulfill = onFulfill ? attempt(onFulfill) : fulfilled;
-        onError = onError ? attempt(onError) : rejected;
-
-        // Create a pair of observers that invoke given handlers & propagate
-        // results to `deferred.promise`.
-        function resolveDeferred(value) { deferred.resolve(onFulfill(value)); }
-        function rejectDeferred(reason) { deferred.resolve(onError(reason)); }
-
-        // If enclosed promise (`this.promise`) observers queue is still alive
-        // enqueue a new observer pair into it. Note that this does not
-        // necessary means that promise is pending, it may already be resolved,
-        // but we still have to queue observers to guarantee an order of
-        // propagation.
-        if (observers) {
-          observers.push({ resolve: resolveDeferred, reject: rejectDeferred });
-        }
-        // Otherwise just forward observer pair right to a `result` promise.
-        else {
-          result.then(resolveDeferred, rejectDeferred);
-        }
-
-        return deferred.promise;
-      }
-    },
-    /**
-     * Resolves associated `promise` to a given `value`, unless it's already
-     * resolved or rejected. Note that resolved promise is not necessary a
-     * successfully fulfilled. Promise may be resolved with a promise `value`
-     * in which case `value` promise's fulfillment / rejection will propagate
-     * up to a promise resolved with `value`.
-     */
-    resolve: function resolve(value) {
-      if (!result) {
-        // Store resolution `value` in a `result` as a promise, so that all
-        // the subsequent handlers can be simply forwarded to it. Since
-        // `result` will be a promise all the value / error propagation will
-        // be uniformly taken care of.
-        result = isPromise(value) ? value : fulfilled(value);
-
-        // Forward already registered observers to a `result` promise in the
-        // order they were registered. Note that we intentionally dequeue
-        // observer at a time until queue is exhausted. This makes sure that
-        // handlers registered as side effect of observer forwarding are
-        // queued instead of being invoked immediately, guaranteeing FIFO
-        // order.
-        while (observers.length) {
-          var observer = observers.shift();
-          result.then(observer.resolve, observer.reject);
-        }
-
-        // Once `observers` queue is exhausted we `null`-ify it, so that
-        // new handlers are forwarded straight to the `result`.
-        observers = null;
-      }
-    },
-    /**
-     * Rejects associated `promise` with a given `reason`, unless it's already
-     * resolved / rejected. This is just a (better performing) convenience
-     * shortcut for `deferred.resolve(reject(reason))`.
-     */
-    reject: function reject(reason) {
-      // Note that if promise is resolved that does not necessary means that it
-      // is successfully fulfilled. Resolution value may be a promise in which
-      // case its result propagates. In other words if promise `a` is resolved
-      // with promise `b`, `a` is either fulfilled or rejected depending
-      // on weather `b` is fulfilled or rejected. Here `deferred.promise` is
-      // resolved with a promise pre-rejected with a given `reason`, there for
-      // `deferred.promise` is rejected with a given `reason`. This may feel
-      // little awkward first, but doing it this way greatly simplifies
-      // propagation through promise chains.
-      deferred.resolve(rejected(reason));
-    }
-  };
-
-  return deferred;
-}
-exports.defer = defer;
-
-/**
- * Returns a promise resolved to a given `value`.
- */
-function resolve(value) {
-  var deferred = defer();
-  deferred.resolve(value);
-  return deferred.promise;
-}
-exports.resolve = resolve;
-
-/**
- * Returns a promise rejected with a given `reason`.
- */
-function reject(reason) {
-  var deferred = defer();
-  deferred.reject(reason);
-  return deferred.promise;
-}
-exports.reject = reject;
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/ui/intro', ['require', 'exports', 'module' , 'gcli/settings', 'gcli/l10n', 'gcli/util', 'gcli/ui/view', 'gcli/cli', 'text!gcli/ui/intro.html'], function(require, exports, module) {
-
-  var settings = require('gcli/settings');
-  var l10n = require('gcli/l10n');
-  var util = require('gcli/util');
-  var view = require('gcli/ui/view');
-  var Output = require('gcli/cli').Output;
-
-  /**
-   * Record if the user has clicked on 'Got It!'
-   */
-  var hideIntroSettingSpec = {
-    name: 'hideIntro',
-    type: 'boolean',
-    description: l10n.lookup('hideIntroDesc'),
-    defaultValue: false
-  };
-  var hideIntro;
-
-  /**
-   * Register (and unregister) the hide-intro setting
-   */
-  exports.startup = function() {
-    hideIntro = settings.addSetting(hideIntroSettingSpec);
-  };
-
-  exports.shutdown = function() {
-    settings.removeSetting(hideIntroSettingSpec);
-    hideIntro = undefined;
-  };
-
-  /**
-   * Called when the UI is ready to add a welcome message to the output
-   */
-  exports.maybeShowIntro = function(commandOutputManager, context) {
-    if (hideIntro.value) {
-      return;
-    }
-
-    var output = new Output();
-    commandOutputManager.onOutput({ output: output });
-
-    var viewData = this.createView(context, output);
-
-    output.complete(viewData);
-  };
-
-  /**
-   * Called when the UI is ready to add a welcome message to the output
-   */
-  exports.createView = function(context, output) {
-    return view.createView({
-      html: require('text!gcli/ui/intro.html'),
-      options: { stack: 'intro.html' },
-      data: {
-        l10n: l10n.propertyLookup,
-        onclick: function(ev) {
-          util.updateCommand(ev.currentTarget, context);
-        },
-        ondblclick: function(ev) {
-          util.executeCommand(ev.currentTarget, context);
-        },
-        showHideButton: (output != null),
-        onGotIt: function(ev) {
-          hideIntro.value = true;
-          output.onClose();
-        }
-      }
-    });
-  };
 });
 define("text!gcli/ui/intro.html", [], "\n" +
   "<div>\n" +
-  "  <p>${l10n.introTextOpening}</p>\n" +
+  "  <p>${l10n.introTextOpening2}</p>\n" +
   "\n" +
   "  <p>\n" +
   "    ${l10n.introTextCommands}\n" +
   "    <span class=\"gcli-out-shortcut\" onclick=\"${onclick}\"\n" +
-  "        ondblclick=\"${ondblclick}\" data-command=\"help\">help</span>,\n" +
-  "    ${l10n.introTextKeys} <code>${l10n.introTextF1Escape}</code>.\n" +
+  "        ondblclick=\"${ondblclick}\" data-command=\"help\">help</span>${l10n.introTextKeys2}\n" +
+  "    <code>${l10n.introTextF1Escape}</code>.\n" +
   "  </p>\n" +
   "\n" +
   "  <button onclick=\"${onGotIt}\" if=\"${showHideButton}\">${l10n.introTextGo}</button>\n" +
@@ -8768,13 +11032,13 @@ define("text!gcli/ui/intro.html", [], "\n" +
  * limitations under the License.
  */
 
-define('gcli/ui/focus', ['require', 'exports', 'module' , 'gcli/util', 'gcli/settings', 'gcli/l10n', 'gcli/canon'], function(require, exports, module) {
+define('gcli/ui/focus', ['require', 'exports', 'module' , 'util/util', 'util/l10n', 'gcli/settings'], function(require, exports, module) {
 
+'use strict';
 
-var util = require('gcli/util');
+var util = require('util/util');
+var l10n = require('util/l10n');
 var settings = require('gcli/settings');
-var l10n = require('gcli/l10n');
-var canon = require('gcli/canon');
 
 /**
  * Record how much help the user wants from the tooltip
@@ -8784,33 +11048,27 @@ var Eagerness = {
   SOMETIMES: 2,
   ALWAYS: 3
 };
-var eagerHelperSettingSpec = {
-  name: 'eagerHelper',
-  type: {
-    name: 'selection',
-    lookup: [
-      { name: 'never', value: Eagerness.NEVER },
-      { name: 'sometimes', value: Eagerness.SOMETIMES },
-      { name: 'always', value: Eagerness.ALWAYS },
-    ]
-  },
-  defaultValue: Eagerness.SOMETIMES,
-  description: l10n.lookup('eagerHelperDesc'),
-  ignoreTypeDifference: true
-};
-var eagerHelper;
 
 /**
- * Register (and unregister) the hide-intro setting
+ * Export the eagerHelper setting
  */
-exports.startup = function() {
-  eagerHelper = settings.addSetting(eagerHelperSettingSpec);
-};
-
-exports.shutdown = function() {
-  settings.removeSetting(eagerHelperSettingSpec);
-  eagerHelper = undefined;
-};
+exports.items = [
+  {
+    item: 'setting',
+    name: 'eagerHelper',
+    type: {
+      name: 'selection',
+      lookup: [
+        { name: 'never', value: Eagerness.NEVER },
+        { name: 'sometimes', value: Eagerness.SOMETIMES },
+        { name: 'always', value: Eagerness.ALWAYS }
+      ]
+    },
+    defaultValue: Eagerness.SOMETIMES,
+    description: l10n.lookup('eagerHelperDesc'),
+    ignoreTypeDifference: true
+  }
+];
 
 /**
  * FocusManager solves the problem of tracking focus among a set of nodes.
@@ -8823,21 +11081,21 @@ exports.shutdown = function() {
  * @param options Object containing user customization properties, including:
  * - blurDelay (default=150ms)
  * - debug (default=false)
- * - commandOutputManager (default=canon.commandOutputManager)
  * @param components Object that links to other UI components. GCLI provided:
  * - document
+ * - requisition
  */
 function FocusManager(options, components) {
   options = options || {};
 
   this._document = components.document || document;
+  this._requisition = components.requisition;
+
   this._debug = options.debug || false;
   this._blurDelay = options.blurDelay || 150;
   this._window = this._document.defaultView;
 
-  this._commandOutputManager = options.commandOutputManager ||
-      canon.commandOutputManager;
-  this._commandOutputManager.onOutput.add(this._outputted, this);
+  this._requisition.commandOutputManager.onOutput.add(this._outputted, this);
 
   this._blurDelayTimeout = null; // Result of setTimeout in delaying a blur
   this._monitoredElements = [];  // See addMonitoredElement()
@@ -8852,6 +11110,7 @@ function FocusManager(options, components) {
   this._focused = this._focused.bind(this);
   this._document.addEventListener('focus', this._focused, true);
 
+  var eagerHelper = settings.getSetting('eagerHelper');
   eagerHelper.onChange.add(this._eagerHelperChanged, this);
 
   this.isTooltipVisible = undefined;
@@ -8863,10 +11122,11 @@ function FocusManager(options, components) {
  * Avoid memory leaks
  */
 FocusManager.prototype.destroy = function() {
+  var eagerHelper = settings.getSetting('eagerHelper');
   eagerHelper.onChange.remove(this._eagerHelperChanged, this);
 
   this._document.removeEventListener('focus', this._focused, true);
-  this._commandOutputManager.onOutput.remove(this._outputted, this);
+  this._requisition.commandOutputManager.onOutput.remove(this._outputted, this);
 
   for (var i = 0; i < this._monitoredElements.length; i++) {
     var monitor = this._monitoredElements[i];
@@ -8884,7 +11144,7 @@ FocusManager.prototype.destroy = function() {
   delete this._focused;
   delete this._document;
   delete this._window;
-  delete this._commandOutputManager;
+  delete this._requisition;
 };
 
 /**
@@ -9129,6 +11389,7 @@ FocusManager.prototype._shouldShowTooltip = function() {
     return { visible: false, reason: 'notHasFocus' };
   }
 
+  var eagerHelper = settings.getSetting('eagerHelper');
   if (eagerHelper.value === Eagerness.NEVER) {
     return { visible: false, reason: 'eagerHelperNever' };
   }
@@ -9188,48 +11449,22 @@ exports.FocusManager = FocusManager;
  * limitations under the License.
  */
 
-define('gcli/ui/fields/basic', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/argument', 'gcli/types', 'gcli/types/basic', 'gcli/ui/fields'], function(require, exports, module) {
+define('gcli/ui/fields/basic', ['require', 'exports', 'module' , 'util/util', 'util/promise', 'util/l10n', 'gcli/argument', 'gcli/types', 'gcli/ui/fields'], function(require, exports, module) {
 
+'use strict';
 
-var util = require('gcli/util');
-var l10n = require('gcli/l10n');
+var util = require('util/util');
+var promise = require('util/promise');
+var l10n = require('util/l10n');
 
 var Argument = require('gcli/argument').Argument;
 var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
 var FalseNamedArgument = require('gcli/argument').FalseNamedArgument;
 var ArrayArgument = require('gcli/argument').ArrayArgument;
-
-var Conversion = require('gcli/types').Conversion;
 var ArrayConversion = require('gcli/types').ArrayConversion;
-
-var StringType = require('gcli/types/basic').StringType;
-var NumberType = require('gcli/types/basic').NumberType;
-var BooleanType = require('gcli/types/basic').BooleanType;
-var DeferredType = require('gcli/types/basic').DeferredType;
-var ArrayType = require('gcli/types/basic').ArrayType;
 
 var Field = require('gcli/ui/fields').Field;
 var fields = require('gcli/ui/fields');
-
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  fields.addField(StringField);
-  fields.addField(NumberField);
-  fields.addField(BooleanField);
-  fields.addField(DeferredField);
-  fields.addField(ArrayField);
-};
-
-exports.shutdown = function() {
-  fields.removeField(StringField);
-  fields.removeField(NumberField);
-  fields.removeField(BooleanField);
-  fields.removeField(DeferredField);
-  fields.removeField(ArrayField);
-};
 
 
 /**
@@ -9268,11 +11503,11 @@ StringField.prototype.setConversion = function(conversion) {
 StringField.prototype.getConversion = function() {
   // This tweaks the prefix/suffix of the argument to fit
   this.arg = this.arg.beget({ text: this.element.value, prefixSpace: true });
-  return this.type.parse(this.arg);
+  return this.type.parse(this.arg, this.requisition.executionContext);
 };
 
-StringField.claim = function(type) {
-  return type instanceof StringType ? Field.MATCH : Field.BASIC;
+StringField.claim = function(type, context) {
+  return type.name === 'string' ? Field.MATCH : Field.BASIC;
 };
 
 
@@ -9303,8 +11538,8 @@ function NumberField(type, options) {
 
 NumberField.prototype = Object.create(Field.prototype);
 
-NumberField.claim = function(type) {
-  return type instanceof NumberType ? Field.MATCH : Field.NO_MATCH;
+NumberField.claim = function(type, context) {
+  return type.name === 'number' ? Field.MATCH : Field.NO_MATCH;
 };
 
 NumberField.prototype.destroy = function() {
@@ -9323,7 +11558,7 @@ NumberField.prototype.setConversion = function(conversion) {
 
 NumberField.prototype.getConversion = function() {
   this.arg = this.arg.beget({ text: this.element.value, prefixSpace: true });
-  return this.type.parse(this.arg);
+  return this.type.parse(this.arg, this.requisition.executionContext);
 };
 
 
@@ -9348,8 +11583,8 @@ function BooleanField(type, options) {
 
 BooleanField.prototype = Object.create(Field.prototype);
 
-BooleanField.claim = function(type) {
-  return type instanceof BooleanType ? Field.MATCH : Field.NO_MATCH;
+BooleanField.claim = function(type, context) {
+  return type.name === 'boolean' ? Field.MATCH : Field.NO_MATCH;
 };
 
 BooleanField.prototype.destroy = function() {
@@ -9375,29 +11610,29 @@ BooleanField.prototype.getConversion = function() {
   else {
     arg = new Argument(' ' + this.element.checked);
   }
-  return this.type.parse(arg);
+  return this.type.parse(arg, this.requisition.executionContext);
 };
 
 
 /**
- * A field that works with deferred types by delaying resolution until that
+ * A field that works with delegate types by delaying resolution until that
  * last possible time
  */
-function DeferredField(type, options) {
+function DelegateField(type, options) {
   Field.call(this, type, options);
   this.options = options;
-  this.requisition.onAssignmentChange.add(this.update, this);
+  this.requisition.onTextChange.add(this.update, this);
 
   this.element = util.createElement(this.document, 'div');
   this.update();
 
-  this.onFieldChange = util.createEvent('DeferredField.onFieldChange');
+  this.onFieldChange = util.createEvent('DelegateField.onFieldChange');
 }
 
-DeferredField.prototype = Object.create(Field.prototype);
+DelegateField.prototype = Object.create(Field.prototype);
 
-DeferredField.prototype.update = function() {
-  var subtype = this.type.defer();
+DelegateField.prototype.update = function() {
+  var subtype = this.type.delegateType();
   if (subtype === this.subtype) {
     return;
   }
@@ -9415,27 +11650,27 @@ DeferredField.prototype.update = function() {
   this.element.appendChild(this.field.element);
 };
 
-DeferredField.claim = function(type) {
-  return type instanceof DeferredType ? Field.MATCH : Field.NO_MATCH;
+DelegateField.claim = function(type, context) {
+  return type.isDelegate ? Field.MATCH : Field.NO_MATCH;
 };
 
-DeferredField.prototype.destroy = function() {
+DelegateField.prototype.destroy = function() {
   Field.prototype.destroy.call(this);
-  this.requisition.onAssignmentChange.remove(this.update, this);
+  this.requisition.onTextChange.remove(this.update, this);
   delete this.element;
   delete this.document;
   delete this.onInputChange;
 };
 
-DeferredField.prototype.setConversion = function(conversion) {
+DelegateField.prototype.setConversion = function(conversion) {
   this.field.setConversion(conversion);
 };
 
-DeferredField.prototype.getConversion = function() {
+DelegateField.prototype.getConversion = function() {
   return this.field.getConversion();
 };
 
-Object.defineProperty(DeferredField.prototype, 'isImportant', {
+Object.defineProperty(DelegateField.prototype, 'isImportant', {
   get: function() {
     return this.field.isImportant;
   },
@@ -9462,7 +11697,7 @@ function ArrayField(type, options) {
   this.addButton = util.createElement(this.document, 'button');
   this.addButton.classList.add('gcli-array-member-add');
   this.addButton.addEventListener('click', this._onAdd, false);
-  this.addButton.innerHTML = l10n.lookup('fieldArrayAdd');
+  this.addButton.textContent = l10n.lookup('fieldArrayAdd');
   this.element.appendChild(this.addButton);
 
   // <div class=gcliArrayMbrs save="${mbrElement}">
@@ -9477,8 +11712,8 @@ function ArrayField(type, options) {
 
 ArrayField.prototype = Object.create(Field.prototype);
 
-ArrayField.claim = function(type) {
-  return type instanceof ArrayType ? Field.MATCH : Field.NO_MATCH;
+ArrayField.claim = function(type, context) {
+  return type.name === 'array' ? Field.MATCH : Field.NO_MATCH;
 };
 
 ArrayField.prototype.destroy = function() {
@@ -9499,11 +11734,17 @@ ArrayField.prototype.setConversion = function(conversion) {
 ArrayField.prototype.getConversion = function() {
   var conversions = [];
   var arrayArg = new ArrayArgument();
-  for (var i = 0; i < this.members.length; i++) {
-    var conversion = this.members[i].field.getConversion();
+
+  var addConversion = function(conversion) {
     conversions.push(conversion);
     arrayArg.addArgument(conversion.arg);
+  }.bind(this);
+
+  for (var i = 0; i < this.members.length; i++) {
+    var reply = this.members[i].field.getConversion();
+    promise.resolve(reply).then(addConversion, util.errorHandler);
   }
+
   return new ArrayConversion(conversions, arrayArg);
 };
 
@@ -9516,9 +11757,10 @@ ArrayField.prototype._onAdd = function(ev, subConversion) {
   // ${field.element}
   var field = fields.getField(this.type.subtype, this.options);
   field.onFieldChange.add(function() {
-    var conversion = this.getConversion();
-    this.onFieldChange({ conversion: conversion });
-    this.setMessage(conversion.message);
+    promise.resolve(this.getConversion()).then(function(conversion) {
+      this.onFieldChange({ conversion: conversion });
+      this.setMessage(conversion.message);
+    }.bind(this), util.errorHandler);
   }, this);
 
   if (subConversion) {
@@ -9530,7 +11772,7 @@ ArrayField.prototype._onAdd = function(ev, subConversion) {
   var delButton = util.createElement(this.document, 'button');
   delButton.classList.add('gcli-array-member-del');
   delButton.addEventListener('click', this._onDel, false);
-  delButton.innerHTML = l10n.lookup('fieldArrayDel');
+  delButton.textContent = l10n.lookup('fieldArrayDel');
   element.appendChild(delButton);
 
   var member = {
@@ -9550,256 +11792,12 @@ ArrayField.prototype._onAdd = function(ev, subConversion) {
   this.members.push(member);
 };
 
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/ui/fields', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types/basic'], function(require, exports, module) {
-
-
-var util = require('gcli/util');
-var KeyEvent = require('gcli/util').KeyEvent;
-
-var BlankType = require('gcli/types/basic').BlankType;
-
 /**
- * A Field is a way to get input for a single parameter.
- * This class is designed to be inherited from. It's important that all
- * subclasses have a similar constructor signature because they are created
- * via getField(...)
- * @param type The type to use in conversions
- * @param options A set of properties to help fields configure themselves:
- * - document: The document we use in calling createElement
- * - named: Is this parameter named? That is to say, are positional
- *         arguments disallowed, if true, then we need to provide updates to
- *         the command line that explicitly name the parameter in use
- *         (e.g. --verbose, or --name Fred rather than just true or Fred)
- * - name: If this parameter is named, what name should we use
- * - requisition: The requisition that we're attached to
- * - required: Boolean to indicate if this is a mandatory field
+ * Exported items
  */
-function Field(type, options) {
-  this.type = type;
-  this.document = options.document;
-  this.requisition = options.requisition;
-}
-
-/**
- * Subclasses should assign their element with the DOM node that gets added
- * to the 'form'. It doesn't have to be an input node, just something that
- * contains it.
- */
-Field.prototype.element = undefined;
-
-/**
- * Indicates that this field should drop any resources that it has created
- */
-Field.prototype.destroy = function() {
-  delete this.messageElement;
-};
-
-// Note: We could/should probably change Fields from working with Conversions
-// to working with Arguments (Tokens), which makes for less calls to parse()
-
-/**
- * Update this field display with the value from this conversion.
- * Subclasses should provide an implementation of this function.
- */
-Field.prototype.setConversion = function(conversion) {
-  throw new Error('Field should not be used directly');
-};
-
-/**
- * Extract a conversion from the values in this field.
- * Subclasses should provide an implementation of this function.
- */
-Field.prototype.getConversion = function() {
-  throw new Error('Field should not be used directly');
-};
-
-/**
- * Set the element where messages and validation errors will be displayed
- * @see setMessage()
- */
-Field.prototype.setMessageElement = function(element) {
-  this.messageElement = element;
-};
-
-/**
- * Display a validation message in the UI
- */
-Field.prototype.setMessage = function(message) {
-  if (this.messageElement) {
-    if (message == null) {
-      message = '';
-    }
-    util.setContents(this.messageElement, message);
-  }
-};
-
-/**
- * Method to be called by subclasses when their input changes, which allows us
- * to properly pass on the onFieldChange event.
- */
-Field.prototype.onInputChange = function(ev) {
-  var conversion = this.getConversion();
-  this.onFieldChange({ conversion: conversion });
-  this.setMessage(conversion.message);
-
-  if (ev.keyCode === KeyEvent.DOM_VK_RETURN) {
-    this.requisition.exec();
-  }
-};
-
-/**
- * Some fields contain information that is more important to the user, for
- * example error messages and completion menus.
- */
-Field.prototype.isImportant = false;
-
-/**
- * 'static/abstract' method to allow implementations of Field to lay a claim
- * to a type. This allows claims of various strength to be weighted up.
- * See the Field.*MATCH values.
- */
-Field.claim = function() {
-  throw new Error('Field should not be used directly');
-};
-
-/**
- * About minimalism - If we're producing a dialog, we want a field for every
- * parameter. If we're providing a quick tooltip, we only want a field when
- * it's really going to help.
- * The getField() function takes an option of 'tooltip: true'. Fields are
- * expected to reply with a TOOLTIP_* constant if they should be shown in the
- * tooltip case.
- */
-Field.TOOLTIP_MATCH = 5;   // A best match, that works for a tooltip
-Field.TOOLTIP_DEFAULT = 4; // A default match that should show in a tooltip
-Field.MATCH = 3;           // Match, but ignorable if we're being minimalist
-Field.DEFAULT = 2;         // This is a default (non-minimalist) match
-Field.BASIC = 1;           // OK in an emergency. i.e. assume Strings
-Field.NO_MATCH = 0;        // This field can't help with the given type
-
-exports.Field = Field;
-
-
-/**
- * Internal array of known fields
- */
-var fieldCtors = [];
-
-/**
- * Add a field definition by field constructor
- * @param fieldCtor Constructor function of new Field
- */
-exports.addField = function(fieldCtor) {
-  if (typeof fieldCtor !== 'function') {
-    console.error('addField erroring on ', fieldCtor);
-    throw new Error('addField requires a Field constructor');
-  }
-  fieldCtors.push(fieldCtor);
-};
-
-/**
- * Remove a Field definition
- * @param field A previously registered field, specified either with a field
- * name or from the field name
- */
-exports.removeField = function(field) {
-  if (typeof field !== 'string') {
-    fields = fields.filter(function(test) {
-      return test !== field;
-    });
-    delete fields[field];
-  }
-  else if (field instanceof Field) {
-    removeField(field.name);
-  }
-  else {
-    console.error('removeField erroring on ', field);
-    throw new Error('removeField requires an instance of Field');
-  }
-};
-
-/**
- * Find the best possible matching field from the specification of the type
- * of field required.
- * @param type An instance of Type that we will represent
- * @param options A set of properties that we should attempt to match, and use
- * in the construction of the new field object:
- * - document: The document to use in creating new elements
- * - name: The parameter name, (i.e. assignment.param.name)
- * - requisition: The requisition we're monitoring,
- * - required: Is this a required parameter (i.e. param.isDataRequired)
- * - named: Is this a named parameters (i.e. !param.isPositionalAllowed)
- * @return A newly constructed field that best matches the input options
- */
-exports.getField = function(type, options) {
-  var ctor;
-  var highestClaim = -1;
-  fieldCtors.forEach(function(fieldCtor) {
-    var claim = fieldCtor.claim(type);
-    if (claim > highestClaim) {
-      highestClaim = claim;
-      ctor = fieldCtor;
-    }
-  });
-
-  if (!ctor) {
-    console.error('Unknown field type ', type, ' in ', fieldCtors);
-    throw new Error('Can\'t find field for ' + type);
-  }
-
-  if (options.tooltip && highestClaim < Field.TOOLTIP_DEFAULT) {
-    return new BlankField(type, options);
-  }
-
-  return new ctor(type, options);
-};
-
-
-/**
- * For use with deferred types that do not yet have anything to resolve to.
- * BlankFields are not for general use.
- */
-function BlankField(type, options) {
-  Field.call(this, type, options);
-
-  this.element = util.createElement(this.document, 'div');
-
-  this.onFieldChange = util.createEvent('BlankField.onFieldChange');
-}
-
-BlankField.prototype = Object.create(Field.prototype);
-
-BlankField.claim = function(type) {
-  return type instanceof BlankType ? Field.MATCH : Field.NO_MATCH;
-};
-
-BlankField.prototype.setConversion = function(conversion) {
-  this.setMessage(conversion.message);
-};
-
-BlankField.prototype.getConversion = function() {
-  return this.type.parse(new Argument());
-};
-
-exports.addField(BlankField);
+exports.items = [
+  StringField, NumberField, BooleanField, DelegateField, ArrayField
+];
 
 
 });
@@ -9819,30 +11817,19 @@ exports.addField(BlankField);
  * limitations under the License.
  */
 
-define('gcli/ui/fields/javascript', ['require', 'exports', 'module' , 'gcli/util', 'gcli/argument', 'gcli/types/javascript', 'gcli/ui/fields/menu', 'gcli/ui/fields'], function(require, exports, module) {
+define('gcli/ui/fields/javascript', ['require', 'exports', 'module' , 'util/util', 'util/promise', 'gcli/types', 'gcli/argument', 'gcli/ui/fields/menu', 'gcli/ui/fields'], function(require, exports, module) {
 
+'use strict';
 
-var util = require('gcli/util');
+var util = require('util/util');
+var promise = require('util/promise');
 
+var Status = require('gcli/types').Status;
+var Conversion = require('gcli/types').Conversion;
 var ScriptArgument = require('gcli/argument').ScriptArgument;
-var JavascriptType = require('gcli/types/javascript').JavascriptType;
 
 var Menu = require('gcli/ui/fields/menu').Menu;
 var Field = require('gcli/ui/fields').Field;
-var fields = require('gcli/ui/fields');
-
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  fields.addField(JavascriptField);
-};
-
-exports.shutdown = function() {
-  fields.removeField(JavascriptField);
-};
-
 
 /**
  * A field that allows editing of javascript
@@ -9869,7 +11856,9 @@ function JavascriptField(type, options) {
   });
   this.element.appendChild(this.menu.element);
 
-  this.setConversion(this.type.parse(new ScriptArgument('')));
+  var initial = new Conversion(undefined, new ScriptArgument(''),
+                               Status.INCOMPLETE, '');
+  this.setConversion(initial);
 
   this.onFieldChange = util.createEvent('JavascriptField.onFieldChange');
 
@@ -9879,8 +11868,8 @@ function JavascriptField(type, options) {
 
 JavascriptField.prototype = Object.create(Field.prototype);
 
-JavascriptField.claim = function(type) {
-  return type instanceof JavascriptType ? Field.TOOLTIP_MATCH : Field.NO_MATCH;
+JavascriptField.claim = function(type, context) {
+  return type.name === 'javascript' ? Field.TOOLTIP_MATCH : Field.NO_MATCH;
 };
 
 JavascriptField.prototype.destroy = function() {
@@ -9900,7 +11889,7 @@ JavascriptField.prototype.setConversion = function(conversion) {
   this.input.value = conversion.arg.text;
 
   var prefixLen = 0;
-  if (this.type instanceof JavascriptType) {
+  if (this.type.name === 'javascript') {
     var typed = conversion.arg.text;
     var lastDot = typed.lastIndexOf('.');
     if (lastDot !== -1) {
@@ -9908,42 +11897,52 @@ JavascriptField.prototype.setConversion = function(conversion) {
     }
   }
 
-  var items = [];
-  var predictions = conversion.getPredictions();
-  predictions.forEach(function(item) {
-    // Commands can be hidden
-    if (!item.hidden) {
-      items.push({
-        name: item.name.substring(prefixLen),
-        complete: item.name,
-        description: item.description || ''
-      });
-    }
-  }, this);
-
-  this.menu.show(items);
   this.setMessage(conversion.message);
+
+  conversion.getPredictions().then(function(predictions) {
+    var items = [];
+    predictions.forEach(function(item) {
+      // Commands can be hidden
+      if (!item.hidden) {
+        items.push({
+          name: item.name.substring(prefixLen),
+          complete: item.name,
+          description: item.description || ''
+        });
+      }
+    }, this);
+    this.menu.show(items);
+  }.bind(this), util.errorHandler);
 };
 
 JavascriptField.prototype.itemClicked = function(ev) {
-  this.onFieldChange(ev);
-  this.setMessage(ev.conversion.message);
+  var parsed = this.type.parse(ev.arg, this.requisition.executionContext);
+  promise.resolve(parsed).then(function(conversion) {
+    this.onFieldChange({ conversion: conversion });
+    this.setMessage(conversion.message);
+  }.bind(this), util.errorHandler);
 };
 
 JavascriptField.prototype.onInputChange = function(ev) {
   this.item = ev.currentTarget.item;
-  var conversion = this.getConversion();
-  this.onFieldChange({ conversion: conversion });
-  this.setMessage(conversion.message);
+  promise.resolve(this.getConversion()).then(function(conversion) {
+    this.onFieldChange({ conversion: conversion });
+    this.setMessage(conversion.message);
+  }.bind(this), util.errorHandler);
 };
 
 JavascriptField.prototype.getConversion = function() {
   // This tweaks the prefix/suffix of the argument to fit
   this.arg = new ScriptArgument(this.input.value, '{ ', ' }');
-  return this.type.parse(this.arg);
+  return this.type.parse(this.arg, this.requisition.executionContext);
 };
 
 JavascriptField.DEFAULT_VALUE = '__JavascriptField.DEFAULT_VALUE';
+
+/**
+ * Allow registration and de-registration.
+ */
+exports.items = [ JavascriptField ];
 
 
 });
@@ -9963,17 +11962,17 @@ JavascriptField.DEFAULT_VALUE = '__JavascriptField.DEFAULT_VALUE';
  * limitations under the License.
  */
 
-define('gcli/ui/fields/menu', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/argument', 'gcli/types', 'gcli/canon', 'gcli/ui/domtemplate', 'text!gcli/ui/fields/menu.css', 'text!gcli/ui/fields/menu.html'], function(require, exports, module) {
+define('gcli/ui/fields/menu', ['require', 'exports', 'module' , 'util/util', 'util/l10n', 'util/domtemplate', 'gcli/argument', 'gcli/types', 'gcli/canon', 'text!gcli/ui/fields/menu.css', 'text!gcli/ui/fields/menu.html'], function(require, exports, module) {
 
+'use strict';
 
-var util = require('gcli/util');
-var l10n = require('gcli/l10n');
+var util = require('util/util');
+var l10n = require('util/l10n');
+var domtemplate = require('util/domtemplate');
 
 var Argument = require('gcli/argument').Argument;
 var Conversion = require('gcli/types').Conversion;
 var canon = require('gcli/canon');
-
-var domtemplate = require('gcli/ui/domtemplate');
 
 var menuCss = require('text!gcli/ui/fields/menu.css');
 var menuHtml = require('text!gcli/ui/fields/menu.html');
@@ -10040,12 +12039,11 @@ Menu.prototype.destroy = function() {
  * @param ev The click event from the browser
  */
 Menu.prototype.onItemClickInternal = function(ev) {
-  var name = ev.currentTarget.querySelector('.gcli-menu-name').innerHTML;
+  var name = ev.currentTarget.querySelector('.gcli-menu-name').textContent;
   var arg = new Argument(name);
   arg.suffix = ' ';
 
-  var conversion = this.type.parse(arg);
-  this.onItemClick({ conversion: conversion });
+  this.onItemClick({ arg: arg });
 };
 
 /**
@@ -10061,7 +12059,7 @@ Menu.prototype.show = function(items, match) {
 
   if (match) {
     this.items = this.items.map(function(item) {
-      return gethighlightingProxy(item, match, this.template.ownerDocument);
+      return getHighlightingProxy(item, match, this.template.ownerDocument);
     }.bind(this));
   }
 
@@ -10087,7 +12085,7 @@ Menu.prototype.show = function(items, match) {
 /**
  * Create a proxy around an item that highlights matching text
  */
-function gethighlightingProxy(item, match, document) {
+function getHighlightingProxy(item, match, document) {
   if (typeof Proxy === 'undefined') {
     return item;
   }
@@ -10149,12 +12147,12 @@ Menu.prototype.selectChoice = function() {
     return false;
   }
 
-  var name = selected.innerHTML;
+  var name = selected.textContent;
   var arg = new Argument(name);
   arg.suffix = ' ';
+  arg.prefix = ' ';
 
-  var conversion = this.type.parse(arg);
-  this.onItemClick({ conversion: conversion });
+  this.onItemClick({ arg: arg });
   return true;
 };
 
@@ -10269,35 +12267,18 @@ define("text!gcli/ui/fields/menu.html", [], "\n" +
  * limitations under the License.
  */
 
-define('gcli/ui/fields/selection', ['require', 'exports', 'module' , 'gcli/util', 'gcli/l10n', 'gcli/argument', 'gcli/types', 'gcli/types/basic', 'gcli/types/selection', 'gcli/ui/fields/menu', 'gcli/ui/fields'], function(require, exports, module) {
+define('gcli/ui/fields/selection', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'util/l10n', 'gcli/argument', 'gcli/ui/fields/menu', 'gcli/ui/fields'], function(require, exports, module) {
 
+'use strict';
 
-var util = require('gcli/util');
-var l10n = require('gcli/l10n');
+var promise = require('util/promise');
+var util = require('util/util');
+var l10n = require('util/l10n');
 
 var Argument = require('gcli/argument').Argument;
-var Status = require('gcli/types').Status;
-var Conversion = require('gcli/types').Conversion;
-var BooleanType = require('gcli/types/basic').BooleanType;
-var SelectionType = require('gcli/types/selection').SelectionType;
 
 var Menu = require('gcli/ui/fields/menu').Menu;
 var Field = require('gcli/ui/fields').Field;
-var fields = require('gcli/ui/fields');
-
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  fields.addField(SelectionField);
-  fields.addField(SelectionTooltipField);
-};
-
-exports.shutdown = function() {
-  fields.removeField(SelectionField);
-  fields.removeField(SelectionTooltipField);
-};
 
 
 /**
@@ -10321,8 +12302,10 @@ function SelectionField(type, options) {
   this._addOption({
     name: l10n.lookupFormat('fieldSelectionSelect', [ options.name ])
   });
-  var lookup = this.type.getLookup();
-  lookup.forEach(this._addOption, this);
+
+  promise.resolve(this.type.getLookup()).then(function(lookup) {
+    lookup.forEach(this._addOption, this);
+  }.bind(this), util.errorHandler);
 
   this.onInputChange = this.onInputChange.bind(this);
   this.element.addEventListener('change', this.onInputChange, false);
@@ -10332,11 +12315,11 @@ function SelectionField(type, options) {
 
 SelectionField.prototype = Object.create(Field.prototype);
 
-SelectionField.claim = function(type) {
-  if (type instanceof BooleanType) {
+SelectionField.claim = function(type, context) {
+  if (type.name === 'boolean') {
     return Field.BASIC;
   }
-  return type instanceof SelectionType ? Field.DEFAULT : Field.NO_MATCH;
+  return type.isSelection ? Field.DEFAULT : Field.NO_MATCH;
 };
 
 SelectionField.prototype.destroy = function() {
@@ -10368,7 +12351,7 @@ SelectionField.prototype._addOption = function(item) {
   this.items.push(item);
 
   var option = util.createElement(this.document, 'option');
-  option.innerHTML = item.name;
+  option.textContent = item.name;
   option.value = item.index;
   this.element.appendChild(option);
 };
@@ -10394,8 +12377,10 @@ function SelectionTooltipField(type, options) {
 
 SelectionTooltipField.prototype = Object.create(Field.prototype);
 
-SelectionTooltipField.claim = function(type) {
-  return type.getType() instanceof SelectionType ? Field.TOOLTIP_MATCH : Field.NO_MATCH;
+SelectionTooltipField.claim = function(type, context) {
+  return type.getType(context).isSelection ?
+      Field.TOOLTIP_MATCH :
+      Field.NO_MATCH;
 };
 
 SelectionTooltipField.prototype.destroy = function() {
@@ -10409,32 +12394,41 @@ SelectionTooltipField.prototype.destroy = function() {
 
 SelectionTooltipField.prototype.setConversion = function(conversion) {
   this.arg = conversion.arg;
-  var items = conversion.getPredictions().map(function(prediction) {
-    // If the prediction value is an 'item' (that is an object with a name and
-    // description) then use that, otherwise use the prediction itself, because
-    // at least that has a name.
-    return prediction.value.description ? prediction.value : prediction;
-  }, this);
-  this.menu.show(items, conversion.arg.text);
   this.setMessage(conversion.message);
+
+  conversion.getPredictions().then(function(predictions) {
+    var items = predictions.map(function(prediction) {
+      // If the prediction value is an 'item' (that is an object with a name and
+      // description) then use that, otherwise use the prediction itself, because
+      // at least that has a name.
+      return prediction.value && prediction.value.description ?
+          prediction.value :
+          prediction;
+    }, this);
+    this.menu.show(items, conversion.arg.text);
+  }.bind(this), util.errorHandler);
 };
 
 SelectionTooltipField.prototype.itemClicked = function(ev) {
-  this.onFieldChange(ev);
-  this.setMessage(ev.conversion.message);
+  var parsed = this.type.parse(ev.arg, this.requisition.executionContext);
+  promise.resolve(parsed).then(function(conversion) {
+    this.onFieldChange({ conversion: conversion });
+    this.setMessage(conversion.message);
+  }.bind(this), util.errorHandler);
 };
 
 SelectionTooltipField.prototype.onInputChange = function(ev) {
   this.item = ev.currentTarget.item;
-  var conversion = this.getConversion();
-  this.onFieldChange({ conversion: conversion });
-  this.setMessage(conversion.message);
+  promise.resolve(this.getConversion()).then(function(conversion) {
+    this.onFieldChange({ conversion: conversion });
+    this.setMessage(conversion.message);
+  }.bind(this), util.errorHandler);
 };
 
 SelectionTooltipField.prototype.getConversion = function() {
   // This tweaks the prefix/suffix of the argument to fit
   this.arg = this.arg.beget({ text: this.input.value });
-  return this.type.parse(this.arg);
+  return this.type.parse(this.arg, this.requisition.executionContext);
 };
 
 /**
@@ -10462,6 +12456,10 @@ Object.defineProperty(SelectionTooltipField.prototype, 'isImportant', {
 
 SelectionTooltipField.DEFAULT_VALUE = '__SelectionTooltipField.DEFAULT_VALUE';
 
+/**
+ * Allow registration and de-registration.
+ */
+exports.items = [ SelectionField, SelectionTooltipField ];
 
 });
 /*
@@ -10480,22 +12478,24 @@ SelectionTooltipField.DEFAULT_VALUE = '__SelectionTooltipField.DEFAULT_VALUE';
  * limitations under the License.
  */
 
-define('gcli/ui/display', ['require', 'exports', 'module' , 'gcli/util', 'gcli/settings', 'gcli/ui/intro', 'gcli/ui/domtemplate', 'gcli/ui/tooltip', 'gcli/ui/output_terminal', 'gcli/ui/inputter', 'gcli/ui/completer', 'gcli/ui/focus', 'gcli/ui/prompt', 'gcli/cli', 'text!gcli/ui/display.css', 'text!gcli/ui/display.html'], function(require, exports, module) {
+define('gcli/ui/display', ['require', 'exports', 'module' , 'util/util', 'util/domtemplate', 'gcli/settings', 'gcli/canon', 'gcli/cli', 'gcli/ui/intro', 'gcli/ui/tooltip', 'gcli/ui/output_terminal', 'gcli/ui/inputter', 'gcli/ui/completer', 'gcli/ui/focus', 'gcli/ui/prompt', 'text!gcli/ui/display.css', 'text!gcli/ui/display.html'], function(require, exports, module) {
 
+'use strict';
 
-var util = require('gcli/util');
+var util = require('util/util');
+var domtemplate = require('util/domtemplate');
+
 var settings = require('gcli/settings');
-var intro = require('gcli/ui/intro');
-var domtemplate = require('gcli/ui/domtemplate');
+var CommandOutputManager = require('gcli/canon').CommandOutputManager;
+var Requisition = require('gcli/cli').Requisition;
 
+var intro = require('gcli/ui/intro');
 var Tooltip = require('gcli/ui/tooltip').Tooltip;
 var OutputTerminal = require('gcli/ui/output_terminal').OutputTerminal;
 var Inputter = require('gcli/ui/inputter').Inputter;
 var Completer = require('gcli/ui/completer').Completer;
 var FocusManager = require('gcli/ui/focus').FocusManager;
 var Prompt = require('gcli/ui/prompt').Prompt;
-
-var Requisition = require('gcli/cli').Requisition;
 
 var displayCss = require('text!gcli/ui/display.css');
 var displayHtml = require('text!gcli/ui/display.html');
@@ -10520,6 +12520,7 @@ exports.createDisplay = function(options) {
      */
     exec: requisition.exec.bind(requisition),
     update: requisition.update.bind(requisition),
+    updateExec: requisition.updateExec.bind(requisition),
     destroy: display.destroy.bind(display)
   };
 };
@@ -10536,6 +12537,7 @@ exports.createDisplay = function(options) {
  * - completeElement (default=#gcli-row-complete):
  * - displayElement (default=#gcli-display):
  * - promptElement (default=#gcli-prompt):
+ * - commandOutputManager (default=new CommandOutputManager):
  */
 function Display(options) {
   var doc = options.document || document;
@@ -10552,10 +12554,18 @@ function Display(options) {
   // When a component uses a document to create elements for use under a known
   // root element, then we pass in the element (if we have looked it up
   // already) or an id/document
-  this.requisition = new Requisition(options.enviroment || {}, doc);
+
+  this.commandOutputManager = options.commandOutputManager;
+  if (this.commandOutputManager == null) {
+    this.commandOutputManager = new CommandOutputManager();
+  }
+
+  this.requisition = new Requisition(options.environment || {}, doc,
+                                     this.commandOutputManager);
 
   this.focusManager = new FocusManager(options, {
-    document: doc
+    document: doc,
+    requisition: this.requisition
   });
 
   this.inputElement = find(doc, options.inputElement || null, 'gcli-input');
@@ -10610,7 +12620,8 @@ function Display(options) {
 
   this.element.appendChild(this.outputElement);
 
-  intro.maybeShowIntro(this.outputList.commandOutputManager, this.requisition);
+  intro.maybeShowIntro(this.commandOutputManager,
+                       this.requisition.conversionContext);
 }
 
 /**
@@ -10699,14 +12710,15 @@ function insert(sibling, element, id) {
  * limitations under the License.
  */
 
-define('gcli/ui/tooltip', ['require', 'exports', 'module' , 'gcli/util', 'gcli/cli', 'gcli/ui/fields', 'gcli/ui/domtemplate', 'text!gcli/ui/tooltip.css', 'text!gcli/ui/tooltip.html'], function(require, exports, module) {
+define('gcli/ui/tooltip', ['require', 'exports', 'module' , 'util/util', 'util/domtemplate', 'gcli/cli', 'gcli/ui/fields', 'text!gcli/ui/tooltip.css', 'text!gcli/ui/tooltip.html'], function(require, exports, module) {
 
+'use strict';
 
-var util = require('gcli/util');
+var util = require('util/util');
+var domtemplate = require('util/domtemplate');
+
 var CommandAssignment = require('gcli/cli').CommandAssignment;
-
 var fields = require('gcli/ui/fields');
-var domtemplate = require('gcli/ui/domtemplate');
 
 var tooltipCss = require('text!gcli/ui/tooltip.css');
 var tooltipHtml = require('text!gcli/ui/tooltip.html');
@@ -10754,10 +12766,14 @@ function Tooltip(options, components) {
 
   this.inputter.onChoiceChange.add(this.choiceChanged, this);
   this.inputter.onAssignmentChange.add(this.assignmentChanged, this);
+  this.requisition.onTextChange.add(this.textChanged, this);
 
   // We keep a track of which assignment the cursor is in
   this.assignment = undefined;
   this.assignmentChanged({ assignment: this.inputter.assignment });
+
+  // We also keep track of the last known arg text for the current assignment
+  this.lastText = undefined;
 }
 
 /**
@@ -10766,6 +12782,7 @@ function Tooltip(options, components) {
 Tooltip.prototype.destroy = function() {
   this.inputter.onAssignmentChange.remove(this.assignmentChanged, this);
   this.inputter.onChoiceChange.remove(this.choiceChanged, this);
+  this.requisition.onTextChange.remove(this.textChanged, this);
 
   if (this.panelElement) {
     this.focusManager.onVisibilityChange.remove(this.visibilityChanged, this);
@@ -10779,6 +12796,9 @@ Tooltip.prototype.destroy = function() {
 
   this.field.onFieldChange.remove(this.fieldChanged, this);
   this.field.destroy();
+
+  delete this.lastText;
+  delete this.assignment;
 
   delete this.errorEle;
   delete this.descriptionEle;
@@ -10813,10 +12833,8 @@ Tooltip.prototype.assignmentChanged = function(ev) {
     return;
   }
 
-  if (this.assignment) {
-    this.assignment.onAssignmentChange.remove(this.assignmentContentsChanged, this);
-  }
   this.assignment = ev.assignment;
+  this.lastText = this.assignment.arg.text;
 
   if (this.field) {
     this.field.onFieldChange.remove(this.fieldChanged, this);
@@ -10835,8 +12853,6 @@ Tooltip.prototype.assignmentChanged = function(ev) {
   this.focusManager.setImportantFieldFlag(this.field.isImportant);
 
   this.field.onFieldChange.add(this.fieldChanged, this);
-  this.assignment.onAssignmentChange.add(this.assignmentContentsChanged, this);
-
   this.field.setConversion(this.assignment.conversion);
 
   // Filled in by the template process
@@ -10860,8 +12876,10 @@ Tooltip.prototype.assignmentChanged = function(ev) {
  */
 Tooltip.prototype.choiceChanged = function(ev) {
   if (this.field && this.field.setChoiceIndex) {
-    var choice = this.assignment.conversion.constrainPredictionIndex(ev.choice);
-    this.field.setChoiceIndex(choice);
+    var conversion = this.assignment.conversion;
+    conversion.constrainPredictionIndex(ev.choice).then(function(choice) {
+      this.field.setChoiceIndex(choice);
+    }.bind(this)).then(null, util.errorHandler);
   }
 };
 
@@ -10881,7 +12899,8 @@ Tooltip.prototype.selectChoice = function(ev) {
  * Called by the onFieldChange event on the current Field
  */
 Tooltip.prototype.fieldChanged = function(ev) {
-  this.requisition.setAssignment(this.assignment, ev.conversion.arg);
+  this.requisition.setAssignment(this.assignment, ev.conversion.arg,
+                                 { matchPadding: true });
 
   var isError = ev.conversion.message != null && ev.conversion.message !== '';
   this.focusManager.setError(isError);
@@ -10895,18 +12914,20 @@ Tooltip.prototype.fieldChanged = function(ev) {
 };
 
 /**
- * Called by the onAssignmentChange event on the current Assignment
+ * Called by the onTextChanged event on the Requisition
  */
-Tooltip.prototype.assignmentContentsChanged = function(ev) {
-  // Assignments fire AssignmentChange events on any change, including minor
+Tooltip.prototype.textChanged = function() {
+  // Requisition fires onTextChanged events on any change, including minor
   // things like whitespace change in arg prefix, so we ignore anything but
   // an actual value change.
-  if (ev.conversion.arg.text === ev.oldConversion.arg.text) {
+  if (this.assignment.arg.text === this.lastText) {
     return;
   }
 
-  this.field.setConversion(ev.conversion);
-  util.setContents(this.descriptionEle, this.description);
+  this.lastText = this.assignment.arg.text;
+
+  this.field.setConversion(this.assignment.conversion);
+  util.setTextContent(this.descriptionEle, this.description);
 
   this._updatePosition();
 };
@@ -10960,19 +12981,7 @@ Object.defineProperty(Tooltip.prototype, 'description', {
       return '';
     }
 
-    var output = this.assignment.param.manual;
-    if (output) {
-      var wrapper = this.document.createElement('span');
-      util.setContents(wrapper, output);
-      if (!this.assignment.param.isDataRequired) {
-        var optional = this.document.createElement('span');
-        optional.appendChild(this.document.createTextNode(' (Optional)'));
-        wrapper.appendChild(optional);
-      }
-      return wrapper;
-    }
-
-    return this.assignment.param.description;
+    return this.assignment.param.manual || this.assignment.param.description;
   },
   enumerable: true
 });
@@ -11051,7 +13060,7 @@ define("text!gcli/ui/tooltip.css", [], "\n" +
   "  box-shadow: 0 0 10px 1px #ddd;\n" +
   "  border: 1px solid #999;\n" +
   "  border-radius: 3px;\n" +
-  "  margin: 10px 10px 0;\n" +
+  "  margin: 10px 0 0 0;\n" +
   "  background: hsla(0, 100%, 100%, 0.95);\n" +
   "  padding-bottom: 5px;\n" +
   "}\n" +
@@ -11082,12 +13091,12 @@ define("text!gcli/ui/tooltip.html", [], "\n" +
  * limitations under the License.
  */
 
-define('gcli/ui/output_terminal', ['require', 'exports', 'module' , 'gcli/util', 'gcli/canon', 'gcli/ui/domtemplate', 'text!gcli/ui/output_view.css', 'text!gcli/ui/output_terminal.html'], function(require, exports, module) {
+define('gcli/ui/output_terminal', ['require', 'exports', 'module' , 'util/util', 'util/domtemplate', 'text!gcli/ui/output_view.css', 'text!gcli/ui/output_terminal.html'], function(require, exports, module) {
 
-var util = require('gcli/util');
+'use strict';
 
-var canon = require('gcli/canon');
-var domtemplate = require('gcli/ui/domtemplate');
+var util = require('util/util');
+var domtemplate = require('util/domtemplate');
 
 var outputViewCss = require('text!gcli/ui/output_view.css');
 var outputViewHtml = require('text!gcli/ui/output_terminal.html');
@@ -11097,8 +13106,8 @@ var outputViewHtml = require('text!gcli/ui/output_terminal.html');
  * A wrapper for a set of rows|command outputs.
  * Register with the canon to be notified when commands have output to be
  * displayed.
- * @param options Object containing user customization properties, including:
- * - commandOutputManager
+ * @param options Object containing user customization properties, although
+ * none are currently supported
  * @param components Object that links to other UI components. GCLI provided:
  * - element: Root element to populate
  * - requisition (optional): A click/double-click to an input row causes the
@@ -11108,9 +13117,7 @@ function OutputTerminal(options, components) {
   this.element = components.element;
   this.requisition = components.requisition;
 
-  this.commandOutputManager = options.commandOutputManager ||
-          canon.commandOutputManager;
-  this.commandOutputManager.onOutput.add(this.outputted, this);
+  this.requisition.commandOutputManager.onOutput.add(this.outputted, this);
 
   var document = components.element.ownerDocument;
   if (outputViewCss != null) {
@@ -11130,9 +13137,8 @@ OutputTerminal.prototype.destroy = function() {
     delete this.style;
   }
 
-  this.commandOutputManager.onOutput.remove(this.outputted, this);
+  this.requisition.commandOutputManager.onOutput.remove(this.outputted, this);
 
-  delete this.commandOutputManager;
   delete this.requisition;
   delete this.element;
   delete this.template;
@@ -11162,10 +13168,11 @@ exports.OutputTerminal = OutputTerminal;
 /**
  * Adds a row to the CLI output display
  */
-function OutputView(outputData, outputTerminal) {
-  this.outputData = outputData;
+function OutputView(output, outputTerminal) {
+  this.output = output;
   this.outputTerminal = outputTerminal;
 
+  this._outputted = this._outputted.bind(this);
   this.url = util.createUrlLookup(module);
 
   // Elements attached to this by template().
@@ -11179,24 +13186,30 @@ function OutputView(outputData, outputTerminal) {
     prompt: null
   };
 
+  // Handle clicks and double clicks to copy and exec commands
+  var context = this.outputTerminal.requisition.conversionContext;
+  this.onclick = context.update;
+  this.ondblclick = context.updateExec;
+
   var template = this.outputTerminal.template.cloneNode(true);
   domtemplate.template(template, this, this.outputTerminal.templateOptions);
 
   this.outputTerminal.element.appendChild(this.elems.rowin);
   this.outputTerminal.element.appendChild(this.elems.rowout);
 
-  this.outputData.onClose.add(this.closed, this);
-  this.outputData.onChange.add(this.changed, this);
+  this.output.onClose.add(this.closed, this);
+  this.output.promise.then(this._outputted);
+
+  this.scrollToBottom();
 }
 
 OutputView.prototype.destroy = function() {
-  this.outputData.onChange.remove(this.changed, this);
-  this.outputData.onClose.remove(this.closed, this);
+  this.output.onClose.remove(this.closed, this);
 
   this.outputTerminal.element.removeChild(this.elems.rowin);
   this.outputTerminal.element.removeChild(this.elems.rowout);
 
-  delete this.outputData;
+  delete this.output;
   delete this.outputTerminal;
   delete this.url;
   delete this.elems;
@@ -11207,29 +13220,10 @@ OutputView.prototype.destroy = function() {
  */
 Object.defineProperty(OutputView.prototype, 'prompt', {
   get: function() {
-    return this.outputData.canonical ? '\u00bb' : '';
+    return this.output.canonical ? '\u00bb' : '';
   },
   enumerable: true
 });
-
-/**
- * A single click on an invocation line in the console copies the command
- * to the command line
- */
-OutputView.prototype.copyToInput = function() {
-  if (this.outputTerminal.requisition) {
-    this.outputTerminal.requisition.update(this.outputData.typed);
-  }
-};
-
-/**
- * A double click on an invocation line in the console executes the command
- */
-OutputView.prototype.execute = function(ev) {
-  if (this.outputTerminal.requisition) {
-    this.outputTerminal.requisition.exec({ typed: this.outputData.typed });
-  }
-};
 
 OutputView.prototype.hideOutput = function(ev) {
   this.elems.rowout.style.display = 'none';
@@ -11251,32 +13245,41 @@ OutputView.prototype.closed = function(ev) {
   this.destroy();
 };
 
-OutputView.prototype.changed = function(ev) {
+OutputView.prototype._outputted = function() {
   var document = this.elems.rowout.ownerDocument;
-  var duration = this.outputData.duration != null ?
-          'completed in ' + (this.outputData.duration / 1000) + ' sec ' :
+  var duration = this.output.duration != null ?
+          'completed in ' + (this.output.duration / 1000) + ' sec ' :
           '';
   duration = document.createTextNode(duration);
   this.elems.duration.appendChild(duration);
 
-  if (this.outputData.completed) {
+  if (this.output.completed) {
     this.elems.prompt.classList.add('gcli-row-complete');
   }
-  if (this.outputData.error) {
+  if (this.output.error) {
     this.elems.prompt.classList.add('gcli-row-error');
   }
 
-  this.outputData.toDom(this.elems.rowout);
+  util.clearElement(this.elems.rowout);
+  var context = this.outputTerminal.requisition.conversionContext;
+  this.output.convert('dom', context).then(function(node) {
+    util.linksToNewTab(node);
+    this.elems.rowout.appendChild(node);
 
+    this.scrollToBottom();
+
+    this.elems.throb.style.display = this.output.completed ? 'none' : 'block';
+  }.bind(this));
+};
+
+OutputView.prototype.scrollToBottom = function() {
   // We need to see the output of the latest command entered
   // Certain browsers have a bug such that scrollHeight is too small
   // when content does not fill the client area of the element
   var scrollHeight = Math.max(this.outputTerminal.element.scrollHeight,
-      this.outputTerminal.element.clientHeight);
+                              this.outputTerminal.element.clientHeight);
   this.outputTerminal.element.scrollTop =
-      scrollHeight - this.outputTerminal.element.clientHeight;
-
-  this.elems.throb.style.display = this.outputData.completed ? 'none' : 'block';
+                      scrollHeight - this.outputTerminal.element.clientHeight;
 };
 
 exports.OutputView = OutputView;
@@ -11419,11 +13422,12 @@ define("text!gcli/ui/output_terminal.html", [], "\n" +
   "<div class=\"gcli-row\">\n" +
   "  <!-- The div for the input (i.e. what was typed) -->\n" +
   "  <div class=\"gcli-row-in\" save=\"${elems.rowin}\" aria-live=\"assertive\"\n" +
-  "      onclick=\"${copyToInput}\" ondblclick=\"${execute}\">\n" +
+  "      onclick=\"${onclick}\" ondblclick=\"${ondblclick}\"\n" +
+  "      data-command=\"${output.canonical}\">\n" +
   "\n" +
   "    <!-- What the user actually typed -->\n" +
   "    <span save=\"${elems.prompt}\" class=\"gcli-row-prompt ${elems.error ? 'gcli-row-error' : ''} ${elems.completed ? 'gcli-row-complete' : ''}\">${prompt}</span>\n" +
-  "    <span class=\"gcli-row-in-typed\">${outputData.canonical}</span>\n" +
+  "    <span class=\"gcli-row-in-typed\">${output.canonical}</span>\n" +
   "\n" +
   "    <!-- The extra details that appear on hover -->\n" +
   "    <span class=\"gcli-row-duration gcli-row-hover\" save=\"${elems.duration}\"></span>\n" +
@@ -11461,17 +13465,20 @@ define("text!gcli/ui/output_terminal.html", [], "\n" +
  * limitations under the License.
  */
 
-define('gcli/ui/inputter', ['require', 'exports', 'module' , 'gcli/util', 'gcli/types', 'gcli/history', 'text!gcli/ui/inputter.css'], function(require, exports, module) {
+define('gcli/ui/inputter', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'gcli/types', 'gcli/history', 'text!gcli/ui/inputter.css'], function(require, exports, module) {
 
+'use strict';
 
-var util = require('gcli/util');
-var KeyEvent = require('gcli/util').KeyEvent;
+var promise = require('util/promise');
+var util = require('util/util');
+var KeyEvent = require('util/util').KeyEvent;
 
 var Status = require('gcli/types').Status;
 var History = require('gcli/history').History;
 
 var inputterCss = require('text!gcli/ui/inputter.css');
 
+var RESOLVED = promise.resolve(true);
 
 /**
  * A wrapper to take care of the functions concerning an input element
@@ -11527,6 +13534,9 @@ function Inputter(options, components) {
     this.focusManager.addMonitoredElement(this.element, 'input');
   }
 
+  // Initially an asynchronous completion isn't in-progress
+  this._completed = RESOLVED;
+
   this.requisition.onTextChange.add(this.textChanged, this);
 
   this.assignment = this.requisition.getAssignmentAt(0);
@@ -11537,6 +13547,7 @@ function Inputter(options, components) {
   this.onWindowResize = this.onWindowResize.bind(this);
   this.document.defaultView.addEventListener('resize', this.onWindowResize, false);
 
+  this._previousValue = undefined;
   this.requisition.update(this.element.value || '');
 }
 
@@ -11755,8 +13766,21 @@ Inputter.prototype._checkAssignment = function(start) {
   }
   var newAssignment = this.requisition.getAssignmentAt(start);
   if (this.assignment !== newAssignment) {
+    if (this.assignment.param.type.onLeave) {
+      this.assignment.param.type.onLeave(this.assignment);
+    }
+
     this.assignment = newAssignment;
     this.onAssignmentChange({ assignment: this.assignment });
+
+    if (this.assignment.param.type.onEnter) {
+      this.assignment.param.type.onEnter(this.assignment);
+    }
+  }
+  else {
+    if (this.assignment && this.assignment.param.type.onChange) {
+      this.assignment.param.type.onChange(this.assignment);
+    }
   }
 
   // This is slightly nasty - the focusManager generally relies on people
@@ -11766,8 +13790,7 @@ Inputter.prototype._checkAssignment = function(start) {
   // needs to know about the other, or a third-party needs to break the
   // deadlock. These 2 lines are all we're quibbling about, so for now we hack
   if (this.focusManager) {
-    var message = this.assignment.conversion.message;
-    this.focusManager.setError(message != null && message !== '');
+    this.focusManager.setError(this.assignment.message);
   }
 };
 
@@ -11781,7 +13804,8 @@ Inputter.prototype._checkAssignment = function(start) {
  * result of a keyboard event on this.element or bug 676520 could be triggered.
  */
 Inputter.prototype.setInput = function(str) {
-  this.requisition.update(str);
+  this._caretChange = Caret.TO_END;
+  return this.requisition.update(str);
 };
 
 /**
@@ -11844,134 +13868,199 @@ Inputter.prototype.onKeyDown = function(ev) {
 };
 
 /**
- * The main keyboard processing loop
+ * Handler for use with DOM events, which just calls the promise enabled
+ * handleKeyUp function but checks the exit state of the promise so we know
+ * if something went wrong.
  */
 Inputter.prototype.onKeyUp = function(ev) {
+  this.handleKeyUp(ev).then(null, util.errorHandler);
+};
+
+/**
+ * The main keyboard processing loop
+ * @return A promise that resolves (to undefined) when the actions kicked off
+ * by this handler are completed.
+ */
+Inputter.prototype.handleKeyUp = function(ev) {
   if (this.focusManager && ev.keyCode === KeyEvent.DOM_VK_F1) {
     this.focusManager.helpRequest();
-    return;
+    return RESOLVED;
   }
 
   if (this.focusManager && ev.keyCode === KeyEvent.DOM_VK_ESCAPE) {
     this.focusManager.removeHelp();
-    return;
+    return RESOLVED;
   }
 
   if (ev.keyCode === KeyEvent.DOM_VK_UP) {
-    if (this.tooltip && this.tooltip.isMenuShowing) {
-      this.changeChoice(-1);
-    }
-    else if (this.element.value === '' || this._scrollingThroughHistory) {
-      this._scrollingThroughHistory = true;
-      this.requisition.update(this.history.backward());
-    }
-    else {
-      // If the user is on a valid value, then we increment the value, but if
-      // they've typed something that's not right we page through predictions
-      if (this.assignment.getStatus() === Status.VALID) {
-        this.requisition.increment(this.assignment);
-        // See notes on focusManager.onInputChange in onKeyDown
-        if (this.focusManager) {
-          this.focusManager.onInputChange();
-        }
-      }
-      else {
-        this.changeChoice(-1);
-      }
-    }
-    return;
+    return this._handleUpArrow();
   }
 
   if (ev.keyCode === KeyEvent.DOM_VK_DOWN) {
-    if (this.tooltip && this.tooltip.isMenuShowing) {
-      this.changeChoice(+1);
-    }
-    else if (this.element.value === '' || this._scrollingThroughHistory) {
-      this._scrollingThroughHistory = true;
-      this.requisition.update(this.history.forward());
-    }
-    else {
-      // See notes above for the UP key
-      if (this.assignment.getStatus() === Status.VALID) {
-        this.requisition.decrement(this.assignment);
-        // See notes on focusManager.onInputChange in onKeyDown
-        if (this.focusManager) {
-          this.focusManager.onInputChange();
-        }
-      }
-      else {
-        this.changeChoice(+1);
-      }
-    }
-    return;
+    return this._handleDownArrow();
   }
 
-  // RETURN checks status and might exec
   if (ev.keyCode === KeyEvent.DOM_VK_RETURN) {
-    var worst = this.requisition.getStatus();
-    // Deny RETURN unless the command might work
-    if (worst === Status.VALID) {
-      this._scrollingThroughHistory = false;
-      this.history.add(this.element.value);
-      this.requisition.exec();
-    }
-    else {
-      // If we can't execute the command, but there is a menu choice to use
-      // then use it.
-      if (!this.tooltip.selectChoice()) {
-        this.focusManager.setError(true);
-      }
-    }
-
-    this._choice = null;
-    return;
+    return this._handleReturn();
   }
 
   if (ev.keyCode === KeyEvent.DOM_VK_TAB && !ev.shiftKey) {
-    // Being able to complete 'nothing' is OK if there is some context, but
-    // when there is nothing on the command line it jsut looks bizarre.
-    var hasContents = (this.element.value.length > 0);
-    // If the TAB keypress took the cursor from another field to this one,
-    // then they get the keydown/keypress, and we get the keyup. In this
-    // case we don't want to do any completion.
-    // If the time of the keydown/keypress of TAB was close (i.e. within
-    // 1 second) to the time of the keyup then we assume that we got them
-    // both, and do the completion.
-    if (hasContents && this.lastTabDownAt + 1000 > ev.timeStamp) {
-      // It's possible for TAB to not change the input, in which case the
-      // textChanged event will not fire, and the caret move will not be
-      // processed. So we check that this is done first
-      this._caretChange = Caret.TO_ARG_END;
-      var inputState = this.getInputState();
-      this._processCaretChange(inputState);
-      if (this._choice == null) {
-        this._choice = 0;
-      }
-      this.requisition.complete(inputState.cursor, this._choice);
-    }
-    this.lastTabDownAt = 0;
-    this._scrollingThroughHistory = false;
-
-    this._choice = null;
-    this.onChoiceChange({ choice: this._choice });
-    return;
+    return this._handleTab(ev);
   }
 
   // Give the scratchpad (if enabled) a chance to activate
   if (this.scratchpad && this.scratchpad.shouldActivate(ev)) {
     if (this.scratchpad.activate(this.element.value)) {
-      this.requisition.update('');
+      return this.requisition.update('');
     }
-    return;
+    return RESOLVED;
+  }
+
+  if (this._previousValue === this.element.value) {
+    return RESOLVED;
   }
 
   this._scrollingThroughHistory = false;
   this._caretChange = Caret.NO_CHANGE;
 
-  this.requisition.update(this.element.value);
+  this._completed = this.requisition.update(this.element.value);
+  this._previousValue = this.element.value;
+
+  return this._completed.then(function(updated) {
+    // Abort UI changes if this UI update has been overtaken
+    if (updated) {
+      this._choice = null;
+      this.onChoiceChange({ choice: this._choice });
+    }
+  }.bind(this));
+};
+
+/**
+ * See also _handleDownArrow for some symmetry
+ */
+Inputter.prototype._handleUpArrow = function() {
+  if (this.tooltip && this.tooltip.isMenuShowing) {
+    this.changeChoice(-1);
+    return RESOLVED;
+  }
+
+  if (this.element.value === '' || this._scrollingThroughHistory) {
+    this._scrollingThroughHistory = true;
+    return this.requisition.update(this.history.backward());
+  }
+
+  // If the user is on a valid value, then we increment the value, but if
+  // they've typed something that's not right we page through predictions
+  if (this.assignment.getStatus() === Status.VALID) {
+    this.requisition.increment(this.assignment);
+    // See notes on focusManager.onInputChange in onKeyDown
+    if (this.focusManager) {
+      this.focusManager.onInputChange();
+    }
+  }
+  else {
+    this.changeChoice(-1);
+  }
+
+  return RESOLVED;
+};
+
+/**
+ * See also _handleUpArrow for some symmetry
+ */
+Inputter.prototype._handleDownArrow = function() {
+  if (this.tooltip && this.tooltip.isMenuShowing) {
+    this.changeChoice(+1);
+    return RESOLVED;
+  }
+
+  if (this.element.value === '' || this._scrollingThroughHistory) {
+    this._scrollingThroughHistory = true;
+    return this.requisition.update(this.history.forward());
+  }
+
+  // See notes above for the UP key
+  if (this.assignment.getStatus() === Status.VALID) {
+    this.requisition.decrement(this.assignment,
+                               this.requisition.executionContext);
+    // See notes on focusManager.onInputChange in onKeyDown
+    if (this.focusManager) {
+      this.focusManager.onInputChange();
+    }
+  }
+  else {
+    this.changeChoice(+1);
+  }
+
+  return RESOLVED;
+};
+
+/**
+ * RETURN checks status and might exec
+ */
+Inputter.prototype._handleReturn = function() {
+  // Deny RETURN unless the command might work
+  if (this.requisition.status === Status.VALID) {
+    this._scrollingThroughHistory = false;
+    this.history.add(this.element.value);
+    this.requisition.exec();
+  }
+  else {
+    // If we can't execute the command, but there is a menu choice to use
+    // then use it.
+    if (!this.tooltip.selectChoice()) {
+      this.focusManager.setError(true);
+    }
+  }
 
   this._choice = null;
-  this.onChoiceChange({ choice: this._choice });
+  return RESOLVED;
+};
+
+/**
+ * Warning: We get TAB events for more than just the user pressing TAB in our
+ * input element.
+ */
+Inputter.prototype._handleTab = function(ev) {
+  // Being able to complete 'nothing' is OK if there is some context, but
+  // when there is nothing on the command line it just looks bizarre.
+  var hasContents = (this.element.value.length > 0);
+
+  // If the TAB keypress took the cursor from another field to this one,
+  // then they get the keydown/keypress, and we get the keyup. In this
+  // case we don't want to do any completion.
+  // If the time of the keydown/keypress of TAB was close (i.e. within
+  // 1 second) to the time of the keyup then we assume that we got them
+  // both, and do the completion.
+  if (hasContents && this.lastTabDownAt + 1000 > ev.timeStamp) {
+    // It's possible for TAB to not change the input, in which case the
+    // textChanged event will not fire, and the caret move will not be
+    // processed. So we check that this is done first
+    this._caretChange = Caret.TO_ARG_END;
+    var inputState = this.getInputState();
+    this._processCaretChange(inputState);
+
+    if (this._choice == null) {
+      this._choice = 0;
+    }
+
+    // The changes made by complete may happen asynchronously, so after the
+    // the call to complete() we should avoid making changes before the end
+    // of the event loop
+    this._completed = this.requisition.complete(inputState.cursor,
+                                                this._choice);
+    this._previousValue = this.element.value;
+  }
+  this.lastTabDownAt = 0;
+  this._scrollingThroughHistory = false;
+
+  return this._completed.then(function(updated) {
+    // Abort UI changes if this UI update has been overtaken
+    if (updated) {
+      this._choice = null;
+      this.onChoiceChange({ choice: this._choice });
+    }
+  }.bind(this));
 };
 
 /**
@@ -12014,7 +14103,6 @@ Inputter.prototype.getInputState = function() {
   // values for its content
   if (input.typed == null) {
     input = { typed: '', cursor: { start: 0, end: 0 } };
-    console.log('fixing input.typed=""', input);
   }
 
   // Workaround for a Bug 717268 (which is really a jsdom bug)
@@ -12046,6 +14134,8 @@ exports.Inputter = Inputter;
  */
 
 define('gcli/history', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+'use strict';
 
 /**
  * A History object remembers commands that have been entered in the past and
@@ -12187,11 +14277,13 @@ define("text!gcli/ui/inputter.css", [], "\n" +
  * limitations under the License.
  */
 
-define('gcli/ui/completer', ['require', 'exports', 'module' , 'gcli/util', 'gcli/ui/domtemplate', 'text!gcli/ui/completer.html'], function(require, exports, module) {
+define('gcli/ui/completer', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'util/domtemplate', 'text!gcli/ui/completer.html'], function(require, exports, module) {
 
+'use strict';
 
-var util = require('gcli/util');
-var domtemplate = require('gcli/ui/domtemplate');
+var promise = require('util/promise');
+var util = require('util/util');
+var domtemplate = require('util/domtemplate');
 
 var completerHtml = require('text!gcli/ui/completer.html');
 
@@ -12225,7 +14317,8 @@ function Completer(options, components) {
   this.inputter.onAssignmentChange.add(this.update, this);
   this.inputter.onChoiceChange.add(this.update, this);
 
-  if (components.autoResize) {
+  this.autoResize = components.autoResize;
+  if (this.autoResize) {
     this.inputter.onResize.add(this.resized, this);
 
     var dimensions = this.inputter.getDimensions();
@@ -12248,7 +14341,10 @@ Completer.prototype.destroy = function() {
   this.inputter.onInputChange.remove(this.update, this);
   this.inputter.onAssignmentChange.remove(this.update, this);
   this.inputter.onChoiceChange.remove(this.update, this);
-  this.inputter.onResize.remove(this.resized, this);
+
+  if (this.autoResize) {
+    this.inputter.onResize.remove(this.resized, this);
+  }
 
   delete this.document;
   delete this.element;
@@ -12271,9 +14367,7 @@ Completer.prototype.resized = function(ev) {
  * Bring the completion element up to date with what the requisition says
  */
 Completer.prototype.update = function(ev) {
-  if (ev && ev.choice != null) {
-    this.choice = ev.choice;
-  }
+  this.choice = (ev && ev.choice != null) ? ev.choice : 0;
 
   var data = this._getCompleterTemplateData();
   var template = this.template.cloneNode(true);
@@ -12289,146 +14383,190 @@ Completer.prototype.update = function(ev) {
  * Calculate the properties required by the template process for completer.html
  */
 Completer.prototype._getCompleterTemplateData = function() {
-  var input = this.inputter.getInputState();
+  // Some of the data created by this function can be calculated synchronously
+  // but other parts depend on predictions which are asynchronous.
+  var promisedDirectTabText = promise.defer();
+  var promisedArrowTabText = promise.defer();
+  var promisedEmptyParameters = promise.defer();
 
-  // directTabText is for when the current input is a prefix of the completion
-  // arrowTabText is for when we need to use an -> to show what will be used
-  var directTabText = '';
-  var arrowTabText = '';
+  var input = this.inputter.getInputState();
   var current = this.requisition.getAssignmentAt(input.cursor.start);
-  var emptyParameters = [];
+  var predictionPromise;
 
   if (input.typed.trim().length !== 0) {
-    var cArg = current.arg;
-    var prediction = current.getPredictionAt(this.choice);
+    predictionPromise = current.getPredictionAt(this.choice);
+  }
 
-    if (prediction) {
-      var tabText = prediction.name;
-      var existing = cArg.text;
+  // If anything goes wrong, we pass the error on to all the child promises
+  var onError = function(ex) {
+    promisedDirectTabText.reject(ex);
+    promisedArrowTabText.reject(ex);
+    promisedEmptyParameters.reject(ex);
+  };
 
-      // Normally the cursor being just before whitespace means that you are
-      // 'in' the previous argument, which means that the prediction is based
-      // on that argument, however NamedArguments break this by having 2 parts
-      // so we need to prepend the tabText with a space for NamedArguments,
-      // but only when there isn't already a space at the end of the prefix
-      // (i.e. ' --name' not ' --name ')
-      if (current.isInName()) {
-        tabText = ' ' + tabText;
-      }
+  promise.resolve(predictionPromise).then(function(prediction) {
+    // directTabText is for when the current input is a prefix of the completion
+    // arrowTabText is for when we need to use an -> to show what will be used
+    var directTabText = '';
+    var arrowTabText = '';
+    var emptyParameters = [];
 
-      if (existing !== tabText) {
-        // Decide to use directTabText or arrowTabText
-        // Strip any leading whitespace from the user inputted value because the
-        // tabText will never have leading whitespace.
-        var inputValue = existing.replace(/^\s*/, '');
-        var isStrictCompletion = tabText.indexOf(inputValue) === 0;
-        if (isStrictCompletion && input.cursor.start === input.typed.length) {
-          // Display the suffix of the prediction as the completion
-          var numLeadingSpaces = existing.match(/^(\s*)/)[0].length;
+    if (input.typed.trim().length !== 0) {
+      var cArg = current.arg;
 
-          directTabText = tabText.slice(existing.length - numLeadingSpaces);
+      if (prediction) {
+        var tabText = prediction.name;
+        var existing = cArg.text;
+
+        // Normally the cursor being just before whitespace means that you are
+        // 'in' the previous argument, which means that the prediction is based
+        // on that argument, however NamedArguments break this by having 2 parts
+        // so we need to prepend the tabText with a space for NamedArguments,
+        // but only when there isn't already a space at the end of the prefix
+        // (i.e. ' --name' not ' --name ')
+        if (current.isInName()) {
+          tabText = ' ' + tabText;
         }
-        else {
-          // Display the '-> prediction' at the end of the completer element
-          // \u21E5 is the JS escape right arrow
-          arrowTabText = '\u21E5 ' + tabText;
+
+        if (existing !== tabText) {
+          // Decide to use directTabText or arrowTabText
+          // Strip any leading whitespace from the user inputted value because
+          // the tabText will never have leading whitespace.
+          var inputValue = existing.replace(/^\s*/, '');
+          var isStrictCompletion = tabText.indexOf(inputValue) === 0;
+          if (isStrictCompletion && input.cursor.start === input.typed.length) {
+            // Display the suffix of the prediction as the completion
+            var numLeadingSpaces = existing.match(/^(\s*)/)[0].length;
+
+            directTabText = tabText.slice(existing.length - numLeadingSpaces);
+          }
+          else {
+            // Display the '-> prediction' at the end of the completer element
+            // \u21E5 is the JS escape right arrow
+            arrowTabText = '\u21E5 ' + tabText;
+          }
+        }
+      }
+      else {
+        // There's no prediction, but if this is a named argument that needs a
+        // value (that is without any) then we need to show that one is needed
+        // For example 'git commit --message ', clearly needs some more text
+        if (cArg.type === 'NamedArgument' && cArg.valueArg == null) {
+          emptyParameters.push('<' + current.param.type.name + '>\u00a0');
         }
       }
     }
-    else {
-      // There's no prediction, but if this is a named argument that needs a
-      // value (that is without any) then we need to show that one is needed
-      // For example 'git commit --message ', clearly needs some more text
-      if (cArg.type === 'NamedArgument' && cArg.text === '') {
-        emptyParameters.push('<' + current.param.type.name + '>\u00a0');
-      }
+
+    // Add a space between the typed text (+ directTabText) and the hints,
+    // making sure we don't add 2 sets of padding
+    if (directTabText !== '') {
+      directTabText += '\u00a0';
     }
-  }
+    else if (!this.requisition.typedEndsWithSeparator()) {
+      emptyParameters.unshift('\u00a0');
+    }
 
-  // Add a space between the typed text (+ directTabText) and the hints,
-  // making sure we don't add 2 sets of padding
-  if (directTabText !== '') {
-    directTabText += '\u00a0';
-  }
-  else if (!this.requisition.typedEndsWithSeparator()) {
-    emptyParameters.unshift('\u00a0');
-  }
+    // Calculate the list of parameters to be filled in
+    // We generate an array of emptyParameter markers for each positional
+    // parameter to the current command.
+    // Generally each emptyParameter marker begins with a space to separate it
+    // from whatever came before, unless what comes before ends in a space.
 
+    this.requisition.getAssignments().forEach(function(assignment) {
+      // Named arguments are handled with a group [options] marker
+      if (!assignment.param.isPositionalAllowed) {
+        return;
+      }
+
+      // No hints if we've got content for this parameter
+      if (assignment.arg.toString().trim() !== '') {
+        return;
+      }
+
+      if (directTabText !== '' && current === assignment) {
+        return;
+      }
+
+      var text = (assignment.param.isDataRequired) ?
+          '<' + assignment.param.name + '>\u00a0' :
+          '[' + assignment.param.name + ']\u00a0';
+
+      emptyParameters.push(text);
+    }.bind(this));
+
+    var command = this.requisition.commandAssignment.value;
+    var addOptionsMarker = false;
+
+    // We add an '[options]' marker when there are named parameters that are
+    // not filled in and not hidden, and we don't have any directTabText
+    if (command && command.hasNamedParameters) {
+      command.params.forEach(function(param) {
+        var arg = this.requisition.getAssignment(param.name).arg;
+        if (!param.isPositionalAllowed && !param.hidden
+                && arg.type === 'BlankArgument') {
+          addOptionsMarker = true;
+        }
+      }, this);
+    }
+
+    if (addOptionsMarker) {
+      // Add an nbsp if we don't have one at the end of the input or if
+      // this isn't the first param we've mentioned
+      emptyParameters.push('[options]\u00a0');
+    }
+
+    promisedDirectTabText.resolve(directTabText);
+    promisedArrowTabText.resolve(arrowTabText);
+    promisedEmptyParameters.resolve(emptyParameters);
+  }.bind(this), onError);
+
+  return {
+    statusMarkup: this._getStatusMarkup(input),
+    unclosedJs: this._getUnclosedJs(),
+    scratchLink: this._getScratchLink(),
+    directTabText: promisedDirectTabText.promise,
+    arrowTabText: promisedArrowTabText.promise,
+    emptyParameters: promisedEmptyParameters.promise
+  };
+};
+
+/**
+ * Calculate the statusMarkup required to show wavy lines underneath the input
+ * text (like that of an inline spell-checker) which used by the template
+ * process for completer.html
+ */
+Completer.prototype._getStatusMarkup = function(input) {
   // statusMarkup is wrapper around requisition.getInputStatusMarkup converting
   // space to &nbsp; in the string member (for HTML display) and status to an
   // appropriate class name (i.e. lower cased, prefixed with gcli-in-)
   var statusMarkup = this.requisition.getInputStatusMarkup(input.cursor.start);
+
   statusMarkup.forEach(function(member) {
     member.string = member.string.replace(/ /g, '\u00a0'); // i.e. &nbsp;
     member.className = 'gcli-in-' + member.status.toString().toLowerCase();
   }, this);
 
-  // Calculate the list of parameters to be filled in
-  // We generate an array of emptyParameter markers for each positional
-  // parameter to the current command.
-  // Generally each emptyParameter marker begins with a space to separate it
-  // from whatever came before, unless what comes before ends in a space.
+  return statusMarkup;
+};
 
-  var command = this.requisition.commandAssignment.value;
-  var jsCommand = command && command.name === '{';
-
-  this.requisition.getAssignments().forEach(function(assignment) {
-    // Named arguments are handled with a group [options] marker
-    if (!assignment.param.isPositionalAllowed) {
-      return;
-    }
-
-    // No hints if we've got content for this parameter
-    if (assignment.arg.toString().trim() !== '') {
-      return;
-    }
-
-    if (directTabText !== '' && current === assignment) {
-      return;
-    }
-
-    var text = (assignment.param.isDataRequired) ?
-        '<' + assignment.param.name + '>\u00a0' :
-        '[' + assignment.param.name + ']\u00a0';
-
-    emptyParameters.push(text);
-  }.bind(this));
-
-  var addOptionsMarker = false;
-  // We add an '[options]' marker when there are named parameters that are
-  // not filled in and not hidden, and we don't have any directTabText
-  if (command && command.hasNamedParameters) {
-    command.params.forEach(function(param) {
-      var arg = this.requisition.getAssignment(param.name).arg;
-      if (!param.isPositionalAllowed && !param.hidden
-              && arg.type === "BlankArgument") {
-        addOptionsMarker = true;
-      }
-    }, this);
-  }
-
-  if (addOptionsMarker) {
-    // Add an nbsp if we don't have one at the end of the input or if
-    // this isn't the first param we've mentioned
-    emptyParameters.push('[options]\u00a0');
-  }
-
-  // Is the entered command a JS command with no closing '}'?
+/**
+ * Is the entered command a JS command with no closing '}'?
+ */
+Completer.prototype._getUnclosedJs = function() {
   // TWEAK: This code should be considered for promotion to Requisition
-  var unclosedJs = jsCommand &&
+  var command = this.requisition.commandAssignment.value;
+  return command && command.name === '{' &&
       this.requisition.getAssignment(0).arg.suffix.indexOf('}') === -1;
+};
 
-  // The text for the 'jump to scratchpad' feature, or '' if it is disabled
-  var link = this.scratchpad && jsCommand ? this.scratchpad.linkText : '';
-
-  return {
-    statusMarkup: statusMarkup,
-    directTabText: directTabText,
-    emptyParameters: emptyParameters,
-    arrowTabText: arrowTabText,
-    unclosedJs: unclosedJs,
-    scratchLink: link
-  };
+/**
+ * The text for the 'jump to scratchpad' feature, or '' if it is disabled
+ */
+Completer.prototype._getScratchLink = function() {
+  var command = this.requisition.commandAssignment.value;
+  return this.scratchpad && command && command.name === '{' ?
+      this.scratchpad.linkText :
+      '';
 };
 
 exports.Completer = Completer;
@@ -12466,6 +14604,7 @@ define("text!gcli/ui/completer.html", [], "\n" +
 
 define('gcli/ui/prompt', ['require', 'exports', 'module' ], function(require, exports, module) {
 
+'use strict';
 
 /**
  * Prompt is annoying because some systems provide a UI elements (i.e. firefox)
@@ -12554,18 +14693,30 @@ define("text!gcli/ui/display.html", [], "\n" +
  * limitations under the License.
  */
 
-define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/commands/help', 'gcli/commands/pref', 'gcli/commands/pref_list', 'gcli/commands/intro', 'demo/commands/basic', 'demo/commands/bugs', 'demo/commands/demo'], function(require, exports, module) {
+define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/api', 'gcli/commands/connect', 'gcli/commands/context', 'gcli/commands/exec', 'gcli/commands/help', 'gcli/commands/intro', 'gcli/commands/pref_list', 'gcli/commands/pref', 'demo/commands/alert', 'demo/commands/bugs', 'demo/commands/demo', 'demo/commands/echo', 'demo/commands/edit', 'demo/commands/sleep'], function(require, exports, module) {
 
-  require('gcli/index');
+'use strict';
 
-  require('gcli/commands/help').startup();
-  require('gcli/commands/pref').startup();
-  require('gcli/commands/pref_list').startup();
-  require('gcli/commands/intro').startup();
+require('gcli/index');
+var gcli = require('gcli/api').getApi();
 
-  require('demo/commands/basic').startup();
-  require('demo/commands/bugs').startup();
-  require('demo/commands/demo').startup();
+gcli.addItems(require('gcli/commands/connect').items);
+gcli.addItems(require('gcli/commands/context').items);
+gcli.addItems(require('gcli/commands/exec').items);
+gcli.addItems(require('gcli/commands/help').items);
+gcli.addItems(require('gcli/commands/intro').items);
+gcli.addItems(require('gcli/commands/pref_list').items);
+gcli.addItems(require('gcli/commands/pref').items);
+
+gcli.addItems(require('demo/commands/alert').items);
+gcli.addItems(require('demo/commands/bugs').items);
+gcli.addItems(require('demo/commands/demo').items);
+gcli.addItems(require('demo/commands/echo').items);
+gcli.addItems(require('demo/commands/edit').items);
+// gcli.addItems(require('demo/commands/git').items);
+// gcli.addItems(require('demo/commands/hg').items);
+gcli.addItems(require('demo/commands/sleep').items);
+
 
 });
 /*
@@ -12584,25 +14735,643 @@ define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/comma
  * limitations under the License.
  */
 
-define('gcli/commands/help', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/util', 'gcli/ui/view', 'text!gcli/commands/help_man.html', 'text!gcli/commands/help_list.html', 'text!gcli/commands/help.css'], function(require, exports, module) {
-var help = exports;
+define('gcli/commands/connect', ['require', 'exports', 'module' , 'util/l10n', 'gcli/canon', 'util/connect/connector'], function(require, exports, module) {
 
+'use strict';
 
+var l10n = require('util/l10n');
 var canon = require('gcli/canon');
-var l10n = require('gcli/l10n');
-var util = require('gcli/util');
-var view = require('gcli/ui/view');
+var connector = require('util/connect/connector');
 
-// Storing the HTML on exports allows other builds to alter the help template
-// but still allowing dryice to do it's dependency thing properly
-exports.helpManHtml = require('text!gcli/commands/help_man.html');
-exports.helpListHtml = require('text!gcli/commands/help_list.html');
-exports.helpCss = require('text!gcli/commands/help.css');
+/**
+ * A lookup of the current connection
+ */
+var connections = {};
+
+/**
+ * 'connection' type
+ */
+var connection = {
+  item: 'type',
+  name: 'connection',
+  parent: 'selection',
+  lookup: function() {
+    return Object.keys(connections).map(function(prefix) {
+      return { name: prefix, value: connections[prefix] };
+    });
+  }
+};
+
+/**
+ * 'connect' command
+ */
+var connect = {
+  item: 'command',
+  name: 'connect',
+  description: l10n.lookup('connectDesc'),
+  manual: l10n.lookup('connectManual'),
+  params: [
+    {
+      name: 'prefix',
+      type: 'string',
+      description: l10n.lookup('connectPrefixDesc')
+    },
+    {
+      name: 'host',
+      short: 'h',
+      type: 'string',
+      description: l10n.lookup('connectHostDesc'),
+      defaultValue: 'localhost',
+      option: true
+    },
+    {
+      name: 'port',
+      short: 'p',
+      type: { name: 'number', max: 65536, min: 0 },
+      description: l10n.lookup('connectPortDesc'),
+      defaultValue: connector.defaultPort,
+      option: true
+    }
+  ],
+  returnType: 'string',
+
+  exec: function(args, context) {
+    if (connections[args.prefix] != null) {
+      throw new Error(l10n.lookupFormat('connectDupReply', [ args.prefix ]));
+    }
+
+    var cxp = connector.connect(args.prefix, args.host, args.port);
+    return cxp.then(function(connection) {
+      connections[args.prefix] = connection;
+
+      return connection.getCommandSpecs().then(function(commandSpecs) {
+        var remoter = this.createRemoter(args.prefix, connection);
+        canon.addProxyCommands(args.prefix, commandSpecs, remoter);
+
+        // commandSpecs doesn't include the parent command that we added
+        return l10n.lookupFormat('connectReply',
+                                 [ Object.keys(commandSpecs).length + 1 ]);
+      }.bind(this));
+    }.bind(this));
+  },
+
+  /**
+   * When we register a set of remote commands, we need to provide the canon
+   * with a proxy executor. This is that executor.
+   */
+  createRemoter: function(prefix, connection) {
+    return function(cmdArgs, context) {
+      var typed = context.typed;
+
+      // If we've been called using a 'context' then there will be no prefix
+      // otherwise we need to remove it
+      if (typed.indexOf(prefix) === 0) {
+        typed = typed.substring(prefix.length).replace(/^ */, '');
+      }
+
+      return connection.execute(typed, cmdArgs).then(function(reply) {
+        var typedData = context.typedData(reply.type, reply.data);
+        if (!reply.error) {
+          return typedData;
+        }
+        else {
+          throw typedData;
+        }
+      });
+    }.bind(this);
+  }
+};
+
+/**
+ * 'disconnect' command
+ */
+var disconnect = {
+  item: 'command',
+  name: 'disconnect',
+  description: l10n.lookup('disconnectDesc2'),
+  manual: l10n.lookup('disconnectManual2'),
+  params: [
+    {
+      name: 'prefix',
+      type: 'connection',
+      description: l10n.lookup('disconnectPrefixDesc'),
+    },
+    {
+      name: 'force',
+      type: 'boolean',
+      description: l10n.lookup('disconnectForceDesc'),
+      hidden: connector.disconnectSupportsForce,
+      option: true
+    }
+  ],
+  returnType: 'string',
+
+  exec: function(args, context) {
+    return args.prefix.disconnect(args.force).then(function() {
+      var removed = canon.removeProxyCommands(args.prefix.prefix);
+      delete connections[args.prefix.prefix];
+      return l10n.lookupFormat('disconnectReply', [ removed.length ]);
+    });
+  }
+};
+
+exports.items = [ connection, connect, disconnect ];
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('util/connect/connector', ['require', 'exports', 'module' , 'util/promise', 'util/l10n'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var l10n = require('util/l10n');
+
+/**
+ * The ability to add functionality by adding a new script tag is specific to
+ * a browser, so this code is not going to work in NodeJS/Firefox etc.
+ * We export the document that we are using so multi-frame environments can
+ * update the default document
+ */
+exports.document = document;
+
+/**
+ * Create a new Connection and begin the connect process so the connection
+ * object can't be used until it is connected.
+ */
+exports.connect = function(prefix, host, port) {
+  var connection = new Connection(prefix, host, port);
+  return connection.connect().then(function() {
+    return connection;
+  });
+};
+
+/**
+ * What port should we use by default?
+ */
+exports.defaultPort = 9999;
+
+/**
+ * Manage a named connection to an HTTP server over web-sockets using socket.io
+ */
+function Connection(prefix, host, port) {
+  this.prefix = prefix;
+  this.host = host;
+  this.port = port;
+
+  this.requests = {};
+  this.nextRequestId = 0;
+}
+
+/**
+ * Setup socket.io, retrieve the list of remote commands and register them with
+ * the local canon.
+ * @return a promise which resolves (to undefined) when the connection is made
+ * or is rejected (with an error message) if the connection fails
+ */
+Connection.prototype.connect = function() {
+  var deferred = promise.defer();
+
+  this.script = exports.document.createElement('script');
+  this.script.src = '/socket.io/socket.io.js';
+
+  this.script.addEventListener('load', function() {
+    this.socket = io.connect('http://' + this.host + ':' + this.port);
+
+    // We're being passed execution results
+    this.socket.on('executed', function(data) {
+      var request = this.requests[data.requestId];
+      if (request == null) {
+        throw new Error('Unknown requestId \'' + data.requestId + '\'');
+      }
+      request.complete(data.error, data.type, data.data);
+      delete this.requests[data.requestId];
+    }.bind(this));
+
+    // On first connection ask for the remote command-specs
+    this.socket.on('connected', function(data) {
+      deferred.resolve();
+    }.bind(this));
+  }.bind(this));
+
+  this.script.addEventListener('error', function(ev) {
+    deferred.reject('Error from SCRIPT tag to ' + this.script.src);
+  }.bind(this));
+
+  exports.document.head.appendChild(this.script);
+
+  return deferred.promise;
+};
+
+/**
+ * Retrieve the list of remote commands.
+ * @return a promise of an array of commandSpecs
+ */
+Connection.prototype.getCommandSpecs = function() {
+  var deferred = promise.defer();
+
+  // When we have the remote command specs, add them locally
+  this.socket.once('commandSpecs', function(data) {
+    deferred.resolve(data.commandSpecs);
+  }.bind(this));
+
+  this.socket.emit('getCommandSpecs');
+
+  return deferred.promise;
+};
+
+/**
+ * Send an execute request. Replies are handled by the setup in connect()
+ */
+Connection.prototype.execute = function(typed, cmdArgs) {
+  var request = new Request(typed, cmdArgs);
+  this.requests[request.json.requestId] = request;
+
+  this.socket.emit('execute', request.json);
+
+  return request.promise;
+};
+
+exports.disconnectSupportsForce = true;
+
+/**
+ * Kill this connection
+ */
+Connection.prototype.disconnect = function(force) {
+  if (!force) {
+    if (Object.keys(this.requests).length !== 0) {
+      var names = Object.keys(this.requests).map(function(key) {
+        return this.requests[key].json.typed;
+      }.bind(this)).join(', ');
+
+      var msg = l10n.lookupFormat('disconnectOutstanding', [ names ]);
+      return promise.reject(msg);
+    }
+  }
+
+  this.socket.disconnect();
+  this.script.parentNode.removeChild(this.script);
+
+  return promise.resolve();
+};
+
+
+/**
+ * A Request is a command typed at the client which lives until the command
+ * has finished executing on the server
+ */
+function Request(typed, args) {
+  this.json = {
+    requestId: 'id-' + Request._nextRequestId++,
+    typed: typed,
+    args: args
+  };
+
+  this._deferred = promise.defer();
+
+  this.promise = this._deferred.promise;
+}
+
+Request._nextRequestId = 0;
+
+/**
+ * Called by the connection when a remote command has finished executing
+ * @param error boolean indicating output state
+ * @param type the type of the returned data
+ * @param data the data itself
+ */
+Request.prototype.complete = function(error, type, data) {
+  this._deferred.resolve({
+    error: error,
+    type: type,
+    data: data
+  });
+};
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/commands/context', ['require', 'exports', 'module' , 'util/l10n'], function(require, exports, module) {
+
+'use strict';
+
+var l10n = require('util/l10n');
+
+/**
+ * 'context' command
+ */
+var context = {
+  item: 'command',
+  name: 'context',
+  description: l10n.lookup('contextDesc'),
+  manual: l10n.lookup('contextManual'),
+  params: [
+   {
+     name: 'prefix',
+     type: 'command',
+     description: l10n.lookup('contextPrefixDesc'),
+     defaultValue: null
+   }
+  ],
+  returnType: 'string',
+  noRemote: true,
+  exec: function echo(args, context) {
+    // Do not copy this code
+    var requisition = context.__dlhjshfw;
+
+    if (args.prefix == null) {
+      requisition.prefix = null;
+      return l10n.lookup('contextEmptyReply');
+    }
+
+    if (args.prefix.exec != null) {
+      throw new Error(l10n.lookupFormat('contextNotParentError',
+                                        [ args.prefix.name ]));
+    }
+
+    requisition.prefix = args.prefix.name;
+    return l10n.lookupFormat('contextReply', [ args.prefix.name ]);
+  }
+};
+
+exports.items = [ context ];
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/commands/exec', ['require', 'exports', 'module' , 'gcli/cli', 'util/host', 'util/l10n'], function(require, exports, module) {
+
+'use strict';
+
+var cli = require('gcli/cli');
+var host = require('util/host');
+var l10n = require('util/l10n');
+
+/**
+ * 'cd' command
+ */
+var cd = {
+  item: 'command',
+  name: 'cd',
+  description: l10n.lookup('cdDesc'),
+  manual: l10n.lookup('cdManual'),
+  params: [
+    {
+      name: 'directory',
+      type: {
+        name: 'file',
+        filetype: 'directory',
+        existing: 'yes'
+      },
+      description: l10n.lookup('cdDirectoryDesc'),
+    }
+  ],
+  returnType: 'string',
+  exec: function(args, context) {
+    context.shell.cwd = args.directory;
+    return 'Working directory is now ' + context.shell.cwd;
+  }
+};
+
+/**
+ * 'exec' command
+ */
+var exec = {
+  item: 'command',
+  name: 'exec',
+  description: l10n.lookup('execDesc'),
+  manual: l10n.lookup('execManual'),
+  params: [
+    {
+      name: 'command',
+      type: 'string',
+      description: l10n.lookup('execCommandDesc'),
+    }
+  ],
+  returnType: 'output',
+  exec: function(args, context) {
+    var cmdArgs = cli.tokenize(args.command).map(function(arg) {
+      return arg.text;
+    });
+    var cmd = cmdArgs.shift();
+
+    var execSpec = {
+      cmd: cmd,
+      args: cmdArgs,
+      env: context.shell.env,
+      cwd: context.shell.cwd
+    };
+
+    return host.exec(execSpec).then(function(output) {
+      if (output.code === 0) {
+        return output;
+      }
+
+      throw output.data;
+    }, function(output) {
+      throw output.data;
+    });
+  }
+};
+
+/**
+ * How we display the output of a generic exec command: we have to assume that
+ * it is a string to be displayed on a terminal - i.e. in a monospaced font
+ */
+var outputToView = {
+  item: 'converter',
+  from: 'output',
+  to: 'view',
+  exec: function(output, context) {
+    return context.createView({
+      html: '<pre>${output.data}</pre>',
+      data: { output: output }
+    });
+  }
+};
+
+/**
+ * How we display the output of a generic exec command: we have to assume that
+ * it is a string to be displayed on a terminal - i.e. in a monospaced font
+ */
+var outputToString = {
+  item: 'converter',
+  from: 'output',
+  to: 'string',
+  exec: function(output, context) {
+    return output.data;
+  }
+};
+
+exports.items = [ outputToView, outputToString, cd, exec ];
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/commands/help', ['require', 'exports', 'module' , 'util/l10n', 'gcli/canon', 'text!gcli/commands/help_man.html', 'text!gcli/commands/help_list.html', 'text!gcli/commands/help.css'], function(require, exports, module) {
+
+'use strict';
+
+var l10n = require('util/l10n');
+var canon = require('gcli/canon');
+
+var helpManHtml = require('text!gcli/commands/help_man.html');
+var helpListHtml = require('text!gcli/commands/help_list.html');
+var helpCss = require('text!gcli/commands/help.css');
+
+/**
+ * Convert a command into a man page
+ */
+var helpCommand = {
+  item: 'converter',
+  from: 'commandData',
+  to: 'view',
+  exec: function(commandData, context) {
+    return context.createView({
+      html: helpManHtml,
+      options: { allowEval: true, stack: 'help_man.html' },
+      data: {
+        l10n: l10n.propertyLookup,
+        onclick: context.update,
+        ondblclick: context.updateExec,
+        describe: function(item) {
+          return item.manual || item.description;
+        },
+        getTypeDescription: function(param) {
+          var input = '';
+          if (param.defaultValue === undefined) {
+            input = l10n.lookup('helpManRequired');
+          }
+          else if (param.defaultValue === null) {
+            input = l10n.lookup('helpManOptional');
+          }
+          else {
+            var defaultValue = param.type.stringify(param.defaultValue);
+            input = l10n.lookupFormat('helpManDefault', [ defaultValue ]);
+          }
+          return '(' + param.type.name + ', ' + input + ')';
+        },
+        getSynopsis: function(param) {
+          var short = param.short ? '|-' + param.short : '';
+          if (param.isPositionalAllowed) {
+            return param.defaultValue !== undefined ?
+                '[' + param.name + short + ']' :
+                '<' + param.name + short + '>';
+          }
+          else {
+            return param.type.name === 'boolean' ?
+                '[--' + param.name + short + ']' :
+                '[--' + param.name + short + ' ...]';
+          }
+        },
+        command: commandData.command,
+        subcommands: commandData.subcommands
+      },
+      css: helpCss,
+      cssId: 'gcli-help'
+    });
+  }
+};
+
+/**
+ * Convert a list of commands into a formatted list
+ */
+var helpCommands = {
+  item: 'converter',
+  from: 'commandsData',
+  to: 'view',
+  exec: function(commandsData, context) {
+    var heading;
+    if (commandsData.commands.length === 0) {
+      heading = l10n.lookupFormat('helpListNone', [ commandsData.prefix ]);
+    }
+    else if (commandsData.prefix == null) {
+      heading = l10n.lookup('helpListAll');
+    }
+    else {
+      heading = l10n.lookupFormat('helpListPrefix', [ commandsData.prefix ]);
+    }
+
+    return context.createView({
+      html: helpListHtml,
+      options: { allowEval: true, stack: 'help_list.html' },
+      data: {
+        l10n: l10n.propertyLookup,
+        includeIntro: commandsData.prefix == null,
+        heading: heading,
+        onclick: context.update,
+        ondblclick: context.updateExec,
+        matchingCommands: commandsData.commands
+      },
+      css: helpCss,
+      cssId: 'gcli-help'
+    });
+  }
+};
 
 /**
  * 'help' command
  */
-var helpCommandSpec = {
+var help = {
+  item: 'command',
   name: 'help',
   description: l10n.lookup('helpDesc'),
   manual: l10n.lookup('helpManual'),
@@ -12611,149 +15380,75 @@ var helpCommandSpec = {
       name: 'search',
       type: 'string',
       description: l10n.lookup('helpSearchDesc'),
-      manual: l10n.lookup('helpSearchManual2'),
+      manual: l10n.lookup('helpSearchManual3'),
       defaultValue: null
     }
   ],
-  returnType: 'html',
 
   exec: function(args, context) {
-    var match = canon.getCommand(args.search || undefined);
-    if (match) {
-      return view.createView({
-        html: exports.helpManHtml,
-        options: { allowEval: true, stack: 'help_man.html' },
-        data: getManTemplateData(match, context),
-        css: exports.helpCss,
-        cssId: 'gcli-help'
+    var command = canon.getCommand(args.search);
+    if (command) {
+      return context.typedData('commandData', {
+        command: command,
+        subcommands: getSubCommands(command)
       });
     }
 
-    return view.createView({
-      html: exports.helpListHtml,
-      options: { allowEval: true, stack: 'help_list.html' },
-      data: getListTemplateData(args, context),
-      css: exports.helpCss,
-      cssId: 'gcli-help'
+    return context.typedData('commandsData', {
+      prefix: args.search,
+      commands: getMatchingCommands(args.search)
     });
   }
 };
 
 /**
- * Registration and de-registration.
- */
-help.startup = function() {
-  canon.addCommand(helpCommandSpec);
-};
-
-help.shutdown = function() {
-  canon.removeCommand(helpCommandSpec);
-};
-
-/**
  * Create a block of data suitable to be passed to the help_list.html template
  */
-function getListTemplateData(args, context) {
-  var matchingCommands = canon.getCommands().filter(function(command) {
+function getMatchingCommands(prefix) {
+  var commands = canon.getCommands().filter(function(command) {
     if (command.hidden) {
       return false;
     }
 
-    if (args.search && command.name.indexOf(args.search) !== 0) {
+    if (prefix && command.name.indexOf(prefix) !== 0) {
       // Filtered out because they don't match the search
       return false;
     }
-    if (!args.search && command.name.indexOf(' ') != -1) {
+    if (!prefix && command.name.indexOf(' ') != -1) {
       // We don't show sub commands with plain 'help'
       return false;
     }
     return true;
   });
-  matchingCommands.sort(function(c1, c2) {
+  commands.sort(function(c1, c2) {
     return c1.name.localeCompare(c2.name);
   });
 
-  var heading;
-  if (matchingCommands.length === 0) {
-    heading = l10n.lookupFormat('helpListNone', [ args.search ]);
-  }
-  else if (args.search == null) {
-    heading = l10n.lookup('helpListAll');
-  }
-  else {
-    heading = l10n.lookupFormat('helpListPrefix', [ args.search ]);
-  }
-
-  return {
-    l10n: l10n.propertyLookup,
-    includeIntro: args.search == null,
-    matchingCommands: matchingCommands,
-    heading: heading,
-
-    onclick: function(ev) {
-      util.updateCommand(ev.currentTarget, context);
-    },
-
-    ondblclick: function(ev) {
-      util.executeCommand(ev.currentTarget, context);
-    },
-  };
+  return commands;
 }
 
 /**
- * Create a block of data suitable to be passed to the help_man.html template
+ * Find all the sub commands of the given command
  */
-function getManTemplateData(command, context) {
-  var manTemplateData = {
-    l10n: l10n.propertyLookup,
-    command: command,
+function getSubCommands(command) {
+  if (command.exec != null) {
+    return [];
+  }
 
-    onclick: function(ev) {
-      util.updateCommand(ev.currentTarget, context);
-    },
-
-    ondblclick: function(ev) {
-      util.executeCommand(ev.currentTarget, context);
-    },
-
-    describe: function(item, element) {
-      var text = item.manual || item.description;
-      var parent = element.ownerDocument.createElement('div');
-      util.setContents(parent, text);
-      return parent.childNodes;
-    },
-
-    getTypeDescription: function(param) {
-      var input = '';
-      if (param.defaultValue === undefined) {
-        input = l10n.lookup('helpManRequired');
-      }
-      else if (param.defaultValue === null) {
-        input = l10n.lookup('helpManOptional');
-      }
-      else {
-        input = param.defaultValue;
-      }
-      return '(' + param.type.name + ', ' + input + ')';
-    }
-  };
-
-  Object.defineProperty(manTemplateData, 'subcommands', {
-    get: function() {
-      var matching = canon.getCommands().filter(function(subcommand) {
-        return subcommand.name.indexOf(command.name) === 0 &&
-                subcommand.name !== command.name;
-      });
-      matching.sort(function(c1, c2) {
-        return c1.name.localeCompare(c2.name);
-      });
-      return matching;
-    },
-    enumerable: true
+  var subcommands = canon.getCommands().filter(function(subcommand) {
+    return subcommand.name.indexOf(command.name) === 0 &&
+           subcommand.name !== command.name &&
+           !subcommand.hidden;
   });
 
-  return manTemplateData;
+  subcommands.sort(function(c1, c2) {
+    return c1.name.localeCompare(c2.name);
+  });
+
+  return subcommands;
 }
+
+exports.items = [ help, helpCommand, helpCommands ];
 
 });
 define("text!gcli/commands/help_man.html", [], "\n" +
@@ -12764,27 +15459,26 @@ define("text!gcli/commands/help_man.html", [], "\n" +
   "    ${l10n.helpManSynopsis}:\n" +
   "    <span class=\"gcli-out-shortcut\" onclick=\"${onclick}\" data-command=\"${command.name}\">\n" +
   "      ${command.name}\n" +
-  "      <span foreach=\"param in ${command.params}\">\n" +
-  "        ${param.defaultValue !== undefined ? '[' + param.name + ']' : param.name}\n" +
-  "      </span>\n" +
+  "      <span foreach=\"param in ${command.params}\">${getSynopsis(param)} </span>\n" +
   "    </span>\n" +
   "  </h4>\n" +
   "\n" +
   "  <h4 class=\"gcli-help-header\">${l10n.helpManDescription}:</h4>\n" +
   "\n" +
-  "  <p class=\"gcli-help-description\">${describe(command, __element)}</p>\n" +
+  "  <p class=\"gcli-help-description\">${describe(command)}</p>\n" +
   "\n" +
   "  <div if=\"${command.exec}\">\n" +
-  "    <h4 class=\"gcli-help-header\">${l10n.helpManParameters}:</h4>\n" +
-  "\n" +
-  "    <ul class=\"gcli-help-parameter\">\n" +
-  "      <li if=\"${command.params.length === 0}\">${l10n.helpManNone}</li>\n" +
-  "      <li foreach=\"param in ${command.params}\">\n" +
-  "        ${param.name} <em>${getTypeDescription(param)}</em>\n" +
-  "        <br/>\n" +
-  "        ${describe(param, __element)}\n" +
-  "      </li>\n" +
-  "    </ul>\n" +
+  "    <div foreach=\"groupName in ${command.paramGroups}\">\n" +
+  "      <h4 class=\"gcli-help-header\">${groupName}:</h4>\n" +
+  "      <ul class=\"gcli-help-parameter\">\n" +
+  "        <li if=\"${command.params.length === 0}\">${l10n.helpManNone}</li>\n" +
+  "        <li foreach=\"param in ${command.paramGroups[groupName]}\">\n" +
+  "          <code>${getSynopsis(param)}</code> <em>${getTypeDescription(param)}</em>\n" +
+  "          <br/>\n" +
+  "          ${describe(param)}\n" +
+  "        </li>\n" +
+  "      </ul>\n" +
+  "    </div>\n" +
   "  </div>\n" +
   "\n" +
   "  <div if=\"${!command.exec}\">\n" +
@@ -12876,145 +15570,33 @@ define("text!gcli/commands/help.css", [], "\n" +
  * limitations under the License.
  */
 
-define('gcli/commands/pref', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/settings', 'text!gcli/commands/pref_set_check.html'], function(require, exports, module) {
+define('gcli/commands/intro', ['require', 'exports', 'module' , 'util/l10n', 'gcli/ui/intro'], function(require, exports, module) {
 
+'use strict';
 
-var canon = require('gcli/canon');
-var l10n = require('gcli/l10n');
-var settings = require('gcli/settings');
+var l10n = require('util/l10n');
+var intro = require('gcli/ui/intro');
 
-/**
- * Record if the user has clicked on 'Got It!'
- */
-var allowSetSettingSpec = {
-  name: 'allowSet',
-  type: 'boolean',
-  description: l10n.lookup('allowSetDesc'),
-  defaultValue: false
-};
-exports.allowSet = undefined;
-
-/**
- * 'pref' command
- */
-var prefCmdSpec = {
-  name: 'pref',
-  description: l10n.lookup('prefDesc'),
-  manual: l10n.lookup('prefManual')
-};
-
-/**
- * 'pref show' command
- */
-var prefShowCmdSpec = {
-  name: 'pref show',
-  description: l10n.lookup('prefShowDesc'),
-  manual: l10n.lookup('prefShowManual'),
-  params: [
-    {
-      name: 'setting',
-      type: 'setting',
-      description: l10n.lookup('prefShowSettingDesc'),
-      manual: l10n.lookup('prefShowSettingManual')
+exports.items = [
+  {
+    item: 'converter',
+    from: 'intro',
+    to: 'view',
+    exec: intro.createView
+  },
+  {
+    item: 'command',
+    name: 'intro',
+    description: l10n.lookup('introDesc'),
+    manual: l10n.lookup('introManual'),
+    returnType: 'intro',
+    exec: function(args, context) {
+      // The intro command is pure formatting - no data
     }
-  ],
-  exec: function Command_prefShow(args, context) {
-    return args.setting.value;
   }
-};
-
-/**
- * 'pref set' command
- */
-var prefSetCmdSpec = {
-  name: 'pref set',
-  description: l10n.lookup('prefSetDesc'),
-  manual: l10n.lookup('prefSetManual'),
-  params: [
-    {
-      name: 'setting',
-      type: 'setting',
-      description: l10n.lookup('prefSetSettingDesc'),
-      manual: l10n.lookup('prefSetSettingManual')
-    },
-    {
-      name: 'value',
-      type: 'settingValue',
-      description: l10n.lookup('prefSetValueDesc'),
-      manual: l10n.lookup('prefSetValueManual')
-    }
-  ],
-  exec: function Command_prefSet(args, context) {
-    if (!exports.allowSet.value &&
-            args.setting.name !== exports.allowSet.name) {
-      return context.createView({
-        html: require('text!gcli/commands/pref_set_check.html'),
-        options: { allowEval: true, stack: 'pref_set_check.html' },
-        data: {
-          l10n: l10n.propertyLookup,
-          activate: function() {
-            context.exec('pref set ' + exports.allowSet.name + ' true');
-          }
-        },
-      });
-    }
-    args.setting.value = args.value;
-    return null;
-  }
-};
-
-/**
- * 'pref reset' command
- */
-var prefResetCmdSpec = {
-  name: 'pref reset',
-  description: l10n.lookup('prefResetDesc'),
-  manual: l10n.lookup('prefResetManual'),
-  params: [
-    {
-      name: 'setting',
-      type: 'setting',
-      description: l10n.lookup('prefResetSettingDesc'),
-      manual: l10n.lookup('prefResetSettingManual')
-    }
-  ],
-  exec: function Command_prefReset(args, context) {
-    args.setting.setDefault();
-    return null;
-  }
-};
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  exports.allowSet = settings.addSetting(allowSetSettingSpec);
-
-  canon.addCommand(prefCmdSpec);
-  canon.addCommand(prefShowCmdSpec);
-  canon.addCommand(prefSetCmdSpec);
-  canon.addCommand(prefResetCmdSpec);
-};
-
-exports.shutdown = function() {
-  canon.removeCommand(prefCmdSpec);
-  canon.removeCommand(prefShowCmdSpec);
-  canon.removeCommand(prefSetCmdSpec);
-  canon.removeCommand(prefResetCmdSpec);
-
-  settings.removeSetting(allowSetSettingSpec);
-  exports.allowSet = undefined;
-};
-
+];
 
 });
-define("text!gcli/commands/pref_set_check.html", [], "<div>\n" +
-  "  <p><strong>${l10n.prefSetCheckHeading}</strong></p>\n" +
-  "  <p>${l10n.prefSetCheckBody}</p>\n" +
-  "  <button onclick=\"${activate}\">${l10n.prefSetCheckGo}</button>\n" +
-  "</div>\n" +
-  "");
-
 /*
  * Copyright 2012, Mozilla Foundation and contributors
  *
@@ -13031,35 +15613,26 @@ define("text!gcli/commands/pref_set_check.html", [], "<div>\n" +
  * limitations under the License.
  */
 
-define('gcli/commands/pref_list', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/util', 'gcli/settings', 'gcli/promise', 'text!gcli/commands/pref_list_outer.html', 'text!gcli/commands/pref_list.css', 'text!gcli/commands/pref_list_inner.html'], function(require, exports, module) {
+define('gcli/commands/pref_list', ['require', 'exports', 'module' , 'util/util', 'util/l10n', 'gcli/settings', 'text!gcli/commands/pref_list_outer.html', 'text!gcli/commands/pref_list.css', 'text!gcli/commands/pref_list_inner.html'], function(require, exports, module) {
 
+'use strict';
 
-var canon = require('gcli/canon');
-var l10n = require('gcli/l10n');
-var util = require('gcli/util');
+var util = require('util/util');
+var l10n = require('util/l10n');
 var settings = require('gcli/settings');
-var Q = require('gcli/promise');
 
 /**
- * 'pref list' command
+ * Format a list of settings for display
  */
-var prefListCmdSpec = {
-  name: 'pref list',
-  description: l10n.lookup('prefListDesc'),
-  manual: l10n.lookup('prefListManual'),
-  params: [
-    {
-      name: 'search',
-      type: 'string',
-      defaultValue: null,
-      description: l10n.lookup('prefListSearchDesc'),
-      manual: l10n.lookup('prefListSearchManual')
-    }
-  ],
-  exec: function Command_prefList(args, context) {
-    return context.createView({
+var prefsData = {
+  item: 'converter',
+  from: 'prefsData',
+  to: 'view',
+  exec: function(prefsData, conversionContext) {
+    var prefList = new PrefList(prefsData, conversionContext);
+    return conversionContext.createView({
       html: require('text!gcli/commands/pref_list_outer.html'),
-      data: new PrefList(args, context),
+      data: prefList,
       options: {
         blankNullUndefined: true,
         allowEval: true,
@@ -13072,29 +15645,53 @@ var prefListCmdSpec = {
 };
 
 /**
- * Registration and de-registration.
+ * 'pref list' command
  */
-exports.startup = function(excludeList) {
-  canon.addCommand(prefListCmdSpec);
-};
+var prefList = {
+  item: 'command',
+  name: 'pref list',
+  description: l10n.lookup('prefListDesc'),
+  manual: l10n.lookup('prefListManual'),
+  params: [
+    {
+      name: 'search',
+      type: 'string',
+      defaultValue: null,
+      description: l10n.lookup('prefListSearchDesc'),
+      manual: l10n.lookup('prefListSearchManual')
+    }
+  ],
+  returnType: 'prefsData',
+  exec: function(args, context) {
+    var deferred = context.defer();
 
-exports.shutdown = function() {
-  canon.removeCommand(prefListCmdSpec);
-};
+    // This can be slow, get out of the way of the main thread
+    setTimeout(function() {
+      var prefsData = {
+        settings: settings.getAll(args.search),
+        search: args.search
+      };
+      deferred.resolve(prefsData);
+    }.bind(this), 10);
 
+    return deferred.promise;
+  }
+};
 
 /**
  * A manager for our version of about:config
  */
-function PrefList(args, context) {
-  this.search = args.search;
-  this.context = context;
+function PrefList(prefsData, conversionContext) {
+  this.search = prefsData.search;
+  this.settings = prefsData.settings;
+  this.conversionContext = conversionContext;
   this.url = util.createUrlLookup(module);
   this.edit = this.url('pref_list_edit.png');
 }
 
 /**
- *
+ * A load event handler registered by the template engine so we can load the
+ * inner document
  */
 PrefList.prototype.onLoad = function(element) {
   var table = element.querySelector('.gcli-pref-list-table');
@@ -13112,38 +15709,16 @@ PrefList.prototype.l10n = l10n.propertyLookup;
  */
 PrefList.prototype.updateTable = function(table) {
   util.clearElement(table);
-  var view = this.context.createView({
+  var view = this.conversionContext.createView({
     html: require('text!gcli/commands/pref_list_inner.html'),
     options: { blankNullUndefined: true, stack: 'pref_list_inner.html' },
     data: this
   });
   var child = view.toDom(table.ownerDocument);
-  util.setContents(table, child);
+
+  util.clearElement(table);
+  table.appendChild(child);
 };
-
-/**
- * Which preferences match the filter?
- */
-Object.defineProperty(PrefList.prototype, 'preferences', {
-  get: function() {
-    return settings.getAll(this.search);
-  },
-  enumerable: true
-});
-
-/**
- * Which preferences match the filter?
- */
-Object.defineProperty(PrefList.prototype, 'promisePreferences', {
-  get: function() {
-    var deferred = Q.defer();
-    setTimeout(function() {
-      deferred.resolve(settings.getAll(this.search));
-    }.bind(this), 10);
-    return deferred.promise;
-  },
-  enumerable: true
-});
 
 PrefList.prototype.onFilterChange = function(ev) {
   if (ev.target.value !== this.search) {
@@ -13157,15 +15732,20 @@ PrefList.prototype.onFilterChange = function(ev) {
 
 PrefList.prototype.onSetClick = function(ev) {
   var typed = ev.currentTarget.getAttribute('data-command');
-  this.context.update(typed);
+  this.conversionContext.update(typed);
 };
+
+exports.items = [ prefsData, prefList ];
+
 
 });
 define("text!gcli/commands/pref_list_outer.html", [], "<div ignore=\"${onLoad(__element)}\">\n" +
+  "  <!-- This is broken, and unimportant. Comment out for now\n" +
   "  <div class=\"gcli-pref-list-filter\">\n" +
   "    ${l10n.prefOutputFilter}:\n" +
   "    <input onKeyUp=\"${onFilterChange}\" value=\"${search}\"/>\n" +
   "  </div>\n" +
+  "  -->\n" +
   "  <table class=\"gcli-pref-list-table\">\n" +
   "    <colgroup>\n" +
   "      <col class=\"gcli-pref-list-name\"/>\n" +
@@ -13214,7 +15794,8 @@ define("text!gcli/commands/pref_list.css", [], "\n" +
   "}\n" +
   "\n" +
   ".gcli-pref-list-row:hover .gcli-pref-list-command {\n" +
-  "  display: inline-block;\n" +
+  "  /* 'pref list' is a bit broken and unimportant. Band-aid follows */\n" +
+  "  /* display: inline-block; */\n" +
   "}\n" +
   "");
 
@@ -13223,10 +15804,10 @@ define("text!gcli/commands/pref_list_inner.html", [], "<table>\n" +
   "    <col class=\"gcli-pref-list-name\"/>\n" +
   "    <col class=\"gcli-pref-list-value\"/>\n" +
   "  </colgroup>\n" +
-  "  <tr class=\"gcli-pref-list-row\" foreach=\"preference in ${promisePreferences}\">\n" +
-  "    <td>${preference.name}</td>\n" +
-  "    <td onclick=\"${onSetClick}\" data-command=\"pref set ${preference.name} \">\n" +
-  "      ${preference.value}\n" +
+  "  <tr class=\"gcli-pref-list-row\" foreach=\"setting in ${settings}\">\n" +
+  "    <td>${setting.name}</td>\n" +
+  "    <td onclick=\"${onSetClick}\" data-command=\"pref set ${setting.name} \">\n" +
+  "      ${setting.value}\n" +
   "      <img class=\"gcli-pref-list-command\" _src=\"${edit}\"/>\n" +
   "    </td>\n" +
   "  </tr>\n" +
@@ -13249,166 +15830,181 @@ define("text!gcli/commands/pref_list_inner.html", [], "<table>\n" +
  * limitations under the License.
  */
 
-define('gcli/commands/intro', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/l10n', 'gcli/ui/intro'], function(require, exports, module) {
+define('gcli/commands/pref', ['require', 'exports', 'module' , 'util/l10n', 'gcli/settings', 'text!gcli/commands/pref_set_check.html'], function(require, exports, module) {
 
-  var canon = require('gcli/canon');
-  var l10n = require('gcli/l10n');
-  var intro = require('gcli/ui/intro');
+'use strict';
 
-  /**
-   * 'intro' command
-   */
-  var introCmdSpec = {
-    name: 'intro',
-    description: l10n.lookup('introDesc'),
-    manual: l10n.lookup('introManual'),
-    returnType: 'html',
-    exec: function echo(args, context) {
-      return intro.createView(context);
-    }
-  };
-
-  /**
-   * Registration and de-registration.
-   */
-  exports.startup = function() {
-    canon.addCommand(introCmdSpec);
-  };
-
-  exports.shutdown = function() {
-    canon.removeCommand(introCmdSpec);
-  };
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('demo/commands/basic', ['require', 'exports', 'module' , 'gcli/index'], function(require, exports, module) {
-
-
-var gcli = require('gcli/index');
+var l10n = require('util/l10n');
+var settings = require('gcli/settings');
 
 /**
- * Registration and de-registration.
+ * Record if the user has clicked on 'Got It!'
  */
-exports.startup = function() {
-  gcli.addCommand(echo);
-  gcli.addCommand(alert);
-  gcli.addCommand(edit);
-  gcli.addCommand(sleep);
+var allowSet = {
+  item: 'setting',
+  name: 'allowSet',
+  type: 'boolean',
+  description: l10n.lookup('allowSetDesc'),
+  defaultValue: false
 };
-
-exports.shutdown = function() {
-  gcli.removeCommand(echo);
-  gcli.removeCommand(alert);
-  gcli.removeCommand(edit);
-  gcli.removeCommand(sleep);
-};
-
 
 /**
- * Arm window.alert with metadata
+ * 'pref' command
  */
-var alert = {
-  name: 'alert',
-  description: 'Show an alert dialog',
+var pref = {
+  item: 'command',
+  name: 'pref',
+  description: l10n.lookup('prefDesc'),
+  manual: l10n.lookup('prefManual')
+};
+
+/**
+ * 'pref show' command
+ */
+var prefShow = {
+  item: 'command',
+  name: 'pref show',
+  description: l10n.lookup('prefShowDesc'),
+  manual: l10n.lookup('prefShowManual'),
   params: [
     {
-      name: 'message',
-      type: 'string',
-      description: 'Message to display'
+      name: 'setting',
+      type: 'setting',
+      description: l10n.lookup('prefShowSettingDesc'),
+      manual: l10n.lookup('prefShowSettingManual')
     }
   ],
   exec: function(args, context) {
-    window.alert(args.message);
+    return l10n.lookupFormat('prefShowSettingValue',
+                             [ args.setting.name, args.setting.value ]);
   }
 };
 
 /**
- * 'echo' command
+ * 'pref set' command
  */
-var echo = {
-  name: 'echo',
-  description: {
-    root: 'Show a message',
-    fr_fr: 'Afficher un message',
-  },
+var prefSet = {
+  item: 'command',
+  name: 'pref set',
+  description: l10n.lookup('prefSetDesc'),
+  manual: l10n.lookup('prefSetManual'),
   params: [
     {
-      name: 'message',
-      type: 'string',
-      description: {
-        root: 'The message to output',
-        fr_fr: 'Le message à afficher'
+      name: 'setting',
+      type: 'setting',
+      description: l10n.lookup('prefSetSettingDesc'),
+      manual: l10n.lookup('prefSetSettingManual')
+    },
+    {
+      name: 'value',
+      type: 'settingValue',
+      description: l10n.lookup('prefSetValueDesc'),
+      manual: l10n.lookup('prefSetValueManual')
+    }
+  ],
+  exec: function(args, context) {
+    var allowSet = settings.getSetting('allowSet');
+    if (!allowSet.value &&
+        args.setting.name !== allowSet.name) {
+      return context.typedData('prefSetWarning', null);
+    }
+
+    args.setting.value = args.value;
+  }
+};
+
+var prefSetWarning = {
+  item: 'converter',
+  from: 'prefSetWarning',
+  to: 'view',
+  exec: function(data, context) {
+    var allowSet = settings.getSetting('settings');
+    return context.createView({
+      html: require('text!gcli/commands/pref_set_check.html'),
+      options: { allowEval: true, stack: 'pref_set_check.html' },
+      data: {
+        l10n: l10n.propertyLookup,
+        activate: function() {
+          context.updateExec('pref set ' + allowSet.name + ' true');
+        }
       }
-    }
-  ],
-  returnType: 'string',
-  exec: function echo(args, context) {
-    return args.message;
-  }
-};
-
-/**
- * 'edit' command
- */
-var edit = {
-  name: 'edit',
-  description: 'Edit a file',
-  params: [
-    {
-      name: 'resource',
-      type: { name: 'resource', include: 'text/css' },
-      description: 'The resource to edit'
-    }
-  ],
-  returnType: 'html',
-  exec: function(args, context) {
-    var deferred = context.defer();
-    args.resource.loadContents(function(data) {
-      deferred.resolve('<p>This is just a demo</p>' +
-                      '<textarea rows=5 cols=80>' + data + '</textarea>');
     });
-    return deferred.promise;
   }
 };
 
 /**
- * 'sleep' command
+ * 'pref reset' command
  */
-var sleep = {
-  name: 'sleep',
-  description: 'Wait for a while',
+var prefReset = {
+  item: 'command',
+  name: 'pref reset',
+  description: l10n.lookup('prefResetDesc'),
+  manual: l10n.lookup('prefResetManual'),
   params: [
     {
-      name: 'length',
-      type: { name: 'number', min: 1 },
-      description: 'How long to wait (s)'
+      name: 'setting',
+      type: 'setting',
+      description: l10n.lookup('prefResetSettingDesc'),
+      manual: l10n.lookup('prefResetSettingManual')
     }
   ],
-  returnType: 'html',
   exec: function(args, context) {
-    var deferred = context.defer();
-    window.setTimeout(function() {
-      deferred.resolve('done');
-    }, args.length * 1000);
-    return deferred.promise;
+    args.setting.setDefault();
   }
 };
 
+exports.items = [
+  pref, prefShow, prefSet, prefReset,
+  allowSet, prefSetWarning
+];
+
+
+});
+define("text!gcli/commands/pref_set_check.html", [], "<div>\n" +
+  "  <p><strong>${l10n.prefSetCheckHeading}</strong></p>\n" +
+  "  <p>${l10n.prefSetCheckBody}</p>\n" +
+  "  <button onclick=\"${activate}\">${l10n.prefSetCheckGo}</button>\n" +
+  "</div>\n" +
+  "");
+
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('demo/commands/alert', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+'use strict';
+
+exports.items = [
+  {
+    // Arm window.alert with metadata
+    item: 'command',
+    name: 'alert',
+    description: 'Show an alert dialog',
+    params: [
+      {
+        name: 'message',
+        type: 'string',
+        description: 'Message to display'
+      }
+    ],
+    exec: function(args, context) {
+      window.alert(args.message);
+    }
+  }
+];
 
 });
 /*
@@ -13427,70 +16023,32 @@ var sleep = {
  * limitations under the License.
  */
 
-define('demo/commands/bugs', ['require', 'exports', 'module' , 'gcli/index', 'gcli/util', 'text!demo/commands/bugs.html'], function(require, exports, module) {
+define('demo/commands/bugs', ['require', 'exports', 'module' , 'text!demo/commands/bugs.html'], function(require, exports, module) {
 
+'use strict';
 
-var gcli = require('gcli/index');
-var util = require('gcli/util');
-
-var bugsHtml = require('text!demo/commands/bugs.html');
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  gcli.addCommand(bugzCommandSpec);
-};
-
-exports.shutdown = function() {
-  gcli.removeCommand(bugzCommandSpec);
-};
-
-
-/**
- * 'bugz' command.
- */
-var bugzCommandSpec = {
-  name: 'bugz',
-  returnType: 'html',
-  description: 'List the GCLI bugs open in Bugzilla',
-  exec: function(args, context) {
-    var deferred = context.defer();
-
-    function onFailure(msg) {
-      deferred.resolve(msg);
+exports.items = [
+  {
+    item: 'converter',
+    from: 'bugz',
+    to: 'view',
+    exec: function(bugz, context) {
+      return context.createView({
+        html: require('text!demo/commands/bugs.html'),
+        data: bugz
+      });
     }
-
-    var query = 'short_desc=GCLI' +
-      '&short_desc_type=allwords' +
-      '&bug_status=UNCONFIRMED' +
-      '&bug_status=NEW' +
-      '&bug_status=ASSIGNED' +
-      '&bug_status=REOPENED';
-
-    queryBugzilla(query, function(json) {
-      json.bugs.forEach(function(bug) {
-        if (bug.target_milestone === '---') {
-          bug.target_milestone = 'Future';
-        }
-      });
-      json.bugs.sort(function(bug1, bug2) {
-        var ms = bug1.target_milestone.localeCompare(bug2.target_milestone);
-        if (ms !== 0) {
-          return ms;
-        }
-        return bug1.priority.localeCompare(bug2.priority);
-      });
-
-      deferred.resolve(context.createView({
-        html: bugsHtml,
-        data: json
-      }));
-    }, onFailure);
-
-    return deferred.promise;
+  },
+  {
+    item: 'command',
+    name: 'bugz',
+    returnType: 'bugz',
+    description: 'List the GCLI bugs open in Bugzilla',
+    exec: function(args, context) {
+      return queryBugzilla(args, context).then(filterReply);
+    }
   }
-};
+];
 
 /**
  * Simple wrapper for querying bugzilla.
@@ -13500,8 +16058,16 @@ var bugzCommandSpec = {
  * @see https://harthur.wordpress.com/2011/03/31/bz-js/
  * @see https://github.com/harthur/bz.js
  */
-function queryBugzilla(query, onSuccess, onFailure) {
-  var url = 'https://api-dev.bugzilla.mozilla.org/0.9/bug?' + query;
+function queryBugzilla(args, context) {
+  var deferred = context.defer();
+
+  var url = 'https://api-dev.bugzilla.mozilla.org/1.1/bug?' +
+      'short_desc=GCLI' +
+      '&short_desc_type=allwords' +
+      '&bug_status=UNCONFIRMED' +
+      '&bug_status=NEW' +
+      '&bug_status=ASSIGNED' +
+      '&bug_status=REOPENED';
 
   var req = new XMLHttpRequest();
   req.open('GET', url, true);
@@ -13510,28 +16076,48 @@ function queryBugzilla(query, onSuccess, onFailure) {
   req.onreadystatechange = function(event) {
     if (req.readyState == 4) {
       if (req.status >= 300 || req.status < 200) {
-        onFailure('Error: ' + JSON.stringify(req));
+        deferred.reject('Error: ' + JSON.stringify(req));
         return;
       }
 
-      var json;
       try {
-        json = JSON.parse(req.responseText);
+        var json = JSON.parse(req.responseText);
+        if (json.error) {
+          deferred.reject('Error: ' + json.error.message);
+        }
+        else {
+          deferred.resolve(json);
+        }
       }
       catch (ex) {
-        onFailure('Invalid response: ' + ex + ': ' + req.responseText);
-        return;
+        deferred.reject('Invalid response: ' + ex + ': ' + req.responseText);
       }
-
-      if (json.error) {
-        onFailure('Error: ' + json.error.message);
-        return;
-      }
-
-      onSuccess(json);
     }
-  }.bind(this);
+  };
   req.send();
+
+  return deferred.promise;
+}
+
+/**
+ * Filter the output from Bugzilla for display
+ */
+function filterReply(json) {
+  json.bugs.forEach(function(bug) {
+    if (bug.target_milestone === '---') {
+      bug.target_milestone = 'Future';
+    }
+  });
+
+  json.bugs.sort(function(bug1, bug2) {
+    var ms = bug1.target_milestone.localeCompare(bug2.target_milestone);
+    if (ms !== 0) {
+      return ms;
+    }
+    return bug1.priority.localeCompare(bug2.priority);
+  });
+
+  return json;
 }
 
 
@@ -13579,201 +16165,443 @@ define("text!demo/commands/bugs.html", [], "\n" +
  * limitations under the License.
  */
 
-define('demo/commands/demo', ['require', 'exports', 'module' , 'gcli/index'], function(require, exports, module) {
+define('demo/commands/demo', ['require', 'exports', 'module' ], function(require, exports, module) {
 
+'use strict';
 
-var gcli = require('gcli/index');
-
-/**
- * Registration and de-registration.
- */
-exports.startup = function() {
-  gcli.addCommand(gcliTop);
-  gcli.addCommand(gcliOnestring);
-  gcli.addCommand(gcliTwostrings);
-  gcli.addCommand(gcliTwonums);
-  gcli.addCommand(gcliSelboolnum);
-  gcli.addCommand(gcliNode);
-};
-
-exports.shutdown = function() {
-  gcli.removeCommand(gcliTop);
-  gcli.removeCommand(gcliOnestring);
-  gcli.removeCommand(gcliTwostrings);
-  gcli.removeCommand(gcliTwonums);
-  gcli.removeCommand(gcliSelboolnum);
-  gcli.removeCommand(gcliNode);
-};
-
-
-/**
- * Parent Command
- */
-var gcliTop = {
-  name: 'gcli',
-  description: 'Commands for playing with the UI'
-};
-
-
-/**
- * 'gcli onestring' command
- */
-var gcliOnestring = {
-  name: 'gcli onestring',
-  description: 'Single string parameter',
-  params: [
-    { name: 'text', type: 'string', description: 'Demo param' }
-  ],
-  returnType: 'html',
-  exec: function(args, context) {
-    return motivate() + 'text=' + args.text;
-  }
-};
-
-/**
- * 'gcli twostrings' command
- */
-var gcliTwostrings = {
-  name: 'gcli twostrings',
-  description: '2 string parameters',
-  params: [
-    { name: 'p1', type: 'string', description: 'First param' },
-    { name: 'p2', type: 'string', description: 'Second param' }
-  ],
-  returnType: 'html',
-  exec: function(args, context) {
-    return motivate() +
-      'p1=\'' + args.p1 + '\', p2=\'' + args.p2 + '\'';
-  }
-};
-
-/**
- * 'gcli twonums' command
- */
-var gcliTwonums = {
-  name: 'gcli twonums',
-  description: '2 numeric parameters',
-  params: [
-    {
-      name: 'p1',
-      type: 'number',
-      description: 'First param'
-    },
-    {
-      name: 'p2',
-      defaultValue: 8,
-      type: { name: 'number', min: -20, max: 42, step: 5 },
-      description: 'Second param'
-    },
-    {
-      group: 'Options',
-      params: [
-        {
-          name: 'all',
-          description: 'All your base',
-          type: 'boolean'
-        },
-        {
-          name: 'verbose',
-          description: 'Be verbose',
-          type: 'boolean'
-        },
-        {
-          name: 'message',
-          description: 'A message',
-          type: 'string',
-          defaultValue: 'nothing'
-        },
-        {
-          name: 'browser',
-          description: 'Pick a browser',
-          type: {
-            name: 'selection',
-            lookup: [
-              { name: 'chrome', value: 1 },
-              { name: 'firefox', value: 2 },
-              { name: 'ie', value: 3 },
-              { name: 'opera', value: 4 },
-              { name: 'safari', value: 5 }
-            ]
-          },
-          defaultValue: 3
-        }
-      ]
-    },
-  ],
-  returnType: 'html',
-  exec: function(args, context) {
-    return motivate() +
-      'p1=' + args.p1 + ', p2=' + args.p2;
-  }
-};
-
-/**
- * 'gcli selboolnum' command
- */
-var gcliSelboolnum = {
-  name: 'gcli selboolnum',
-  description: 'A selection, a boolean and a number',
-  params: [
-    {
-      name: 'sel',
-      type: {
-        name: 'selection',
-        lookup: [
-          { name: 'firefox', value: 4 },
-          { name: 'chrome', value: 12 },
-          { name: 'ie', value: 9 },
-          { name: 'opera', value: 10 },
-          { name: 'safari', value: 5 }
-        ]
-      },
-      description: 'First param'
-    },
-    {
-      name: 'bool',
-      type: 'boolean',
-      description: 'A boolean param'
-    },
-    {
-      name: 'num',
-      type: { name: 'number', min: -4, max: 42, step: 5 },
-      description: 'A number param'
+exports.items = [
+  {
+    // Parent Command
+    item: 'command',
+    name: 'gcli',
+    description: 'Commands for playing with the UI'
+  },
+  {
+    // 'gcli onestring' command
+    item: 'command',
+    name: 'gcli onestring',
+    description: 'Single string parameter',
+    params: [
+      { name: 'text', type: 'string', description: 'Demo param' }
+    ],
+    exec: function(args, context) {
+      return 'text=' + args.text;
     }
-  ],
-  returnType: 'html',
-  exec: function(args, context) {
-    return motivate() +
-      'p1=' + args.p1 + ', p2=' + args.p2 + ', p3=' + args.p3;
+  },
+  {
+    // 'gcli twostrings' command
+    item: 'command',
+    name: 'gcli twostrings',
+    description: '2 string parameters',
+    params: [
+      { name: 'p1', type: 'string', description: 'First param' },
+      { name: 'p2', type: 'string', description: 'Second param' }
+    ],
+    exec: function(args, context) {
+      return 'p1=\'' + args.p1 + '\', p2=\'' + args.p2 + '\'';
+    }
+  },
+  {
+    // 'gcli twonums' command
+    item: 'command',
+    name: 'gcli twonums',
+    description: '2 numeric parameters',
+    params: [
+      {
+        name: 'p1',
+        type: 'number',
+        description: 'First param'
+      },
+      {
+        name: 'p2',
+        defaultValue: 8,
+        type: { name: 'number', allowFloat: true, min: -20, max: 42, step: 5 },
+        description: 'Second param'
+      },
+      {
+        group: 'Options',
+        params: [
+          {
+            name: 'all',
+            description: 'All your base',
+            type: 'boolean'
+          },
+          {
+            name: 'verbose',
+            description: 'Be verbose',
+            type: 'boolean'
+          },
+          {
+            name: 'message',
+            description: 'A message',
+            type: 'string',
+            defaultValue: 'nothing'
+          },
+          {
+            name: 'browser',
+            description: 'Pick a browser',
+            type: {
+              name: 'selection',
+              lookup: [
+                { name: 'chrome', value: 1 },
+                { name: 'firefox', value: 2 },
+                { name: 'ie', value: 3 },
+                { name: 'opera', value: 4 },
+                { name: 'safari', value: 5 }
+              ]
+            },
+            defaultValue: 3
+          }
+        ]
+      }
+    ],
+    exec: function(args, context) {
+      return 'p1=' + args.p1 + ', p2=' + args.p2;
+    }
+  },
+  {
+    // 'gcli selboolnum' command
+    item: 'command',
+    name: 'gcli selboolnum',
+    description: 'A selection, a boolean and a number',
+    params: [
+      {
+        name: 'sel',
+        type: {
+          name: 'selection',
+          lookup: [
+            { name: 'firefox', value: 4 },
+            { name: 'chrome', value: 12 },
+            { name: 'ie', value: 9 },
+            { name: 'opera', value: 10 },
+            { name: 'safari', value: 5 }
+          ]
+        },
+        description: 'First param'
+      },
+      {
+        name: 'bool',
+        type: 'boolean',
+        description: 'A boolean param'
+      },
+      {
+        name: 'num',
+        type: { name: 'number', min: -4, max: 42, step: 5 },
+        description: 'A number param'
+      }
+    ],
+    exec: function(args, context) {
+      return 'p1=' + args.p1 + ', p2=' + args.p2 + ', p3=' + args.p3;
+    }
+  },
+  {
+    // 'gcli node' command
+    item: 'command',
+    name: 'gcli node',
+    description: 'Single node parameter',
+    params: [
+      { name: 'node', type: 'node', description: 'CSS selector pointing at a single node' }
+    ],
+    exec: function(args, context) {
+      return 'node=' + args.node;
+    }
+  },
+  {
+    // 'gcli onedate' command
+    item: 'command',
+    name: 'gcli onedate',
+    description: 'One date parameter',
+    params: [
+      {
+        name: 'date',
+        type: { name: 'date', step: 5 },
+        description: 'Demo param'
+      }
+    ],
+    exec: function(args, context) {
+      return 'date=' + args.date;
+    }
+  },
+  {
+    // 'gcli twodates' commands
+    item: 'command',
+    name: 'gcli twodates',
+    description: 'Two date parameters',
+    params: [
+      {
+        name: 'date1',
+        type: { name: 'date', step: 5 },
+        description: 'Demo param 1'
+      },
+      {
+        name: 'date2',
+        type: { name: 'date', step: 2 },
+        description: 'Demo param 2'
+      }
+    ],
+    exec: function(args, context) {
+      return 'date1=' + args.date1 + ' date2=' + args.date2;
+    }
+  },
+  {
+    // 'gcli file' command
+    item: 'command',
+    name: 'gcli open',
+    description: 'a file param in open mode',
+    params: [
+      {
+        name: 'p1',
+        type: {
+          name: 'file',
+          filetype: 'file',
+          existing: 'yes'
+        },
+        description: 'open param'
+      }
+    ],
+    exec: function(args, context) {
+      return 'p1=\'' + args.p1 + '\'';
+    }
+  },
+  {
+    // 'gcli saveas' command
+    item: 'command',
+    name: 'gcli saveas',
+    description: 'a file param in saveas mode',
+    params: [
+      {
+        name: 'p1',
+        type: {
+          name: 'file',
+          filetype: 'file',
+          existing: 'no'
+        },
+        description: 'open param'
+      }
+    ],
+    exec: function(args, context) {
+      return 'p1=\'' + args.p1 + '\'';
+    }
+  },
+  {
+    // 'gcli save' command
+    item: 'command',
+    name: 'gcli save',
+    description: 'a file param in save mode',
+    params: [
+      {
+        name: 'p1',
+        type: {
+          name: 'file',
+          filetype: 'file',
+          existing: 'maybe'
+        },
+        description: 'open param'
+      }
+    ],
+    exec: function(args, context) {
+      return 'p1=\'' + args.p1 + '\'';
+    }
+  },
+  {
+    // 'gcli cd' command
+    item: 'command',
+    name: 'gcli cd',
+    description: 'a file param in cd mode',
+    params: [
+      {
+        name: 'p1',
+        type: {
+          name: 'file',
+          filetype: 'directory',
+          existing: 'yes'
+        },
+        description: 'open param'
+      }
+    ],
+    exec: function(args, context) {
+      return 'p1=\'' + args.p1 + '\'';
+    }
+  },
+  {
+    // 'gcli mkdir' command
+    item: 'command',
+    name: 'gcli mkdir',
+    description: 'a file param in mkdir mode',
+    params: [
+      {
+        name: 'p1',
+        type: {
+          name: 'file',
+          filetype: 'directory',
+          existing: 'no'
+        },
+        description: 'open param'
+      }
+    ],
+    exec: function(args, context) {
+      return 'p1=\'' + args.p1 + '\'';
+    }
+  },
+  {
+    // 'gcli rm' command
+    item: 'command',
+    name: 'gcli rm',
+    description: 'a file param in rm mode',
+    params: [
+      {
+        name: 'p1',
+        type: {
+          name: 'file',
+          filetype: 'any',
+          existing: 'yes'
+        },
+        description: 'open param'
+      }
+    ],
+    exec: function(args, context) {
+      return 'p1=\'' + args.p1 + '\'';
+    }
   }
-};
-
-/**
- * 'gcli node' command
- */
-var gcliNode = {
-  name: 'gcli node',
-  description: 'Single node parameter',
-  params: [
-    { name: 'node', type: 'node', description: 'CSS selector pointing at a single node' }
-  ],
-  returnType: 'html',
-  exec: function(args, context) {
-    return motivate() + 'node=' + args.node;
-  }
-};
-
-
-var messages = [
-  'GCLI wants you to trick it out in some way.</br>',
-  'GCLI is your web command line.</br>',
-  'GCLI would love to be like Zsh on the Web.</br>',
-  'GCLI is written on the Web platform, so you can tweak it.</br>'
 ];
-function motivate() {
-  var index = Math.floor(Math.random() * messages.length);
-  return messages[index];
-}
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('demo/commands/echo', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+'use strict';
+
+exports.items = [
+  {
+    item: 'command',
+    name: 'echo',
+    description: {
+      root: 'Show a message',
+      fr_fr: 'Afficher un message'
+    },
+    params: [
+      {
+        name: 'message',
+        type: 'string',
+        description: {
+          root: 'The message to output',
+          fr_fr: 'Le message à afficher'
+        }
+      }
+    ],
+    returnType: 'string',
+    exec: function(args, context) {
+      return args.message;
+    }
+  }
+];
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('demo/commands/edit', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+'use strict';
+
+exports.items = [
+  {
+    item: 'command',
+    name: 'edit',
+    description: 'Edit a file',
+    params: [
+      {
+        name: 'resource',
+        type: { name: 'resource', include: 'text/css' },
+        description: 'The resource to edit'
+      }
+    ],
+    returnType: 'html',
+    exec: function(args, context) {
+      var deferred = context.defer();
+      args.resource.loadContents(function(data) {
+        deferred.resolve('<p>This is just a demo</p>' +
+                        '<textarea rows=5 cols=80>' + data + '</textarea>');
+      });
+      return deferred.promise;
+    }
+  }
+];
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('demo/commands/sleep', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+'use strict';
+
+exports.items = [
+  {
+    item: 'command',
+    name: 'sleep',
+    description: 'Wait for a while',
+    params: [
+      {
+        name: 'length',
+        type: { name: 'number', min: 1 },
+        description: 'How long to wait (s)'
+      }
+    ],
+    returnType: 'string',
+    exec: function(args, context) {
+      var deferred = context.defer();
+      window.setTimeout(function() {
+        deferred.resolve('Done');
+      }, args.length * 1000);
+      return deferred.promise;
+    }
+  }
+];
 
 
 });
