@@ -135,7 +135,7 @@ Connection.prototype.disconnect = function(force) {
     deferred.resolve();
   });
 
-  return request.promise;
+  return deferred.promise;
 };
 
 /**

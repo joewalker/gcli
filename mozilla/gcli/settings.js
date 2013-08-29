@@ -20,17 +20,18 @@ define(function(require, exports, module) {
 
 var imports = {};
 
-Components.utils.import('resource://gre/modules/XPCOMUtils.jsm', imports);
+var XPCOMUtils = Components.utils.import('resource://gre/modules/XPCOMUtils.jsm', {}).XPCOMUtils;
+var Services = Components.utils.import('resource://gre/modules/Services.jsm', {}).Services;
 
-imports.XPCOMUtils.defineLazyGetter(imports, 'prefBranch', function() {
+XPCOMUtils.defineLazyGetter(imports, 'prefBranch', function() {
   var prefService = Components.classes['@mozilla.org/preferences-service;1']
           .getService(Components.interfaces.nsIPrefService);
   return prefService.getBranch(null)
           .QueryInterface(Components.interfaces.nsIPrefBranch2);
 });
 
-imports.XPCOMUtils.defineLazyGetter(imports, 'supportsString', function() {
-  return Components.classes["@mozilla.org/supports-string;1"]
+XPCOMUtils.defineLazyGetter(imports, 'supportsString', function() {
+  return Components.classes['@mozilla.org/supports-string;1']
           .createInstance(Components.interfaces.nsISupportsString);
 });
 
@@ -279,7 +280,7 @@ exports.getSetting = function(name) {
   }
   else {
     readSystem();
-    var found = settingsMap.get(name);
+    found = settingsMap.get(name);
     if (!found) {
       found = settingsMap.get(DEVTOOLS_PREFIX + name);
     }

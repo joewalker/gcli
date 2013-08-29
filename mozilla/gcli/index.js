@@ -89,7 +89,7 @@ exports.hiddenByChromePref = function() {
 
 
 try {
-  var Services = Components.utils.import("resource://gre/modules/Services.jsm", {}).Services;
+  var Services = Components.utils.import('resource://gre/modules/Services.jsm', {}).Services;
   var stringBundle = Services.strings.createBundle(
           'chrome://browser/locale/devtools/gclicommands.properties');
 
