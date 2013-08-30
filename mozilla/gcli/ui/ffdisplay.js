@@ -64,7 +64,6 @@ function setContentDocument(document) {
  * - consoleWrap (optional)
  * - eval (optional)
  * - environment
- * - scratchpad (optional)
  * - chromeWindow
  * - commandOutputManager (optional)
  */
@@ -97,7 +96,7 @@ function FFDisplay(options) {
     element: options.inputElement
   });
 
-  this.completer = new Completer(options, {
+  this.completer = new Completer({
     requisition: this.requisition,
     inputter: this.inputter,
     backgroundElement: options.backgroundElement,
