@@ -78,12 +78,6 @@ else {
   serverOverride('util/host', './lib/server/util/host');
   serverOverride('util/filesystem', './lib/server/util/filesystem');
   serverOverride('gcli/types/fileparser', './lib/server/gcli/types/fileparser');
-
-  var fs = require('fs');
-  var helpManHtml = fs.readFileSync(exports.gcliHome + '/lib/server/gcli/commands/help_man.html', 'utf8');
-  var helpListHtml = fs.readFileSync(exports.gcliHome + '/lib/server/gcli/commands/help_list.html', 'utf8');
-  requirejs.define('text!gcli/commands/help_man.html', helpManHtml);
-  requirejs.define('text!gcli/commands/help_list.html', helpListHtml);
 }
 
 exports.require('gcli/index');
