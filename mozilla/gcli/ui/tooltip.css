@@ -1,0 +1,58 @@
+
+.gcli-panel {
+  -moz-transition-property: opacity, height;
+  -moz-transition-duration: 0.5s, 2s;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 2;
+  position: absolute;
+  max-height: 100%;
+  max-width: 350px;
+  left: 0;
+  bottom: 0;
+  font-family: Segoe UI, Helvetica Neue, Verdana, Arial, sans-serif;
+  margin-bottom: -3px;
+}
+
+.gcli-panel.gcli-panel-hide {
+  opacity: 0;
+  height: 0;
+}
+
+.gcli-panel-connector {
+  height: 10px;
+  margin-top: -1px;
+  margin-left: 20px;
+  width: 20px;
+  background: white;
+  border-left: 1px solid #999;
+  border-right: 1px solid #999;
+}
+
+.gcli-tt-description {
+  padding: 5px 10px 0;
+  font-size: 90%;
+}
+
+.gcli-tt-error {
+  font-size: 80%;
+  color: #900;
+  padding: 0 10px;
+}
+
+.gcli-field {
+  width: 100%;
+}
+
+.gcli-field-javascript {
+  margin-bottom: 0;
+}
+
+.gcli-tt {
+  box-shadow: 0 0 10px 1px #ddd;
+  border: 1px solid #999;
+  border-radius: 3px;
+  margin: 10px 0 0 0;
+  background: hsla(0, 100%, 100%, 0.95);
+  padding-bottom: 5px;
+}
