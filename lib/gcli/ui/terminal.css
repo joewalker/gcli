@@ -1,4 +1,13 @@
 
+.gcli-display {
+  position: absolute; top: 0; bottom: 27px; left: 0; right: 0;
+}
+
+.gcli-in-input {
+  position: absolute; height: 27px; bottom: 0; left: 0; right: 0;
+  width: 100%;
+}
+
 .gcli-output {
   height: 100%;
   overflow-x: hidden;
