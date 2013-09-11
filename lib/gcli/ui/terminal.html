@@ -1,5 +1,5 @@
 
-<div class="flex">
+<div>
   <div save="${displayElement}" class="gcli-display">
     <div save="${outputElement}" class="gcli-output">
       <!-- Sub template used for each executed command -->
@@ -10,9 +10,9 @@
             data-command="${output.canonical}">
           <!-- What the user actually typed -->
           <span save="${elems.prompt}" class="gcli-row-prompt ${elems.error ? 'gcli-row-error' : ''} ${elems.completed ? 'gcli-row-complete' : ''}">${prompt}</span>
-          <span class="gcli-row-in-typed">${output.canonical}</span>
+          <span class="gcli-row-in-typed">${output.typed}</span>
           <!-- The extra details that appear on hover -->
-          <span class="gcli-row-duration gcli-row-hover" save="${elems.duration}"></span>
+          <span class="gcli-row-duration gcli-row-hover theme-comment" save="${elems.duration}"></span>
           <img style="float:right;" _src="${url('images/throbber.gif')}" save="${elems.throb}"/>
         </div>
         <!-- The div for the command output -->
@@ -30,10 +30,10 @@
             <span class="gcli-in-ontab">${directTabText}</span>
             <span class="gcli-in-todo" foreach="param in ${emptyParameters}">${param}</span>
             <span class="gcli-in-ontab">${arrowTabText}</span>
-            <span class="gcli-in-closebrace" if="${unclosedJs}">}</span>
+            <span class="gcli-in-closebrace theme-comment" if="${unclosedJs}">}</span>
           </div>
         </div>
-        <div save="${promptElement}" class="gcli-prompt">»</div>
+        <div save="${promptElement}" class="gcli-prompt theme-fg-color6">»</div>
       </div>
       <div save="${panelElement}" class="gcli-panel">
         <div save="${tooltipElement}" class="gcli-tooltip">
@@ -41,7 +41,7 @@
           <div class="gcli-tt" aria-live="polite">
             <div save="${descriptionEle}" class="gcli-tt-description">${description}</div>
             ${field.element}
-            <div save="${errorEle}" class="gcli-tt-error">${assignment.conversion.message}</div>
+            <div save="${errorEle}" class="gcli-tt-error theme-fg-color7">${assignment.conversion.message}</div>
             <div class="gcli-tt-highlight"></div>
           </div>
         </div>
