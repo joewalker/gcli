@@ -4,7 +4,8 @@
 
   <h4 class="gcli-help-header">
     ${l10n.helpManSynopsis}:
-    <span class="gcli-out-shortcut" onclick="${onclick}" data-command="${command.name}">
+    <span class="gcli-out-shortcut" data-command="${command.name}"
+        onclick="${onclick}" ondblclick="${ondblclick}">
       ${command.name}
       <span foreach="param in ${command.params}">${getSynopsis(param)} </span>
     </span>
