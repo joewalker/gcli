@@ -617,15 +617,6 @@ Inputter.prototype.changeChoice = function(amount) {
 };
 
 /**
- * Accessor for the assignment at the cursor.
- * i.e Requisition.getAssignmentAt(cursorPos);
- */
-Inputter.prototype.getCurrentAssignment = function() {
-  var start = this.element.selectionStart;
-  return this.requisition.getAssignmentAt(start);
-};
-
-/**
  * Pull together an input object, which may include XUL hacks
  */
 Inputter.prototype.getInputState = function() {
