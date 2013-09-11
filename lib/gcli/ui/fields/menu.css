@@ -27,8 +27,7 @@
 }
 
 .gcli-menu-option:hover {
-  background-image: -moz-linear-gradient(top, #f8f8f8, #ccc);
-  background-color: #ddd;
+  background-color: rgba(0, 0, 0, 0.2);
 }
 
 .gcli-menu-name {
@@ -46,8 +45,7 @@
 
 .gcli-menu-highlight,
 .gcli-menu-highlight.gcli-menu-option:hover {
-  background-image: -moz-linear-gradient(top, #eee, #b8b8b8);
-  background-color: #c8c8c8;
+  background-color: rgba(0, 0, 0, 0.3);
 }
 
 .gcli-menu-typed {
