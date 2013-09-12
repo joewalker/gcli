@@ -1,51 +1,49 @@
 
 <div>
   <div save="${displayElement}" class="gcli-display">
-    <div save="${outputElement}" class="gcli-output">
-      <!-- Sub template used for each executed command -->
-      <div>
-        <!-- The div for the input (i.e. what was typed) -->
-        <div class="gcli-row-in" save="${elems.rowin}" aria-live="assertive"
-            onclick="${onclick}" ondblclick="${ondblclick}"
-            data-command="${output.canonical}">
-          <!-- What the user actually typed -->
-          <span save="${elems.prompt}" class="gcli-row-prompt ${elems.error ? 'gcli-row-error' : ''} ${elems.completed ? 'gcli-row-complete' : ''}">${prompt}</span>
-          <span class="gcli-row-in-typed">${output.typed}</span>
-          <!-- The extra details that appear on hover -->
-          <span class="gcli-row-duration gcli-row-hover theme-comment" save="${elems.duration}"></span>
-          <img style="float:right;" _src="${url('images/throbber.gif')}" save="${elems.throb}"/>
-        </div>
-        <!-- The div for the command output -->
-        <div class="gcli-row-out" aria-live="assertive" save="${elems.rowout}">
-        </div>
+    <!-- Sub template used for each executed command -->
+    <div>
+      <!-- The div for the input (i.e. what was typed) -->
+      <div class="gcli-row-in" save="${elems.rowin}" aria-live="assertive"
+          onclick="${onclick}" ondblclick="${ondblclick}"
+          data-command="${output.canonical}">
+        <!-- What the user actually typed -->
+        <span save="${elems.prompt}" class="gcli-row-prompt ${elems.error ? 'gcli-row-error' : ''} ${elems.completed ? 'gcli-row-complete' : ''}">${prompt}</span>
+        <span class="gcli-row-in-typed">${output.typed}</span>
+        <!-- The extra details that appear on hover -->
+        <span class="gcli-row-duration gcli-row-hover theme-comment" save="${elems.duration}"></span>
+        <img style="float:right;" _src="${url('images/throbber.gif')}" save="${elems.throb}"/>
       </div>
-      <div class="gcli-in-top">
-        <input save="${inputElement}" class="gcli-in-input" type="text" autofocus="autofocus" spellcheck="false">
-        <div save="${completeElement}" class="gcli-in-complete" tabindex="-1" aria-live="polite">
-          <!-- Sub template used to show completion -->
-          <div>
-            <loop foreach="member in ${statusMarkup}">
-              <span class="${member.className}">${member.string}</span>
-            </loop>
-            <span class="gcli-in-ontab">${directTabText}</span>
-            <span class="gcli-in-todo" foreach="param in ${emptyParameters}">${param}</span>
-            <span class="gcli-in-ontab">${arrowTabText}</span>
-            <span class="gcli-in-closebrace theme-comment" if="${unclosedJs}">}</span>
-          </div>
-        </div>
-        <div save="${promptElement}" class="gcli-prompt theme-fg-color6">»</div>
+      <!-- The div for the command output -->
+      <div class="gcli-row-out" aria-live="assertive" save="${elems.rowout}">
       </div>
-      <div save="${panelElement}" class="gcli-panel">
-        <div save="${tooltipElement}" class="gcli-tooltip">
-          <!-- Sub template used for popup hints -->
-          <div class="gcli-tt" aria-live="polite">
-            <div save="${descriptionEle}" class="gcli-tt-description">${description}</div>
-            ${field.element}
-            <div save="${errorEle}" class="gcli-tt-error theme-fg-color7">${assignment.conversion.message}</div>
-            <div class="gcli-tt-highlight"></div>
-          </div>
-        </div>
     </div>
+    <div class="gcli-in-top">
+      <input save="${inputElement}" class="gcli-in-input" type="text" autofocus="autofocus" spellcheck="false">
+      <div save="${completeElement}" class="gcli-in-complete" tabindex="-1" aria-live="polite">
+        <!-- Sub template used to show completion -->
+        <div>
+          <loop foreach="member in ${statusMarkup}">
+            <span class="${member.className}">${member.string}</span>
+          </loop>
+          <span class="gcli-in-ontab">${directTabText}</span>
+          <span class="gcli-in-todo" foreach="param in ${emptyParameters}">${param}</span>
+          <span class="gcli-in-ontab">${arrowTabText}</span>
+          <span class="gcli-in-closebrace theme-comment" if="${unclosedJs}">}</span>
+        </div>
+      </div>
+      <div save="${promptElement}" class="gcli-prompt theme-fg-color6">»</div>
+    </div>
+    <div save="${panelElement}" class="gcli-panel">
+      <div save="${tooltipElement}" class="gcli-tooltip">
+        <!-- Sub template used for popup hints -->
+        <div class="gcli-tt" aria-live="polite">
+          <div save="${descriptionEle}" class="gcli-tt-description">${description}</div>
+          ${field.element}
+          <div save="${errorEle}" class="gcli-tt-error theme-fg-color7">${assignment.conversion.message}</div>
+          <div class="gcli-tt-highlight"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
