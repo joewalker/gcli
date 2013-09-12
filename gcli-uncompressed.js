@@ -204,7 +204,7 @@ var require = define.globalDomain.require.bind(define.globalDomain);
  * limitations under the License.
  */
 
-define('gcli/index', ['require', 'exports', 'module' , 'util/legacy', 'gcli/settings', 'gcli/api', 'gcli/types/selection', 'gcli/types/delegate', 'gcli/types/array', 'gcli/types/boolean', 'gcli/types/command', 'gcli/types/date', 'gcli/types/file', 'gcli/types/javascript', 'gcli/types/node', 'gcli/types/number', 'gcli/types/resource', 'gcli/types/setting', 'gcli/types/string', 'gcli/converters', 'gcli/converters/basic', 'gcli/converters/html', 'gcli/converters/terminal', 'gcli/ui/intro', 'gcli/ui/focus', 'gcli/ui/fields/basic', 'gcli/ui/fields/javascript', 'gcli/ui/fields/selection', 'gcli/cli', 'gcli/ui/display'], function(require, exports, module) {
+define('gcli/index', ['require', 'exports', 'module' , 'util/legacy', 'gcli/settings', 'gcli/api', 'gcli/types/selection', 'gcli/types/delegate', 'gcli/types/array', 'gcli/types/boolean', 'gcli/types/command', 'gcli/types/date', 'gcli/types/file', 'gcli/types/javascript', 'gcli/types/node', 'gcli/types/number', 'gcli/types/resource', 'gcli/types/setting', 'gcli/types/string', 'gcli/converters', 'gcli/converters/basic', 'gcli/converters/html', 'gcli/converters/terminal', 'gcli/ui/intro', 'gcli/ui/focus', 'gcli/ui/fields/basic', 'gcli/ui/fields/javascript', 'gcli/ui/fields/selection', 'gcli/cli'], function(require, exports, module) {
 
 'use strict';
 
@@ -244,11 +244,6 @@ exports.addItems(require('gcli/ui/fields/javascript').items);
 exports.addItems(require('gcli/ui/fields/selection').items);
 
 exports.addItems(require('gcli/cli').items);
-
-var display = require('gcli/ui/display');
-exports.createDisplay = function(options) {
-  return display.createDisplay(options || {});
-};
 
 
 });
@@ -2890,7 +2885,7 @@ exports.ArrayArgument = ArrayArgument;
  * limitations under the License.
  */
 
-define('gcli/api', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/converters', 'gcli/types', 'gcli/settings', 'gcli/ui/fields'], function(require, exports, module) {
+define('gcli/api', ['require', 'exports', 'module' , 'gcli/canon', 'gcli/converters', 'gcli/types', 'gcli/settings', 'gcli/cli', 'gcli/ui/fields', 'gcli/ui/intro', 'gcli/ui/terminal'], function(require, exports, module) {
 
 'use strict';
 
@@ -2898,7 +2893,11 @@ var canon = require('gcli/canon');
 var converters = require('gcli/converters');
 var types = require('gcli/types');
 var settings = require('gcli/settings');
+var Requisition = require('gcli/cli').Requisition;
+
 var fields = require('gcli/ui/fields');
+var intro = require('gcli/ui/intro');
+var Terminal = require('gcli/ui/terminal').Terminal;
 
 /**
  * This is the heart of the API that we expose to the outside
@@ -2963,6 +2962,41 @@ exports.getApi = function() {
           throw new Error('item property not found');
         }
       });
+    },
+
+    /**
+     * createDisplay() calls 'new Terminal()' but returns an object which
+     * exposes a much restricted set of functions rather than all those exposed
+     * by Terminal.
+     * This allows for robust testing without exposing too many internals.
+     * @param options See Terminal() for a description of the available options
+     */
+    createDisplay: function(options) {
+      options = options || {};
+      if (options.settings != null) {
+        settings.setDefaults(options.settings);
+      }
+
+      var doc = options.document || document;
+
+      var requisition = new Requisition(options.environment || {}, doc);
+      var terminal = new Terminal(options, {
+        requisition: requisition,
+        document: doc
+      });
+
+      intro.maybeShowIntro(requisition.commandOutputManager,
+                           requisition.conversionContext);
+
+      return {
+        /**
+         * The exact shape of the object returned by exec is likely to change in
+         * the near future. If you do use it, please expect your code to break.
+         */
+        exec: requisition.exec.bind(requisition),
+        update: requisition.update.bind(requisition),
+        updateExec: requisition.updateExec.bind(requisition)
+      };
     }
   };
 };
@@ -3525,15 +3559,8 @@ Canon.prototype.addProxyCommands = function(prefix, commandSpecs, remoter, to) {
 };
 
 /**
- * Add a set of commands that are executed somewhere else.
+ * Remove a set of commands added with addProxyCommands.
  * @param prefix The name prefix that we assign to all command names
- * @param commandSpecs Presumably as obtained from getCommandSpecs on remote
- * @param remoter Function to call on exec of a new remote command. This is
- * defined just like an exec function (i.e. that takes args/context as params
- * and returns a promise) with one extra feature, that the context includes a
- * 'commandName' property that contains the original command name.
- * @param to URL-like string that describes where the commands are executed.
- * This is to complete the parent command description.
  */
 Canon.prototype.removeProxyCommands = function(prefix) {
   var toRemove = [];
@@ -4411,7 +4438,6 @@ var i18n = {
     // These strings are displayed in the help page for a command in the
     // console.
     helpManSynopsis: 'Synopsis',
-    helpManDescription: 'Description',
 
     // This message is displayed in the help page if the command has no
     // parameters.
@@ -4557,7 +4583,7 @@ var i18n = {
     // These strings are displayed when the user first opens the developer
     // toolbar to explain the command line, and is shown each time it is
     // opened until the user clicks the 'Got it!' button.
-    introTextOpening2: 'This command line is designed for developers. It focuses on speed of input over JavaScript syntax and a rich display over monospace output.',
+    introTextOpening2: 'GCLI is an experiment to create a highly usable command line for web developers.',
     introTextCommands: 'For a list of commands type',
     introTextKeys2: ', or to show/hide command hints press',
     introTextF1Escape: 'F1/Escape',
@@ -4594,11 +4620,12 @@ exports.root = i18n.root;
  * limitations under the License.
  */
 
-define('gcli/converters', ['require', 'exports', 'module' , 'util/promise'], function(require, exports, module) {
+define('gcli/converters', ['require', 'exports', 'module' , 'util/promise', 'util/util'], function(require, exports, module) {
 
 'use strict';
 
 var promise = require('util/promise');
+var util = require('util/util');
 
 // It's probably easiest to read this bottom to top
 
@@ -4632,6 +4659,9 @@ var viewDomConverter = {
   from: 'view',
   to: 'dom',
   exec: function(view, conversionContext) {
+    if (!view.isView) {
+      view = conversionContext.createView(view);
+    }
     return view.toDom(conversionContext.document);
   }
 };
@@ -4644,7 +4674,52 @@ var viewStringConverter = {
   from: 'view',
   to: 'string',
   exec: function(view, conversionContext) {
+    if (!view.isView) {
+      view = conversionContext.createView(view);
+    }
     return view.toDom(conversionContext.document).textContent;
+  }
+};
+
+/**
+ * Convert a view object to a string
+ */
+var stringViewStringConverter = {
+  item: 'converter',
+  from: 'stringView',
+  to: 'string',
+  exec: function(view, conversionContext) {
+    if (!view.isView) {
+      view = conversionContext.createView(view);
+    }
+    return view.toDom(conversionContext.document).textContent;
+  }
+};
+
+/**
+ * Convert an exception to a DOM element
+ */
+var errorDomConverter = {
+  item: 'converter',
+  from: 'error',
+  to: 'dom',
+  exec: function(ex, conversionContext) {
+    var node = util.createElement(conversionContext.document, 'p');
+    node.className = 'gcli-error';
+    node.textContent = ex;
+    return node;
+  }
+};
+
+/**
+ * Convert an exception to a string
+ */
+var errorStringConverter = {
+  item: 'converter',
+  from: 'error',
+  to: 'string',
+  exec: function(ex, conversionContext) {
+    return '' + ex;
   }
 };
 
@@ -4712,20 +4787,26 @@ function getConverter(from, to) {
   if (converter == null) {
     // Someone is going to love writing a graph search algorithm to work out
     // the smallest number of conversions, or perhaps the least 'lossy'
-    // conversion but for now the only 2 step conversion is foo->view->dom,
-    // which we are going to special case.
+    // conversion but for now the only 2 step conversions which we are going to
+    // special case are foo->view->dom and foo->stringView->string.
     if (to === 'dom') {
       converter = fromMatch.view;
       if (converter != null) {
         return getChainConverter(converter, viewDomConverter);
       }
     }
+
     if (to === 'string') {
+      converter = fromMatch.stringView;
+      if (converter != null) {
+        return getChainConverter(converter, stringViewStringConverter);
+      }
       converter = fromMatch.view;
       if (converter != null) {
         return getChainConverter(converter, viewStringConverter);
       }
     }
+
     return getFallbackConverter(from, to);
   }
   return converter;
@@ -4753,21 +4834,2805 @@ function getFallbackConverter(from, to) {
  * @param data The object to convert
  * @param from The type of the data right now
  * @param to The type that we would like the data in
- * @param conversionContext An execution context (i.e. simplified requisition) which is
- * often required for access to a document, or createView function
+ * @param conversionContext An execution context (i.e. simplified requisition)
+ * which is often required for access to a document, or createView function
  */
 exports.convert = function(data, from, to, conversionContext) {
-  if (from === to) {
-    return promise.resolve(data);
+  try {
+    if (from === to) {
+      return promise.resolve(data);
+    }
+    return promise.resolve(getConverter(from, to).exec(data, conversionContext));
   }
-  return promise.resolve(getConverter(from, to).exec(data, conversionContext));
+  catch (ex) {
+    return promise.resolve(getConverter('error', to).exec(ex, conversionContext));
+  }
 };
 
 /**
  * Items for export
  */
-exports.items = [ viewDomConverter, viewStringConverter ];
+exports.items = [
+  viewDomConverter, viewStringConverter, stringViewStringConverter,
+  errorDomConverter, errorStringConverter
+];
 
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/cli', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'util/l10n', 'gcli/ui/view', 'gcli/converters', 'gcli/canon', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var util = require('util/util');
+var l10n = require('util/l10n');
+
+var view = require('gcli/ui/view');
+var converters = require('gcli/converters');
+var canon = require('gcli/canon');
+var CommandOutputManager = require('gcli/canon').CommandOutputManager;
+
+var Status = require('gcli/types').Status;
+var Conversion = require('gcli/types').Conversion;
+
+var Argument = require('gcli/argument').Argument;
+var ArrayArgument = require('gcli/argument').ArrayArgument;
+var NamedArgument = require('gcli/argument').NamedArgument;
+var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
+var MergedArgument = require('gcli/argument').MergedArgument;
+var ScriptArgument = require('gcli/argument').ScriptArgument;
+
+/**
+ * Some manual intervention is needed in parsing the { command.
+ */
+function getEvalCommand() {
+  if (getEvalCommand._cmd == null) {
+    getEvalCommand._cmd = canon.getCommand(evalCmd.name);
+  }
+  return getEvalCommand._cmd;
+}
+
+/**
+ * Assignment is a link between a parameter and the data for that parameter.
+ * The data for the parameter is available as in the preferred type and as
+ * an Argument for the CLI.
+ * <p>We also record validity information where applicable.
+ * <p>For values, null and undefined have distinct definitions. null means
+ * that a value has been provided, undefined means that it has not.
+ * Thus, null is a valid default value, and common because it identifies an
+ * parameter that is optional. undefined means there is no value from
+ * the command line.
+ * @constructor
+ */
+function Assignment(param) {
+  // The parameter that we are assigning to
+  this.param = param;
+  this.conversion = undefined;
+}
+
+/**
+ * Easy accessor for conversion.arg.
+ * This is a read-only property because writes to arg should be done through
+ * the 'conversion' property.
+ */
+Object.defineProperty(Assignment.prototype, 'arg', {
+  get: function() {
+    return this.conversion == null ? undefined : this.conversion.arg;
+  },
+  enumerable: true
+});
+
+/**
+ * Easy accessor for conversion.value.
+ * This is a read-only property because writes to value should be done through
+ * the 'conversion' property.
+ */
+Object.defineProperty(Assignment.prototype, 'value', {
+  get: function() {
+    return this.conversion == null ? undefined : this.conversion.value;
+  },
+  enumerable: true
+});
+
+/**
+ * Easy (and safe) accessor for conversion.message
+ */
+Object.defineProperty(Assignment.prototype, 'message', {
+  get: function() {
+    return this.conversion == null || !this.conversion.message ?
+        '' : this.conversion.message;
+  },
+  enumerable: true
+});
+
+/**
+ * Easy (and safe) accessor for conversion.getPredictions()
+ * @return An array of objects with name and value elements. For example:
+ * [ { name:'bestmatch', value:foo1 }, { name:'next', value:foo2 }, ... ]
+ */
+Assignment.prototype.getPredictions = function() {
+  return this.conversion == null ? [] : this.conversion.getPredictions();
+};
+
+/**
+ * Accessor for a prediction by index.
+ * This is useful above <tt>getPredictions()[index]</tt> because it normalizes
+ * index to be within the bounds of the predictions, which means that the UI
+ * can maintain an index of which prediction to choose without caring how many
+ * predictions there are.
+ * @param rank The index of the prediction to choose
+ */
+Assignment.prototype.getPredictionRanked = function(rank) {
+  if (rank == null) {
+    rank = 0;
+  }
+
+  if (this.isInName()) {
+    return promise.resolve(undefined);
+  }
+
+  return this.getPredictions().then(function(predictions) {
+    if (predictions.length === 0) {
+      return undefined;
+    }
+
+    rank = rank % predictions.length;
+    if (rank < 0) {
+      rank = predictions.length + rank;
+    }
+    return predictions[rank];
+  }.bind(this));
+};
+
+/**
+ * Some places want to take special action if we are in the name part of a
+ * named argument (i.e. the '--foo' bit).
+ * Currently this does not take actual cursor position into account, it just
+ * assumes that the cursor is at the end. In the future we will probably want
+ * to take this into account.
+ */
+Assignment.prototype.isInName = function() {
+  return this.conversion.arg.type === 'NamedArgument' &&
+         this.conversion.arg.prefix.slice(-1) !== ' ';
+};
+
+/**
+ * Work out what the status of the current conversion is which involves looking
+ * not only at the conversion, but also checking if data has been provided
+ * where it should.
+ * @param arg For assignments with multiple args (e.g. array assignments) we
+ * can narrow the search for status to a single argument.
+ */
+Assignment.prototype.getStatus = function(arg) {
+  if (this.param.isDataRequired && !this.conversion.isDataProvided()) {
+    return Status.INCOMPLETE;
+  }
+
+  // Selection/Boolean types with a defined range of values will say that
+  // '' is INCOMPLETE, but the parameter may be optional, so we don't ask
+  // if the user doesn't need to enter something and hasn't done so.
+  if (!this.param.isDataRequired && this.arg.type === 'BlankArgument') {
+    return Status.VALID;
+  }
+
+  return this.conversion.getStatus(arg);
+};
+
+/**
+ * Helper when we're rebuilding command lines.
+ */
+Assignment.prototype.toString = function() {
+  return this.conversion.toString();
+};
+
+/**
+ * For test/debug use only. The output from this function is subject to wanton
+ * random change without notice, and should not be relied upon to even exist
+ * at some later date.
+ */
+Object.defineProperty(Assignment.prototype, '_summaryJson', {
+  get: function() {
+    var predictionCount = '<async>';
+    this.getPredictions().then(function(predictions) {
+      predictionCount = predictions.length;
+    }, console.log);
+    return {
+      param: this.param.name + '/' + this.param.type.name,
+      defaultValue: this.param.defaultValue,
+      arg: this.conversion.arg._summaryJson,
+      value: this.value,
+      message: this.message,
+      status: this.getStatus().toString(),
+      predictionCount: predictionCount
+    };
+  },
+  enumerable: true
+});
+
+exports.Assignment = Assignment;
+
+
+/**
+ * How to dynamically execute JavaScript code
+ */
+var customEval = eval;
+
+/**
+ * Setup a function to be called in place of 'eval', generally for security
+ * reasons
+ */
+exports.setEvalFunction = function(newCustomEval) {
+  customEval = newCustomEval;
+};
+
+/**
+ * Remove the binding done by setEvalFunction().
+ * We purposely set customEval to undefined rather than to 'eval' because there
+ * is an implication of setEvalFunction that we're in a security sensitive
+ * situation. What if we can trick GCLI into calling unsetEvalFunction() at the
+ * wrong time?
+ * So to properly undo the effects of setEvalFunction(), you need to call
+ * setEvalFunction(eval) rather than unsetEvalFunction(), however the latter is
+ * preferred in most cases.
+ */
+exports.unsetEvalFunction = function() {
+  customEval = undefined;
+};
+
+/**
+ * 'eval' command
+ */
+var evalCmd = {
+  item: 'command',
+  name: '{',
+  params: [
+    {
+      name: 'javascript',
+      type: 'javascript',
+      description: ''
+    }
+  ],
+  hidden: true,
+  returnType: 'object',
+  description: { key: 'cliEvalJavascript' },
+  exec: function(args, context) {
+    return customEval(args.javascript);
+  },
+  isCommandRegexp: /^\s*{\s*/
+};
+
+exports.items = [ evalCmd ];
+
+/**
+ * This is a special assignment to reflect the command itself.
+ */
+function CommandAssignment() {
+  var commandParamMetadata = {
+    name: '__command',
+    type: { name: 'command', allowNonExec: false }
+  };
+  // This is a hack so that rather than reply with a generic description of the
+  // command assignment, we reply with the description of the assigned command,
+  // (using a generic term if there is no assigned command)
+  var self = this;
+  Object.defineProperty(commandParamMetadata, 'description', {
+    get: function() {
+      var value = self.value;
+      return value && value.description ?
+          value.description :
+          'The command to execute';
+    },
+    enumerable: true
+  });
+  this.param = new canon.Parameter(commandParamMetadata);
+}
+
+CommandAssignment.prototype = Object.create(Assignment.prototype);
+
+CommandAssignment.prototype.getStatus = function(arg) {
+  return Status.combine(
+    Assignment.prototype.getStatus.call(this, arg),
+    this.conversion.value && this.conversion.value.exec ?
+            Status.VALID : Status.INCOMPLETE
+  );
+};
+
+exports.CommandAssignment = CommandAssignment;
+
+
+/**
+ * Special assignment used when ignoring parameters that don't have a home
+ */
+function UnassignedAssignment(requisition, arg) {
+  this.param = new canon.Parameter({
+    name: '__unassigned',
+    description: l10n.lookup('cliOptions'),
+    type: {
+      name: 'param',
+      requisition: requisition,
+      isIncompleteName: (arg.text.charAt(0) === '-')
+    }
+  });
+
+  // synchronize is ok because we can be sure that param type is synchronous
+  var parsed = this.param.type.parse(arg, requisition.executionContext);
+  this.conversion = util.synchronize(parsed);
+  this.conversion.assignment = this;
+}
+
+UnassignedAssignment.prototype = Object.create(Assignment.prototype);
+
+UnassignedAssignment.prototype.getStatus = function(arg) {
+  return this.conversion.getStatus();
+};
+
+exports.logErrors = true;
+
+/**
+ * A Requisition collects the information needed to execute a command.
+ *
+ * (For a definition of the term, see http://en.wikipedia.org/wiki/Requisition)
+ * This term is used because carries the notion of a work-flow, or process to
+ * getting the information to execute a command correct.
+ * There is little point in a requisition for parameter-less commands because
+ * there is no information to collect. A Requisition is a collection of
+ * assignments of values to parameters, each handled by an instance of
+ * Assignment.
+ *
+ * <h2>Events<h2>
+ * <p>Requisition publishes the following events:
+ * <ul>
+ * <li>onTextChange: The text to be mirrored in a command line has changed.
+ * </ul>
+ *
+ * @param environment An optional opaque object passed to commands in the
+ * Execution Context.
+ * @param doc A DOM Document passed to commands using the Execution Context in
+ * order to allow creation of DOM nodes. If missing Requisition will use the
+ * global 'document'.
+ * @param commandOutputManager A custom commandOutputManager to which output
+ * should be sent (optional)
+ * @constructor
+ */
+function Requisition(environment, doc, commandOutputManager) {
+  this.environment = environment;
+  this.document = doc;
+  if (this.document == null) {
+    try {
+      this.document = document;
+    }
+    catch (ex) {
+      // Ignore
+    }
+  }
+
+  this.commandOutputManager = commandOutputManager || new CommandOutputManager();
+  this.shell = {
+    cwd: '/', // Where we store the current working directory
+    env: {}   // Where we store the current environment
+  };
+
+  this.onTextChange = util.createEvent('Requisition.onTextChange');
+
+  // The command that we are about to execute.
+  // @see setCommandConversion()
+  this.commandAssignment = new CommandAssignment();
+  var assignPromise = this.setAssignment(this.commandAssignment, null,
+                                   { internal: true });
+  util.synchronize(assignPromise);
+
+  // The object that stores of Assignment objects that we are filling out.
+  // The Assignment objects are stored under their param.name for named
+  // lookup. Note: We make use of the property of Javascript objects that
+  // they are not just hashmaps, but linked-list hashmaps which iterate in
+  // insertion order.
+  // _assignments excludes the commandAssignment.
+  this._assignments = {};
+
+  // The count of assignments. Excludes the commandAssignment
+  this.assignmentCount = 0;
+
+  // Used to store cli arguments in the order entered on the cli
+  this._args = [];
+
+  // Used to store cli arguments that were not assigned to parameters
+  this._unassigned = [];
+
+  // Changes can be asynchronous, when one update starts before another
+  // finishes we abandon the former change
+  this._nextUpdateId = 0;
+
+  // We can set a prefix to typed commands to make it easier to focus on
+  // Allowing us to type "add -a; commit" in place of "git add -a; git commit"
+  this.prefix = '';
+}
+
+/**
+ * Avoid memory leaks
+ */
+Requisition.prototype.destroy = function() {
+  this.document = undefined;
+  this.environment = undefined;
+};
+
+/**
+ * If we're about to make an asynchronous change when other async changes could
+ * overtake this one, then we want to be able to bail out if overtaken. The
+ * value passed back from beginChange should be passed to endChangeCheckOrder
+ * on completion of calculation, before the results are applied in order to
+ * check that the calculation has not been overtaken
+ */
+Requisition.prototype._beginChange = function() {
+  this.onTextChange.holdFire();
+
+  var updateId = this._nextUpdateId;
+  this._nextUpdateId++;
+  return updateId;
+};
+
+/**
+ * Check to see if another change has started since updateId started.
+ * This allows us to bail out of an update.
+ * It's hard to make updates atomic because until you've responded to a parse
+ * of the command argument, you don't know how to parse the arguments to that
+ * command.
+ */
+Requisition.prototype._isChangeCurrent = function(updateId) {
+  return updateId + 1 === this._nextUpdateId;
+};
+
+/**
+ * See notes on beginChange
+ */
+Requisition.prototype._endChangeCheckOrder = function(updateId) {
+  this.onTextChange.resumeFire();
+
+  if (updateId + 1 !== this._nextUpdateId) {
+    // An update that started after we did has already finished, so our
+    // changes are out of date. Abandon further work.
+    return false;
+  }
+
+  return true;
+};
+
+var legacy = false;
+
+/**
+ * Functions and data related to the execution of a command
+ */
+Object.defineProperty(Requisition.prototype, 'executionContext', {
+  get: function() {
+    if (this._executionContext == null) {
+      this._executionContext = {
+        defer: function() {
+          return promise.defer();
+        },
+        typedData: function(type, data) {
+          return {
+            isTypedData: true,
+            data: data,
+            type: type
+          };
+        },
+        getArgsObject: this.getArgsObject.bind(this)
+      };
+
+      // Alias requisition so we're clear about what's what
+      var requisition = this;
+      Object.defineProperty(this._executionContext, 'typed', {
+        get: function() { return requisition.toString(); },
+        enumerable: true
+      });
+      Object.defineProperty(this._executionContext, 'environment', {
+        get: function() { return requisition.environment; },
+        enumerable: true
+      });
+      Object.defineProperty(this._executionContext, 'shell', {
+        get: function() { return requisition.shell; },
+        enumerable : true
+      });
+
+      /**
+       * This is a temporary property that will change and/or be removed.
+       * Do not use it
+       */
+      Object.defineProperty(this._executionContext, '__dlhjshfw', {
+        get: function() { return requisition; },
+        enumerable: false
+      });
+
+      if (legacy) {
+        this._executionContext.createView = view.createView;
+        this._executionContext.exec = this.exec.bind(this);
+        this._executionContext.update = this.update.bind(this);
+        this._executionContext.updateExec = this.updateExec.bind(this);
+
+        Object.defineProperty(this._executionContext, 'document', {
+          get: function() { return requisition.document; },
+          enumerable: true
+        });
+      }
+    }
+
+    return this._executionContext;
+  },
+  enumerable: true
+});
+
+/**
+ * Functions and data related to the conversion of the output of a command
+ */
+Object.defineProperty(Requisition.prototype, 'conversionContext', {
+  get: function() {
+    if (this._conversionContext == null) {
+      this._conversionContext = {
+        defer: function() {
+          return promise.defer();
+        },
+
+        createView: view.createView,
+        exec: this.exec.bind(this),
+        update: this.update.bind(this),
+        updateExec: this.updateExec.bind(this)
+      };
+
+      // Alias requisition so we're clear about what's what
+      var requisition = this;
+
+      Object.defineProperty(this._conversionContext, 'document', {
+        get: function() { return requisition.document; },
+        enumerable: true
+      });
+      Object.defineProperty(this._conversionContext, 'environment', {
+        get: function() { return requisition.environment; },
+        enumerable: true
+      });
+
+      /**
+       * This is a temporary property that will change and/or be removed.
+       * Do not use it
+       */
+      Object.defineProperty(this._conversionContext, '__dlhjshfw', {
+        get: function() { return requisition; },
+        enumerable: false
+      });
+    }
+
+    return this._conversionContext;
+  },
+  enumerable: true
+});
+
+/**
+ * Assignments have an order, so we need to store them in an array.
+ * But we also need named access ...
+ * @return The found assignment, or undefined, if no match was found
+ */
+Requisition.prototype.getAssignment = function(nameOrNumber) {
+  var name = (typeof nameOrNumber === 'string') ?
+    nameOrNumber :
+    Object.keys(this._assignments)[nameOrNumber];
+  return this._assignments[name] || undefined;
+};
+
+/**
+ * Where parameter name == assignment names - they are the same
+ */
+Requisition.prototype.getParameterNames = function() {
+  return Object.keys(this._assignments);
+};
+
+/**
+ * The overall status is the most severe status.
+ * There is no such thing as an INCOMPLETE overall status because the
+ * definition of INCOMPLETE takes into account the cursor position to say 'this
+ * isn't quite ERROR because the user can fix it by typing', however overall,
+ * this is still an error status.
+ */
+Object.defineProperty(Requisition.prototype, 'status', {
+  get : function() {
+    var status = Status.VALID;
+    if (this._unassigned.length !== 0) {
+      var isAllIncomplete = true;
+      this._unassigned.forEach(function(assignment) {
+        if (!assignment.param.type.isIncompleteName) {
+          isAllIncomplete = false;
+        }
+      });
+      status = isAllIncomplete ? Status.INCOMPLETE : Status.ERROR;
+    }
+
+    this.getAssignments(true).forEach(function(assignment) {
+      var assignStatus = assignment.getStatus();
+      if (assignStatus > status) {
+        status = assignStatus;
+      }
+    }, this);
+    if (status === Status.INCOMPLETE) {
+      status = Status.ERROR;
+    }
+    return status;
+  },
+  enumerable : true
+});
+
+/**
+ * If ``requisition.status != VALID`` message then return a string which
+ * best describes what is wrong. Generally error messages are delivered by
+ * looking at the error associated with the argument at the cursor, but there
+ * are times when you just want to say 'tell me the worst'.
+ * If ``requisition.status != VALID`` then return ``null``.
+ */
+Requisition.prototype.getStatusMessage = function() {
+  if (this.commandAssignment.getStatus() !== Status.VALID) {
+    return l10n.lookup('cliUnknownCommand');
+  }
+
+  var assignments = this.getAssignments();
+  for (var i = 0; i < assignments.length; i++) {
+    if (assignments[i].getStatus() !== Status.VALID) {
+      return assignments[i].message;
+    }
+  }
+
+  if (this._unassigned.length !== 0) {
+    return l10n.lookup('cliUnusedArg');
+  }
+
+  return null;
+};
+
+/**
+ * Extract the names and values of all the assignments, and return as
+ * an object.
+ */
+Requisition.prototype.getArgsObject = function() {
+  var args = {};
+  this.getAssignments().forEach(function(assignment) {
+    args[assignment.param.name] = assignment.conversion.isDataProvided() ?
+            assignment.value :
+            assignment.param.defaultValue;
+  }, this);
+  return args;
+};
+
+/**
+ * Access the arguments as an array.
+ * @param includeCommand By default only the parameter arguments are
+ * returned unless (includeCommand === true), in which case the list is
+ * prepended with commandAssignment.arg
+ */
+Requisition.prototype.getAssignments = function(includeCommand) {
+  var assignments = [];
+  if (includeCommand === true) {
+    assignments.push(this.commandAssignment);
+  }
+  Object.keys(this._assignments).forEach(function(name) {
+    assignments.push(this.getAssignment(name));
+  }, this);
+  return assignments;
+};
+
+/**
+ * There are a few places where we need to know what the 'next thing' is. What
+ * is the user going to be filling out next (assuming they don't enter a named
+ * argument). The next argument is the first in line that is both blank, and
+ * that can be filled in positionally.
+ * @return The next assignment to be used, or null if all the positional
+ * parameters have values.
+ */
+Requisition.prototype._getFirstBlankPositionalAssignment = function() {
+  var reply = null;
+  Object.keys(this._assignments).some(function(name) {
+    var assignment = this.getAssignment(name);
+    if (assignment.arg.type === 'BlankArgument' &&
+            assignment.param.isPositionalAllowed) {
+      reply = assignment;
+      return true; // i.e. break
+    }
+    return false;
+  }, this);
+  return reply;
+};
+
+/**
+ * Look through the arguments attached to our assignments for the assignment
+ * at the given position.
+ * @param {number} cursor The cursor position to query
+ */
+Requisition.prototype.getAssignmentAt = function(cursor) {
+  if (!this._args) {
+    console.trace();
+    throw new Error('Missing args');
+  }
+
+  // We short circuit this one because we may have no args, or no args with
+  // any size and the alg below only finds arguments with size.
+  if (cursor === 0) {
+    return this.commandAssignment;
+  }
+
+  var assignForPos = [];
+  var i, j;
+  for (i = 0; i < this._args.length; i++) {
+    var arg = this._args[i];
+    var assignment = arg.assignment;
+
+    // prefix and text are clearly part of the argument
+    for (j = 0; j < arg.prefix.length; j++) {
+      assignForPos.push(assignment);
+    }
+    for (j = 0; j < arg.text.length; j++) {
+      assignForPos.push(assignment);
+    }
+
+    // suffix is part of the argument only if this is a named parameter,
+    // otherwise it looks forwards
+    if (arg.assignment.arg.type === 'NamedArgument') {
+      // leave the argument as it is
+    }
+    else if (this._args.length > i + 1) {
+      // first to the next argument
+      assignment = this._args[i + 1].assignment;
+    }
+    else {
+      // then to the first blank positional parameter, leaving 'as is' if none
+      var nextAssignment = this._getFirstBlankPositionalAssignment();
+      if (nextAssignment != null) {
+        assignment = nextAssignment;
+      }
+    }
+
+    for (j = 0; j < arg.suffix.length; j++) {
+      assignForPos.push(assignment);
+    }
+  }
+
+  // Possible shortcut, we don't really need to go through all the args
+  // to work out the solution to this
+
+  var reply = assignForPos[cursor - 1];
+
+  if (!reply) {
+    throw new Error('Missing assignment.' +
+        ' cursor=' + cursor + ' text=' + this.toString());
+  }
+
+  return reply;
+};
+
+/**
+ * Extract a canonical version of the input
+ */
+Requisition.prototype.toCanonicalString = function() {
+  var line = [];
+
+  var cmd = this.commandAssignment.value ?
+      this.commandAssignment.value.name :
+      this.commandAssignment.arg.text;
+  line.push(cmd);
+
+  Object.keys(this._assignments).forEach(function(name) {
+    var assignment = this._assignments[name];
+    var type = assignment.param.type;
+    // Bug 664377: This will cause problems if there is a non-default value
+    // after a default value. Also we need to decide when to use
+    // named parameters in place of positional params. Both can wait.
+    if (assignment.value !== assignment.param.defaultValue) {
+      line.push(' ');
+      line.push(type.stringify(assignment.value, this.executionContext));
+    }
+  }, this);
+
+  // Canonically, if we've opened with a { then we should have a } to close
+  if (cmd === '{') {
+    if (this.getAssignment(0).arg.suffix.indexOf('}') === -1) {
+      line.push(' }');
+    }
+  }
+
+  return line.join('');
+};
+
+/**
+ * Reconstitute the input from the args
+ */
+Requisition.prototype.toString = function() {
+  if (this._args) {
+    return this._args.map(function(arg) {
+      return arg.toString();
+    }).join('');
+  }
+
+  return this.toCanonicalString();
+};
+
+/**
+ * For test/debug use only. The output from this function is subject to wanton
+ * random change without notice, and should not be relied upon to even exist
+ * at some later date.
+ */
+Object.defineProperty(Requisition.prototype, '_summaryJson', {
+  get: function() {
+    var summary = {
+      $args: this._args.map(function(arg) {
+        return arg._summaryJson;
+      }),
+      _command: this.commandAssignment._summaryJson,
+      _unassigned: this._unassigned.forEach(function(assignment) {
+        return assignment._summaryJson;
+      })
+    };
+
+    Object.keys(this._assignments).forEach(function(name) {
+      summary[name] = this.getAssignment(name)._summaryJson;
+    }.bind(this));
+
+    return summary;
+  },
+  enumerable: true
+});
+
+/**
+ * When any assignment changes, we might need to update the _args array to
+ * match and inform people of changes to the typed input text.
+ */
+Requisition.prototype._setAssignmentInternal = function(assignment, conversion) {
+  var oldConversion = assignment.conversion;
+
+  assignment.conversion = conversion;
+  assignment.conversion.assignment = assignment;
+
+  // Do nothing if the conversion is unchanged
+  if (assignment.conversion.equals(oldConversion)) {
+    if (assignment === this.commandAssignment) {
+      this.setBlankArguments();
+    }
+    return;
+  }
+
+  // When the command changes, we need to keep a bunch of stuff in sync
+  if (assignment === this.commandAssignment) {
+    this._assignments = {};
+
+    var command = this.commandAssignment.value;
+    if (command) {
+      for (var i = 0; i < command.params.length; i++) {
+        var param = command.params[i];
+        var newAssignment = new Assignment(param);
+        var assignPromise = this.setAssignment(newAssignment, null, { internal: true });
+        util.synchronize(assignPromise);
+
+        this._assignments[param.name] = newAssignment;
+      }
+    }
+    this.assignmentCount = Object.keys(this._assignments).length;
+  }
+
+  // For the onTextChange event, we only care about changes to the argument
+  if (!assignment.conversion.argEquals(oldConversion)) {
+    this.onTextChange();
+  }
+};
+
+/**
+ * Internal function to alter the given assignment using the given arg.
+ * @param assignment The assignment to alter
+ * @param arg The new value for the assignment. An instance of Argument, or an
+ * instance of Conversion, or null to set the blank value.
+ * @param options There are a number of ways to customize how the assignment
+ * is made, including:
+ * - internal: (default:false) External updates are required to do more work,
+ *   including adjusting the args in this requisition to stay in sync.
+ *   On the other hand non internal changes use beginChange to back out of
+ *   changes when overtaken asynchronously.
+ *   Setting internal:true effectively means this is being called as part of
+ *   the update process.
+ * - matchPadding: (default:false) Alter the whitespace on the prefix and
+ *   suffix of the new argument to match that of the old argument. This only
+ *   makes sense with internal=false
+ */
+Requisition.prototype.setAssignment = function(assignment, arg, options) {
+  options = options || {};
+  if (!options.internal) {
+    var originalArgs = assignment.arg.getArgs();
+
+    // Update the args array
+    var replacementArgs = arg.getArgs();
+    var maxLen = Math.max(originalArgs.length, replacementArgs.length);
+    for (var i = 0; i < maxLen; i++) {
+      // If there are no more original args, or if the original arg was blank
+      // (i.e. not typed by the user), we'll just need to add at the end
+      if (i >= originalArgs.length || originalArgs[i].type === 'BlankArgument') {
+        this._args.push(replacementArgs[i]);
+        continue;
+      }
+
+      var index = this._args.indexOf(originalArgs[i]);
+      if (index === -1) {
+        console.error('Couldn\'t find ', originalArgs[i], ' in ', this._args);
+        throw new Error('Couldn\'t find ' + originalArgs[i]);
+      }
+
+      // If there are no more replacement args, we just remove the original args
+      // Otherwise swap original args and replacements
+      if (i >= replacementArgs.length) {
+        this._args.splice(index, 1);
+      }
+      else {
+        if (options.matchPadding) {
+          if (replacementArgs[i].prefix.length === 0 &&
+              this._args[index].prefix.length !== 0) {
+            replacementArgs[i].prefix = this._args[index].prefix;
+          }
+          if (replacementArgs[i].suffix.length === 0 &&
+              this._args[index].suffix.length !== 0) {
+            replacementArgs[i].suffix = this._args[index].suffix;
+          }
+        }
+        this._args[index] = replacementArgs[i];
+      }
+    }
+  }
+
+  var updateId = options.internal ? null : this._beginChange();
+
+  var setAssignmentInternal = function(conversion) {
+    if (options.internal || this._endChangeCheckOrder(updateId)) {
+      this._setAssignmentInternal(assignment, conversion);
+    }
+
+    return promise.resolve(undefined);
+  }.bind(this);
+
+  if (arg == null) {
+    var blank = assignment.param.type.getBlank(this.executionContext);
+    return setAssignmentInternal(blank);
+  }
+
+  if (typeof arg.getStatus === 'function') {
+    // It's not really an arg, it's a conversion already
+    return setAssignmentInternal(arg);
+  }
+
+  var parsed = assignment.param.type.parse(arg, this.executionContext);
+  return parsed.then(setAssignmentInternal);
+};
+
+/**
+ * Reset all the assignments to their default values
+ */
+Requisition.prototype.setBlankArguments = function() {
+  this.getAssignments().forEach(function(assignment) {
+    var assignPromise = this.setAssignment(assignment, null, { internal: true });
+    util.synchronize(assignPromise);
+  }, this);
+};
+
+/**
+ * Input trace gives us an array of Argument tracing objects, one for each
+ * character in the typed input, from which we can derive information about how
+ * to display this typed input. It's a bit like toString on steroids.
+ * <p>
+ * The returned object has the following members:<ul>
+ * <li>character: The character to which this arg trace refers.
+ * <li>arg: The Argument to which this character is assigned.
+ * <li>part: One of ['prefix'|'text'|suffix'] - how was this char understood
+ * </ul>
+ * <p>
+ * The Argument objects are as output from tokenize() rather than as applied
+ * to Assignments by _assign() (i.e. they are not instances of NamedArgument,
+ * ArrayArgument, etc).
+ * <p>
+ * To get at the arguments applied to the assignments simply call
+ * <tt>arg.assignment.arg</tt>. If <tt>arg.assignment.arg !== arg</tt> then
+ * the arg applied to the assignment will contain the original arg.
+ * See _assign() for details.
+ */
+Requisition.prototype.createInputArgTrace = function() {
+  if (!this._args) {
+    throw new Error('createInputMap requires a command line. See source.');
+    // If this is a problem then we can fake command line input using
+    // something like the code in #toCanonicalString().
+  }
+
+  var args = [];
+  var i;
+  this._args.forEach(function(arg) {
+    for (i = 0; i < arg.prefix.length; i++) {
+      args.push({ arg: arg, character: arg.prefix[i], part: 'prefix' });
+    }
+    for (i = 0; i < arg.text.length; i++) {
+      args.push({ arg: arg, character: arg.text[i], part: 'text' });
+    }
+    for (i = 0; i < arg.suffix.length; i++) {
+      args.push({ arg: arg, character: arg.suffix[i], part: 'suffix' });
+    }
+  });
+
+  return args;
+};
+
+/**
+ * If the last character is whitespace then things that we suggest to add to
+ * the end don't need a space prefix.
+ * While this is quite a niche function, it has 2 benefits:
+ * - it's more correct because we can distinguish between final whitespace that
+ *   is part of an unclosed string, and parameter separating whitespace.
+ * - also it's faster than toString() the whole thing and checking the end char
+ * @return true iff the last character is interpreted as parameter separating
+ * whitespace
+ */
+Requisition.prototype.typedEndsWithSeparator = function() {
+  // This is not as easy as doing (this.toString().slice(-1) === ' ')
+  // See the doc comments above; We're checking for separators, not spaces
+  if (this._args) {
+    var lastArg = this._args.slice(-1)[0];
+    if (lastArg.suffix.slice(-1) === ' ') {
+      return true;
+    }
+    return lastArg.text === '' && lastArg.suffix === ''
+        && lastArg.prefix.slice(-1) === ' ';
+  }
+
+  return this.toCanonicalString().slice(-1) === ' ';
+};
+
+/**
+ * Return an array of Status scores so we can create a marked up
+ * version of the command line input.
+ * @param cursor We only take a status of INCOMPLETE to be INCOMPLETE when the
+ * cursor is actually in the argument. Otherwise it's an error.
+ * @return Array of objects each containing <tt>status</tt> property and a
+ * <tt>string</tt> property containing the characters to which the status
+ * applies. Concatenating the strings in order gives the original input.
+ */
+Requisition.prototype.getInputStatusMarkup = function(cursor) {
+  var argTraces = this.createInputArgTrace();
+  // Generally the 'argument at the cursor' is the argument before the cursor
+  // unless it is before the first char, in which case we take the first.
+  cursor = cursor === 0 ? 0 : cursor - 1;
+  var cTrace = argTraces[cursor];
+
+  var markup = [];
+  for (var i = 0; i < argTraces.length; i++) {
+    var argTrace = argTraces[i];
+    var arg = argTrace.arg;
+    var status = Status.VALID;
+    if (argTrace.part === 'text') {
+      status = arg.assignment.getStatus(arg);
+      // Promote INCOMPLETE to ERROR  ...
+      if (status === Status.INCOMPLETE) {
+        // If the cursor is in the prefix or suffix of an argument then we
+        // don't consider it in the argument for the purposes of preventing
+        // the escalation to ERROR. However if this is a NamedArgument, then we
+        // allow the suffix (as space between 2 parts of the argument) to be in.
+        // We use arg.assignment.arg not arg because we're looking at the arg
+        // that got put into the assignment not as returned by tokenize()
+        var isNamed = (cTrace.arg.assignment.arg.type === 'NamedArgument');
+        var isInside = cTrace.part === 'text' ||
+                        (isNamed && cTrace.part === 'suffix');
+        if (arg.assignment !== cTrace.arg.assignment || !isInside) {
+          // And if we're not in the command
+          if (!(arg.assignment instanceof CommandAssignment)) {
+            status = Status.ERROR;
+          }
+        }
+      }
+    }
+
+    markup.push({ status: status, string: argTrace.character });
+  }
+
+  // De-dupe: merge entries where 2 adjacent have same status
+  i = 0;
+  while (i < markup.length - 1) {
+    if (markup[i].status === markup[i + 1].status) {
+      markup[i].string += markup[i + 1].string;
+      markup.splice(i + 1, 1);
+    }
+    else {
+      i++;
+    }
+  }
+
+  return markup;
+};
+
+/**
+ * Describe the state of the current input in a way that allows display of
+ * predictions and completion hints
+ * @param start The location of the cursor
+ * @param rank The index of the chosen prediction
+ * @return A promise of an object containing the following properties:
+ * - statusMarkup: An array of Status scores so we can create a marked up
+ *   version of the command line input. See getInputStatusMarkup() for details
+ * - unclosedJs: Is the entered command a JS command with no closing '}'?
+ * - directTabText: A promise of the text that we *add* to the command line
+ *   when TAB is pressed, to be displayed directly after the cursor. See also
+ *   arrowTabText.
+ * - emptyParameters: A promise of the text that describes the arguments that
+ *   the user is yet to type.
+ * - arrowTabText: A promise of the text that *replaces* the current argument
+ *   when TAB is pressed, generally displayed after a "|->" symbol. See also
+ *   directTabText.
+ */
+Requisition.prototype.getStateData = function(start, rank) {
+  var typed = this.toString();
+  var current = this.getAssignmentAt(start);
+  var predictionPromise = (typed.trim().length !== 0) ?
+                          current.getPredictionRanked(rank) :
+                          promise.resolve(null);
+
+  return predictionPromise.then(function(prediction) {
+    // directTabText is for when the current input is a prefix of the completion
+    // arrowTabText is for when we need to use an -> to show what will be used
+    var directTabText = '';
+    var arrowTabText = '';
+    var emptyParameters = [];
+
+    if (typed.trim().length !== 0) {
+      var cArg = current.arg;
+
+      if (prediction) {
+        var tabText = prediction.name;
+        var existing = cArg.text;
+
+        // Normally the cursor being just before whitespace means that you are
+        // 'in' the previous argument, which means that the prediction is based
+        // on that argument, however NamedArguments break this by having 2 parts
+        // so we need to prepend the tabText with a space for NamedArguments,
+        // but only when there isn't already a space at the end of the prefix
+        // (i.e. ' --name' not ' --name ')
+        if (current.isInName()) {
+          tabText = ' ' + tabText;
+        }
+
+        if (existing !== tabText) {
+          // Decide to use directTabText or arrowTabText
+          // Strip any leading whitespace from the user inputted value because
+          // the tabText will never have leading whitespace.
+          var inputValue = existing.replace(/^\s*/, '');
+          var isStrictCompletion = tabText.indexOf(inputValue) === 0;
+          if (isStrictCompletion && start === typed.length) {
+            // Display the suffix of the prediction as the completion
+            var numLeadingSpaces = existing.match(/^(\s*)/)[0].length;
+
+            directTabText = tabText.slice(existing.length - numLeadingSpaces);
+          }
+          else {
+            // Display the '-> prediction' at the end of the completer element
+            // \u21E5 is the JS escape right arrow
+            arrowTabText = '\u21E5 ' + tabText;
+          }
+        }
+      }
+      else {
+        // There's no prediction, but if this is a named argument that needs a
+        // value (that is without any) then we need to show that one is needed
+        // For example 'git commit --message ', clearly needs some more text
+        if (cArg.type === 'NamedArgument' && cArg.valueArg == null) {
+          emptyParameters.push('<' + current.param.type.name + '>\u00a0');
+        }
+      }
+    }
+
+    // Add a space between the typed text (+ directTabText) and the hints,
+    // making sure we don't add 2 sets of padding
+    if (directTabText !== '') {
+      directTabText += '\u00a0';
+    }
+    else if (!this.typedEndsWithSeparator()) {
+      emptyParameters.unshift('\u00a0');
+    }
+
+    // Calculate the list of parameters to be filled in
+    // We generate an array of emptyParameter markers for each positional
+    // parameter to the current command.
+    // Generally each emptyParameter marker begins with a space to separate it
+    // from whatever came before, unless what comes before ends in a space.
+
+    this.getAssignments().forEach(function(assignment) {
+      // Named arguments are handled with a group [options] marker
+      if (!assignment.param.isPositionalAllowed) {
+        return;
+      }
+
+      // No hints if we've got content for this parameter
+      if (assignment.arg.toString().trim() !== '') {
+        return;
+      }
+
+      if (directTabText !== '' && current === assignment) {
+        return;
+      }
+
+      var text = (assignment.param.isDataRequired) ?
+          '<' + assignment.param.name + '>\u00a0' :
+          '[' + assignment.param.name + ']\u00a0';
+
+      emptyParameters.push(text);
+    }.bind(this));
+
+    var command = this.commandAssignment.value;
+    var addOptionsMarker = false;
+
+    // We add an '[options]' marker when there are named parameters that are
+    // not filled in and not hidden, and we don't have any directTabText
+    if (command && command.hasNamedParameters) {
+      command.params.forEach(function(param) {
+        var arg = this.getAssignment(param.name).arg;
+        if (!param.isPositionalAllowed && !param.hidden
+                && arg.type === 'BlankArgument') {
+          addOptionsMarker = true;
+        }
+      }, this);
+    }
+
+    if (addOptionsMarker) {
+      // Add an nbsp if we don't have one at the end of the input or if
+      // this isn't the first param we've mentioned
+      emptyParameters.push('[options]\u00a0');
+    }
+
+    // Is the entered command a JS command with no closing '}'?
+    var unclosedJs = command && command.name === '{' &&
+                     this.getAssignment(0).arg.suffix.indexOf('}') === -1;
+
+    return {
+      statusMarkup: this.getInputStatusMarkup(start),
+      unclosedJs: unclosedJs,
+      directTabText: directTabText,
+      arrowTabText: arrowTabText,
+      emptyParameters: emptyParameters
+    };
+  }.bind(this));
+};
+
+/**
+ * Pressing TAB sometimes requires that we add a space to denote that we're on
+ * to the 'next thing'.
+ * @param assignment The assignment to which to append the space
+ */
+Requisition.prototype._addSpace = function(assignment) {
+  var arg = assignment.arg.beget({ suffixSpace: true });
+  if (arg !== assignment.arg) {
+    return this.setAssignment(assignment, arg);
+  }
+  else {
+    return promise.resolve(undefined);
+  }
+};
+
+/**
+ * Complete the argument at <tt>cursor</tt>.
+ * Basically the same as:
+ *   assignment = getAssignmentAt(cursor);
+ *   assignment.value = assignment.conversion.predictions[0];
+ * Except it's done safely, and with particular care to where we place the
+ * space, which is complex, and annoying if we get it wrong.
+ *
+ * WARNING: complete() can happen asynchronously.
+ *
+ * @param cursor The cursor configuration. Should have start and end properties
+ * which should be set to start and end of the selection.
+ * @param rank The index of the prediction that we should choose.
+ * This number is not bounded by the size of the prediction array, we take the
+ * modulus to get it within bounds
+ * @return A promise which completes (with undefined) when any outstanding
+ * completion tasks are done.
+ */
+Requisition.prototype.complete = function(cursor, rank) {
+  var assignment = this.getAssignmentAt(cursor.start);
+
+  var predictionPromise = assignment.getPredictionRanked(rank);
+  return predictionPromise.then(function(prediction) {
+    var outstanding = [];
+    this.onTextChange.holdFire();
+
+    // Note: Since complete is asynchronous we should perhaps have a system to
+    // bail out of making changes if the command line has changed since TAB
+    // was pressed. It's not yet clear if this will be a problem.
+
+    if (prediction == null) {
+      // No predictions generally means we shouldn't change anything on TAB,
+      // but TAB has the connotation of 'next thing' and when we're at the end
+      // of a thing that implies that we should add a space. i.e.
+      // 'help<TAB>' -> 'help '
+      // But we should only do this if the thing that we're 'completing' is
+      // valid and doesn't already end in a space.
+      if (assignment.arg.suffix.slice(-1) !== ' ' &&
+              assignment.getStatus() === Status.VALID) {
+        outstanding.push(this._addSpace(assignment));
+      }
+
+      // Also add a space if we are in the name part of an assignment, however
+      // this time we don't want the 'push the space to the next assignment'
+      // logic, so we don't use addSpace
+      if (assignment.isInName()) {
+        var newArg = assignment.arg.beget({ prefixPostSpace: true });
+        outstanding.push(this.setAssignment(assignment, newArg));
+      }
+    }
+    else {
+      // Mutate this argument to hold the completion
+      var arg = assignment.arg.beget({
+        text: prediction.name,
+        dontQuote: (assignment === this.commandAssignment)
+      });
+      var assignPromise = this.setAssignment(assignment, arg);
+
+      if (!prediction.incomplete) {
+        assignPromise = assignPromise.then(function() {
+          // The prediction is complete, add a space to let the user move-on
+          return this._addSpace(assignment).then(function() {
+            // Bug 779443 - Remove or explain the re-parse
+            if (assignment instanceof UnassignedAssignment) {
+              return this.update(this.toString());
+            }
+          }.bind(this));
+        }.bind(this));
+      }
+
+      outstanding.push(assignPromise);
+    }
+
+    return promise.all(outstanding).then(function() {
+      this.onTextChange();
+      this.onTextChange.resumeFire();
+      return true;
+    }.bind(this));
+  }.bind(this));
+};
+
+/**
+ * Replace the current value with the lower value if such a concept exists.
+ */
+Requisition.prototype.decrement = function(assignment) {
+  var replacement = assignment.param.type.decrement(assignment.value,
+                                                    this.executionContext);
+  if (replacement != null) {
+    var str = assignment.param.type.stringify(replacement,
+                                              this.executionContext);
+    var arg = assignment.arg.beget({ text: str });
+    var assignPromise = this.setAssignment(assignment, arg);
+    util.synchronize(assignPromise);
+  }
+};
+
+/**
+ * Replace the current value with the higher value if such a concept exists.
+ */
+Requisition.prototype.increment = function(assignment) {
+  var replacement = assignment.param.type.increment(assignment.value,
+                                                    this.executionContext);
+  if (replacement != null) {
+    var str = assignment.param.type.stringify(replacement,
+                                              this.executionContext);
+    var arg = assignment.arg.beget({ text: str });
+    var assignPromise = this.setAssignment(assignment, arg);
+    util.synchronize(assignPromise);
+  }
+};
+
+/**
+ * Helper to find the 'data-command' attribute, used by |update()|
+ */
+function getDataCommandAttribute(element) {
+  var command = element.getAttribute('data-command');
+  if (!command) {
+    command = element.querySelector('*[data-command]')
+                     .getAttribute('data-command');
+  }
+  return command;
+}
+
+/**
+ * Called by the UI when ever the user interacts with a command line input
+ * @param typed The contents of the input field
+ */
+Requisition.prototype.update = function(typed) {
+  if (typeof HTMLElement !== 'undefined' && typed instanceof HTMLElement) {
+    typed = getDataCommandAttribute(typed);
+  }
+  if (typeof Event !== 'undefined' && typed instanceof Event) {
+    typed = getDataCommandAttribute(typed.currentTarget);
+  }
+
+  var updateId = this._beginChange();
+
+  this._args = exports.tokenize(typed);
+  var args = this._args.slice(0); // i.e. clone
+
+  return this._split(args).then(function() {
+    if (!this._isChangeCurrent(updateId)) {
+      return false;
+    }
+
+    return this._assign(args).then(function() {
+      if (this._endChangeCheckOrder(updateId)) {
+        this.onTextChange();
+        return true;
+      }
+
+      return false;
+    }.bind(this));
+  }.bind(this));
+};
+
+/**
+ * Similar to update('') except that it's guaranteed to execute synchronously
+ */
+Requisition.prototype.clear = function() {
+  this.onTextChange.holdFire();
+
+  var arg = new Argument('', '', '');
+  this._args = [ arg ];
+
+  var commandType = this.commandAssignment.param.type;
+  var parsePromise = commandType.parse(arg, this.executionContext);
+  this.setAssignment(this.commandAssignment,
+                     util.synchronize(parsePromise),
+                     { internal: true });
+
+  this.onTextChange.resumeFire();
+  this.onTextChange();
+};
+
+/**
+ * tokenize() is a state machine. These are the states.
+ */
+var In = {
+  /**
+   * The last character was ' '.
+   * Typing a ' ' character will not change the mode
+   * Typing one of '"{ will change mode to SINGLE_Q, DOUBLE_Q or SCRIPT.
+   * Anything else goes into SIMPLE mode.
+   */
+  WHITESPACE: 1,
+
+  /**
+   * The last character was part of a parameter.
+   * Typing ' ' returns to WHITESPACE mode. Any other character
+   * (including '"{} which are otherwise special) does not change the mode.
+   */
+  SIMPLE: 2,
+
+  /**
+   * We're inside single quotes: '
+   * Typing ' returns to WHITESPACE mode. Other characters do not change mode.
+   */
+  SINGLE_Q: 3,
+
+  /**
+   * We're inside double quotes: "
+   * Typing " returns to WHITESPACE mode. Other characters do not change mode.
+   */
+  DOUBLE_Q: 4,
+
+  /**
+   * We're inside { and }
+   * Typing } returns to WHITESPACE mode. Other characters do not change mode.
+   * SCRIPT mode is slightly different from other modes in that spaces between
+   * the {/} delimiters and the actual input are not considered significant.
+   * e.g: " x " is a 3 character string, delimited by double quotes, however
+   * { x } is a 1 character JavaScript surrounded by whitespace and {}
+   * delimiters.
+   * In the short term we assume that the JS routines can make sense of the
+   * extra whitespace, however at some stage we may need to move the space into
+   * the Argument prefix/suffix.
+   * Also we don't attempt to handle nested {}. See bug 678961
+   */
+  SCRIPT: 5
+};
+
+/**
+ * Split up the input taking into account ', " and {.
+ * We don't consider \t or other classical whitespace characters to split
+ * arguments apart. For one thing these characters are hard to type, but also
+ * if the user has gone to the trouble of pasting a TAB character into the
+ * input field (or whatever it takes), they probably mean it.
+ */
+exports.tokenize = function(typed) {
+  // For blank input, place a dummy empty argument into the list
+  if (typed == null || typed.length === 0) {
+    return [ new Argument('', '', '') ];
+  }
+
+  if (isSimple(typed)) {
+    return [ new Argument(typed, '', '') ];
+  }
+
+  var mode = In.WHITESPACE;
+
+  // First we swap out escaped characters that are special to the tokenizer.
+  // So a backslash followed by any of ['"{} ] is turned into a unicode private
+  // char so we can swap back later
+  typed = typed
+      .replace(/\\\\/g, '\uF000')
+      .replace(/\\ /g, '\uF001')
+      .replace(/\\'/g, '\uF002')
+      .replace(/\\"/g, '\uF003')
+      .replace(/\\{/g, '\uF004')
+      .replace(/\\}/g, '\uF005');
+
+  function unescape2(escaped) {
+    return escaped
+        .replace(/\uF000/g, '\\\\')
+        .replace(/\uF001/g, '\\ ')
+        .replace(/\uF002/g, '\\\'')
+        .replace(/\uF003/g, '\\\"')
+        .replace(/\uF004/g, '\\{')
+        .replace(/\uF005/g, '\\}');
+  }
+
+  var i = 0;          // The index of the current character
+  var start = 0;      // Where did this section start?
+  var prefix = '';    // Stuff that comes before the current argument
+  var args = [];      // The array that we're creating
+  var blockDepth = 0; // For JS with nested {}
+
+  // This is just a state machine. We're going through the string char by char
+  // The 'mode' is one of the 'In' states. As we go, we're adding Arguments
+  // to the 'args' array.
+
+  while (true) {
+    var c = typed[i];
+    var str;
+    switch (mode) {
+      case In.WHITESPACE:
+        if (c === '\'') {
+          prefix = typed.substring(start, i + 1);
+          mode = In.SINGLE_Q;
+          start = i + 1;
+        }
+        else if (c === '"') {
+          prefix = typed.substring(start, i + 1);
+          mode = In.DOUBLE_Q;
+          start = i + 1;
+        }
+        else if (c === '{') {
+          prefix = typed.substring(start, i + 1);
+          mode = In.SCRIPT;
+          blockDepth++;
+          start = i + 1;
+        }
+        else if (/ /.test(c)) {
+          // Still whitespace, do nothing
+        }
+        else {
+          prefix = typed.substring(start, i);
+          mode = In.SIMPLE;
+          start = i;
+        }
+        break;
+
+      case In.SIMPLE:
+        // There is an edge case of xx'xx which we are assuming to
+        // be a single parameter (and same with ")
+        if (c === ' ') {
+          str = unescape2(typed.substring(start, i));
+          args.push(new Argument(str, prefix, ''));
+          mode = In.WHITESPACE;
+          start = i;
+          prefix = '';
+        }
+        break;
+
+      case In.SINGLE_Q:
+        if (c === '\'') {
+          str = unescape2(typed.substring(start, i));
+          args.push(new Argument(str, prefix, c));
+          mode = In.WHITESPACE;
+          start = i + 1;
+          prefix = '';
+        }
+        break;
+
+      case In.DOUBLE_Q:
+        if (c === '"') {
+          str = unescape2(typed.substring(start, i));
+          args.push(new Argument(str, prefix, c));
+          mode = In.WHITESPACE;
+          start = i + 1;
+          prefix = '';
+        }
+        break;
+
+      case In.SCRIPT:
+        if (c === '{') {
+          blockDepth++;
+        }
+        else if (c === '}') {
+          blockDepth--;
+          if (blockDepth === 0) {
+            str = unescape2(typed.substring(start, i));
+            args.push(new ScriptArgument(str, prefix, c));
+            mode = In.WHITESPACE;
+            start = i + 1;
+            prefix = '';
+          }
+        }
+        break;
+    }
+
+    i++;
+
+    if (i >= typed.length) {
+      // There is nothing else to read - tidy up
+      if (mode === In.WHITESPACE) {
+        if (i !== start) {
+          // There's whitespace at the end of the typed string. Add it to the
+          // last argument's suffix, creating an empty argument if needed.
+          var extra = typed.substring(start, i);
+          var lastArg = args[args.length - 1];
+          if (!lastArg) {
+            args.push(new Argument('', extra, ''));
+          }
+          else {
+            lastArg.suffix += extra;
+          }
+        }
+      }
+      else if (mode === In.SCRIPT) {
+        str = unescape2(typed.substring(start, i + 1));
+        args.push(new ScriptArgument(str, prefix, ''));
+      }
+      else {
+        str = unescape2(typed.substring(start, i + 1));
+        args.push(new Argument(str, prefix, ''));
+      }
+      break;
+    }
+  }
+
+  return args;
+};
+
+/**
+ * If the input has no spaces, quotes, braces or escapes,
+ * we can take the fast track.
+ */
+function isSimple(typed) {
+   for (var i = 0; i < typed.length; i++) {
+     var c = typed.charAt(i);
+     if (c === ' ' || c === '"' || c === '\'' ||
+         c === '{' || c === '}' || c === '\\') {
+       return false;
+     }
+   }
+   return true;
+}
+
+/**
+ * Looks in the canon for a command extension that matches what has been
+ * typed at the command line.
+ */
+Requisition.prototype._split = function(args) {
+  // We're processing args, so we don't want the assignments that we make to
+  // try to adjust other args assuming this is an external update
+  var noArgUp = { internal: true };
+
+  // Handle the special case of the user typing { javascript(); }
+  // We use the hidden 'eval' command directly rather than shift()ing one of
+  // the parameters, and parse()ing it.
+  var conversion;
+  if (args[0].type === 'ScriptArgument') {
+    // Special case: if the user enters { console.log('foo'); } then we need to
+    // use the hidden 'eval' command
+    conversion = new Conversion(getEvalCommand(), new ScriptArgument());
+    return this.setAssignment(this.commandAssignment, conversion, noArgUp);
+  }
+
+  var argsUsed = 1;
+
+  var parsePromise;
+  var commandType = this.commandAssignment.param.type;
+  while (argsUsed <= args.length) {
+    var arg = (argsUsed === 1) ?
+              args[0] :
+              new MergedArgument(args, 0, argsUsed);
+
+    // Making the commandType.parse() promise as synchronous is OK because we
+    // know that commandType is a synchronous type.
+
+    if (this.prefix != null && this.prefix !== '') {
+      var prefixArg = new Argument(this.prefix, '', ' ');
+      var prefixedArg = new MergedArgument([ prefixArg, arg ]);
+
+      parsePromise = commandType.parse(prefixedArg, this.executionContext);
+      conversion = util.synchronize(parsePromise);
+
+      if (conversion.value == null) {
+        parsePromise = commandType.parse(arg, this.executionContext);
+        conversion = util.synchronize(parsePromise);
+      }
+    }
+    else {
+      parsePromise = commandType.parse(arg, this.executionContext);
+      conversion = util.synchronize(parsePromise);
+    }
+
+    // We only want to carry on if this command is a parent command,
+    // which means that there is a commandAssignment, but not one with
+    // an exec function.
+    if (!conversion.value || conversion.value.exec) {
+      break;
+    }
+
+    // Previously we needed a way to hide commands depending context.
+    // We have not resurrected that feature yet, but if we do we should
+    // insert code here to ignore certain commands depending on the
+    // context/environment
+
+    argsUsed++;
+  }
+
+  // This could probably be re-written to consume args as we go
+  for (var i = 0; i < argsUsed; i++) {
+    args.shift();
+  }
+
+  // Warning: we're returning a promise (from setAssignment) which tells us
+  // when we're done setting the current command, but mutating the args array
+  // as we go, so we're conflicted on when we're done
+
+  return this.setAssignment(this.commandAssignment, conversion, noArgUp);
+};
+
+/**
+ * Add all the passed args to the list of unassigned assignments.
+ */
+Requisition.prototype._addUnassignedArgs = function(args) {
+  args.forEach(function(arg) {
+    this._unassigned.push(new UnassignedAssignment(this, arg));
+  }.bind(this));
+};
+
+/**
+ * Work out which arguments are applicable to which parameters.
+ */
+Requisition.prototype._assign = function(args) {
+  // See comment in _split. Avoid multiple updates
+  var noArgUp = { internal: true };
+
+  this._unassigned = [];
+  var outstanding = [];
+
+  if (!this.commandAssignment.value) {
+    this._addUnassignedArgs(args);
+    return promise.all(outstanding);
+  }
+
+  if (args.length === 0) {
+    this.setBlankArguments();
+    return promise.all(outstanding);
+  }
+
+  // Create an error if the command does not take parameters, but we have
+  // been given them ...
+  if (this.assignmentCount === 0) {
+    this._addUnassignedArgs(args);
+    return promise.all(outstanding);
+  }
+
+  // Special case: if there is only 1 parameter, and that's of type
+  // text, then we put all the params into the first param
+  if (this.assignmentCount === 1) {
+    var assignment = this.getAssignment(0);
+    if (assignment.param.type.name === 'string') {
+      var arg = (args.length === 1) ? args[0] : new MergedArgument(args);
+      outstanding.push(this.setAssignment(assignment, arg, noArgUp));
+      return promise.all(outstanding);
+    }
+  }
+
+  // Positional arguments can still be specified by name, but if they are
+  // then we need to ignore them when working them out positionally
+  var unassignedParams = this.getParameterNames();
+
+  // We collect the arguments used in arrays here before assigning
+  var arrayArgs = {};
+
+  // Extract all the named parameters
+  this.getAssignments(false).forEach(function(assignment) {
+    // Loop over the arguments
+    // Using while rather than loop because we remove args as we go
+    var i = 0;
+    while (i < args.length) {
+      if (assignment.param.isKnownAs(args[i].text)) {
+        var arg = args.splice(i, 1)[0];
+        unassignedParams = unassignedParams.filter(function(test) {
+          return test !== assignment.param.name;
+        });
+
+        // boolean parameters don't have values, default to false
+        if (assignment.param.type.name === 'boolean') {
+          arg = new TrueNamedArgument(arg);
+        }
+        else {
+          var valueArg = null;
+          if (i + 1 <= args.length) {
+            valueArg = args.splice(i, 1)[0];
+          }
+          arg = new NamedArgument(arg, valueArg);
+        }
+
+        if (assignment.param.type.name === 'array') {
+          var arrayArg = arrayArgs[assignment.param.name];
+          if (!arrayArg) {
+            arrayArg = new ArrayArgument();
+            arrayArgs[assignment.param.name] = arrayArg;
+          }
+          arrayArg.addArgument(arg);
+        }
+        else {
+          if (assignment.arg.type === 'BlankArgument') {
+            outstanding.push(this.setAssignment(assignment, arg, noArgUp));
+          }
+          else {
+            this._addUnassignedArgs(arg.getArgs());
+          }
+        }
+      }
+      else {
+        // Skip this parameter and handle as a positional parameter
+        i++;
+      }
+    }
+  }, this);
+
+  // What's left are positional parameters: assign in order
+  unassignedParams.forEach(function(name) {
+    var assignment = this.getAssignment(name);
+
+    // If not set positionally, and we can't set it non-positionally,
+    // we have to default it to prevent previous values surviving
+    if (!assignment.param.isPositionalAllowed) {
+      outstanding.push(this.setAssignment(assignment, null, noArgUp));
+      return;
+    }
+
+    // If this is a positional array argument, then it swallows the
+    // rest of the arguments.
+    if (assignment.param.type.name === 'array') {
+      var arrayArg = arrayArgs[assignment.param.name];
+      if (!arrayArg) {
+        arrayArg = new ArrayArgument();
+        arrayArgs[assignment.param.name] = arrayArg;
+      }
+      arrayArg.addArguments(args);
+      args = [];
+      // The actual assignment to the array parameter is done below
+      return;
+    }
+
+    // Set assignment to defaults if there are no more arguments
+    if (args.length === 0) {
+      outstanding.push(this.setAssignment(assignment, null, noArgUp));
+      return;
+    }
+
+    var arg = args.splice(0, 1)[0];
+    // --foo and -f are named parameters, -4 is a number. So '-' is either
+    // the start of a named parameter or a number depending on the context
+    var isIncompleteName = assignment.param.type.name === 'number' ?
+        /-[-a-zA-Z_]/.test(arg.text) :
+        arg.text.charAt(0) === '-';
+
+    if (isIncompleteName) {
+      this._unassigned.push(new UnassignedAssignment(this, arg));
+    }
+    else {
+      outstanding.push(this.setAssignment(assignment, arg, noArgUp));
+    }
+  }, this);
+
+  // Now we need to assign the array argument (if any)
+  Object.keys(arrayArgs).forEach(function(name) {
+    var assignment = this.getAssignment(name);
+    outstanding.push(this.setAssignment(assignment, arrayArgs[name], noArgUp));
+  }, this);
+
+  // What's left is can't be assigned, but we need to officially unassign them
+  this._addUnassignedArgs(args);
+
+  return promise.all(outstanding);
+};
+
+/**
+ * Entry point for keyboard accelerators or anything else that wants to execute
+ * a command.
+ * @param options Object describing how the execution should be handled.
+ * (optional). Contains some of the following properties:
+ * - hidden (boolean, default=false) Should the output be hidden from the
+ *   commandOutputManager for this requisition
+ * - command/args A fast shortcut to executing a known command with a known
+ *   set of parsed arguments.
+ */
+Requisition.prototype.exec = function(options) {
+  var command = null;
+  var args = null;
+  var hidden = false;
+
+  if (options) {
+    if (options.hidden) {
+      hidden = true;
+    }
+
+    if (options.command != null) {
+      // Fast track by looking up the command directly since passed args
+      // means there is no command line to parse.
+      command = canon.getCommand(options.command);
+      if (!command) {
+        console.error('Command not found: ' + options.command);
+      }
+      args = options.args;
+    }
+  }
+
+  if (!command) {
+    command = this.commandAssignment.value;
+    args = this.getArgsObject();
+  }
+
+  // Display JavaScript input without the initial { or closing }
+  var typed = this.toString();
+  if (evalCmd.isCommandRegexp.test(typed)) {
+    typed = typed.replace(evalCmd.isCommandRegexp, '');
+    // Bug 717763: What if the JavaScript naturally ends with a }?
+    typed = typed.replace(/\s*}\s*$/, '');
+  }
+
+  var output = new Output({
+    command: command,
+    args: args,
+    typed: typed,
+    canonical: this.toCanonicalString(),
+    hidden: hidden
+  });
+
+  this.commandOutputManager.onOutput({ output: output });
+
+  var onDone = function(data) {
+    output.complete(data, false);
+    return output;
+  };
+
+  var onError = function(ex) {
+    if (exports.logErrors) {
+      util.errorHandler(ex);
+    }
+
+    var data = ex.isTypedData ? ex : {
+      isTypedData: true,
+      data: ex,
+      type: 'error'
+    };
+    output.complete(data, true);
+    return output;
+  };
+
+  if (this.status !== Status.VALID) {
+    var ex = new Error(this.getStatusMessage());
+    return promise.resolve(onError(ex)).then(function(output) {
+      this.clear();
+      return output;
+    }.bind(this));
+  }
+  else {
+    try {
+      var reply = command.exec(args, this.executionContext);
+      return promise.resolve(reply).then(onDone, onError);
+    }
+    catch (ex) {
+      return promise.resolve(onError(ex));
+    }
+    finally {
+      this.clear();
+    }
+  }
+};
+
+/**
+ * A shortcut for calling update, resolving the promise and then exec.
+ * @param input The string to execute
+ * @param options Passed to exec
+ * @return A promise of an output object
+ */
+Requisition.prototype.updateExec = function(input, options) {
+  return this.update(input).then(function() {
+    if (this.status === Status.VALID) {
+      return this.exec(options);
+    }
+  }.bind(this));
+};
+
+exports.Requisition = Requisition;
+
+/**
+ * A simple object to hold information about the output of a command
+ */
+function Output(options) {
+  options = options || {};
+  this.command = options.command || '';
+  this.args = options.args || {};
+  this.typed = options.typed || '';
+  this.canonical = options.canonical || '';
+  this.hidden = options.hidden === true ? true : false;
+
+  this.type = undefined;
+  this.data = undefined;
+  this.completed = false;
+  this.error = false;
+  this.start = new Date();
+
+  this._deferred = promise.defer();
+  this.promise = this._deferred.promise;
+
+  this.onClose = util.createEvent('Output.onClose');
+}
+
+/**
+ * Called when there is data to display, and the command has finished executing
+ * See changed() for details on parameters.
+ */
+Output.prototype.complete = function(data, error) {
+  this.end = new Date();
+  this.duration = this.end.getTime() - this.start.getTime();
+  this.completed = true;
+  this.error = error;
+
+  if (data != null && data.isTypedData) {
+    this.data = data.data;
+    this.type = data.type;
+  }
+  else {
+    this.data = data;
+    this.type = this.command.returnType;
+    if (this.type == null) {
+      this.type = (this.data == null) ? 'undefined' : typeof this.data;
+    }
+  }
+
+  if (this.type === 'object') {
+    throw new Error('No type from output of ' + this.typed);
+  }
+
+  this._deferred.resolve();
+};
+
+/**
+ * Call converters.convert using the data in this Output object
+ */
+Output.prototype.convert = function(type, conversionContext) {
+  return converters.convert(this.data, this.type, type, conversionContext);
+};
+
+Output.prototype.toJson = function() {
+  return {
+    typed: this.typed,
+    type: this.type,
+    data: this.data,
+    error: this.error
+  };
+};
+
+exports.Output = Output;
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/ui/view', ['require', 'exports', 'module' , 'util/util', 'util/domtemplate'], function(require, exports, module) {
+
+'use strict';
+
+var util = require('util/util');
+var domtemplate = require('util/domtemplate');
+
+
+/**
+ * We want to avoid commands having to create DOM structures because that's
+ * messy and because we're going to need to have command output displayed in
+ * different documents. A View is a way to wrap an HTML template (for
+ * domtemplate) in with the data and options to render the template, so anyone
+ * can later run the template in the context of any document.
+ * View also cuts out a chunk of boiler place code.
+ * @param options The information needed to create the DOM from HTML. Includes:
+ * - html (required): The HTML source, probably from a call to require
+ * - options (default={}): The domtemplate options. See domtemplate for details
+ * - data (default={}): The data to domtemplate. See domtemplate for details.
+ * - css (default=none): Some CSS to be added to the final document. If 'css'
+ *   is used, use of cssId is strongly recommended.
+ * - cssId (default=none): An ID to prevent multiple CSS additions. See
+ *   util.importCss for more details.
+ * @return An object containing a single function 'appendTo()' which runs the
+ * template adding the result to the specified element. Takes 2 parameters:
+ * - element (required): the element to add to
+ * - clear (default=false): if clear===true then remove all pre-existing
+ *   children of 'element' before appending the results of this template.
+ */
+exports.createView = function(options) {
+  if (options.html == null) {
+    throw new Error('options.html is missing');
+  }
+
+  return {
+    /**
+     * RTTI. Yeah.
+     */
+    isView: true,
+
+    /**
+     * Run the template against the document to which element belongs.
+     * @param element The element to append the result to
+     * @param clear Set clear===true to remove all children of element
+     */
+    appendTo: function(element, clear) {
+      // Strict check on the off-chance that we later think of other options
+      // and want to replace 'clear' with an 'options' parameter, but want to
+      // support backwards compat.
+      if (clear === true) {
+        util.clearElement(element);
+      }
+
+      element.appendChild(this.toDom(element.ownerDocument));
+    },
+
+    /**
+     * Actually convert the view data into a DOM suitable to be appended to
+     * an element
+     * @param document to use in realizing the template
+     */
+    toDom: function(document) {
+      if (options.css) {
+        util.importCss(options.css, document, options.cssId);
+      }
+
+      var child = util.toDom(document, options.html);
+      domtemplate.template(child, options.data || {}, options.options || {});
+      return child;
+    }
+  };
+};
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('util/domtemplate', ['require', 'exports', 'module' ], function(require, exports, module) {
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
+// WARNING: do not 'use_strict' without reading the notes in envEval();
+
+/**
+ * For full documentation, see:
+ * https://github.com/mozilla/domtemplate/blob/master/README.md
+ */
+
+/**
+ * Begin a new templating process.
+ * @param node A DOM element or string referring to an element's id
+ * @param data Data to use in filling out the template
+ * @param options Options to customize the template processing. One of:
+ * - allowEval: boolean (default false) Basic template interpolations are
+ *   either property paths (e.g. ${a.b.c.d}), or if allowEval=true then we
+ *   allow arbitrary JavaScript
+ * - stack: string or array of strings (default empty array) The template
+ *   engine maintains a stack of tasks to help debug where it is. This allows
+ *   this stack to be prefixed with a template name
+ * - blankNullUndefined: By default DOMTemplate exports null and undefined
+ *   values using the strings 'null' and 'undefined', which can be helpful for
+ *   debugging, but can introduce unnecessary extra logic in a template to
+ *   convert null/undefined to ''. By setting blankNullUndefined:true, this
+ *   conversion is handled by DOMTemplate
+ */
+var template = exports.template = function(node, data, options) {
+  var state = {
+    options: options || {},
+    // We keep a track of the nodes that we've passed through so we can keep
+    // data.__element pointing to the correct node
+    nodes: []
+  };
+
+  state.stack = state.options.stack;
+
+  if (!Array.isArray(state.stack)) {
+    if (typeof state.stack === 'string') {
+      state.stack = [ options.stack ];
+    }
+    else {
+      state.stack = [];
+    }
+  }
+
+  processNode(state, node, data);
+};
+
+function cloneState(state) {
+  return {
+    options: state.options,
+    stack: state.stack.slice(),
+    nodes: state.nodes.slice()
+  };
+}
+
+/**
+ * Regex used to find ${...} sections in some text.
+ * Performance note: This regex uses ( and ) to capture the 'script' for
+ * further processing. Not all of the uses of this regex use this feature so
+ * if use of the capturing group is a performance drain then we should split
+ * this regex in two.
+ */
+var TEMPLATE_REGION = /\$\{([^}]*)\}/g;
+
+/**
+ * Recursive function to walk the tree processing the attributes as it goes.
+ * @param node the node to process. If you pass a string in instead of a DOM
+ * element, it is assumed to be an id for use with document.getElementById()
+ * @param data the data to use for node processing.
+ */
+function processNode(state, node, data) {
+  if (typeof node === 'string') {
+    node = document.getElementById(node);
+  }
+  if (data == null) {
+    data = {};
+  }
+  state.stack.push(node.nodeName + (node.id ? '#' + node.id : ''));
+  var pushedNode = false;
+  try {
+    // Process attributes
+    if (node.attributes && node.attributes.length) {
+      // We need to handle 'foreach' and 'if' first because they might stop
+      // some types of processing from happening, and foreach must come first
+      // because it defines new data on which 'if' might depend.
+      if (node.hasAttribute('foreach')) {
+        processForEach(state, node, data);
+        return;
+      }
+      if (node.hasAttribute('if')) {
+        if (!processIf(state, node, data)) {
+          return;
+        }
+      }
+      // Only make the node available once we know it's not going away
+      state.nodes.push(data.__element);
+      data.__element = node;
+      pushedNode = true;
+      // It's good to clean up the attributes when we've processed them,
+      // but if we do it straight away, we mess up the array index
+      var attrs = Array.prototype.slice.call(node.attributes);
+      for (var i = 0; i < attrs.length; i++) {
+        var value = attrs[i].value;
+        var name = attrs[i].name;
+
+        state.stack.push(name);
+        try {
+          if (name === 'save') {
+            // Save attributes are a setter using the node
+            value = stripBraces(value);
+            property(value, data, node);
+            node.removeAttribute('save');
+          }
+          else if (name.substring(0, 2) === 'on') {
+            // If this attribute value contains only an expression
+            if (value.substring(0, 2) === '${' && value.slice(-1) === '}' &&
+                    value.indexOf('${', 2) === -1) {
+              value = stripBraces(value);
+              var func = property(value, data);
+              if (typeof func === 'function') {
+                node.removeAttribute(name);
+                var capture = node.hasAttribute('capture' + name.substring(2));
+                node.addEventListener(name.substring(2), func, capture);
+                if (capture) {
+                  node.removeAttribute('capture' + name.substring(2));
+                }
+              }
+              else {
+                // Attribute value is not a function - use as a DOM-L0 string
+                node.setAttribute(name, func);
+              }
+            }
+            else {
+              // Attribute value is not a single expression use as DOM-L0
+              node.setAttribute(name, processString(state, value, data));
+            }
+          }
+          else {
+            node.removeAttribute(name);
+            // Remove '_' prefix of attribute names so the DOM won't try
+            // to use them before we've processed the template
+            if (name.charAt(0) === '_') {
+              name = name.substring(1);
+            }
+
+            // Async attributes can only work if the whole attribute is async
+            var replacement;
+            if (value.indexOf('${') === 0 &&
+                value.charAt(value.length - 1) === '}') {
+              replacement = envEval(state, value.slice(2, -1), data, value);
+              if (replacement && typeof replacement.then === 'function') {
+                node.setAttribute(name, '');
+                replacement.then(function(newValue) {
+                  node.setAttribute(name, newValue);
+                }).then(null, console.error);
+              }
+              else {
+                if (state.options.blankNullUndefined && replacement == null) {
+                  replacement = '';
+                }
+                node.setAttribute(name, replacement);
+              }
+            }
+            else {
+              node.setAttribute(name, processString(state, value, data));
+            }
+          }
+        }
+        finally {
+          state.stack.pop();
+        }
+      }
+    }
+
+    // Loop through our children calling processNode. First clone them, so the
+    // set of nodes that we visit will be unaffected by additions or removals.
+    var childNodes = Array.prototype.slice.call(node.childNodes);
+    for (var j = 0; j < childNodes.length; j++) {
+      processNode(state, childNodes[j], data);
+    }
+
+    if (node.nodeType === 3 /*Node.TEXT_NODE*/) {
+      processTextNode(state, node, data);
+    }
+  }
+  finally {
+    if (pushedNode) {
+      data.__element = state.nodes.pop();
+    }
+    state.stack.pop();
+  }
+}
+
+/**
+ * Handle attribute values where the output can only be a string
+ */
+function processString(state, value, data) {
+  return value.replace(TEMPLATE_REGION, function(path) {
+    var insert = envEval(state, path.slice(2, -1), data, value);
+    return state.options.blankNullUndefined && insert == null ? '' : insert;
+  });
+}
+
+/**
+ * Handle <x if="${...}">
+ * @param node An element with an 'if' attribute
+ * @param data The data to use with envEval()
+ * @returns true if processing should continue, false otherwise
+ */
+function processIf(state, node, data) {
+  state.stack.push('if');
+  try {
+    var originalValue = node.getAttribute('if');
+    var value = stripBraces(originalValue);
+    var recurse = true;
+    try {
+      var reply = envEval(state, value, data, originalValue);
+      recurse = !!reply;
+    }
+    catch (ex) {
+      handleError(state, 'Error with \'' + value + '\'', ex);
+      recurse = false;
+    }
+    if (!recurse) {
+      node.parentNode.removeChild(node);
+    }
+    node.removeAttribute('if');
+    return recurse;
+  }
+  finally {
+    state.stack.pop();
+  }
+}
+
+/**
+ * Handle <x foreach="param in ${array}"> and the special case of
+ * <loop foreach="param in ${array}">.
+ * This function is responsible for extracting what it has to do from the
+ * attributes, and getting the data to work on (including resolving promises
+ * in getting the array). It delegates to processForEachLoop to actually
+ * unroll the data.
+ * @param node An element with a 'foreach' attribute
+ * @param data The data to use with envEval()
+ */
+function processForEach(state, node, data) {
+  state.stack.push('foreach');
+  try {
+    var originalValue = node.getAttribute('foreach');
+    var value = originalValue;
+
+    var paramName = 'param';
+    if (value.charAt(0) === '$') {
+      // No custom loop variable name. Use the default: 'param'
+      value = stripBraces(value);
+    }
+    else {
+      // Extract the loop variable name from 'NAME in ${ARRAY}'
+      var nameArr = value.split(' in ');
+      paramName = nameArr[0].trim();
+      value = stripBraces(nameArr[1].trim());
+    }
+    node.removeAttribute('foreach');
+    try {
+      var evaled = envEval(state, value, data, originalValue);
+      var cState = cloneState(state);
+      handleAsync(evaled, node, function(reply, siblingNode) {
+        processForEachLoop(cState, reply, node, siblingNode, data, paramName);
+      });
+      node.parentNode.removeChild(node);
+    }
+    catch (ex) {
+      handleError(state, 'Error with \'' + value + '\'', ex);
+    }
+  }
+  finally {
+    state.stack.pop();
+  }
+}
+
+/**
+ * Called by processForEach to handle looping over the data in a foreach loop.
+ * This works with both arrays and objects.
+ * Calls processForEachMember() for each member of 'set'
+ * @param set The object containing the data to loop over
+ * @param templNode The node to copy for each set member
+ * @param sibling The sibling node to which we add things
+ * @param data the data to use for node processing
+ * @param paramName foreach loops have a name for the parameter currently being
+ * processed. The default is 'param'. e.g. <loop foreach="param in ${x}">...
+ */
+function processForEachLoop(state, set, templNode, sibling, data, paramName) {
+  if (Array.isArray(set)) {
+    set.forEach(function(member, i) {
+      processForEachMember(state, member, templNode, sibling,
+                           data, paramName, '' + i);
+    });
+  }
+  else {
+    for (var member in set) {
+      if (set.hasOwnProperty(member)) {
+        processForEachMember(state, member, templNode, sibling,
+                             data, paramName, member);
+      }
+    }
+  }
+}
+
+/**
+ * Called by processForEachLoop() to resolve any promises in the array (the
+ * array itself can also be a promise, but that is resolved by
+ * processForEach()). Handle <LOOP> elements (which are taken out of the DOM),
+ * clone the template node, and pass the processing on to processNode().
+ * @param member The data item to use in templating
+ * @param templNode The node to copy for each set member
+ * @param siblingNode The parent node to which we add things
+ * @param data the data to use for node processing
+ * @param paramName The name given to 'member' by the foreach attribute
+ * @param frame A name to push on the stack for debugging
+ */
+function processForEachMember(state, member, templNode, siblingNode, data, paramName, frame) {
+  state.stack.push(frame);
+  try {
+    var cState = cloneState(state);
+    handleAsync(member, siblingNode, function(reply, node) {
+      data[paramName] = reply;
+      if (node.parentNode != null) {
+        if (templNode.nodeName.toLowerCase() === 'loop') {
+          for (var i = 0; i < templNode.childNodes.length; i++) {
+            var clone = templNode.childNodes[i].cloneNode(true);
+            node.parentNode.insertBefore(clone, node);
+            processNode(cState, clone, data);
+          }
+        }
+        else {
+          var clone = templNode.cloneNode(true);
+          clone.removeAttribute('foreach');
+          node.parentNode.insertBefore(clone, node);
+          processNode(cState, clone, data);
+        }
+      }
+      delete data[paramName];
+    });
+  }
+  finally {
+    state.stack.pop();
+  }
+}
+
+/**
+ * Take a text node and replace it with another text node with the ${...}
+ * sections parsed out. We replace the node by altering node.parentNode but
+ * we could probably use a DOM Text API to achieve the same thing.
+ * @param node The Text node to work on
+ * @param data The data to use in calls to envEval()
+ */
+function processTextNode(state, node, data) {
+  // Replace references in other attributes
+  var value = node.data;
+  // We can't use the string.replace() with function trick (see generic
+  // attribute processing in processNode()) because we need to support
+  // functions that return DOM nodes, so we can't have the conversion to a
+  // string.
+  // Instead we process the string as an array of parts. In order to split
+  // the string up, we first replace '${' with '\uF001$' and '}' with '\uF002'
+  // We can then split using \uF001 or \uF002 to get an array of strings
+  // where scripts are prefixed with $.
+  // \uF001 and \uF002 are just unicode chars reserved for private use.
+  value = value.replace(TEMPLATE_REGION, '\uF001$$$1\uF002');
+  // Split a string using the unicode chars F001 and F002.
+  var parts = value.split(/\uF001|\uF002/);
+  if (parts.length > 1) {
+    parts.forEach(function(part) {
+      if (part === null || part === undefined || part === '') {
+        return;
+      }
+      if (part.charAt(0) === '$') {
+        part = envEval(state, part.slice(1), data, node.data);
+      }
+      var cState = cloneState(state);
+      handleAsync(part, node, function(reply, siblingNode) {
+        var doc = siblingNode.ownerDocument;
+        if (reply == null) {
+          reply = cState.options.blankNullUndefined ? '' : '' + reply;
+        }
+        if (typeof reply.cloneNode === 'function') {
+          // i.e. if (reply instanceof Element) { ...
+          reply = maybeImportNode(cState, reply, doc);
+          siblingNode.parentNode.insertBefore(reply, siblingNode);
+        }
+        else if (typeof reply.item === 'function' && reply.length) {
+          // NodeLists can be live, in which case maybeImportNode can
+          // remove them from the document, and thus the NodeList, which in
+          // turn breaks iteration. So first we clone the list
+          var list = Array.prototype.slice.call(reply, 0);
+          list.forEach(function(child) {
+            var imported = maybeImportNode(cState, child, doc);
+            siblingNode.parentNode.insertBefore(imported, siblingNode);
+          });
+        }
+        else {
+          // if thing isn't a DOM element then wrap its string value in one
+          reply = doc.createTextNode(reply.toString());
+          siblingNode.parentNode.insertBefore(reply, siblingNode);
+        }
+      });
+    });
+    node.parentNode.removeChild(node);
+  }
+}
+
+/**
+ * Return node or a import of node, if it's not in the given document
+ * @param node The node that we want to be properly owned
+ * @param doc The document that the given node should belong to
+ * @return A node that belongs to the given document
+ */
+function maybeImportNode(state, node, doc) {
+  return node.ownerDocument === doc ? node : doc.importNode(node, true);
+}
+
+/**
+ * A function to handle the fact that some nodes can be promises, so we check
+ * and resolve if needed using a marker node to keep our place before calling
+ * an inserter function.
+ * @param thing The object which could be real data or a promise of real data
+ * we use it directly if it's not a promise, or resolve it if it is.
+ * @param siblingNode The element before which we insert new elements.
+ * @param inserter The function to to the insertion. If thing is not a promise
+ * then handleAsync() is just 'inserter(thing, siblingNode)'
+ */
+function handleAsync(thing, siblingNode, inserter) {
+  if (thing != null && typeof thing.then === 'function') {
+    // Placeholder element to be replaced once we have the real data
+    var tempNode = siblingNode.ownerDocument.createElement('span');
+    siblingNode.parentNode.insertBefore(tempNode, siblingNode);
+    thing.then(function(delayed) {
+      inserter(delayed, tempNode);
+      if (tempNode.parentNode != null) {
+        tempNode.parentNode.removeChild(tempNode);
+      }
+    }).then(null, function(error) {
+      console.error(error.stack);
+    });
+  }
+  else {
+    inserter(thing, siblingNode);
+  }
+}
+
+/**
+ * Warn of string does not begin '${' and end '}'
+ * @param str the string to check.
+ * @return The string stripped of ${ and }, or untouched if it does not match
+ */
+function stripBraces(str) {
+  if (!str.match(TEMPLATE_REGION)) {
+    handleError(state, 'Expected ' + str + ' to match ${...}');
+    return str;
+  }
+  return str.slice(2, -1);
+}
+
+/**
+ * Combined getter and setter that works with a path through some data set.
+ * For example:
+ * <ul>
+ * <li>property('a.b', { a: { b: 99 }}); // returns 99
+ * <li>property('a', { a: { b: 99 }}); // returns { b: 99 }
+ * <li>property('a', { a: { b: 99 }}, 42); // returns 99 and alters the
+ * input data to be { a: { b: 42 }}
+ * </ul>
+ * @param path An array of strings indicating the path through the data, or
+ * a string to be cut into an array using <tt>split('.')</tt>
+ * @param data the data to use for node processing
+ * @param newValue (optional) If defined, this value will replace the
+ * original value for the data at the path specified.
+ * @return The value pointed to by <tt>path</tt> before any
+ * <tt>newValue</tt> is applied.
+ */
+function property(path, data, newValue) {
+  try {
+    if (typeof path === 'string') {
+      path = path.split('.');
+    }
+    var value = data[path[0]];
+    if (path.length === 1) {
+      if (newValue !== undefined) {
+        data[path[0]] = newValue;
+      }
+      if (typeof value === 'function') {
+        return value.bind(data);
+      }
+      return value;
+    }
+    if (!value) {
+      handleError(state, '"' + path[0] + '" is undefined');
+      return null;
+    }
+    return property(path.slice(1), value, newValue);
+  }
+  catch (ex) {
+    handleError(state, 'Path error with \'' + path + '\'', ex);
+    return '${' + path + '}';
+  }
+}
+
+/**
+ * Like eval, but that creates a context of the variables in <tt>env</tt> in
+ * which the script is evaluated.
+ * WARNING: This script uses 'with' which is generally regarded to be evil.
+ * The alternative is to create a Function at runtime that takes X parameters
+ * according to the X keys in the env object, and then call that function using
+ * the values in the env object. This is likely to be slow, but workable.
+ * @param script The string to be evaluated.
+ * @param data The environment in which to eval the script.
+ * @param frame Optional debugging string in case of failure.
+ * @return The return value of the script, or the error message if the script
+ * execution failed.
+ */
+function envEval(state, script, data, frame) {
+  try {
+    state.stack.push(frame.replace(/\s+/g, ' '));
+    // Detect if a script is capable of being interpreted using property()
+    if (/^[_a-zA-Z0-9.]*$/.test(script)) {
+      return property(script, data);
+    }
+    else {
+      if (!state.options.allowEval) {
+        handleError(state, 'allowEval is not set, however \'' + script + '\'' +
+            ' can not be resolved using a simple property path.');
+        return '${' + script + '}';
+      }
+      with (data) {
+        return eval(script);
+      }
+    }
+  }
+  catch (ex) {
+    handleError(state, 'Template error evaluating \'' + script + '\'', ex);
+    return '${' + script + '}';
+  }
+  finally {
+    state.stack.pop();
+  }
+}
+
+/**
+ * A generic way of reporting errors, for easy overloading in different
+ * environments.
+ * @param message the error message to report.
+ * @param ex optional associated exception.
+ */
+function handleError(state, message, ex) {
+  logError(message + ' (In: ' + state.stack.join(' > ') + ')');
+  if (ex) {
+    logError(ex);
+  }
+}
+
+/**
+ * A generic way of reporting errors, for easy overloading in different
+ * environments.
+ * @param message the error message to report.
+ */
+function logError(message) {
+  console.log(message);
+}
 
 });
 /*
@@ -4833,7 +7698,7 @@ Field.prototype.element = undefined;
  * Indicates that this field should drop any resources that it has created
  */
 Field.prototype.destroy = function() {
-  delete this.messageElement;
+  this.messageElement = undefined;
 };
 
 // Note: We could/should probably change Fields from working with Conversions
@@ -5040,6 +7905,2236 @@ exports.addField(BlankField);
  * limitations under the License.
  */
 
+define('gcli/ui/intro', ['require', 'exports', 'module' , 'util/l10n', 'gcli/settings', 'gcli/ui/view', 'gcli/cli', 'text!gcli/ui/intro.html'], function(require, exports, module) {
+
+'use strict';
+
+var l10n = require('util/l10n');
+var settings = require('gcli/settings');
+var view = require('gcli/ui/view');
+var Output = require('gcli/cli').Output;
+
+/**
+ * Record if the user has clicked on 'Got It!'
+ */
+exports.items = [
+  {
+    item: 'setting',
+    name: 'hideIntro',
+    type: 'boolean',
+    description: l10n.lookup('hideIntroDesc'),
+    defaultValue: false
+  }
+];
+
+/**
+ * Called when the UI is ready to add a welcome message to the output
+ */
+exports.maybeShowIntro = function(commandOutputManager, conversionContext) {
+  var hideIntro = settings.getSetting('hideIntro');
+  if (hideIntro.value) {
+    return;
+  }
+
+  var output = new Output();
+  output.type = 'view';
+  commandOutputManager.onOutput({ output: output });
+
+  var viewData = this.createView(null, conversionContext, output);
+
+  output.complete({ isTypedData: true, type: 'view', data: viewData });
+};
+
+/**
+ * Called when the UI is ready to add a welcome message to the output
+ */
+exports.createView = function(ignore, conversionContext, output) {
+  return view.createView({
+    html: require('text!gcli/ui/intro.html'),
+    options: { stack: 'intro.html' },
+    data: {
+      l10n: l10n.propertyLookup,
+      onclick: conversionContext.update,
+      ondblclick: conversionContext.updateExec,
+      showHideButton: (output != null),
+      onGotIt: function(ev) {
+        var hideIntro = settings.getSetting('hideIntro');
+        hideIntro.value = true;
+        output.onClose();
+      }
+    }
+  });
+};
+
+});
+define("text!gcli/ui/intro.html", [], "\n" +
+  "<div>\n" +
+  "  <p>${l10n.introTextOpening2}</p>\n" +
+  "\n" +
+  "  <p>\n" +
+  "    ${l10n.introTextCommands}\n" +
+  "    <span class=\"gcli-out-shortcut\" onclick=\"${onclick}\"\n" +
+  "        ondblclick=\"${ondblclick}\" data-command=\"help\">help</span>${l10n.introTextKeys2}\n" +
+  "    <code>${l10n.introTextF1Escape}</code>.\n" +
+  "  </p>\n" +
+  "\n" +
+  "  <button onclick=\"${onGotIt}\" if=\"${showHideButton}\">${l10n.introTextGo}</button>\n" +
+  "</div>\n" +
+  "");
+
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/ui/terminal', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'util/domtemplate', 'gcli/types', 'gcli/history', 'gcli/cli', 'gcli/ui/fields', 'gcli/ui/focus', 'text!gcli/ui/terminal.css', 'text!gcli/ui/terminal.html'], function(require, exports, module) {
+
+'use strict';
+
+var promise = require('util/promise');
+var util = require('util/util');
+var domtemplate = require('util/domtemplate');
+var KeyEvent = require('util/util').KeyEvent;
+
+var Status = require('gcli/types').Status;
+var History = require('gcli/history').History;
+var CommandAssignment = require('gcli/cli').CommandAssignment;
+
+var fields = require('gcli/ui/fields');
+var FocusManager = require('gcli/ui/focus').FocusManager;
+
+var terminalCss = require('text!gcli/ui/terminal.css');
+var terminalHtml = require('text!gcli/ui/terminal.html');
+
+var RESOLVED = promise.resolve(true);
+
+/**
+ * A wrapper to take care of the functions concerning an input element
+ * @param options Object containing user customization properties, including:
+ * - promptWidth (default=22px)
+ * @param components Object that links to other UI components. GCLI provided:
+ * - requisition
+ * - document
+ */
+function Terminal(options, components) {
+  this.requisition = components.requisition;
+  this.document = components.document;
+
+  this.onInputChange = util.createEvent('Terminal.onInputChange');
+
+  this.focusManager = new FocusManager(options, {
+    document: this.document,
+    requisition: this.requisition
+  });
+
+  // Configure the UI
+  this.rootElement = this.document.getElementById('gcli-root');
+  if (!this.rootElement) {
+    throw new Error('Missing element, id=gcli-root');
+  }
+
+  // terminal.html contains sub-templates which we detach for later processing
+  var template = util.toDom(this.document, terminalHtml);
+
+  this.tooltipTemplate = template.querySelector('.gcli-tt');
+  this.tooltipTemplate.parentElement.removeChild(this.tooltipTemplate);
+
+  this.completerTemplate = template.querySelector('.gcli-in-complete > div');
+  this.completerTemplate.parentElement.removeChild(this.completerTemplate);
+  // We want the spans to line up without the spaces in the template
+  util.removeWhitespace(this.completerTemplate, true);
+
+  this.outputViewTemplate = template.querySelector('.gcli-display > div');
+  this.outputViewTemplate.parentElement.removeChild(this.outputViewTemplate);
+
+  // Now we've detached the sub-templates, load what is left
+  // The following elements are stored into 'this' by this template process:
+  // displayElement, panelElement, tooltipElement,
+  // inputElement, completeElement, promptElement
+  domtemplate.template(template, this, { stack: 'terminal.html' });
+  while (template.hasChildNodes()) {
+    this.rootElement.appendChild(template.firstChild);
+  }
+
+  if (terminalCss != null) {
+    this.style = util.importCss(terminalCss, this.document, 'gcli-tooltip');
+  }
+
+  this.panelElement.classList.add('gcli-panel-hide');
+
+  // Firefox doesn't autofocus with dynamically added elements (Bug 662496)
+  this.inputElement.focus();
+
+  // Which of the available completion options is the user considering?
+  this.choice = 0;
+
+  // Used to distinguish focus from TAB in CLI. See onKeyUp()
+  this.lastTabDownAt = 0;
+
+  // Used to effect caret changes. See _processCaretChange()
+  this._caretChange = null;
+
+  // Setup History
+  this.history = new History();
+  this._scrollingThroughHistory = false;
+
+  // Used when we're selecting which prediction to complete with
+  this._choice = null;
+
+  // Initially an asynchronous completion isn't in-progress
+  this._completed = RESOLVED;
+
+  // We keep a track of which assignment the cursor is in
+  this.assignment = this.requisition.getAssignmentAt(0);
+
+  // Avoid calling requisition.update when the keyUp results in no change
+  this._previousValue = undefined;
+
+  // We cache the fields we create so we can destroy them later
+  this.fields = [];
+
+  // We also keep track of the last known arg text for the current assignment
+  this.lastText = undefined;
+
+  // Bind handlers
+  this.focus = this.focus.bind(this);
+  this.onKeyDown = this.onKeyDown.bind(this);
+  this.onKeyUp = this.onKeyUp.bind(this);
+  this.onMouseUp = this.onMouseUp.bind(this);
+  this.onWindowResize = this.onWindowResize.bind(this);
+
+  this.rootElement.addEventListener('click', this.focus, false);
+
+  // Ensure that TAB/UP/DOWN isn't handled by the browser
+  this.inputElement.addEventListener('keydown', this.onKeyDown, false);
+  this.inputElement.addEventListener('keyup', this.onKeyUp, false);
+
+  // Cursor position affects hint severity
+  this.inputElement.addEventListener('mouseup', this.onMouseUp, false);
+
+  this.focusManager.onVisibilityChange.add(this.visibilityChanged, this);
+  this.focusManager.addMonitoredElement(this.tooltipElement, 'tooltip');
+  this.focusManager.addMonitoredElement(this.inputElement, 'input');
+
+  this.requisition.onTextChange.add(this.textChanged, this);
+  this.requisition.commandOutputManager.onOutput.add(this.outputted, this);
+
+  this.document.defaultView.addEventListener('resize', this.onWindowResize, false);
+
+  this.onInputChange.add(this.updateCompletion, this);
+
+  this.requisition.update(this.inputElement.value || '');
+  this.onWindowResize();
+  this.updateCompletion();
+  this.assignmentChanged({ assignment: this.assignment });
+}
+
+/**
+ * Avoid memory leaks
+ */
+Terminal.prototype.destroy = function() {
+  this.document.defaultView.removeEventListener('resize', this.onWindowResize, false);
+
+  this.requisition.onTextChange.remove(this.textChanged, this);
+  this.requisition.commandOutputManager.onOutput.remove(this.outputted, this);
+
+  this.focusManager.removeMonitoredElement(this.inputElement, 'input');
+  this.focusManager.removeMonitoredElement(this.tooltipElement, 'tooltip');
+  this.focusManager.onVisibilityChange.remove(this.visibilityChanged, this);
+
+  this.inputElement.removeEventListener('mouseup', this.onMouseUp, false);
+  this.inputElement.removeEventListener('keydown', this.onKeyDown, false);
+  this.inputElement.removeEventListener('keyup', this.onKeyUp, false);
+  this.rootElement.removeEventListener('click', this.focus, false);
+
+  this.history.destroy();
+  this.focusManager.destroy();
+
+  if (this.style) {
+    this.style.parentNode.removeChild(this.style);
+    this.style = undefined;
+  }
+
+  this.field.onFieldChange.remove(this.fieldChanged, this);
+  this.field.destroy();
+
+  this.onInputChange.remove(this.updateCompletion, this);
+
+  this.focus = undefined;
+  this.onMouseUp = undefined;
+  this.onKeyDown = undefined;
+  this.onKeyUp = undefined;
+  this.onWindowResize = undefined;
+
+  this.document = undefined;
+
+  this.lastText = undefined;
+  this.assignment = undefined;
+
+  this.rootElement = undefined;
+  this.inputElement = undefined;
+  this.promptElement = undefined;
+  this.completeElement = undefined;
+  this.tooltipElement = undefined;
+  this.panelElement = undefined;
+  this.displayElement = undefined;
+
+  this.completerTemplate = undefined;
+  this.tooltipTemplate = undefined;
+  this.outputViewTemplate = undefined;
+
+  this.errorEle = undefined;
+  this.descriptionEle = undefined;
+};
+
+/**
+ * Make ourselves visually similar to the input element, and make the input
+ * element transparent so our background shines through
+ */
+Terminal.prototype.onWindowResize = function() {
+  // Mochitest sometimes causes resize after shutdown. See Bug 743190
+  if (!this.inputElement) {
+    return;
+  }
+
+  // Simplify when jsdom does getBoundingClientRect(). See Bug 717269
+  var dimensions = this.getDimensions();
+  if (dimensions) {
+    // TODO: Remove this if we manage to land this with a pure CSS layout
+  }
+};
+
+/**
+ * Make ourselves visually similar to the input element, and make the input
+ * element transparent so our background shines through
+ */
+Terminal.prototype.getDimensions = function() {
+  // Remove this when jsdom does getBoundingClientRect(). See Bug 717269
+  if (!this.inputElement.getBoundingClientRect) {
+    return undefined;
+  }
+
+  var fixedLoc = {};
+  var currentElement = this.inputElement.parentNode;
+  while (currentElement && currentElement.nodeName !== '#document') {
+    var style = this.document.defaultView.getComputedStyle(currentElement, '');
+    if (style) {
+      var position = style.getPropertyValue('position');
+      if (position === 'absolute' || position === 'fixed') {
+        var bounds = currentElement.getBoundingClientRect();
+        fixedLoc.top = bounds.top;
+        fixedLoc.left = bounds.left;
+        break;
+      }
+    }
+    currentElement = currentElement.parentNode;
+  }
+
+  var rect = this.inputElement.getBoundingClientRect();
+  return {
+    top: rect.top - (fixedLoc.top || 0) + 1,
+    height: rect.bottom - rect.top - 1,
+    left: rect.left - (fixedLoc.left || 0) + 2,
+    width: rect.right - rect.left
+  };
+};
+
+/**
+ * Handler for the input-element.onMouseUp event
+ */
+Terminal.prototype.onMouseUp = function(ev) {
+  this._checkAssignment();
+};
+
+/**
+ * Handler for the Requisition.textChanged event
+ */
+Terminal.prototype.textChanged = function() {
+  if (!this.document) {
+    return; // This can happen post-destroy()
+  }
+
+  if (this._caretChange == null) {
+    // We weren't expecting a change so this was requested by the hint system
+    // we should move the cursor to the end of the 'changed section', and the
+    // best we can do for that right now is the end of the current argument.
+    this._caretChange = Caret.TO_ARG_END;
+  }
+
+  var newStr = this.requisition.toString();
+  var input = this.getInputState();
+
+  input.typed = newStr;
+  this._processCaretChange(input);
+
+  if (this.inputElement.value !== newStr) {
+    this.inputElement.value = newStr;
+  }
+  this.onInputChange({ inputState: input });
+
+  // Requisition fires onTextChanged events on any change, including minor
+  // things like whitespace change in arg prefix, so we ignore anything but
+  // an actual value change.
+  if (this.assignment.arg.text === this.lastText) {
+    return;
+  }
+
+  this.lastText = this.assignment.arg.text;
+
+  this.field.setConversion(this.assignment.conversion);
+  util.setTextContent(this.descriptionEle, this.description);
+
+  this._updatePosition();
+};
+
+/**
+ * Various ways in which we need to manipulate the caret/selection position.
+ * A value of null means we're not expecting a change
+ */
+var Caret = {
+  /**
+   * We are expecting changes, but we don't need to move the cursor
+   */
+  NO_CHANGE: 0,
+
+  /**
+   * We want the entire input area to be selected
+   */
+  SELECT_ALL: 1,
+
+  /**
+   * The whole input has changed - push the cursor to the end
+   */
+  TO_END: 2,
+
+  /**
+   * A part of the input has changed - push the cursor to the end of the
+   * changed section
+   */
+  TO_ARG_END: 3
+};
+
+/**
+ * If this._caretChange === Caret.TO_ARG_END, we alter the input object to move
+ * the selection start to the end of the current argument.
+ * @param input An object shaped like { typed:'', cursor: { start:0, end:0 }}
+ */
+Terminal.prototype._processCaretChange = function(input) {
+  var start, end;
+  switch (this._caretChange) {
+    case Caret.SELECT_ALL:
+      start = 0;
+      end = input.typed.length;
+      break;
+
+    case Caret.TO_END:
+      start = input.typed.length;
+      end = input.typed.length;
+      break;
+
+    case Caret.TO_ARG_END:
+      // There could be a fancy way to do this involving assignment/arg math
+      // but it doesn't seem easy, so we cheat a move the cursor to just before
+      // the next space, or the end of the input
+      start = input.cursor.start;
+      do {
+        start++;
+      }
+      while (start < input.typed.length && input.typed[start - 1] !== ' ');
+
+      end = start;
+      break;
+
+    default:
+      start = input.cursor.start;
+      end = input.cursor.end;
+      break;
+  }
+
+  start = (start > input.typed.length) ? input.typed.length : start;
+  end = (end > input.typed.length) ? input.typed.length : end;
+
+  var newInput = {
+    typed: input.typed,
+    cursor: { start: start, end: end }
+  };
+
+  if (this.inputElement.selectionStart !== start) {
+    this.inputElement.selectionStart = start;
+  }
+  if (this.inputElement.selectionEnd !== end) {
+    this.inputElement.selectionEnd = end;
+  }
+
+  this._checkAssignment(start);
+
+  this._caretChange = null;
+  return newInput;
+};
+
+/**
+ * To be called internally whenever we think that the current assignment might
+ * have changed, typically on mouse-clicks or key presses.
+ * @param start Optional - if specified, the cursor position to use in working
+ * out the current assignment. This is needed because setting the element
+ * selection start is only recognised when the event loop has finished
+ */
+Terminal.prototype._checkAssignment = function(start) {
+  if (start == null) {
+    start = this.inputElement.selectionStart;
+  }
+  var newAssignment = this.requisition.getAssignmentAt(start);
+  if (this.assignment !== newAssignment) {
+    if (this.assignment.param.type.onLeave) {
+      this.assignment.param.type.onLeave(this.assignment);
+    }
+
+    // This can be kicked off either by requisition doing an assign or by
+    // terminal noticing a cursor movement out of a command, so we should check
+    // that this really is a new assignment
+    var isNew = (this.assignment !== newAssignment);
+
+    this.assignment = newAssignment;
+
+    this.updateCompletion({ assignment: this.assignment });
+
+    if (isNew) {
+      this.assignmentChanged({ assignment: this.assignment });
+    }
+
+    if (this.assignment.param.type.onEnter) {
+      this.assignment.param.type.onEnter(this.assignment);
+    }
+  }
+  else {
+    if (this.assignment && this.assignment.param.type.onChange) {
+      this.assignment.param.type.onChange(this.assignment);
+    }
+  }
+
+  // This is slightly nasty - the focusManager generally relies on people
+  // telling it what it needs to know (which makes sense because the event
+  // system to do it with events would be unnecessarily complex). However
+  // requisition doesn't know about the focusManager either. So either one
+  // needs to know about the other, or a third-party needs to break the
+  // deadlock. These 2 lines are all we're quibbling about, so for now we hack
+  if (this.focusManager) {
+    this.focusManager.setError(this.assignment.message);
+  }
+};
+
+/**
+ * Set the input field to a value, for external use.
+ * This function updates the data model. It sets the caret to the end of the
+ * input. It does not make any similarity checks so calling this function with
+ * it's current value resets the cursor position.
+ * It does not execute the input or affect the history.
+ * This function should not be called internally, by Terminal and never as a
+ * result of a keyboard event on this.inputElement or bug 676520 could be
+ * triggered.
+ */
+Terminal.prototype.setInput = function(str) {
+  this._caretChange = Caret.TO_END;
+  return this.requisition.update(str);
+};
+
+/**
+ * Counterpart to |setInput| for moving the cursor.
+ * @param cursor An object shaped like { start: x, end: y }
+ */
+Terminal.prototype.setCursor = function(cursor) {
+  this._caretChange = Caret.NO_CHANGE;
+  this._processCaretChange({ typed: this.inputElement.value, cursor: cursor });
+};
+
+/**
+ * Focus the input element
+ */
+Terminal.prototype.focus = function() {
+  this.inputElement.focus();
+  this._checkAssignment();
+};
+
+/**
+ * Ensure certain keys (arrows, tab, etc) that we would like to handle
+ * are not handled by the browser
+ */
+Terminal.prototype.onKeyDown = function(ev) {
+  if (ev.keyCode === KeyEvent.DOM_VK_UP || ev.keyCode === KeyEvent.DOM_VK_DOWN) {
+    ev.preventDefault();
+    return;
+  }
+
+  // The following keys do not affect the state of the command line so we avoid
+  // informing the focusManager about keyboard events that involve these keys
+  if (ev.keyCode === KeyEvent.DOM_VK_F1 ||
+      ev.keyCode === KeyEvent.DOM_VK_ESCAPE ||
+      ev.keyCode === KeyEvent.DOM_VK_UP ||
+      ev.keyCode === KeyEvent.DOM_VK_DOWN) {
+    return;
+  }
+
+  if (this.focusManager) {
+    this.focusManager.onInputChange();
+  }
+
+  if (ev.keyCode === KeyEvent.DOM_VK_TAB) {
+    this.lastTabDownAt = 0;
+    if (!ev.shiftKey) {
+      ev.preventDefault();
+      // Record the timestamp of this TAB down so onKeyUp can distinguish
+      // focus from TAB in the CLI.
+      this.lastTabDownAt = ev.timeStamp;
+    }
+    if (ev.metaKey || ev.altKey || ev.crtlKey) {
+      if (this.document.commandDispatcher) {
+        this.document.commandDispatcher.advanceFocus();
+      }
+      else {
+        this.inputElement.blur();
+      }
+    }
+  }
+};
+
+/**
+ * Handler for use with DOM events, which just calls the promise enabled
+ * handleKeyUp function but checks the exit state of the promise so we know
+ * if something went wrong.
+ */
+Terminal.prototype.onKeyUp = function(ev) {
+  this.handleKeyUp(ev).then(null, util.errorHandler);
+};
+
+/**
+ * The main keyboard processing loop
+ * @return A promise that resolves (to undefined) when the actions kicked off
+ * by this handler are completed.
+ */
+Terminal.prototype.handleKeyUp = function(ev) {
+  if (this.focusManager && ev.keyCode === KeyEvent.DOM_VK_F1) {
+    this.focusManager.helpRequest();
+    return RESOLVED;
+  }
+
+  if (this.focusManager && ev.keyCode === KeyEvent.DOM_VK_ESCAPE) {
+    this.focusManager.removeHelp();
+    return RESOLVED;
+  }
+
+  if (ev.keyCode === KeyEvent.DOM_VK_UP) {
+    return this._handleUpArrow();
+  }
+
+  if (ev.keyCode === KeyEvent.DOM_VK_DOWN) {
+    return this._handleDownArrow();
+  }
+
+  if (ev.keyCode === KeyEvent.DOM_VK_RETURN) {
+    return this._handleReturn();
+  }
+
+  if (ev.keyCode === KeyEvent.DOM_VK_TAB && !ev.shiftKey) {
+    return this._handleTab(ev);
+  }
+
+  if (this._previousValue === this.inputElement.value) {
+    return RESOLVED;
+  }
+
+  this._scrollingThroughHistory = false;
+  this._caretChange = Caret.NO_CHANGE;
+
+  this._completed = this.requisition.update(this.inputElement.value);
+  this._previousValue = this.inputElement.value;
+
+  return this._completed.then(function(updated) {
+    // Abort UI changes if this UI update has been overtaken
+    if (updated) {
+      this._choice = null;
+      this.choiceChanged({ choice: this._choice });
+    }
+  }.bind(this));
+};
+
+/**
+ * See also _handleDownArrow for some symmetry
+ */
+Terminal.prototype._handleUpArrow = function() {
+  if (this.isMenuShowing) {
+    this.changeChoice(-1);
+    return RESOLVED;
+  }
+
+  if (this.inputElement.value === '' || this._scrollingThroughHistory) {
+    this._scrollingThroughHistory = true;
+    return this.requisition.update(this.history.backward());
+  }
+
+  // If the user is on a valid value, then we increment the value, but if
+  // they've typed something that's not right we page through predictions
+  if (this.assignment.getStatus() === Status.VALID) {
+    this.requisition.increment(this.assignment);
+    // See notes on focusManager.onInputChange in onKeyDown
+    if (this.focusManager) {
+      this.focusManager.onInputChange();
+    }
+  }
+  else {
+    this.changeChoice(-1);
+  }
+
+  return RESOLVED;
+};
+
+/**
+ * See also _handleUpArrow for some symmetry
+ */
+Terminal.prototype._handleDownArrow = function() {
+  if (this.isMenuShowing) {
+    this.changeChoice(+1);
+    return RESOLVED;
+  }
+
+  if (this.inputElement.value === '' || this._scrollingThroughHistory) {
+    this._scrollingThroughHistory = true;
+    return this.requisition.update(this.history.forward());
+  }
+
+  // See notes above for the UP key
+  if (this.assignment.getStatus() === Status.VALID) {
+    this.requisition.decrement(this.assignment,
+                               this.requisition.executionContext);
+    // See notes on focusManager.onInputChange in onKeyDown
+    if (this.focusManager) {
+      this.focusManager.onInputChange();
+    }
+  }
+  else {
+    this.changeChoice(+1);
+  }
+
+  return RESOLVED;
+};
+
+/**
+ * RETURN checks status and might exec
+ */
+Terminal.prototype._handleReturn = function() {
+  // Deny RETURN unless the command might work
+  if (this.requisition.status === Status.VALID) {
+    this._scrollingThroughHistory = false;
+    this.history.add(this.inputElement.value);
+    this.requisition.exec();
+  }
+  else {
+    // If we can't execute the command, but there is a menu choice to use
+    // then use it.
+    if (!this.selectChoice()) {
+      this.focusManager.setError(true);
+    }
+  }
+
+  this._choice = null;
+  return RESOLVED;
+};
+
+/**
+ * Warning: We get TAB events for more than just the user pressing TAB in our
+ * input element.
+ */
+Terminal.prototype._handleTab = function(ev) {
+  // Being able to complete 'nothing' is OK if there is some context, but
+  // when there is nothing on the command line it just looks bizarre.
+  var hasContents = (this.inputElement.value.length > 0);
+
+  // If the TAB keypress took the cursor from another field to this one,
+  // then they get the keydown/keypress, and we get the keyup. In this
+  // case we don't want to do any completion.
+  // If the time of the keydown/keypress of TAB was close (i.e. within
+  // 1 second) to the time of the keyup then we assume that we got them
+  // both, and do the completion.
+  if (hasContents && this.lastTabDownAt + 1000 > ev.timeStamp) {
+    // It's possible for TAB to not change the input, in which case the
+    // textChanged event will not fire, and the caret move will not be
+    // processed. So we check that this is done first
+    this._caretChange = Caret.TO_ARG_END;
+    var inputState = this.getInputState();
+    this._processCaretChange(inputState);
+
+    if (this._choice == null) {
+      this._choice = 0;
+    }
+
+    // The changes made by complete may happen asynchronously, so after the
+    // the call to complete() we should avoid making changes before the end
+    // of the event loop
+    this._completed = this.requisition.complete(inputState.cursor,
+                                                this._choice);
+    this._previousValue = this.inputElement.value;
+  }
+  this.lastTabDownAt = 0;
+  this._scrollingThroughHistory = false;
+
+  return this._completed.then(function(updated) {
+    // Abort UI changes if this UI update has been overtaken
+    if (updated) {
+      this._choice = null;
+      this.choiceChanged({ choice: this._choice });
+    }
+  }.bind(this));
+};
+
+/**
+ * Used by onKeyUp for UP/DOWN to change the current choice from an options
+ * menu.
+ */
+Terminal.prototype.changeChoice = function(amount) {
+  if (this._choice == null) {
+    this._choice = 0;
+  }
+  // There's an annoying up is down thing here, the menu is presented
+  // with the zeroth index at the top working down, so the UP arrow needs
+  // pick the choice below because we're working down
+  this._choice += amount;
+  this.choiceChanged({ choice: this._choice });
+};
+
+/**
+ * Pull together an input object, which may include XUL hacks
+ */
+Terminal.prototype.getInputState = function() {
+  var input = {
+    typed: this.inputElement.value,
+    cursor: {
+      start: this.inputElement.selectionStart,
+      end: this.inputElement.selectionEnd
+    }
+  };
+
+  // Workaround for potential XUL bug 676520 where textbox gives incorrect
+  // values for its content
+  if (input.typed == null) {
+    input = { typed: '', cursor: { start: 0, end: 0 } };
+  }
+
+  // Workaround for a Bug 717268 (which is really a jsdom bug)
+  if (input.cursor.start == null) {
+    input.cursor.start = 0;
+  }
+
+  return input;
+};
+
+/**
+ * Bring the completion element up to date with what the requisition says
+ */
+Terminal.prototype.updateCompletion = function(ev) {
+  this.choice = (ev && ev.choice != null) ? ev.choice : 0;
+
+  this._getCompleterTemplateData().then(function(data) {
+    var template = this.completerTemplate.cloneNode(true);
+    domtemplate.template(template, data, { stack: 'terminal.html#completer' });
+
+    util.clearElement(this.completeElement);
+    while (template.hasChildNodes()) {
+      this.completeElement.appendChild(template.firstChild);
+    }
+  }.bind(this));
+};
+
+/**
+ * Calculate the properties required by the template process for completer.html
+ */
+Terminal.prototype._getCompleterTemplateData = function() {
+  var input = this.getInputState();
+  var start = input.cursor.start;
+
+  return this.requisition.getStateData(start, this.choice).then(function(data) {
+    // Calculate the statusMarkup required to show wavy lines underneath the
+    // input text (like that of an inline spell-checker) which used by the
+    // template process for completer.html
+    // i.e. s/space/&nbsp/g in the string (for HTML display) and status to an
+    // appropriate class name (i.e. lower cased, prefixed with gcli-in-)
+    data.statusMarkup.forEach(function(member) {
+      member.string = member.string.replace(/ /g, '\u00a0'); // i.e. &nbsp;
+      member.className = 'gcli-in-' + member.status.toString().toLowerCase();
+    }, this);
+
+    return data;
+  });
+};
+
+/**
+ * The terminal acts on UP/DOWN if there is a menu showing
+ */
+Object.defineProperty(Terminal.prototype, 'isMenuShowing', {
+  get: function() {
+    return this.focusManager.isTooltipVisible &&
+           this.field != null &&
+           this.field.menu != null;
+  },
+  enumerable: true
+});
+
+/**
+ * Called whenever the assignment that we're providing help with changes
+ */
+Terminal.prototype.assignmentChanged = function(ev) {
+  this.lastText = this.assignment.arg.text;
+
+  if (this.field) {
+    this.field.onFieldChange.remove(this.fieldChanged, this);
+    this.field.destroy();
+  }
+
+  this.field = fields.getField(this.assignment.param.type, {
+    document: this.document,
+    name: this.assignment.param.name,
+    requisition: this.requisition,
+    required: this.assignment.param.isDataRequired,
+    named: !this.assignment.param.isPositionalAllowed,
+    tooltip: true
+  });
+
+  this.focusManager.setImportantFieldFlag(this.field.isImportant);
+
+  this.field.onFieldChange.add(this.fieldChanged, this);
+  this.field.setConversion(this.assignment.conversion);
+
+  // Filled in by the template process
+  this.errorEle = undefined;
+  this.descriptionEle = undefined;
+
+  var contents = this.tooltipTemplate.cloneNode(true);
+  domtemplate.template(contents, this, {
+    blankNullUndefined: true,
+    stack: 'terminal.html#tooltip'
+  });
+
+  util.clearElement(this.tooltipElement);
+  this.tooltipElement.appendChild(contents);
+  this.tooltipElement.style.display = 'block';
+
+  this.field.setMessageElement(this.errorEle);
+
+  this._updatePosition();
+};
+
+/**
+ * Forward the event to the current field
+ */
+Terminal.prototype.choiceChanged = function(ev) {
+  this.updateCompletion(ev);
+
+  if (this.field && this.field.setChoiceIndex) {
+    var conversion = this.assignment.conversion;
+    conversion.constrainPredictionIndex(ev.choice).then(function(choice) {
+      this.field.setChoiceIndex(choice);
+    }.bind(this)).then(null, util.errorHandler);
+  }
+};
+
+/**
+ * Allow the terminal to use RETURN to chose the current menu item when
+ * it can't execute the command line
+ * @return true if there was a selection to use, false otherwise
+ */
+Terminal.prototype.selectChoice = function(ev) {
+  if (this.field && this.field.selectChoice) {
+    return this.field.selectChoice();
+  }
+  return false;
+};
+
+/**
+ * Called by the onFieldChange event on the current Field
+ */
+Terminal.prototype.fieldChanged = function(ev) {
+  this.requisition.setAssignment(this.assignment, ev.conversion.arg,
+                                 { matchPadding: true });
+
+  var isError = ev.conversion.message != null && ev.conversion.message !== '';
+  this.focusManager.setError(isError);
+
+  // Nasty hack, the terminal won't know about the text change yet, so it will
+  // get it's calculations wrong. We need to wait until the current set of
+  // changes has had a chance to propagate
+  this.document.defaultView.setTimeout(function() {
+    this.focus();
+  }.bind(this), 10);
+};
+
+/**
+ * Called to move the tooltip to the correct horizontal position
+ */
+Terminal.prototype._updatePosition = function() {
+  var dimensions = this.getDimensionsOfAssignment();
+
+  // 7px is roughly the width of a char
+  if (this.panelElement) {
+    this.panelElement.style.marginLeft = (dimensions.start * 7 + 15) + 'px';
+  }
+
+  this.focusManager.updatePosition(dimensions);
+};
+
+/**
+ * Returns a object containing 'start' and 'end' properties which identify the
+ * number of pixels from the left hand edge of the input element that represent
+ * the text portion of the current assignment.
+ */
+Terminal.prototype.getDimensionsOfAssignment = function() {
+  var before = '';
+  var assignments = this.requisition.getAssignments(true);
+  for (var i = 0; i < assignments.length; i++) {
+    if (assignments[i] === this.assignment) {
+      break;
+    }
+    before += assignments[i].toString();
+  }
+  before += this.assignment.arg.prefix;
+
+  var startChar = before.length;
+  before += this.assignment.arg.text;
+  var endChar = before.length;
+
+  return { start: startChar, end: endChar };
+};
+
+/**
+ * The description (displayed at the top of the hint area) should be blank if
+ * we're entering the CommandAssignment (because it's obvious) otherwise it's
+ * the parameter description.
+ */
+Object.defineProperty(Terminal.prototype, 'description', {
+  get: function() {
+    if (this.assignment instanceof CommandAssignment &&
+        this.assignment.value == null) {
+      return '';
+    }
+
+    return this.assignment.param.manual || this.assignment.param.description;
+  },
+  enumerable: true
+});
+
+/**
+ * Tweak CSS to show/hide the output
+ */
+Terminal.prototype.visibilityChanged = function(ev) {
+  if (!this.panelElement) {
+    return;
+  }
+
+  if (ev.tooltipVisible) {
+    this.panelElement.classList.remove('gcli-panel-hide');
+  }
+  else {
+    this.panelElement.classList.add('gcli-panel-hide');
+  }
+  this.scrollToBottom();
+};
+
+/**
+ * Monitor for new command executions
+ */
+Terminal.prototype.outputted = function(ev) {
+  if (ev.output.hidden) {
+    return;
+  }
+
+  var view = new OutputView(ev.output, this);
+  ev.output.view = view;
+
+  this.displayElement.insertBefore(view.elems.rowin, this.inputElement.parentElement);
+  this.displayElement.insertBefore(view.elems.rowout, this.inputElement.parentElement);
+
+  this.scrollToBottom();
+};
+
+Terminal.prototype.scrollToBottom = function() {
+  // We need to see the output of the latest command entered
+  // Certain browsers have a bug such that scrollHeight is too small
+  // when content does not fill the client area of the element
+  var scrollHeight = Math.max(this.displayElement.scrollHeight,
+                              this.displayElement.clientHeight);
+  this.displayElement.scrollTop =
+                      scrollHeight - this.displayElement.clientHeight;
+};
+
+exports.Terminal = Terminal;
+
+
+/**
+ * Adds a row to the CLI output display
+ */
+function OutputView(output, terminal) {
+  this.output = output;
+  this.terminal = terminal;
+
+  this._outputted = this._outputted.bind(this);
+  this.url = util.createUrlLookup(module);
+
+  // Elements attached to this by template().
+  this.elems = {
+    rowin: null,
+    rowout: null,
+    hide: null,
+    show: null,
+    duration: null,
+    throb: null,
+    prompt: null
+  };
+
+  // Handle clicks and double clicks to copy and exec commands
+  var context = this.terminal.requisition.conversionContext;
+  this.onclick = context.update;
+  this.ondblclick = context.updateExec;
+
+  var template = this.terminal.outputViewTemplate.cloneNode(true);
+  domtemplate.template(template, this, {
+    allowEval: true,
+    stack: 'terminal.html#outputView'
+  });
+
+  this.output.onClose.add(this.closed, this);
+  this.output.promise.then(this._outputted);
+}
+
+OutputView.prototype.destroy = function() {
+  this.output.onClose.remove(this.closed, this);
+
+  this.terminal.displayElement.removeChild(this.elems.rowin);
+  this.terminal.displayElement.removeChild(this.elems.rowout);
+
+  this.output = undefined;
+  this.terminal = undefined;
+  this.url = undefined;
+  this.elems = undefined;
+};
+
+/**
+ * Only display a prompt if there is a command, otherwise, leave blank
+ */
+Object.defineProperty(OutputView.prototype, 'prompt', {
+  get: function() {
+    return this.output.canonical ? '\u00bb' : '';
+  },
+  enumerable: true
+});
+
+OutputView.prototype.hideOutput = function(ev) {
+  this.elems.rowout.style.display = 'none';
+  this.elems.hide.classList.add('cmd_hidden');
+  this.elems.show.classList.remove('cmd_hidden');
+
+  ev.stopPropagation();
+};
+
+OutputView.prototype.showOutput = function(ev) {
+  this.elems.rowout.style.display = 'block';
+  this.elems.hide.classList.remove('cmd_hidden');
+  this.elems.show.classList.add('cmd_hidden');
+
+  ev.stopPropagation();
+};
+
+OutputView.prototype.closed = function(ev) {
+  this.destroy();
+};
+
+OutputView.prototype._outputted = function() {
+  var document = this.elems.rowout.ownerDocument;
+  var duration = this.output.duration != null ?
+          'completed in ' + (this.output.duration / 1000) + ' sec ' :
+          '';
+  duration = document.createTextNode(duration);
+  this.elems.duration.appendChild(duration);
+
+  if (this.output.completed) {
+    this.elems.prompt.classList.add('gcli-row-complete');
+  }
+  if (this.output.error) {
+    this.elems.prompt.classList.add('gcli-row-error');
+  }
+
+  util.clearElement(this.elems.rowout);
+  var context = this.terminal.requisition.conversionContext;
+  this.output.convert('dom', context).then(function(node) {
+    util.linksToNewTab(node);
+    this.elems.rowout.appendChild(node);
+
+    this.terminal.scrollToBottom();
+
+    this.elems.throb.style.display = this.output.completed ? 'none' : 'block';
+  }.bind(this));
+};
+
+exports.OutputView = OutputView;
+
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/history', ['require', 'exports', 'module' ], function(require, exports, module) {
+
+'use strict';
+
+/**
+ * A History object remembers commands that have been entered in the past and
+ * provides an API for accessing them again.
+ * See Bug 681340: Search through history (like C-r in bash)?
+ */
+function History() {
+  // This is the actual buffer where previous commands are kept.
+  // 'this._buffer[0]' should always be equal the empty string. This is so
+  // that when you try to go in to the "future", you will just get an empty
+  // command.
+  this._buffer = [''];
+
+  // This is an index in to the history buffer which points to where we
+  // currently are in the history.
+  this._current = 0;
+}
+
+/**
+ * Avoid memory leaks
+ */
+History.prototype.destroy = function() {
+  this._buffer = undefined;
+};
+
+/**
+ * Record and save a new command in the history.
+ */
+History.prototype.add = function(command) {
+  this._buffer.splice(1, 0, command);
+  this._current = 0;
+};
+
+/**
+ * Get the next (newer) command from history.
+ */
+History.prototype.forward = function() {
+  if (this._current > 0 ) {
+    this._current--;
+  }
+  return this._buffer[this._current];
+};
+
+/**
+ * Get the previous (older) item from history.
+ */
+History.prototype.backward = function() {
+  if (this._current < this._buffer.length - 1) {
+    this._current++;
+  }
+  return this._buffer[this._current];
+};
+
+exports.History = History;
+
+});
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('gcli/ui/focus', ['require', 'exports', 'module' , 'util/util', 'util/l10n', 'gcli/settings'], function(require, exports, module) {
+
+'use strict';
+
+var util = require('util/util');
+var l10n = require('util/l10n');
+var settings = require('gcli/settings');
+
+/**
+ * Record how much help the user wants from the tooltip
+ */
+var Eagerness = {
+  NEVER: 1,
+  SOMETIMES: 2,
+  ALWAYS: 3
+};
+
+/**
+ * Export the eagerHelper setting
+ */
+exports.items = [
+  {
+    item: 'setting',
+    name: 'eagerHelper',
+    type: {
+      name: 'selection',
+      lookup: [
+        { name: 'never', value: Eagerness.NEVER },
+        { name: 'sometimes', value: Eagerness.SOMETIMES },
+        { name: 'always', value: Eagerness.ALWAYS }
+      ]
+    },
+    defaultValue: Eagerness.SOMETIMES,
+    description: l10n.lookup('eagerHelperDesc'),
+    ignoreTypeDifference: true
+  }
+];
+
+/**
+ * FocusManager solves the problem of tracking focus among a set of nodes.
+ * The specific problem we are solving is when the hint element must be visible
+ * if either the command line or any of the inputs in the hint element has the
+ * focus, and invisible at other times, without hiding and showing the hint
+ * element even briefly as the focus changes between them.
+ * It does this simply by postponing the hide events by 250ms to see if
+ * something else takes focus.
+ * @param options Object containing user customization properties, including:
+ * - blurDelay (default=150ms)
+ * - debug (default=false)
+ * @param components Object that links to other UI components. GCLI provided:
+ * - document
+ * - requisition
+ */
+function FocusManager(options, components) {
+  options = options || {};
+
+  this.document = components.document || document;
+  this.requisition = components.requisition;
+
+  this.debug = options.debug || false;
+  this.blurDelay = options.blurDelay || 150;
+  this.window = this.document.defaultView;
+
+  this.requisition.commandOutputManager.onOutput.add(this._outputted, this);
+
+  this._blurDelayTimeout = null; // Result of setTimeout in delaying a blur
+  this._monitoredElements = [];  // See addMonitoredElement()
+
+  this._isError = false;
+  this._hasFocus = false;
+  this._helpRequested = false;
+  this._recentOutput = false;
+
+  this.onVisibilityChange = util.createEvent('FocusManager.onVisibilityChange');
+
+  this._focused = this._focused.bind(this);
+  this.document.addEventListener('focus', this._focused, true);
+
+  var eagerHelper = settings.getSetting('eagerHelper');
+  eagerHelper.onChange.add(this._eagerHelperChanged, this);
+
+  this.isTooltipVisible = undefined;
+  this.isOutputVisible = undefined;
+  this._checkShow();
+}
+
+/**
+ * Avoid memory leaks
+ */
+FocusManager.prototype.destroy = function() {
+  var eagerHelper = settings.getSetting('eagerHelper');
+  eagerHelper.onChange.remove(this._eagerHelperChanged, this);
+
+  this.document.removeEventListener('focus', this._focused, true);
+  this.requisition.commandOutputManager.onOutput.remove(this._outputted, this);
+
+  for (var i = 0; i < this._monitoredElements.length; i++) {
+    var monitor = this._monitoredElements[i];
+    console.error('Hanging monitored element: ', monitor.element);
+
+    monitor.element.removeEventListener('focus', monitor.onFocus, true);
+    monitor.element.removeEventListener('blur', monitor.onBlur, true);
+  }
+
+  if (this._blurDelayTimeout) {
+    this.window.clearTimeout(this._blurDelayTimeout);
+    this._blurDelayTimeout = null;
+  }
+
+  this._focused = undefined;
+  this.document = undefined;
+  this.window = undefined;
+  this.requisition = undefined;
+};
+
+/**
+ * The easy way to include an element in the set of things that are part of the
+ * aggregate focus. Using [add|remove]MonitoredElement() is a simpler way of
+ * option than calling report[Focus|Blur]()
+ * @param element The element on which to track focus|blur events
+ * @param where Optional source string for debugging only
+ */
+FocusManager.prototype.addMonitoredElement = function(element, where) {
+  if (this.debug) {
+    console.log('FocusManager.addMonitoredElement(' + (where || 'unknown') + ')');
+  }
+
+  var monitor = {
+    element: element,
+    where: where,
+    onFocus: function() { this._reportFocus(where); }.bind(this),
+    onBlur: function() { this._reportBlur(where); }.bind(this)
+  };
+
+  element.addEventListener('focus', monitor.onFocus, true);
+  element.addEventListener('blur', monitor.onBlur, true);
+
+  if (this.document.activeElement === element) {
+    this._reportFocus(where);
+  }
+
+  this._monitoredElements.push(monitor);
+};
+
+/**
+ * Undo the effects of addMonitoredElement()
+ * @param element The element to stop tracking
+ * @param where Optional source string for debugging only
+ */
+FocusManager.prototype.removeMonitoredElement = function(element, where) {
+  if (this.debug) {
+    console.log('FocusManager.removeMonitoredElement(' + (where || 'unknown') + ')');
+  }
+
+  var newMonitoredElements = this._monitoredElements.filter(function(monitor) {
+    if (monitor.element === element) {
+      element.removeEventListener('focus', monitor.onFocus, true);
+      element.removeEventListener('blur', monitor.onBlur, true);
+      return false;
+    }
+    return true;
+  });
+
+  this._monitoredElements = newMonitoredElements;
+};
+
+/**
+ * Monitor for new command executions
+ */
+FocusManager.prototype.updatePosition = function(dimensions) {
+  var ev = {
+    tooltipVisible: this.isTooltipVisible,
+    outputVisible: this.isOutputVisible,
+    dimensions: dimensions
+  };
+  this.onVisibilityChange(ev);
+};
+
+/**
+ * Monitor for new command executions
+ */
+FocusManager.prototype._outputted = function(ev) {
+  this._recentOutput = true;
+  this._helpRequested = false;
+  this._checkShow();
+};
+
+/**
+ * We take a focus event anywhere to be an indication that we might be about
+ * to lose focus
+ */
+FocusManager.prototype._focused = function() {
+  this._reportBlur('document');
+};
+
+/**
+ * Some component has received a 'focus' event. This sets the internal status
+ * straight away and informs the listeners
+ * @param where Optional source string for debugging only
+ */
+FocusManager.prototype._reportFocus = function(where) {
+  if (this.debug) {
+    console.log('FocusManager._reportFocus(' + (where || 'unknown') + ')');
+  }
+
+  if (this._blurDelayTimeout) {
+    if (this.debug) {
+      console.log('FocusManager.cancelBlur');
+    }
+    this.window.clearTimeout(this._blurDelayTimeout);
+    this._blurDelayTimeout = null;
+  }
+
+  if (!this._hasFocus) {
+    this._hasFocus = true;
+  }
+  this._checkShow();
+};
+
+/**
+ * Some component has received a 'blur' event. This waits for a while to see if
+ * we are going to get any subsequent 'focus' events and then sets the internal
+ * status and informs the listeners
+ * @param where Optional source string for debugging only
+ */
+FocusManager.prototype._reportBlur = function(where) {
+  if (this.debug) {
+    console.log('FocusManager._reportBlur(' + where + ')');
+  }
+
+  if (this._hasFocus) {
+    if (this._blurDelayTimeout) {
+      if (this.debug) {
+        console.log('FocusManager.blurPending');
+      }
+      return;
+    }
+
+    this._blurDelayTimeout = this.window.setTimeout(function() {
+      if (this.debug) {
+        console.log('FocusManager.blur');
+      }
+      this._hasFocus = false;
+      this._checkShow();
+      this._blurDelayTimeout = null;
+    }.bind(this), this.blurDelay);
+  }
+};
+
+/**
+ * The setting has changed
+ */
+FocusManager.prototype._eagerHelperChanged = function() {
+  this._checkShow();
+};
+
+/**
+ * The terminal tells us about keyboard events so we can decide to delay
+ * showing the tooltip element
+ */
+FocusManager.prototype.onInputChange = function() {
+  this._recentOutput = false;
+  this._checkShow();
+};
+
+/**
+ * Generally called for something like a F1 key press, when the user explicitly
+ * wants help
+ */
+FocusManager.prototype.helpRequest = function() {
+  if (this.debug) {
+    console.log('FocusManager.helpRequest');
+  }
+
+  this._helpRequested = true;
+  this._recentOutput = false;
+  this._checkShow();
+};
+
+/**
+ * Generally called for something like a ESC key press, when the user explicitly
+ * wants to get rid of the help
+ */
+FocusManager.prototype.removeHelp = function() {
+  if (this.debug) {
+    console.log('FocusManager.removeHelp');
+  }
+
+  this._importantFieldFlag = false;
+  this._isError = false;
+  this._helpRequested = false;
+  this._recentOutput = false;
+  this._checkShow();
+};
+
+/**
+ * Set to true whenever a field thinks it's output is important
+ */
+FocusManager.prototype.setImportantFieldFlag = function(flag) {
+  if (this.debug) {
+    console.log('FocusManager.setImportantFieldFlag', flag);
+  }
+  this._importantFieldFlag = flag;
+  this._checkShow();
+};
+
+/**
+ * Set to true whenever a field thinks it's output is important
+ */
+FocusManager.prototype.setError = function(isError) {
+  if (this.debug) {
+    console.log('FocusManager._isError', isError);
+  }
+  this._isError = isError;
+  this._checkShow();
+};
+
+/**
+ * Helper to compare the current showing state with the value calculated by
+ * _shouldShow() and take appropriate action
+ */
+FocusManager.prototype._checkShow = function() {
+  var fire = false;
+  var ev = {
+    tooltipVisible: this.isTooltipVisible,
+    outputVisible: this.isOutputVisible
+  };
+
+  var showTooltip = this._shouldShowTooltip();
+  if (this.isTooltipVisible !== showTooltip.visible) {
+    ev.tooltipVisible = this.isTooltipVisible = showTooltip.visible;
+    fire = true;
+  }
+
+  var showOutput = this._shouldShowOutput();
+  if (this.isOutputVisible !== showOutput.visible) {
+    ev.outputVisible = this.isOutputVisible = showOutput.visible;
+    fire = true;
+  }
+
+  if (fire) {
+    if (this.debug) {
+      console.log('FocusManager.onVisibilityChange', ev);
+    }
+    this.onVisibilityChange(ev);
+  }
+};
+
+/**
+ * Calculate if we should be showing or hidden taking into account all the
+ * available inputs
+ */
+FocusManager.prototype._shouldShowTooltip = function() {
+  if (!this._hasFocus) {
+    return { visible: false, reason: 'notHasFocus' };
+  }
+
+  var eagerHelper = settings.getSetting('eagerHelper');
+  if (eagerHelper.value === Eagerness.NEVER) {
+    return { visible: false, reason: 'eagerHelperNever' };
+  }
+
+  if (eagerHelper.value === Eagerness.ALWAYS) {
+    return { visible: true, reason: 'eagerHelperAlways' };
+  }
+
+  if (this._isError) {
+    return { visible: true, reason: 'isError' };
+  }
+
+  if (this._helpRequested) {
+    return { visible: true, reason: 'helpRequested' };
+  }
+
+  if (this._importantFieldFlag) {
+    return { visible: true, reason: 'importantFieldFlag' };
+  }
+
+  return { visible: false, reason: 'default' };
+};
+
+/**
+ * Calculate if we should be showing or hidden taking into account all the
+ * available inputs
+ */
+FocusManager.prototype._shouldShowOutput = function() {
+  if (!this._hasFocus) {
+    return { visible: false, reason: 'notHasFocus' };
+  }
+
+  if (this._recentOutput) {
+    return { visible: true, reason: 'recentOutput' };
+  }
+
+  return { visible: false, reason: 'default' };
+};
+
+exports.FocusManager = FocusManager;
+
+
+});
+define("text!gcli/ui/terminal.css", [], "\n" +
+  "/* Layout */\n" +
+  "\n" +
+  ".gcli-in-input,\n" +
+  ".gcli-in-complete,\n" +
+  ".gcli-prompt,\n" +
+  ".gcli-display {\n" +
+  "  position: absolute; top: 0; bottom: 0; left: 0; right: 0;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-in-top {\n" +
+  "  position: relative;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-display {\n" +
+  "  height: 100%;\n" +
+  "  overflow-x: hidden;\n" +
+  "  overflow-y: auto;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-in-input,\n" +
+  ".gcli-in-complete {\n" +
+  "  padding: 0;\n" +
+  "  background-color: transparent;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-in-input {\n" +
+  "  border: 0;\n" +
+  "  margin: 0;\n" +
+  "  outline: none;\n" +
+  "  width: 90%;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-in-complete {\n" +
+  "  color: transparent;\n" +
+  "  z-index: -1000;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-prompt {\n" +
+  "  z-index: -1001;\n" +
+  "  padding: 0 4px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-panel {\n" +
+  "  overflow-y: auto;\n" +
+  "  overflow-x: hidden;\n" +
+  "  z-index: 2;\n" +
+  "  max-height: 100%;\n" +
+  "  max-width: 350px;\n" +
+  "  left: 0;\n" +
+  "  bottom: 0;\n" +
+  "  margin-bottom: -3px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-panel-hide {\n" +
+  "  opacity: 0;\n" +
+  "  height: 0;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-tt-description {\n" +
+  "  padding: 5px 10px 0;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-tt-error {\n" +
+  "  padding: 0 10px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-field {\n" +
+  "  width: 100%;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-field-javascript {\n" +
+  "  margin-bottom: 0;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-tt {\n" +
+  "  margin: 0 0 10px 0;\n" +
+  "  padding-bottom: 5px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-in {\n" +
+  "  padding: 0 4px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-hover {\n" +
+  "  display: none;\n" +
+  "  float: right;\n" +
+  "  padding: 2px 2px 0;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-in:hover > .gcli-row-hover {\n" +
+  "  display: inline;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-in:hover > .gcli-row-hover.gcli-row-hidden {\n" +
+  "  display: none;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out {\n" +
+  "  margin: 0 10px 15px;\n" +
+  "  padding: 0 10px;\n" +
+  "  line-height: 1.2em;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out p {\n" +
+  "  margin: 5px 0;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out input[type=password],\n" +
+  ".gcli-row-out input[type=text],\n" +
+  ".gcli-row-out textarea {\n" +
+  "  background: transparent;\n" +
+  "  padding: 3px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out button {\n" +
+  "  background-color: transparent;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out table,\n" +
+  ".gcli-row-out td,\n" +
+  ".gcli-row-out th {\n" +
+  "  border: 0;\n" +
+  "  padding: 0 2px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-terminal {\n" +
+  "  height: 200px;\n" +
+  "  width: 620px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-subterminal {\n" +
+  "  height: 150px;\n" +
+  "  width: 300px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-out-shortcut {\n" +
+  "  padding: 0 3px 1px;\n" +
+  "  margin: 1px 4px;\n" +
+  "  display: inline-block;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-out-shortcut:before {\n" +
+  "  content: '\\bb';\n" +
+  "  padding-right: 2px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out a {\n" +
+  "  text-decoration: none;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out a:hover {\n" +
+  "  cursor: pointer;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-in > img {\n" +
+  "  cursor: pointer;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out button,\n" +
+  ".gcli-out-shortcut {\n" +
+  "  cursor: pointer;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-in-incomplete,\n" +
+  ".gcli-in-error {\n" +
+  "  border-bottom-width: 1px;\n" +
+  "  border-bottom-style: dotted;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out a:hover {\n" +
+  "  border-bottom-width: 1px;\n" +
+  "  border-bottom-style: dotted;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-tt {\n" +
+  "  border-radius: 5px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out input[type=password],\n" +
+  ".gcli-row-out input[type=text],\n" +
+  ".gcli-row-out textarea,\n" +
+  ".gcli-row-terminal,\n" +
+  ".gcli-row-subterminal {\n" +
+  "  border-width: 1px;\n" +
+  "  border-style: solid;\n" +
+  "  border-radius: 3px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out button,\n" +
+  ".gcli-out-shortcut {\n" +
+  "  border-width: 1px;\n" +
+  "  border-style: solid;\n" +
+  "  border-radius: 3px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-out-shortcut {\n" +
+  "  border-radius: 3px;\n" +
+  "}\n" +
+  "\n" +
+  "\n" +
+  "/* Fonts */\n" +
+  "\n" +
+  "@font-face {\n" +
+  "  font-family: 'Source Sans Pro';\n" +
+  "  font-style: normal;\n" +
+  "  font-weight: 400;\n" +
+  "  src: local('Source Sans Pro'), local('SourceSansPro-Regular'), url(http://themes.googleusercontent.com/static/fonts/sourcesanspro/v5/ODelI1aHBYDBqgeIAH2zlNHq-FFgoDNV3GTKpHwuvtI.woff) format('woff');\n" +
+  "}\n" +
+  "\n" +
+  "@font-face {\n" +
+  "  font-family: 'Source Sans Pro';\n" +
+  "  font-style: normal;\n" +
+  "  font-weight: 700;\n" +
+  "  src: local('Source Sans Pro Bold'), local('SourceSansPro-Bold'), url(http://themes.googleusercontent.com/static/fonts/sourcesanspro/v5/toadOcfmlt9b38dHJxOBGIqjGYJUyOXcBwUQbRaNH6c.woff) format('woff');\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-in-input,\n" +
+  ".gcli-in-complete,\n" +
+  ".gcli-prompt,\n" +
+  ".gcli-display,\n" +
+  ".gcli-panel,\n" +
+  ".gcli-row-out button {\n" +
+  "  font-family: 'Source Sans Pro', sans-serif;\n" +
+  "  font-weight: 400;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-prompt,\n" +
+  ".gcli-row-prompt,\n" +
+  ".gcli-out-shortcut:before {\n" +
+  "  font-weight: 700;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-in-top,\n" +
+  ".gcli-in-input {\n" +
+  "  height: 28px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-in-input,\n" +
+  ".gcli-in-complete,\n" +
+  ".gcli-prompt {\n" +
+  "  line-height: 28px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-in-input,\n" +
+  ".gcli-in-complete {\n" +
+  "  padding-left: 16px;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-prompt,\n" +
+  ".gcli-row-prompt {\n" +
+  "  font-size: 120%;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-out-shortcut:before {\n" +
+  "  font-size: 110%;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-in-input,\n" +
+  ".gcli-in-complete {\n" +
+  "  font-size: 100%;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out {\n" +
+  "  font-size: 90%;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-tt-description {\n" +
+  "  font-size: 90%;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-tt-error {\n" +
+  "  font-size: 80%;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-duration {\n" +
+  "  font-size: 80%;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-terminal {\n" +
+  "  font-size: 80%;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-out button,\n" +
+  ".gcli-out-shortcut {\n" +
+  "  font-size: 80%;\n" +
+  "}\n" +
+  "\n" +
+  ".gcli-row-subterminal {\n" +
+  "  font-size: 75%;\n" +
+  "}\n" +
+  "\n" +
+  "\n" +
+  "/* Dark Theme */\n" +
+  "\n" +
+  "body.dark,\n" +
+  ".dark .theme-body {\n" +
+  "  background: #131c26;\n" +
+  "  background-image: url(\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFgAAABYBAMAAACDuy0HAAAAG1BMVEX+/v4BAQH///8KCgoDAwN/f3/19fWAgID8/PzhDwT2AAAACXRSTlMFBQUFBQUFBQWHDtP9AAALwklEQVR4Xg3KOWOyWhAA0Bn2ci57eXEvQY1JCZp8sQTjVoJLTAkaE0swbj/7ve4UB37FLW4q86Lwwlh86J/ASAkpWaj+Krbb31HzH0Kjc2tIl7SADaWbpZBPE5dds6jJNyNdjAyKWqdroIixWRQIY6E/kOY7hIciL/ZfrAO3XP/06AuUJ3mSd/z95OB9vIal0DPlaZWHP7RE6DIXjmKqKkuGr+xNZylOnj1GSlUKvnxZDBOIzTfMe0fJgJ7c/GIIOdUuKxYyBFUOzvY6AC5AXx8R+o5O4S0j0wqBND3ErIYm/XHFbQjtH1MXD5dUbp19OFdjkDlys+HSwrBgHRvL9wVN/pi8ViOIwcv/D1GRW6UuDvJLLQA5lCI17iUdsKYpOuYfMATGnpn/Zs3W6gov51G+/Vs9Ay//we5kh8uwvEPum6o5HkDMDb3ZWunwtq+UzENU8NphDdbvNtKM3knx5gi6UMSQl+eGs+27mraDtxeWdH+T62Us/GylEtr7Ct8jlbeXKvAf5onx8D2uVt1J/GblV+XQyKUInOUG44fqjcszK266yHWAAYG9ekhvy4l4Maa44jYVyV2RFEuS54e2HcswtmNdqR/+V4P0O9e4XnpWgxVSQkNXpYMCxJ4Vel0lmi56jnYIIJAQMndF+zTEiyuj92r3ijJT1O0alPQnLWJvJLR7Xx7Xg9fm9QOqFu8o29m3QQqFwZN4bki/RoprNtMKKtEET9iMsJyKpkiguAorn2yzkv0wG3M1EEVDJP5VN7muLjYCglzdGQ7boYGgRmorzhRDq83gglgylC+hBLEyy6ZQWNwCmmqt6PvExAqGEA9V2XIT4/fS+I2cx1n5td85kOCjHfPWTg72FJ/+vKOyggt+rytFbEDJWL+mPwpgw6HtFLIHmq4o2m1nZ9saKwiKEOTVZtWlnqHODPu949VfKD+zzpfynd/ZZU5IWZ0dgnqRHC4uOBpBsT8N7YbFJzADiW2eo/T979OKFxY8zk/+HR/NNEkzgSBsmA35Sayz1m/ubxgmYQOmffyRh9gdx42mUVX512oqWkfxAzyuSCxx1cywx3jIXuXJEEbssymo0xMy7SskJW9C5IPYroPwQunt7f5FEPPXJLWRbGHcL4Q3sx3TLAN6W672r/I5CKkL6zSwwk0AI8+iBCSv1Y7QQP5RSoLE227uy8vn22Y6dhLBgEsRh18cTGjIv3y+60Kmt3YAZQX8qf3bJDUc/5pdjti+KwAZ9GzzQzd23d1JBAnSvWkWB8YfsIGlspHitNiMPYPFfR+OecRuPyxgfoP9/HkR3cR27IohiaDXCk/3VNP6lIxP9TBnsMeAAUZloq6P8KURLBsNFuiA3LsN/d9qpCeKKIBgSzsN5k+rdh3uh0VbvMuOIomJD1fBOiCqIsvklS5bOQhMaahJC+Rc+6lz+Uvxmq05Py+LoGIQlLKvlcaHsFG9Ui66H/qdHz67sPRGho+ruC92QgN5JEMmLsZREEiJu78FJbyzT8FsdK90XoEcezn2R5iLUzZhczJmf1yNY3gJNJUQvbpTznTAbnV5J8iL4q2OWuhJEndWVTyEr8M5VGTWtvOmUo1DsnOsqXE5ZzKE8K4/8cl8+c1XArp1RUKz+iKP96j2FcUmA+v0HnEr0iUdSrRK5duAj1FQamvpiaXR2JddD6g8n4SyFx/fjT4LkC+ghJckj1e1wP+DrHrpIiMaPH5F1rcaRvwZWfEn6fx+/C7PdXABGLNKjr1USZ5XyHjsafXMEoXtguAfjykMioMMHISXVAc9yQY5o5Qg8MM0nhWCA2HoiEgBc1EH+warLjxH3Ln68M/ciFqI1bG0mBOxiNreOuShEf/9pIzhm1Bh2cbYVxn2IYQ7eljYpab/5EdPF2PSmcy+62j6e2HBPNbe+8JVMuRQBrWdL9uBh4bYbQaQJ07FyfcpCuvSuxUyYjP6avvw9gTcAj0uTVohSwOHDDaHTs8nyachMBcWoVDWp3/lWgqeCLMneAUhSuhD2RJpufLOSi7emxOVhYsOGomV2JCEKjWu7kuqwueyFEmDgVhR0l4oHn8W87UZuxb8id54SxHWiSnPKnMyAhzdhi2wN/AoH3OYwLajuybB8h/QeJJiX1gIt+dfij+gr0CJRXQ2Y04Q6q8xHzfWm9FIgchiW0+X86tIotIGzRG1gENaKokQkLn+FXZ2x3KUcp7d/NUsmOmFCG/i03YB8pi0eiNS4LUIfA06AKvfQmP/VAXS1AP2kzJ+9LAaTafvFyO7bz8U9OCpld2q1eHGts+ZFrt04AmIlubOPP7Xayfi/r0tiX2aaPT9Dz4+TVPBoXsjHDzWfrmawOsZfmBT/k2+c6sz/hvD5wjrjT7XgRlnEzPuZermi1jqfUrE3q7VdFfJu5oT9Ad+VUh1fIwIFhBy8TmMuhIeX2XpmogmvS1C3ZuwiyR87ZSrj0Jv1DpEAYkbcL3RpjZXmZpPV4mXH8z8Nh8CS+R+PpcTnkhyr5UJaSiz0wjK22Ewl+zS+pTug0PQ0CSnJQ5LfdR77vVZufgjkQ/ydf4V5zpEaNq+JZmrQK6WdZBacmMHL9RmLnPUs0/MYwYFzoyrXYQMTHGAUJOfumR5r79MZO28DIEXQVT5wGw99TY1T0GOCC/BzWv8READwICd0LjUNKnE6ORVa0lOnqhoO0v33lwWcwF0ynTgTpFxy+0OKdphNDWJlH8ubKoG6WJXtKxAwbsilpBJB+GBwimvTsCrv1R7LSX9ExkAw44ZEcxU3L50OHnKAyKZNe1fih+hVqItRGCDf7shuvme+lTWteX5oYuc58NrCaqjYIrIV0PFyQeh2ZzZEqNS60LuhnP5wweMkkaU93pDA/RWPNeGpPCBgiUeDvV0L1NfdRP/Hn5i7rUK7kftlIWeIUIYbtzzFl9nlIeaNfoX+x/qyWzIABLTZDbeq/hDZpxg2gkh+ICfSU8OUpJ8yWY17uQ5EGa+GGWFmnrBd9vX3KOteYkJaMpPwJ4TjzDjbhkOMKmWKClzVJ2g81YGFl/c0xPIKncgJGdUKvZoUUJu0gYaIAh6E0xNeQ15qpJXzNITgf4W+w/oUaKOM54EMUi1j5yvOCsEe8JYpwVGj53lNiPMY9Rltgd4icp82fvN69zkSBUI40nJSRTeHz7h1IX42Cr0klWjxjO05MSX1IaTeDmTRGEeKvAvtaaBaLQnjftGJz+4cjFyy6/iCjLGF2/gW+jQhEUxbEBPyQzXi+Bb4kc9wK4jIwNLWbwQAOtYKRLaipDH+X4TPPOG8DCNY4IC9yBk1qcibjhUgRnDcf35pl9d5otbvQjOIXlEu5dVtm5LRaK5KWcD/PX6LaGd25CuNHG/vgeIB1kcpCme+J8idlcjfBALAJSggznsGHGOAJgdGduMnZg+bAaeGASGV9bh/X2wPsVTmBLxmTTQsBGFkEOkZJTsGAm+HrtMDbWwvTXOutX1u7BxIq9Xib6DkFMbUitNdrYsULkahsAhBEh9FjdzL9BNARxTSr7T3u1rE+IWUmCIpwTZHZCu5l9THCuCcOhZqfekuQxjQ7EoyGUJAwCv/q1JOuJeCc/3lknb76zAquO/DAQhK/62cP8X2s3+IBLIhvL8RHopoHpIArJysYTTmMMeubPXh8W760AvMVH67jqgg06+/ne5MZ631z6yROhloh3dPQirZoEpr80wgt/cEbhbAQTmRLtGh8lxCwDBBb5OeJ4aEq25XBNMT2rzWedW2zIzj+CCDKlnlyJBzT81qBWp69h7vlb3TmEV+DNm2rqj1iT7BQuwVVsuPkwq1e5P8tgNjVbIlMzwXeM11kZqjx3KKFOJzc3CAyFVhi8fxVZ5FvhdAM5mM6kS6OgKu16MFglq3/b/QVIwdw7HUCyeW04JPjC5dO+GC9OfqfB4VX+wwuift+ths2Ss3i6nkOE+JFyD+wKFL+WMX6nwwDva0S1/O8Mlnida69Ph96fuFvCoRMvXnCfsLPPmC/hA5RnMNE4fDK0pVOQ4BHLaErzv/wD99ABmjNZk0AAAAABJRU5ErkJggg==\");\n" +
+  "}\n" +
+  "  .dark .theme-body,\n" +
+  "  body.dark,\n" +
+  "  .dark .gcli-row-out strong,\n" +
+  "  .dark .gcli-row-out b,\n" +
+  "  .dark .gcli-row-out th,\n" +
+  "  .dark .gcli-row-out h1,\n" +
+  "  .dark .gcli-row-out h2,\n" +
+  "  .dark .gcli-row-out h3 {\n" +
+  "    color: #8fa1b2;\n" +
+  "  }\n" +
+  "  .dark .gcli-in-input,\n" +
+  "  .dark .gcli-row-in-typed,\n" +
+  "  .dark .gcli-out-shortcut,\n" +
+  "  .dark .gcli-row-out button {\n" +
+  "    color: white;\n" +
+  "  }\n" +
+  "\n" +
+  "body.light,\n" +
+  ".light .theme-body {\n" +
+  "  background: white;\n" +
+  "  color: black;\n" +
+  "}\n" +
+  "  .light .theme-body,\n" +
+  "  body.light,\n" +
+  "  .light .gcli-row-out strong,\n" +
+  "  .light .gcli-row-out b,\n" +
+  "  .light .gcli-row-out th,\n" +
+  "  .light .gcli-row-out h1,\n" +
+  "  .light .gcli-row-out h2,\n" +
+  "  .light .gcli-row-out h3 {\n" +
+  "    color: #303b47;\n" +
+  "  }\n" +
+  "  .light .gcli-in-input,\n" +
+  "  .light .gcli-row-in-typed,\n" +
+  "  .light .gcli-out-shortcut,\n" +
+  "  .light .gcli-row-out button {\n" +
+  "    color: black;\n" +
+  "  }\n" +
+  "\n" +
+  ".dark ::selection,\n" +
+  ".dark ::-moz-selection,\n" +
+  ".dark .theme-selected {\n" +
+  "  background-color: #26394D;\n" +
+  "}\n" +
+  "\n" +
+  ".light ::selection,\n" +
+  ".light ::-moz-selection,\n" +
+  ".light .theme-selected {\n" +
+  "  background-color: #CCC;\n" +
+  "}\n" +
+  "\n" +
+  ".dark .theme-link,\n" +
+  ".dark .gcli-row-out a {\n" +
+  "  color: #3689b2; /* blue */\n" +
+  "}\n" +
+  "\n" +
+  ".light .theme-link,\n" +
+  ".light .gcli-row-out a {\n" +
+  "  color: hsl(208,56%,40%); /* blue */\n" +
+  "}\n" +
+  "\n" +
+  ".dark .theme-comment {\n" +
+  "  color: #5c6773; /* grey */\n" +
+  "}\n" +
+  "\n" +
+  ".light .theme-comment {\n" +
+  "  color: hsl(90,2%,46%); /* grey */\n" +
+  "}\n" +
+  "\n" +
+  ".dark .theme-gutter {\n" +
+  "  background-color: #0f171f;\n" +
+  "  color: #667380;\n" +
+  "  border-color: #303b47;\n" +
+  "}\n" +
+  "\n" +
+  ".light .theme-gutter {\n" +
+  "  background-color: hsl(0,0%,90%);\n" +
+  "  color: #667380;\n" +
+  "  border-color: hsl(0,0%,65%);\n" +
+  "}\n" +
+  "\n" +
+  ".dark .theme-separator {\n" +
+  "  border-color: #303b47; /* grey */\n" +
+  "}\n" +
+  "\n" +
+  ".light .theme-separator {\n" +
+  "  border-color: #cddae5; /* grey */\n" +
+  "}\n" +
+  "\n" +
+  ".dark .theme-fg-color1,\n" +
+  ".dark .gcli-row-prompt.gcli-row-complete {\n" +
+  "  color: #5c9966; /* green */\n" +
+  "}\n" +
+  "\n" +
+  ".light .theme-fg-color1,\n" +
+  ".light .gcli-row-prompt.gcli-row-complete {\n" +
+  "  color: hsl(72,100%,27%) /* green */;\n" +
+  "}\n" +
+  "\n" +
+  ".dark .theme-fg-color2 {\n" +
+  "  color: #3689b2; /* blue */\n" +
+  "}\n" +
+  "  .dark .gcli-in-ontab {\n" +
+  "    color: hsl(211.6, 33.3%, 25%);\n" +
+  "  }\n" +
+  "\n" +
+  ".light .theme-fg-color2,\n" +
+  ".light .gcli-in-ontab {\n" +
+  "  color: hsl(208,56%,40%); /* blue */\n" +
+  "}\n" +
+  "\n" +
+  ".dark .theme-fg-color3 {\n" +
+  "  color: #a673bf; /* pink/lavender */\n" +
+  "}\n" +
+  "\n" +
+  ".light .theme-fg-color3 {\n" +
+  "  color: hsl(208,81%,21%) /* dark blue */\n" +
+  "}\n" +
+  "\n" +
+  ".dark .theme-fg-color4,\n" +
+  ".dark .gcli-row-prompt {\n" +
+  "  color: #6270b2; /* purple/violet */\n" +
+  "}\n" +
+  "\n" +
+  ".light .theme-fg-color4,\n" +
+  ".light .gcli-row-prompt {\n" +
+  "  color: hsl(24,85%,39%); /* Orange */\n" +
+  "}\n" +
+  "\n" +
+  ".dark .theme-fg-color5 {\n" +
+  "  color: #a18650; /* Yellow */\n" +
+  "}\n" +
+  ".dark .gcli-in-todo {\n" +
+  "  color: hsl(211.6, 33.3%, 0%);\n" +
+  "}\n" +
+  "\n" +
+  ".light .theme-fg-color5,\n" +
+  ".light .gcli-in-todo {\n" +
+  "  color: #a18650; /* Yellow */\n" +
+  "}\n" +
+  "\n" +
+  ".dark .theme-fg-color6,\n" +
+  ".dark .gcli-out-shortcut:before {\n" +
+  "  color: #b26b47; /* Orange */\n" +
+  "}\n" +
+  "\n" +
+  ".light .theme-fg-color6,\n" +
+  ".light .gcli-out-shortcut:before {\n" +
+  "  color: hsl(24,85%,39%); /* Orange */\n" +
+  "}\n" +
+  "\n" +
+  ".dark .theme-fg-color7,\n" +
+  ".dark .gcli-row-prompt.gcli-row-error {\n" +
+  "  color: #bf5656; /* Red */\n" +
+  "}\n" +
+  "  .dark .gcli-in-error {\n" +
+  "    border-bottom-color: #bf5656;\n" +
+  "  }\n" +
+  "\n" +
+  ".light .theme-fg-color7,\n" +
+  ".light .gcli-row-prompt.gcli-row-error {\n" +
+  "  color: #bf5656; /* Red */\n" +
+  "}\n" +
+  "  .light .gcli-in-error {\n" +
+  "    border-bottom-color: #bf5656;\n" +
+  "  }\n" +
+  "\n" +
+  ".dark .gcli-tt {\n" +
+  "  background-color: rgba(0, 0, 0, 0.14);\n" +
+  "}\n" +
+  "\n" +
+  ".light .gcli-tt {\n" +
+  "  background-color: rgba(0, 0, 0, 0.1);\n" +
+  "}\n" +
+  "\n" +
+  ".dark .gcli-row-out button,\n" +
+  ".dark .gcli-out-shortcut {\n" +
+  "  border-color: #333;\n" +
+  "}\n" +
+  "\n" +
+  ".light .gcli-row-out button,\n" +
+  ".light .gcli-out-shortcut {\n" +
+  "  border-color: #ccc;\n" +
+  "}\n" +
+  "");
+
+define("text!gcli/ui/terminal.html", [], "\n" +
+  "<div>\n" +
+  "  <div save=\"${displayElement}\" class=\"gcli-display\">\n" +
+  "    <!-- Sub template used for each executed command -->\n" +
+  "    <div>\n" +
+  "      <!-- The div for the input (i.e. what was typed) -->\n" +
+  "      <div class=\"gcli-row-in\" save=\"${elems.rowin}\" aria-live=\"assertive\"\n" +
+  "          onclick=\"${onclick}\" ondblclick=\"${ondblclick}\"\n" +
+  "          data-command=\"${output.canonical}\">\n" +
+  "        <!-- What the user actually typed -->\n" +
+  "        <span save=\"${elems.prompt}\" class=\"gcli-row-prompt ${elems.error ? 'gcli-row-error' : ''} ${elems.completed ? 'gcli-row-complete' : ''}\">${prompt}</span>\n" +
+  "        <span class=\"gcli-row-in-typed\">${output.typed}</span>\n" +
+  "        <!-- The extra details that appear on hover -->\n" +
+  "        <span class=\"gcli-row-duration gcli-row-hover theme-comment\" save=\"${elems.duration}\"></span>\n" +
+  "        <img style=\"float:right;\" _src=\"${url('images/throbber.gif')}\" save=\"${elems.throb}\"/>\n" +
+  "      </div>\n" +
+  "      <!-- The div for the command output -->\n" +
+  "      <div class=\"gcli-row-out\" aria-live=\"assertive\" save=\"${elems.rowout}\">\n" +
+  "      </div>\n" +
+  "    </div>\n" +
+  "    <div class=\"gcli-in-top\">\n" +
+  "      <input save=\"${inputElement}\" class=\"gcli-in-input\" type=\"text\" autofocus=\"autofocus\" spellcheck=\"false\">\n" +
+  "      <div save=\"${completeElement}\" class=\"gcli-in-complete\" tabindex=\"-1\" aria-live=\"polite\">\n" +
+  "        <!-- Sub template used to show completion -->\n" +
+  "        <div>\n" +
+  "          <loop foreach=\"member in ${statusMarkup}\">\n" +
+  "            <span class=\"${member.className}\">${member.string}</span>\n" +
+  "          </loop>\n" +
+  "          <span class=\"gcli-in-ontab\">${directTabText}</span>\n" +
+  "          <span class=\"gcli-in-todo\" foreach=\"param in ${emptyParameters}\">${param}</span>\n" +
+  "          <span class=\"gcli-in-ontab\">${arrowTabText}</span>\n" +
+  "          <span class=\"gcli-in-closebrace theme-comment\" if=\"${unclosedJs}\">}</span>\n" +
+  "        </div>\n" +
+  "      </div>\n" +
+  "      <div save=\"${promptElement}\" class=\"gcli-prompt theme-fg-color6\">»</div>\n" +
+  "    </div>\n" +
+  "    <div save=\"${panelElement}\" class=\"gcli-panel\">\n" +
+  "      <div save=\"${tooltipElement}\" class=\"gcli-tooltip\">\n" +
+  "        <!-- Sub template used for popup hints -->\n" +
+  "        <div class=\"gcli-tt\" aria-live=\"polite\">\n" +
+  "          <div save=\"${descriptionEle}\" class=\"gcli-tt-description\">${description}</div>\n" +
+  "          ${field.element}\n" +
+  "          <div save=\"${errorEle}\" class=\"gcli-tt-error theme-fg-color7\">${assignment.conversion.message}</div>\n" +
+  "          <div class=\"gcli-tt-highlight\"></div>\n" +
+  "        </div>\n" +
+  "      </div>\n" +
+  "    </div>\n" +
+  "  </div>\n" +
+  "</div>\n" +
+  "\n" +
+  "<!-- Templates are loaded by GCLI using an XML parser which only accepts a\n" +
+  "single root node, so this is ignored, but useful for previewing templates -->\n" +
+  "<link rel=\"stylesheet\" type=\"text/css\" href=\"terminal.css\"/>\n" +
+  "");
+
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 define('gcli/types/selection', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'util/l10n', 'util/spell', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
 
 'use strict';
@@ -5120,7 +10215,7 @@ SelectionType.prototype.stringify = function(value, context) {
  * data. clearCache() enables the cache to be cleared.
  */
 SelectionType.prototype.clearCache = function() {
-  delete this._cachedLookup;
+  this._cachedLookup = undefined;
 };
 
 /**
@@ -6112,43 +11207,6 @@ var Type = require('gcli/types').Type;
 var Status = require('gcli/types').Status;
 var Conversion = require('gcli/types').Conversion;
 
-
-function DateType(typeSpec) {
-  // ECMA 5.1 §15.9.1.1
-  // @see http://stackoverflow.com/questions/11526504/minimum-and-maximum-date
-  typeSpec = typeSpec || {};
-
-  this._step = typeSpec.step || 1;
-  this._min = new Date(-8640000000000000);
-  this._max = new Date(8640000000000000);
-
-  if (typeSpec.min != null) {
-    if (typeof typeSpec.min === 'string') {
-      this._min = toDate(typeSpec.min);
-    }
-    else if (isDate(typeSpec.min) || typeof typeSpec.min === 'function') {
-      this._min = typeSpec.min;
-    }
-    else {
-      throw new Error('date min value must be a string a date or a function');
-    }
-  }
-
-  if (typeSpec.max != null) {
-    if (typeof typeSpec.max === 'string') {
-      this._max = toDate(typeSpec.max);
-    }
-    else if (isDate(typeSpec.max) || typeof typeSpec.max === 'function') {
-      this._max = typeSpec.max;
-    }
-    else {
-      throw new Error('date max value must be a string a date or a function');
-    }
-  }
-}
-
-DateType.prototype = Object.create(Type.prototype);
-
 /**
  * Helper for stringify() to left pad a single digit number with a single '0'
  * so 1 -> '01', 42 -> '42', etc.
@@ -6157,163 +11215,6 @@ function pad(number) {
   var r = String(number);
   return r.length === 1 ? '0' + r : r;
 }
-
-DateType.prototype.stringify = function(value) {
-  if (!isDate(value)) {
-    return '';
-  }
-
-  var str = pad(value.getFullYear()) + '-' +
-            pad(value.getMonth() + 1) + '-' +
-            pad(value.getDate());
-
-  // Only add in the time if it's not midnight
-  if (value.getHours() !== 0 || value.getMinutes() !== 0 ||
-      value.getSeconds() !== 0 || value.getMilliseconds() !== 0) {
-
-    // What string should we use to separate the date from the time?
-    // There are 3 options:
-    // 'T': This is the standard from ISO8601. i.e. 2013-05-20T11:05
-    //      The good news - it's a standard. The bad news - it's weird and
-    //      alien to many if not most users
-    // ' ': This looks nicest, but needs escaping (which GCLI will do
-    //      automatically) so it would look like: '2013-05-20 11:05'
-    //      Good news: looks best, bad news: on completion we place the cursor
-    //      after the final ', so repeated increment/decrement doesn't work
-    // '\ ': It's possible that we could find a way to use a \ to escape the
-    //      space, so the output would look like: 2013-05-20\ 11:05
-    //      This would involve changes to a number of parts, and is probably
-    //      too complex a solution for this problem for now
-    // In the short term I'm going for ' ', and raising the priority of cursor
-    // positioning on actions like increment/decrement/tab.
-
-    str += ' ' + pad(value.getHours());
-    str += ':' + pad(value.getMinutes());
-
-    // Only add in seconds/milliseconds if there is anything to report
-    if (value.getSeconds() !== 0 || value.getMilliseconds() !== 0) {
-      str += ':' + pad(value.getSeconds());
-      if (value.getMilliseconds() !== 0) {
-        str += '.' + String((value.getUTCMilliseconds()/1000).toFixed(3)).slice(2, 5);
-      }
-    }
-  }
-
-  return str;
-};
-
-DateType.prototype.getMin = function(context) {
-  if (typeof this._min === 'function') {
-    return this._min(context);
-  }
-  if (isDate(this._min)) {
-    return this._min;
-  }
-  return undefined;
-};
-
-DateType.prototype.getMax = function(context) {
-  if (typeof this._max === 'function') {
-    return this._max(context);
-  }
-  if (isDate(this._max)) {
-    return this._max;
-  }
-  return undefined;
-};
-
-DateType.prototype.parse = function(arg, context) {
-  var value;
-
-  if (arg.text.replace(/\s/g, '').length === 0) {
-    return promise.resolve(new Conversion(undefined, arg, Status.INCOMPLETE, ''));
-  }
-
-  // Lots of room for improvement here: 1h ago, in two days, etc.
-  // Should "1h ago" dynamically update the step?
-  if (arg.text.toLowerCase() === 'now' || arg.text.toLowerCase() === 'today') {
-    value = new Date();
-  }
-  else if (arg.text.toLowerCase() === 'yesterday') {
-    value = new Date();
-    value.setDate(value.getDate() - 1);
-  }
-  else if (arg.text.toLowerCase() === 'tomorrow') {
-    value = new Date();
-    value.setDate(value.getDate() + 1);
-  }
-  else {
-    // So now actual date parsing.
-    // Javascript dates are a mess. Like the default date libraries in most
-    // common languages, but with added browser weirdness.
-    // There is an argument for saying that the user will expect dates to be
-    // formatted as JavaScript dates, except that JS dates are of themselves
-    // very unexpected.
-    // See http://blog.dygraphs.com/2012/03/javascript-and-dates-what-mess.html
-
-    // The timezone used by Date.parse depends on whether or not the string
-    // can be interpreted as ISO-8601, so "2000-01-01" is not the same as
-    // "2000/01/01" (unless your TZ aligns with UTC) because the first is
-    // ISO-8601 and therefore assumed to be UTC, where the latter is assumed to
-    // be in the local timezone.
-
-    // First, if the user explicitly includes a 'Z' timezone marker, then we
-    // assume they know what they are doing with timezones. ISO-8601 uses 'Z'
-    // as a marker for 'Zulu time', zero hours offset i.e. UTC
-    if (arg.text.indexOf('Z') !== -1) {
-      value = new Date(arg.text);
-    }
-    else {
-      // Now we don't want the browser to assume ISO-8601 and therefore use UTC
-      // so we replace the '-' with '/'
-      value = new Date(arg.text.replace(/-/g, '/'));
-    }
-
-    if (isNaN(value.getTime())) {
-      var msg = l10n.lookupFormat('typesDateNan', [ arg.text ]);
-      return promise.resolve(new Conversion(undefined, arg, Status.ERROR, msg));
-    }
-  }
-
-  return promise.resolve(new Conversion(value, arg));
-};
-
-DateType.prototype.decrement = function(value, context) {
-  if (!isDate(value)) {
-    return new Date();
-  }
-
-  var newValue = new Date(value);
-  newValue.setDate(value.getDate() - this._step);
-
-  if (newValue >= this.getMin(context)) {
-    return newValue;
-  }
-  else {
-    return this.getMin(context);
-  }
-};
-
-DateType.prototype.increment = function(value, context) {
-  if (!isDate(value)) {
-    return new Date();
-  }
-
-  var newValue = new Date(value);
-  newValue.setDate(value.getDate() + this._step);
-
-  if (newValue <= this.getMax(context)) {
-    return newValue;
-  }
-  else {
-    return this.getMax();
-  }
-};
-
-DateType.prototype.name = 'date';
-
-exports.items = [ DateType ];
-
 
 /**
  * Utility to convert a string to a date, throwing if the date can't be
@@ -6335,6 +11236,198 @@ function isDate(thing) {
   return Object.prototype.toString.call(thing) === '[object Date]'
           && !isNaN(thing.getTime());
 }
+
+exports.items = [
+  {
+    // ECMA 5.1 §15.9.1.1
+    // @see http://stackoverflow.com/questions/11526504/minimum-and-maximum-date
+    item: 'type',
+    name: 'date',
+    step: 1,
+    min: new Date(-8640000000000000),
+    max: new Date(8640000000000000),
+
+    constructor: function() {
+      if (this.min != null) {
+        if (typeof this.min === 'string') {
+          this.min = toDate(this.min);
+        }
+        else if (isDate(this.min) || typeof this.min === 'function') {
+          this.min = this.min;
+        }
+        else {
+          throw new Error('date min value must be one of string/date/function');
+        }
+      }
+
+      if (this.max != null) {
+        if (typeof this.max === 'string') {
+          this.max = toDate(this.max);
+        }
+        else if (isDate(this.max) || typeof this.max === 'function') {
+          this.max = this.max;
+        }
+        else {
+          throw new Error('date max value must be one of string/date/function');
+        }
+      }
+    },
+
+    stringify: function(value, context) {
+      if (!isDate(value)) {
+        return '';
+      }
+
+      var str = pad(value.getFullYear()) + '-' +
+                pad(value.getMonth() + 1) + '-' +
+                pad(value.getDate());
+
+      // Only add in the time if it's not midnight
+      if (value.getHours() !== 0 || value.getMinutes() !== 0 ||
+          value.getSeconds() !== 0 || value.getMilliseconds() !== 0) {
+
+        // What string should we use to separate the date from the time?
+        // There are 3 options:
+        // 'T': This is the standard from ISO8601. i.e. 2013-05-20T11:05
+        //      The good news - it's a standard. The bad news - it's weird and
+        //      alien to many if not most users
+        // ' ': This looks nicest, but needs escaping (which GCLI will do
+        //      automatically) so it would look like: '2013-05-20 11:05'
+        //      Good news: looks best, bad news: on completion we place the
+        //      cursor after the final ', breaking repeated increment/decrement
+        // '\ ': It's possible that we could find a way to use a \ to escape
+        //      the space, so the output would look like: 2013-05-20\ 11:05
+        //      This would involve changes to a number of parts, and is
+        //      probably too complex a solution for this problem for now
+        // In the short term I'm going for ' ', and raising the priority of
+        // cursor positioning on actions like increment/decrement/tab.
+
+        str += ' ' + pad(value.getHours());
+        str += ':' + pad(value.getMinutes());
+
+        // Only add in seconds/milliseconds if there is anything to report
+        if (value.getSeconds() !== 0 || value.getMilliseconds() !== 0) {
+          str += ':' + pad(value.getSeconds());
+          if (value.getMilliseconds() !== 0) {
+            var milliVal = (value.getUTCMilliseconds() / 1000).toFixed(3);
+            str += '.' + String(milliVal).slice(2, 5);
+          }
+        }
+      }
+
+      return str;
+    },
+
+    getMax: function(context) {
+      if (typeof this.max === 'function') {
+        return this._max(context);
+      }
+      if (isDate(this.max)) {
+        return this.max;
+      }
+      return undefined;
+    },
+
+    getMin: function(context) {
+      if (typeof this.min === 'function') {
+        return this._min(context);
+      }
+      if (isDate(this.min)) {
+        return this.min;
+      }
+      return undefined;
+    },
+
+    parse: function(arg, context) {
+      var value;
+
+      if (arg.text.replace(/\s/g, '').length === 0) {
+        return promise.resolve(new Conversion(undefined, arg, Status.INCOMPLETE, ''));
+      }
+
+      // Lots of room for improvement here: 1h ago, in two days, etc.
+      // Should "1h ago" dynamically update the step?
+      if (arg.text.toLowerCase() === 'now' ||
+          arg.text.toLowerCase() === 'today') {
+        value = new Date();
+      }
+      else if (arg.text.toLowerCase() === 'yesterday') {
+        value = new Date();
+        value.setDate(value.getDate() - 1);
+      }
+      else if (arg.text.toLowerCase() === 'tomorrow') {
+        value = new Date();
+        value.setDate(value.getDate() + 1);
+      }
+      else {
+        // So now actual date parsing.
+        // Javascript dates are a mess. Like the default date libraries in most
+        // common languages, but with added browser weirdness.
+        // There is an argument for saying that the user will expect dates to
+        // be formatted as JavaScript dates, except that JS dates are of
+        // themselves very unexpected.
+        // See http://blog.dygraphs.com/2012/03/javascript-and-dates-what-mess.html
+
+        // The timezone used by Date.parse depends on whether or not the string
+        // can be interpreted as ISO-8601, so "2000-01-01" is not the same as
+        // "2000/01/01" (unless your TZ aligns with UTC) because the first is
+        // ISO-8601 and therefore assumed to be UTC, where the latter is
+        // assumed to be in the local timezone.
+
+        // First, if the user explicitly includes a 'Z' timezone marker, then
+        // we assume they know what they are doing with timezones. ISO-8601
+        // uses 'Z' as a marker for 'Zulu time', zero hours offset i.e. UTC
+        if (arg.text.indexOf('Z') !== -1) {
+          value = new Date(arg.text);
+        }
+        else {
+          // Now we don't want the browser to assume ISO-8601 and therefore use
+          // UTC so we replace the '-' with '/'
+          value = new Date(arg.text.replace(/-/g, '/'));
+        }
+
+        if (isNaN(value.getTime())) {
+          var msg = l10n.lookupFormat('typesDateNan', [ arg.text ]);
+          return promise.resolve(new Conversion(undefined, arg, Status.ERROR, msg));
+        }
+      }
+
+      return promise.resolve(new Conversion(value, arg));
+    },
+
+    decrement: function(value, context) {
+      if (!isDate(value)) {
+        return new Date();
+      }
+
+      var newValue = new Date(value);
+      newValue.setDate(value.getDate() - this.step);
+
+      if (newValue >= this.getMin(context)) {
+        return newValue;
+      }
+      else {
+        return this.getMin(context);
+      }
+    },
+
+    increment: function(value, context) {
+      if (!isDate(value)) {
+        return new Date();
+      }
+
+      var newValue = new Date(value);
+      newValue.setDate(value.getDate() + this.step);
+
+      if (newValue <= this.getMax(context)) {
+        return newValue;
+      }
+      else {
+        return this.getMax();
+      }
+    }
+  }
+];
 
 
 });
@@ -7217,7 +12310,7 @@ exports.getDocument = function() {
 
 /**
  * Helper functions to be attached to the prototypes of NodeType and
- * NodeListType to allow inputter to tell us which nodes should be highlighted
+ * NodeListType to allow terminal to tell us which nodes should be highlighted
  */
 function onEnter(assignment) {
   assignment.highlighter = new Highlighter(doc);
@@ -8061,7 +13154,7 @@ exports.items = [
            .replace(/}/g, '\\}');
     },
 
-    parse:function(arg, context) {
+    parse: function(arg, context) {
       if (!this.allowBlank && (arg.text == null || arg.text === '')) {
         return promise.resolve(new Conversion(undefined, arg, Status.INCOMPLETE, ''));
       }
@@ -8153,22 +13246,21 @@ exports.items = [
   },
   {
     item: 'converter',
-    from: 'error',
-    to: 'dom',
-    exec: function(ex, conversionContext) {
-      var node = util.createElement(conversionContext.document, 'p');
-      node.className = 'gcli-error';
-      node.textContent = ex;
-      return node;
-    }
+    from: 'number',
+    to: 'string',
+    exec: function(data) { return '' + data; }
   },
   {
     item: 'converter',
-    from: 'error',
+    from: 'boolean',
     to: 'string',
-    exec: function(ex, conversionContext) {
-      return '' + ex;
-    }
+    exec: function(data) { return '' + data; }
+  },
+  {
+    item: 'converter',
+    from: 'undefined',
+    to: 'string',
+    exec: function(data) { return ''; }
   }
 ];
 
@@ -8302,3153 +13394,6 @@ exports.items = [
  * limitations under the License.
  */
 
-define('gcli/ui/intro', ['require', 'exports', 'module' , 'util/l10n', 'gcli/settings', 'gcli/ui/view', 'gcli/cli', 'text!gcli/ui/intro.html'], function(require, exports, module) {
-
-'use strict';
-
-var l10n = require('util/l10n');
-var settings = require('gcli/settings');
-var view = require('gcli/ui/view');
-var Output = require('gcli/cli').Output;
-
-/**
- * Record if the user has clicked on 'Got It!'
- */
-exports.items = [
-  {
-    item: 'setting',
-    name: 'hideIntro',
-    type: 'boolean',
-    description: l10n.lookup('hideIntroDesc'),
-    defaultValue: false
-  }
-];
-
-/**
- * Called when the UI is ready to add a welcome message to the output
- */
-exports.maybeShowIntro = function(commandOutputManager, conversionContext) {
-  var hideIntro = settings.getSetting('hideIntro');
-  if (hideIntro.value) {
-    return;
-  }
-
-  var output = new Output();
-  output.type = 'view';
-  commandOutputManager.onOutput({ output: output });
-
-  var viewData = this.createView(null, conversionContext, output);
-
-  output.complete({ isTypedData: true, type: 'view', data: viewData });
-};
-
-/**
- * Called when the UI is ready to add a welcome message to the output
- */
-exports.createView = function(ignore, conversionContext, output) {
-  return view.createView({
-    html: require('text!gcli/ui/intro.html'),
-    options: { stack: 'intro.html' },
-    data: {
-      l10n: l10n.propertyLookup,
-      onclick: conversionContext.update,
-      ondblclick: conversionContext.updateExec,
-      showHideButton: (output != null),
-      onGotIt: function(ev) {
-        var hideIntro = settings.getSetting('hideIntro');
-        hideIntro.value = true;
-        output.onClose();
-      }
-    }
-  });
-};
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/ui/view', ['require', 'exports', 'module' , 'util/util', 'util/domtemplate'], function(require, exports, module) {
-
-'use strict';
-
-var util = require('util/util');
-var domtemplate = require('util/domtemplate');
-
-
-/**
- * We want to avoid commands having to create DOM structures because that's
- * messy and because we're going to need to have command output displayed in
- * different documents. A View is a way to wrap an HTML template (for
- * domtemplate) in with the data and options to render the template, so anyone
- * can later run the template in the context of any document.
- * View also cuts out a chunk of boiler place code.
- * @param options The information needed to create the DOM from HTML. Includes:
- * - html (required): The HTML source, probably from a call to require
- * - options (default={}): The domtemplate options. See domtemplate for details
- * - data (default={}): The data to domtemplate. See domtemplate for details.
- * - css (default=none): Some CSS to be added to the final document. If 'css'
- *   is used, use of cssId is strongly recommended.
- * - cssId (default=none): An ID to prevent multiple CSS additions. See
- *   util.importCss for more details.
- * @return An object containing a single function 'appendTo()' which runs the
- * template adding the result to the specified element. Takes 2 parameters:
- * - element (required): the element to add to
- * - clear (default=false): if clear===true then remove all pre-existing
- *   children of 'element' before appending the results of this template.
- */
-exports.createView = function(options) {
-  if (options.html == null) {
-    throw new Error('options.html is missing');
-  }
-
-  return {
-    /**
-     * RTTI. Yeah.
-     */
-    isView: true,
-
-    /**
-     * Run the template against the document to which element belongs.
-     * @param element The element to append the result to
-     * @param clear Set clear===true to remove all children of element
-     */
-    appendTo: function(element, clear) {
-      // Strict check on the off-chance that we later think of other options
-      // and want to replace 'clear' with an 'options' parameter, but want to
-      // support backwards compat.
-      if (clear === true) {
-        util.clearElement(element);
-      }
-
-      element.appendChild(this.toDom(element.ownerDocument));
-    },
-
-    /**
-     * Actually convert the view data into a DOM suitable to be appended to
-     * an element
-     * @param document to use in realizing the template
-     */
-    toDom: function(document) {
-      if (options.css) {
-        util.importCss(options.css, document, options.cssId);
-      }
-
-      var child = util.toDom(document, options.html);
-      domtemplate.template(child, options.data || {}, options.options || {});
-      return child;
-    }
-  };
-};
-
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('util/domtemplate', ['require', 'exports', 'module' ], function(require, exports, module) {
-//
-//
-//
-
-// WARNING: do not 'use_strict' without reading the notes in _envEval();
-
-/**
- * For full documentation, see:
- * https://github.com/mozilla/domtemplate/blob/master/README.md
- */
-
-/**
- * Begin a new templating process.
- * @param node A DOM element or string referring to an element's id
- * @param data Data to use in filling out the template
- * @param options Options to customize the template processing. One of:
- * - allowEval: boolean (default false) Basic template interpolations are
- *   either property paths (e.g. ${a.b.c.d}), or if allowEval=true then we
- *   allow arbitrary JavaScript
- * - stack: string or array of strings (default empty array) The template
- *   engine maintains a stack of tasks to help debug where it is. This allows
- *   this stack to be prefixed with a template name
- * - blankNullUndefined: By default DOMTemplate exports null and undefined
- *   values using the strings 'null' and 'undefined', which can be helpful for
- *   debugging, but can introduce unnecessary extra logic in a template to
- *   convert null/undefined to ''. By setting blankNullUndefined:true, this
- *   conversion is handled by DOMTemplate
- */
-function template(node, data, options) {
-  var templater = new Templater(options || {});
-  templater.processNode(node, data);
-  return templater;
-}
-
-/**
- * Construct a Templater object. Use template() in preference to this ctor.
- * @deprecated Use template(node, data, options);
- */
-function Templater(options) {
-  if (options == null) {
-    options = { allowEval: true };
-  }
-  this.options = options;
-  if (options.stack && Array.isArray(options.stack)) {
-    this.stack = options.stack;
-  }
-  else if (typeof options.stack === 'string') {
-    this.stack = [ options.stack ];
-  }
-  else {
-    this.stack = [];
-  }
-  this.nodes = [];
-}
-
-/**
- * Cached regex used to find ${...} sections in some text.
- * Performance note: This regex uses ( and ) to capture the 'script' for
- * further processing. Not all of the uses of this regex use this feature so
- * if use of the capturing group is a performance drain then we should split
- * this regex in two.
- */
-Templater.prototype._templateRegion = /\$\{([^}]*)\}/g;
-
-/**
- * Cached regex used to split a string using the unicode chars F001 and F002.
- * See Templater._processTextNode() for details.
- */
-Templater.prototype._splitSpecial = /\uF001|\uF002/;
-
-/**
- * Cached regex used to detect if a script is capable of being interpreted
- * using Template._property() or if we need to use Template._envEval()
- */
-Templater.prototype._isPropertyScript = /^[_a-zA-Z0-9.]*$/;
-
-/**
- * Recursive function to walk the tree processing the attributes as it goes.
- * @param node the node to process. If you pass a string in instead of a DOM
- * element, it is assumed to be an id for use with document.getElementById()
- * @param data the data to use for node processing.
- */
-Templater.prototype.processNode = function(node, data) {
-  if (typeof node === 'string') {
-    node = document.getElementById(node);
-  }
-  if (data == null) {
-    data = {};
-  }
-  this.stack.push(node.nodeName + (node.id ? '#' + node.id : ''));
-  var pushedNode = false;
-  try {
-    // Process attributes
-    if (node.attributes && node.attributes.length) {
-      // We need to handle 'foreach' and 'if' first because they might stop
-      // some types of processing from happening, and foreach must come first
-      // because it defines new data on which 'if' might depend.
-      if (node.hasAttribute('foreach')) {
-        this._processForEach(node, data);
-        return;
-      }
-      if (node.hasAttribute('if')) {
-        if (!this._processIf(node, data)) {
-          return;
-        }
-      }
-      // Only make the node available once we know it's not going away
-      this.nodes.push(data.__element);
-      data.__element = node;
-      pushedNode = true;
-      // It's good to clean up the attributes when we've processed them,
-      // but if we do it straight away, we mess up the array index
-      var attrs = Array.prototype.slice.call(node.attributes);
-      for (var i = 0; i < attrs.length; i++) {
-        var value = attrs[i].value;
-        var name = attrs[i].name;
-
-        this.stack.push(name);
-        try {
-          if (name === 'save') {
-            // Save attributes are a setter using the node
-            value = this._stripBraces(value);
-            this._property(value, data, node);
-            node.removeAttribute('save');
-          }
-          else if (name.substring(0, 2) === 'on') {
-            // If this attribute value contains only an expression
-            if (value.substring(0, 2) === '${' && value.slice(-1) === '}' &&
-                    value.indexOf('${', 2) === -1) {
-              value = this._stripBraces(value);
-              var func = this._property(value, data);
-              if (typeof func === 'function') {
-                node.removeAttribute(name);
-                var capture = node.hasAttribute('capture' + name.substring(2));
-                node.addEventListener(name.substring(2), func, capture);
-                if (capture) {
-                  node.removeAttribute('capture' + name.substring(2));
-                }
-              }
-              else {
-                // Attribute value is not a function - use as a DOM-L0 string
-                node.setAttribute(name, func);
-              }
-            }
-            else {
-              // Attribute value is not a single expression use as DOM-L0
-              node.setAttribute(name, this._processString(value, data));
-            }
-          }
-          else {
-            node.removeAttribute(name);
-            // Remove '_' prefix of attribute names so the DOM won't try
-            // to use them before we've processed the template
-            if (name.charAt(0) === '_') {
-              name = name.substring(1);
-            }
-
-            // Async attributes can only work if the whole attribute is async
-            var replacement;
-            if (value.indexOf('${') === 0 && value.charAt(value.length - 1) === '}') {
-              replacement = this._envEval(value.slice(2, -1), data, value);
-              if (replacement && typeof replacement.then === 'function') {
-                node.setAttribute(name, '');
-                replacement.then(function(newValue) {
-                  node.setAttribute(name, newValue);
-                }.bind(this)).then(null, function(ex) {
-                  this._handleError('Promise error from \'' + value + '\'', ex);
-                }.bind(this));
-              }
-              else {
-                if (this.options.blankNullUndefined && replacement == null) {
-                  replacement = '';
-                }
-                node.setAttribute(name, replacement);
-              }
-            }
-            else {
-              node.setAttribute(name, this._processString(value, data));
-            }
-          }
-        }
-        finally {
-          this.stack.pop();
-        }
-      }
-    }
-
-    // Loop through our children calling processNode. First clone them, so the
-    // set of nodes that we visit will be unaffected by additions or removals.
-    var childNodes = Array.prototype.slice.call(node.childNodes);
-    for (var j = 0; j < childNodes.length; j++) {
-      this.processNode(childNodes[j], data);
-    }
-
-    if (node.nodeType === 3 /*Node.TEXT_NODE*/) {
-      this._processTextNode(node, data);
-    }
-  }
-  finally {
-    if (pushedNode) {
-      data.__element = this.nodes.pop();
-    }
-    this.stack.pop();
-  }
-};
-
-/**
- * Handle attribute values where the output can only be a string
- */
-Templater.prototype._processString = function(value, data) {
-  return value.replace(this._templateRegion, function(path) {
-    var insert = this._envEval(path.slice(2, -1), data, value);
-    return this.options.blankNullUndefined && insert == null ? '' : insert;
-  }.bind(this));
-};
-
-/**
- * Handle <x if="${...}">
- * @param node An element with an 'if' attribute
- * @param data The data to use with _envEval()
- * @returns true if processing should continue, false otherwise
- */
-Templater.prototype._processIf = function(node, data) {
-  this.stack.push('if');
-  try {
-    var originalValue = node.getAttribute('if');
-    var value = this._stripBraces(originalValue);
-    var recurse = true;
-    try {
-      var reply = this._envEval(value, data, originalValue);
-      recurse = !!reply;
-    }
-    catch (ex) {
-      this._handleError('Error with \'' + value + '\'', ex);
-      recurse = false;
-    }
-    if (!recurse) {
-      node.parentNode.removeChild(node);
-    }
-    node.removeAttribute('if');
-    return recurse;
-  }
-  finally {
-    this.stack.pop();
-  }
-};
-
-/**
- * Handle <x foreach="param in ${array}"> and the special case of
- * <loop foreach="param in ${array}">.
- * This function is responsible for extracting what it has to do from the
- * attributes, and getting the data to work on (including resolving promises
- * in getting the array). It delegates to _processForEachLoop to actually
- * unroll the data.
- * @param node An element with a 'foreach' attribute
- * @param data The data to use with _envEval()
- */
-Templater.prototype._processForEach = function(node, data) {
-  this.stack.push('foreach');
-  try {
-    var originalValue = node.getAttribute('foreach');
-    var value = originalValue;
-
-    var paramName = 'param';
-    if (value.charAt(0) === '$') {
-      // No custom loop variable name. Use the default: 'param'
-      value = this._stripBraces(value);
-    }
-    else {
-      // Extract the loop variable name from 'NAME in ${ARRAY}'
-      var nameArr = value.split(' in ');
-      paramName = nameArr[0].trim();
-      value = this._stripBraces(nameArr[1].trim());
-    }
-    node.removeAttribute('foreach');
-    try {
-      var evaled = this._envEval(value, data, originalValue);
-      this._handleAsync(evaled, node, function(reply, siblingNode) {
-        this._processForEachLoop(reply, node, siblingNode, data, paramName);
-      }.bind(this));
-      node.parentNode.removeChild(node);
-    }
-    catch (ex) {
-      this._handleError('Error with \'' + value + '\'', ex);
-    }
-  }
-  finally {
-    this.stack.pop();
-  }
-};
-
-/**
- * Called by _processForEach to handle looping over the data in a foreach loop.
- * This works with both arrays and objects.
- * Calls _processForEachMember() for each member of 'set'
- * @param set The object containing the data to loop over
- * @param template The node to copy for each set member
- * @param sibling The sibling node to which we add things
- * @param data the data to use for node processing
- * @param paramName foreach loops have a name for the parameter currently being
- * processed. The default is 'param'. e.g. <loop foreach="param in ${x}">...
- */
-Templater.prototype._processForEachLoop = function(set, template, sibling, data, paramName) {
-  if (Array.isArray(set)) {
-    set.forEach(function(member, i) {
-      this._processForEachMember(member, template, sibling, data, paramName, '' + i);
-    }, this);
-  }
-  else {
-    for (var member in set) {
-      if (set.hasOwnProperty(member)) {
-        this._processForEachMember(member, template, sibling, data, paramName, member);
-      }
-    }
-  }
-};
-
-/**
- * Called by _processForEachLoop() to resolve any promises in the array (the
- * array itself can also be a promise, but that is resolved by
- * _processForEach()). Handle <LOOP> elements (which are taken out of the DOM),
- * clone the template, and pass the processing on to processNode().
- * @param member The data item to use in templating
- * @param template The node to copy for each set member
- * @param siblingNode The parent node to which we add things
- * @param data the data to use for node processing
- * @param paramName The name given to 'member' by the foreach attribute
- * @param frame A name to push on the stack for debugging
- */
-Templater.prototype._processForEachMember = function(member, template, siblingNode, data, paramName, frame) {
-  this.stack.push(frame);
-  try {
-    this._handleAsync(member, siblingNode, function(reply, node) {
-      data[paramName] = reply;
-      if (node.parentNode != null) {
-        var clone;
-        if (template.nodeName.toLowerCase() === 'loop') {
-          for (var i = 0; i < template.childNodes.length; i++) {
-            clone = template.childNodes[i].cloneNode(true);
-            node.parentNode.insertBefore(clone, node);
-            this.processNode(clone, data);
-          }
-        }
-        else {
-          clone = template.cloneNode(true);
-          clone.removeAttribute('foreach');
-          node.parentNode.insertBefore(clone, node);
-          this.processNode(clone, data);
-        }
-      }
-      delete data[paramName];
-    }.bind(this));
-  }
-  finally {
-    this.stack.pop();
-  }
-};
-
-/**
- * Take a text node and replace it with another text node with the ${...}
- * sections parsed out. We replace the node by altering node.parentNode but
- * we could probably use a DOM Text API to achieve the same thing.
- * @param node The Text node to work on
- * @param data The data to use in calls to _envEval()
- */
-Templater.prototype._processTextNode = function(node, data) {
-  // Replace references in other attributes
-  var value = node.data;
-  // We can't use the string.replace() with function trick (see generic
-  // attribute processing in processNode()) because we need to support
-  // functions that return DOM nodes, so we can't have the conversion to a
-  // string.
-  // Instead we process the string as an array of parts. In order to split
-  // the string up, we first replace '${' with '\uF001$' and '}' with '\uF002'
-  // We can then split using \uF001 or \uF002 to get an array of strings
-  // where scripts are prefixed with $.
-  // \uF001 and \uF002 are just unicode chars reserved for private use.
-  value = value.replace(this._templateRegion, '\uF001$$$1\uF002');
-  var parts = value.split(this._splitSpecial);
-  if (parts.length > 1) {
-    parts.forEach(function(part) {
-      if (part === null || part === undefined || part === '') {
-        return;
-      }
-      if (part.charAt(0) === '$') {
-        part = this._envEval(part.slice(1), data, node.data);
-      }
-      this._handleAsync(part, node, function(reply, siblingNode) {
-        var doc = siblingNode.ownerDocument;
-        if (reply == null) {
-          reply = this.options.blankNullUndefined ? '' : '' + reply;
-        }
-        if (typeof reply.cloneNode === 'function') {
-          // i.e. if (reply instanceof Element) { ...
-          reply = this._maybeImportNode(reply, doc);
-          siblingNode.parentNode.insertBefore(reply, siblingNode);
-        }
-        else if (typeof reply.item === 'function' && reply.length) {
-          // NodeLists can be live, in which case _maybeImportNode can
-          // remove them from the document, and thus the NodeList, which in
-          // turn breaks iteration. So first we clone the list
-          var list = Array.prototype.slice.call(reply, 0);
-          list.forEach(function(child) {
-            var imported = this._maybeImportNode(child, doc);
-            siblingNode.parentNode.insertBefore(imported, siblingNode);
-          }.bind(this));
-        }
-        else {
-          // if thing isn't a DOM element then wrap its string value in one
-          reply = doc.createTextNode(reply.toString());
-          siblingNode.parentNode.insertBefore(reply, siblingNode);
-        }
-      }.bind(this));
-    }, this);
-    node.parentNode.removeChild(node);
-  }
-};
-
-/**
- * Return node or a import of node, if it's not in the given document
- * @param node The node that we want to be properly owned
- * @param doc The document that the given node should belong to
- * @return A node that belongs to the given document
- */
-Templater.prototype._maybeImportNode = function(node, doc) {
-  return node.ownerDocument === doc ? node : doc.importNode(node, true);
-};
-
-/**
- * A function to handle the fact that some nodes can be promises, so we check
- * and resolve if needed using a marker node to keep our place before calling
- * an inserter function.
- * @param thing The object which could be real data or a promise of real data
- * we use it directly if it's not a promise, or resolve it if it is.
- * @param siblingNode The element before which we insert new elements.
- * @param inserter The function to to the insertion. If thing is not a promise
- * then _handleAsync() is just 'inserter(thing, siblingNode)'
- */
-Templater.prototype._handleAsync = function(thing, siblingNode, inserter) {
-  if (thing != null && typeof thing.then === 'function') {
-    // Placeholder element to be replaced once we have the real data
-    var tempNode = siblingNode.ownerDocument.createElement('span');
-    siblingNode.parentNode.insertBefore(tempNode, siblingNode);
-    thing.then(function(delayed) {
-      inserter(delayed, tempNode);
-      if (tempNode.parentNode != null) {
-        tempNode.parentNode.removeChild(tempNode);
-      }
-    }.bind(this)).then(null, function(error) {
-      console.error(error.stack);
-    });
-  }
-  else {
-    inserter(thing, siblingNode);
-  }
-};
-
-/**
- * Warn of string does not begin '${' and end '}'
- * @param str the string to check.
- * @return The string stripped of ${ and }, or untouched if it does not match
- */
-Templater.prototype._stripBraces = function(str) {
-  if (!str.match(this._templateRegion)) {
-    this._handleError('Expected ' + str + ' to match ${...}');
-    return str;
-  }
-  return str.slice(2, -1);
-};
-
-/**
- * Combined getter and setter that works with a path through some data set.
- * For example:
- * <ul>
- * <li>_property('a.b', { a: { b: 99 }}); // returns 99
- * <li>_property('a', { a: { b: 99 }}); // returns { b: 99 }
- * <li>_property('a', { a: { b: 99 }}, 42); // returns 99 and alters the
- * input data to be { a: { b: 42 }}
- * </ul>
- * @param path An array of strings indicating the path through the data, or
- * a string to be cut into an array using <tt>split('.')</tt>
- * @param data the data to use for node processing
- * @param newValue (optional) If defined, this value will replace the
- * original value for the data at the path specified.
- * @return The value pointed to by <tt>path</tt> before any
- * <tt>newValue</tt> is applied.
- */
-Templater.prototype._property = function(path, data, newValue) {
-  try {
-    if (typeof path === 'string') {
-      path = path.split('.');
-    }
-    var value = data[path[0]];
-    if (path.length === 1) {
-      if (newValue !== undefined) {
-        data[path[0]] = newValue;
-      }
-      if (typeof value === 'function') {
-        return value.bind(data);
-      }
-      return value;
-    }
-    if (!value) {
-      this._handleError('"' + path[0] + '" is undefined');
-      return null;
-    }
-    return this._property(path.slice(1), value, newValue);
-  }
-  catch (ex) {
-    this._handleError('Path error with \'' + path + '\'', ex);
-    return '${' + path + '}';
-  }
-};
-
-/**
- * Like eval, but that creates a context of the variables in <tt>env</tt> in
- * which the script is evaluated.
- * WARNING: This script uses 'with' which is generally regarded to be evil.
- * The alternative is to create a Function at runtime that takes X parameters
- * according to the X keys in the env object, and then call that function using
- * the values in the env object. This is likely to be slow, but workable.
- * @param script The string to be evaluated.
- * @param data The environment in which to eval the script.
- * @param frame Optional debugging string in case of failure.
- * @return The return value of the script, or the error message if the script
- * execution failed.
- */
-Templater.prototype._envEval = function(script, data, frame) {
-  try {
-    this.stack.push(frame.replace(/\s+/g, ' '));
-    if (this._isPropertyScript.test(script)) {
-      return this._property(script, data);
-    }
-    else {
-      if (!this.options.allowEval) {
-        this._handleError('allowEval is not set, however \'' + script + '\'' +
-            ' can not be resolved using a simple property path.');
-        return '${' + script + '}';
-      }
-      with (data) {
-        return eval(script);
-      }
-    }
-  }
-  catch (ex) {
-    this._handleError('Template error evaluating \'' + script + '\'', ex);
-    return '${' + script + '}';
-  }
-  finally {
-    this.stack.pop();
-  }
-};
-
-/**
- * A generic way of reporting errors, for easy overloading in different
- * environments.
- * @param message the error message to report.
- * @param ex optional associated exception.
- */
-Templater.prototype._handleError = function(message, ex) {
-  this._logError(message + ' (In: ' + this.stack.join(' > ') + ')');
-  if (ex) {
-    this._logError(ex);
-  }
-};
-
-/**
- * A generic way of reporting errors, for easy overloading in different
- * environments.
- * @param message the error message to report.
- */
-Templater.prototype._logError = function(message) {
-  console.log(message);
-};
-
-if (typeof exports !== 'undefined') {
-  exports.template = template;
-}
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/cli', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'util/l10n', 'gcli/ui/view', 'gcli/converters', 'gcli/canon', 'gcli/types', 'gcli/argument'], function(require, exports, module) {
-
-'use strict';
-
-var promise = require('util/promise');
-var util = require('util/util');
-var l10n = require('util/l10n');
-
-var view = require('gcli/ui/view');
-var converters = require('gcli/converters');
-var canon = require('gcli/canon');
-var CommandOutputManager = require('gcli/canon').CommandOutputManager;
-
-var Status = require('gcli/types').Status;
-var Conversion = require('gcli/types').Conversion;
-
-var Argument = require('gcli/argument').Argument;
-var ArrayArgument = require('gcli/argument').ArrayArgument;
-var NamedArgument = require('gcli/argument').NamedArgument;
-var TrueNamedArgument = require('gcli/argument').TrueNamedArgument;
-var MergedArgument = require('gcli/argument').MergedArgument;
-var ScriptArgument = require('gcli/argument').ScriptArgument;
-
-/**
- * Some manual intervention is needed in parsing the { command.
- */
-function getEvalCommand() {
-  if (getEvalCommand._cmd == null) {
-    getEvalCommand._cmd = canon.getCommand(evalCmd.name);
-  }
-  return getEvalCommand._cmd;
-}
-
-/**
- * Assignment is a link between a parameter and the data for that parameter.
- * The data for the parameter is available as in the preferred type and as
- * an Argument for the CLI.
- * <p>We also record validity information where applicable.
- * <p>For values, null and undefined have distinct definitions. null means
- * that a value has been provided, undefined means that it has not.
- * Thus, null is a valid default value, and common because it identifies an
- * parameter that is optional. undefined means there is no value from
- * the command line.
- * @constructor
- */
-function Assignment(param, paramIndex) {
-  // The parameter that we are assigning to
-  this.param = param;
-
-  this.conversion = undefined;
-
-  // The index of this parameter in the parent Requisition. paramIndex === -1
-  // is the command assignment although this should not be relied upon, it is
-  // better to test param instanceof CommandAssignment
-  this.paramIndex = paramIndex;
-}
-
-/**
- * Easy accessor for conversion.arg.
- * This is a read-only property because writes to arg should be done through
- * the 'conversion' property.
- */
-Object.defineProperty(Assignment.prototype, 'arg', {
-  get: function() {
-    return this.conversion == null ? undefined : this.conversion.arg;
-  },
-  enumerable: true
-});
-
-/**
- * Easy accessor for conversion.value.
- * This is a read-only property because writes to value should be done through
- * the 'conversion' property.
- */
-Object.defineProperty(Assignment.prototype, 'value', {
-  get: function() {
-    return this.conversion == null ? undefined : this.conversion.value;
-  },
-  enumerable: true
-});
-
-/**
- * Easy (and safe) accessor for conversion.message
- */
-Object.defineProperty(Assignment.prototype, 'message', {
-  get: function() {
-    return this.conversion == null || !this.conversion.message ?
-        '' : this.conversion.message;
-  },
-  enumerable: true
-});
-
-/**
- * Easy (and safe) accessor for conversion.getPredictions()
- * @return An array of objects with name and value elements. For example:
- * [ { name:'bestmatch', value:foo1 }, { name:'next', value:foo2 }, ... ]
- */
-Assignment.prototype.getPredictions = function() {
-  return this.conversion == null ? [] : this.conversion.getPredictions();
-};
-
-/**
- * Accessor for a prediction by index.
- * This is useful above <tt>getPredictions()[index]</tt> because it normalizes
- * index to be within the bounds of the predictions, which means that the UI
- * can maintain an index of which prediction to choose without caring how many
- * predictions there are.
- * @param index The index of the prediction to choose
- */
-Assignment.prototype.getPredictionAt = function(index) {
-  if (index == null) {
-    index = 0;
-  }
-
-  if (this.isInName()) {
-    return promise.resolve(undefined);
-  }
-
-  return this.getPredictions().then(function(predictions) {
-    if (predictions.length === 0) {
-      return undefined;
-    }
-
-    index = index % predictions.length;
-    if (index < 0) {
-      index = predictions.length + index;
-    }
-    return predictions[index];
-  }.bind(this));
-};
-
-/**
- * Some places want to take special action if we are in the name part of a
- * named argument (i.e. the '--foo' bit).
- * Currently this does not take actual cursor position into account, it just
- * assumes that the cursor is at the end. In the future we will probably want
- * to take this into account.
- */
-Assignment.prototype.isInName = function() {
-  return this.conversion.arg.type === 'NamedArgument' &&
-         this.conversion.arg.prefix.slice(-1) !== ' ';
-};
-
-/**
- * Work out what the status of the current conversion is which involves looking
- * not only at the conversion, but also checking if data has been provided
- * where it should.
- * @param arg For assignments with multiple args (e.g. array assignments) we
- * can narrow the search for status to a single argument.
- */
-Assignment.prototype.getStatus = function(arg) {
-  if (this.param.isDataRequired && !this.conversion.isDataProvided()) {
-    return Status.INCOMPLETE;
-  }
-
-  // Selection/Boolean types with a defined range of values will say that
-  // '' is INCOMPLETE, but the parameter may be optional, so we don't ask
-  // if the user doesn't need to enter something and hasn't done so.
-  if (!this.param.isDataRequired && this.arg.type === 'BlankArgument') {
-    return Status.VALID;
-  }
-
-  return this.conversion.getStatus(arg);
-};
-
-/**
- * Helper when we're rebuilding command lines.
- */
-Assignment.prototype.toString = function() {
-  return this.conversion.toString();
-};
-
-/**
- * For test/debug use only. The output from this function is subject to wanton
- * random change without notice, and should not be relied upon to even exist
- * at some later date.
- */
-Object.defineProperty(Assignment.prototype, '_summaryJson', {
-  get: function() {
-    var predictionCount = '<async>';
-    this.getPredictions().then(function(predictions) {
-      predictionCount = predictions.length;
-    }, console.log);
-    return {
-      param: this.param.name + '/' + this.param.type.name,
-      defaultValue: this.param.defaultValue,
-      arg: this.conversion.arg._summaryJson,
-      value: this.value,
-      message: this.message,
-      status: this.getStatus().toString(),
-      predictionCount: predictionCount
-    };
-  },
-  enumerable: true
-});
-
-exports.Assignment = Assignment;
-
-
-/**
- * How to dynamically execute JavaScript code
- */
-var customEval = eval;
-
-/**
- * Setup a function to be called in place of 'eval', generally for security
- * reasons
- */
-exports.setEvalFunction = function(newCustomEval) {
-  customEval = newCustomEval;
-};
-
-/**
- * Remove the binding done by setEvalFunction().
- * We purposely set customEval to undefined rather than to 'eval' because there
- * is an implication of setEvalFunction that we're in a security sensitive
- * situation. What if we can trick GCLI into calling unsetEvalFunction() at the
- * wrong time?
- * So to properly undo the effects of setEvalFunction(), you need to call
- * setEvalFunction(eval) rather than unsetEvalFunction(), however the latter is
- * preferred in most cases.
- */
-exports.unsetEvalFunction = function() {
-  customEval = undefined;
-};
-
-/**
- * 'eval' command
- */
-var evalCmd = {
-  item: 'command',
-  name: '{',
-  params: [
-    {
-      name: 'javascript',
-      type: 'javascript',
-      description: ''
-    }
-  ],
-  hidden: true,
-  returnType: 'object',
-  description: { key: 'cliEvalJavascript' },
-  exec: function(args, context) {
-    return customEval(args.javascript);
-  },
-  isCommandRegexp: /^\s*{\s*/
-};
-
-exports.items = [ evalCmd ];
-
-/**
- * This is a special assignment to reflect the command itself.
- */
-function CommandAssignment() {
-  var commandParamMetadata = {
-    name: '__command',
-    type: { name: 'command', allowNonExec: false }
-  };
-  // This is a hack so that rather than reply with a generic description of the
-  // command assignment, we reply with the description of the assigned command,
-  // (using a generic term if there is no assigned command)
-  var self = this;
-  Object.defineProperty(commandParamMetadata, 'description', {
-    get: function() {
-      var value = self.value;
-      return value && value.description ?
-          value.description :
-          'The command to execute';
-    },
-    enumerable: true
-  });
-  this.param = new canon.Parameter(commandParamMetadata);
-  this.paramIndex = -1;
-}
-
-CommandAssignment.prototype = Object.create(Assignment.prototype);
-
-CommandAssignment.prototype.getStatus = function(arg) {
-  return Status.combine(
-    Assignment.prototype.getStatus.call(this, arg),
-    this.conversion.value && this.conversion.value.exec ?
-            Status.VALID : Status.INCOMPLETE
-  );
-};
-
-exports.CommandAssignment = CommandAssignment;
-
-
-/**
- * Special assignment used when ignoring parameters that don't have a home
- */
-function UnassignedAssignment(requisition, arg) {
-  this.param = new canon.Parameter({
-    name: '__unassigned',
-    description: l10n.lookup('cliOptions'),
-    type: {
-      name: 'param',
-      requisition: requisition,
-      isIncompleteName: (arg.text.charAt(0) === '-')
-    }
-  });
-  this.paramIndex = -1;
-
-  // synchronize is ok because we can be sure that param type is synchronous
-  var parsed = this.param.type.parse(arg, requisition.executionContext);
-  this.conversion = util.synchronize(parsed);
-  this.conversion.assignment = this;
-}
-
-UnassignedAssignment.prototype = Object.create(Assignment.prototype);
-
-UnassignedAssignment.prototype.getStatus = function(arg) {
-  return this.conversion.getStatus();
-};
-
-exports.logErrors = true;
-
-/**
- * A Requisition collects the information needed to execute a command.
- *
- * (For a definition of the term, see http://en.wikipedia.org/wiki/Requisition)
- * This term is used because carries the notion of a work-flow, or process to
- * getting the information to execute a command correct.
- * There is little point in a requisition for parameter-less commands because
- * there is no information to collect. A Requisition is a collection of
- * assignments of values to parameters, each handled by an instance of
- * Assignment.
- *
- * <h2>Events<h2>
- * <p>Requisition publishes the following events:
- * <ul>
- * <li>onTextChange: The text to be mirrored in a command line has changed.
- * </ul>
- *
- * @param environment An optional opaque object passed to commands in the
- * Execution Context.
- * @param doc A DOM Document passed to commands using the Execution Context in
- * order to allow creation of DOM nodes. If missing Requisition will use the
- * global 'document'.
- * @param commandOutputManager A custom commandOutputManager to which output
- * should be sent (optional)
- * @constructor
- */
-function Requisition(environment, doc, commandOutputManager) {
-  this.environment = environment;
-  this.document = doc;
-  if (this.document == null) {
-    try {
-      this.document = document;
-    }
-    catch (ex) {
-      // Ignore
-    }
-  }
-
-  this.commandOutputManager = commandOutputManager || new CommandOutputManager();
-  this.shell = {
-    cwd: '/', // Where we store the current working directory
-    env: {}   // Where we store the current environment
-  };
-
-  this.onTextChange = util.createEvent('Requisition.onTextChange');
-
-  // The command that we are about to execute.
-  // @see setCommandConversion()
-  this.commandAssignment = new CommandAssignment();
-  var assignPromise = this.setAssignment(this.commandAssignment, null,
-                                   { internal: true });
-  util.synchronize(assignPromise);
-
-  // The object that stores of Assignment objects that we are filling out.
-  // The Assignment objects are stored under their param.name for named
-  // lookup. Note: We make use of the property of Javascript objects that
-  // they are not just hashmaps, but linked-list hashmaps which iterate in
-  // insertion order.
-  // _assignments excludes the commandAssignment.
-  this._assignments = {};
-
-  // The count of assignments. Excludes the commandAssignment
-  this.assignmentCount = 0;
-
-  // Used to store cli arguments in the order entered on the cli
-  this._args = [];
-
-  // Used to store cli arguments that were not assigned to parameters
-  this._unassigned = [];
-
-  // Changes can be asynchronous, when one update starts before another
-  // finishes we abandon the former change
-  this._nextUpdateId = 0;
-
-  // We can set a prefix to typed commands to make it easier to focus on
-  // Allowing us to type "add -a; commit" in place of "git add -a; git commit"
-  this.prefix = '';
-}
-
-/**
- * Avoid memory leaks
- */
-Requisition.prototype.destroy = function() {
-  delete this.document;
-  delete this.environment;
-};
-
-/**
- * If we're about to make an asynchronous change when other async changes could
- * overtake this one, then we want to be able to bail out if overtaken. The
- * value passed back from beginChange should be passed to endChangeCheckOrder
- * on completion of calculation, before the results are applied in order to
- * check that the calculation has not been overtaken
- */
-Requisition.prototype._beginChange = function() {
-  this.onTextChange.holdFire();
-
-  var updateId = this._nextUpdateId;
-  this._nextUpdateId++;
-  return updateId;
-};
-
-/**
- * Check to see if another change has started since updateId started.
- * This allows us to bail out of an update.
- * It's hard to make updates atomic because until you've responded to a parse
- * of the command argument, you don't know how to parse the arguments to that
- * command.
- */
-Requisition.prototype._isChangeCurrent = function(updateId) {
-  return updateId + 1 === this._nextUpdateId;
-};
-
-/**
- * See notes on beginChange
- */
-Requisition.prototype._endChangeCheckOrder = function(updateId) {
-  this.onTextChange.resumeFire();
-
-  if (updateId + 1 !== this._nextUpdateId) {
-    // An update that started after we did has already finished, so our
-    // changes are out of date. Abandon further work.
-    return false;
-  }
-
-  return true;
-};
-
-var legacy = false;
-
-/**
- * Functions and data related to the execution of a command
- */
-Object.defineProperty(Requisition.prototype, 'executionContext', {
-  get: function() {
-    if (this._executionContext == null) {
-      this._executionContext = {
-        defer: function() {
-          return promise.defer();
-        },
-        typedData: function(type, data) {
-          return {
-            isTypedData: true,
-            data: data,
-            type: type
-          };
-        },
-        getArgsObject: this.getArgsObject.bind(this)
-      };
-
-      // Alias requisition so we're clear about what's what
-      var requisition = this;
-      Object.defineProperty(this._executionContext, 'typed', {
-        get: function() { return requisition.toString(); },
-        enumerable: true
-      });
-      Object.defineProperty(this._executionContext, 'environment', {
-        get: function() { return requisition.environment; },
-        enumerable: true
-      });
-      Object.defineProperty(this._executionContext, 'shell', {
-        get: function() { return requisition.shell; },
-        enumerable : true
-      });
-
-      /**
-       * This is a temporary property that will change and/or be removed.
-       * Do not use it
-       */
-      Object.defineProperty(this._executionContext, '__dlhjshfw', {
-        get: function() { return requisition; },
-        enumerable: false
-      });
-
-      if (legacy) {
-        this._executionContext.createView = view.createView;
-        this._executionContext.exec = this.exec.bind(this);
-        this._executionContext.update = this.update.bind(this);
-        this._executionContext.updateExec = this.updateExec.bind(this);
-
-        Object.defineProperty(this._executionContext, 'document', {
-          get: function() { return requisition.document; },
-          enumerable: true
-        });
-      }
-    }
-
-    return this._executionContext;
-  },
-  enumerable: true
-});
-
-/**
- * Functions and data related to the conversion of the output of a command
- */
-Object.defineProperty(Requisition.prototype, 'conversionContext', {
-  get: function() {
-    if (this._conversionContext == null) {
-      this._conversionContext = {
-        defer: function() {
-          return promise.defer();
-        },
-
-        createView: view.createView,
-        exec: this.exec.bind(this),
-        update: this.update.bind(this),
-        updateExec: this.updateExec.bind(this)
-      };
-
-      // Alias requisition so we're clear about what's what
-      var requisition = this;
-
-      Object.defineProperty(this._conversionContext, 'document', {
-        get: function() { return requisition.document; },
-        enumerable: true
-      });
-      Object.defineProperty(this._conversionContext, 'environment', {
-        get: function() { return requisition.environment; },
-        enumerable: true
-      });
-
-      /**
-       * This is a temporary property that will change and/or be removed.
-       * Do not use it
-       */
-      Object.defineProperty(this._conversionContext, '__dlhjshfw', {
-        get: function() { return requisition; },
-        enumerable: false
-      });
-    }
-
-    return this._conversionContext;
-  },
-  enumerable: true
-});
-
-/**
- * Assignments have an order, so we need to store them in an array.
- * But we also need named access ...
- * @return The found assignment, or undefined, if no match was found
- */
-Requisition.prototype.getAssignment = function(nameOrNumber) {
-  var name = (typeof nameOrNumber === 'string') ?
-    nameOrNumber :
-    Object.keys(this._assignments)[nameOrNumber];
-  return this._assignments[name] || undefined;
-};
-
-/**
- * There are a few places where we need to know what the 'next thing' is. What
- * is the user going to be filling out next (assuming they don't enter a named
- * argument). The next argument is the first in line that is both blank, and
- * that can be filled in positionally.
- * @return The next assignment to be used, or null if all the positional
- * parameters have values.
- */
-Requisition.prototype._getFirstBlankPositionalAssignment = function() {
-  var reply = null;
-  Object.keys(this._assignments).some(function(name) {
-    var assignment = this.getAssignment(name);
-    if (assignment.arg.type === 'BlankArgument' &&
-            assignment.param.isPositionalAllowed) {
-      reply = assignment;
-      return true; // i.e. break
-    }
-    return false;
-  }, this);
-  return reply;
-};
-
-/**
- * Where parameter name == assignment names - they are the same
- */
-Requisition.prototype.getParameterNames = function() {
-  return Object.keys(this._assignments);
-};
-
-/**
- * A *shallow* clone of the assignments.
- * This is useful for systems that wish to go over all the assignments
- * finding values one way or another and wish to trim an array as they go.
- */
-Requisition.prototype.cloneAssignments = function() {
-  return Object.keys(this._assignments).map(function(name) {
-    return this._assignments[name];
-  }, this);
-};
-
-/**
- * The overall status is the most severe status.
- * There is no such thing as an INCOMPLETE overall status because the
- * definition of INCOMPLETE takes into account the cursor position to say 'this
- * isn't quite ERROR because the user can fix it by typing', however overall,
- * this is still an error status.
- */
-Object.defineProperty(Requisition.prototype, 'status', {
-  get : function() {
-    var status = Status.VALID;
-    if (this._unassigned.length !== 0) {
-      var isAllIncomplete = true;
-      this._unassigned.forEach(function(assignment) {
-        if (!assignment.param.type.isIncompleteName) {
-          isAllIncomplete = false;
-        }
-      });
-      status = isAllIncomplete ? Status.INCOMPLETE : Status.ERROR;
-    }
-
-    this.getAssignments(true).forEach(function(assignment) {
-      var assignStatus = assignment.getStatus();
-      if (assignStatus > status) {
-        status = assignStatus;
-      }
-    }, this);
-    if (status === Status.INCOMPLETE) {
-      status = Status.ERROR;
-    }
-    return status;
-  },
-  enumerable : true
-});
-
-/**
- * If ``requisition.status != VALID`` message then return a string which
- * best describes what is wrong. Generally error messages are delivered by
- * looking at the error associated with the argument at the cursor, but there
- * are times when you just want to say 'tell me the worst'.
- * If ``requisition.status != VALID`` then return ``null``.
- */
-Requisition.prototype.getStatusMessage = function() {
-  if (this.commandAssignment.getStatus() !== Status.VALID) {
-    return l10n.lookup('cliUnknownCommand');
-  }
-
-  var assignments = this.getAssignments();
-  for (var i = 0; i < assignments.length; i++) {
-    if (assignments[i].getStatus() !== Status.VALID) {
-      return assignments[i].message;
-    }
-  }
-
-  if (this._unassigned.length !== 0) {
-    return l10n.lookup('cliUnusedArg');
-  }
-
-  return null;
-};
-
-/**
- * Extract the names and values of all the assignments, and return as
- * an object.
- */
-Requisition.prototype.getArgsObject = function() {
-  var args = {};
-  this.getAssignments().forEach(function(assignment) {
-    args[assignment.param.name] = assignment.conversion.isDataProvided() ?
-            assignment.value :
-            assignment.param.defaultValue;
-  }, this);
-  return args;
-};
-
-/**
- * Access the arguments as an array.
- * @param includeCommand By default only the parameter arguments are
- * returned unless (includeCommand === true), in which case the list is
- * prepended with commandAssignment.arg
- */
-Requisition.prototype.getAssignments = function(includeCommand) {
-  var assignments = [];
-  if (includeCommand === true) {
-    assignments.push(this.commandAssignment);
-  }
-  Object.keys(this._assignments).forEach(function(name) {
-    assignments.push(this.getAssignment(name));
-  }, this);
-  return assignments;
-};
-
-/**
- * When any assignment changes, we might need to update the _args array to
- * match and inform people of changes to the typed input text.
- */
-Requisition.prototype._setAssignmentInternal = function(assignment, conversion) {
-  var oldConversion = assignment.conversion;
-
-  assignment.conversion = conversion;
-  assignment.conversion.assignment = assignment;
-
-  // Do nothing if the conversion is unchanged
-  if (assignment.conversion.equals(oldConversion)) {
-    if (assignment === this.commandAssignment) {
-      this.setBlankArguments();
-    }
-    return;
-  }
-
-  // When the command changes, we need to keep a bunch of stuff in sync
-  if (assignment === this.commandAssignment) {
-    this._assignments = {};
-
-    var command = this.commandAssignment.value;
-    if (command) {
-      for (var i = 0; i < command.params.length; i++) {
-        var param = command.params[i];
-        var newAssignment = new Assignment(param, i);
-        var assignPromise = this.setAssignment(newAssignment, null, { internal: true });
-        util.synchronize(assignPromise);
-
-        this._assignments[param.name] = newAssignment;
-      }
-    }
-    this.assignmentCount = Object.keys(this._assignments).length;
-  }
-
-  // For the onTextChange event, we only care about changes to the argument
-  if (!assignment.conversion.argEquals(oldConversion)) {
-    this.onTextChange();
-  }
-};
-
-/**
- * Internal function to alter the given assignment using the given arg.
- * @param assignment The assignment to alter
- * @param arg The new value for the assignment. An instance of Argument, or an
- * instance of Conversion, or null to set the blank value.
- * @param options There are a number of ways to customize how the assignment
- * is made, including:
- * - internal: (default:false) External updates are required to do more work,
- *   including adjusting the args in this requisition to stay in sync.
- *   On the other hand non internal changes use beginChange to back out of
- *   changes when overtaken asynchronously.
- *   Setting internal:true effectively means this is being called as part of
- *   the update process.
- * - matchPadding: (default:false) Alter the whitespace on the prefix and
- *   suffix of the new argument to match that of the old argument. This only
- *   makes sense with internal=false
- */
-Requisition.prototype.setAssignment = function(assignment, arg, options) {
-  options = options || {};
-  if (!options.internal) {
-    var originalArgs = assignment.arg.getArgs();
-
-    // Update the args array
-    var replacementArgs = arg.getArgs();
-    var maxLen = Math.max(originalArgs.length, replacementArgs.length);
-    for (var i = 0; i < maxLen; i++) {
-      // If there are no more original args, or if the original arg was blank
-      // (i.e. not typed by the user), we'll just need to add at the end
-      if (i >= originalArgs.length || originalArgs[i].type === 'BlankArgument') {
-        this._args.push(replacementArgs[i]);
-        continue;
-      }
-
-      var index = this._args.indexOf(originalArgs[i]);
-      if (index === -1) {
-        console.error('Couldn\'t find ', originalArgs[i], ' in ', this._args);
-        throw new Error('Couldn\'t find ' + originalArgs[i]);
-      }
-
-      // If there are no more replacement args, we just remove the original args
-      // Otherwise swap original args and replacements
-      if (i >= replacementArgs.length) {
-        this._args.splice(index, 1);
-      }
-      else {
-        if (options.matchPadding) {
-          if (replacementArgs[i].prefix.length === 0 &&
-              this._args[index].prefix.length !== 0) {
-            replacementArgs[i].prefix = this._args[index].prefix;
-          }
-          if (replacementArgs[i].suffix.length === 0 &&
-              this._args[index].suffix.length !== 0) {
-            replacementArgs[i].suffix = this._args[index].suffix;
-          }
-        }
-        this._args[index] = replacementArgs[i];
-      }
-    }
-  }
-
-  var updateId = options.internal ? null : this._beginChange();
-
-  var setAssignmentInternal = function(conversion) {
-    if (options.internal || this._endChangeCheckOrder(updateId)) {
-      this._setAssignmentInternal(assignment, conversion);
-    }
-
-    return promise.resolve(undefined);
-  }.bind(this);
-
-  if (arg == null) {
-    var blank = assignment.param.type.getBlank(this.executionContext);
-    return setAssignmentInternal(blank);
-  }
-
-  if (typeof arg.getStatus === 'function') {
-    // It's not really an arg, it's a conversion already
-    return setAssignmentInternal(arg);
-  }
-
-  var parsed = assignment.param.type.parse(arg, this.executionContext);
-  return parsed.then(setAssignmentInternal);
-};
-
-/**
- * Reset all the assignments to their default values
- */
-Requisition.prototype.setBlankArguments = function() {
-  this.getAssignments().forEach(function(assignment) {
-    var assignPromise = this.setAssignment(assignment, null, { internal: true });
-    util.synchronize(assignPromise);
-  }, this);
-};
-
-/**
- * Complete the argument at <tt>cursor</tt>.
- * Basically the same as:
- *   assignment = getAssignmentAt(cursor);
- *   assignment.value = assignment.conversion.predictions[0];
- * Except it's done safely, and with particular care to where we place the
- * space, which is complex, and annoying if we get it wrong.
- *
- * WARNING: complete() can happen asynchronously.
- *
- * @param cursor The cursor configuration. Should have start and end properties
- * which should be set to start and end of the selection.
- * @param predictionChoice The index of the prediction that we should choose.
- * This number is not bounded by the size of the prediction array, we take the
- * modulus to get it within bounds
- * @return A promise which completes (with undefined) when any outstanding
- * completion tasks are done.
- */
-Requisition.prototype.complete = function(cursor, predictionChoice) {
-  var assignment = this.getAssignmentAt(cursor.start);
-
-  var predictionPromise = assignment.getPredictionAt(predictionChoice);
-  return predictionPromise.then(function(prediction) {
-    var outstanding = [];
-    this.onTextChange.holdFire();
-
-    // Note: Since complete is asynchronous we should perhaps have a system to
-    // bail out of making changes if the command line has changed since TAB
-    // was pressed. It's not yet clear if this will be a problem.
-
-    if (prediction == null) {
-      // No predictions generally means we shouldn't change anything on TAB,
-      // but TAB has the connotation of 'next thing' and when we're at the end
-      // of a thing that implies that we should add a space. i.e.
-      // 'help<TAB>' -> 'help '
-      // But we should only do this if the thing that we're 'completing' is
-      // valid and doesn't already end in a space.
-      if (assignment.arg.suffix.slice(-1) !== ' ' &&
-              assignment.getStatus() === Status.VALID) {
-        outstanding.push(this._addSpace(assignment));
-      }
-
-      // Also add a space if we are in the name part of an assignment, however
-      // this time we don't want the 'push the space to the next assignment'
-      // logic, so we don't use addSpace
-      if (assignment.isInName()) {
-        var newArg = assignment.arg.beget({ prefixPostSpace: true });
-        outstanding.push(this.setAssignment(assignment, newArg));
-      }
-    }
-    else {
-      // Mutate this argument to hold the completion
-      var arg = assignment.arg.beget({
-        text: prediction.name,
-        dontQuote: (assignment === this.commandAssignment)
-      });
-      var assignPromise = this.setAssignment(assignment, arg);
-
-      if (!prediction.incomplete) {
-        assignPromise = assignPromise.then(function() {
-          // The prediction is complete, add a space to let the user move-on
-          return this._addSpace(assignment).then(function() {
-            // Bug 779443 - Remove or explain the re-parse
-            if (assignment instanceof UnassignedAssignment) {
-              return this.update(this.toString());
-            }
-          }.bind(this));
-        }.bind(this));
-      }
-
-      outstanding.push(assignPromise);
-    }
-
-    return promise.all(outstanding).then(function() {
-      this.onTextChange();
-      this.onTextChange.resumeFire();
-      return true;
-    }.bind(this));
-  }.bind(this));
-};
-
-/**
- * A test method to check that all args are assigned in some way
- */
-Requisition.prototype._assertArgsAssigned = function() {
-  this._args.forEach(function(arg) {
-    if (arg.assignment == null) {
-      console.log('No assignment for ' + arg);
-    }
-  }, this);
-};
-
-/**
- * Pressing TAB sometimes requires that we add a space to denote that we're on
- * to the 'next thing'.
- * @param assignment The assignment to which to append the space
- */
-Requisition.prototype._addSpace = function(assignment) {
-  var arg = assignment.arg.beget({ suffixSpace: true });
-  if (arg !== assignment.arg) {
-    return this.setAssignment(assignment, arg);
-  }
-  else {
-    return promise.resolve(undefined);
-  }
-};
-
-/**
- * Replace the current value with the lower value if such a concept exists.
- */
-Requisition.prototype.decrement = function(assignment) {
-  var replacement = assignment.param.type.decrement(assignment.value,
-                                                    this.executionContext);
-  if (replacement != null) {
-    var str = assignment.param.type.stringify(replacement,
-                                              this.executionContext);
-    var arg = assignment.arg.beget({ text: str });
-    var assignPromise = this.setAssignment(assignment, arg);
-    util.synchronize(assignPromise);
-  }
-};
-
-/**
- * Replace the current value with the higher value if such a concept exists.
- */
-Requisition.prototype.increment = function(assignment) {
-  var replacement = assignment.param.type.increment(assignment.value,
-                                                    this.executionContext);
-  if (replacement != null) {
-    var str = assignment.param.type.stringify(replacement,
-                                              this.executionContext);
-    var arg = assignment.arg.beget({ text: str });
-    var assignPromise = this.setAssignment(assignment, arg);
-    util.synchronize(assignPromise);
-  }
-};
-
-/**
- * Extract a canonical version of the input
- */
-Requisition.prototype.toCanonicalString = function() {
-  var line = [];
-
-  var cmd = this.commandAssignment.value ?
-      this.commandAssignment.value.name :
-      this.commandAssignment.arg.text;
-  line.push(cmd);
-
-  Object.keys(this._assignments).forEach(function(name) {
-    var assignment = this._assignments[name];
-    var type = assignment.param.type;
-    // Bug 664377: This will cause problems if there is a non-default value
-    // after a default value. Also we need to decide when to use
-    // named parameters in place of positional params. Both can wait.
-    if (assignment.value !== assignment.param.defaultValue) {
-      line.push(' ');
-      line.push(type.stringify(assignment.value, this.executionContext));
-    }
-  }, this);
-
-  // Canonically, if we've opened with a { then we should have a } to close
-  if (cmd === '{') {
-    if (this.getAssignment(0).arg.suffix.indexOf('}') === -1) {
-      line.push(' }');
-    }
-  }
-
-  return line.join('');
-};
-
-/**
- * Input trace gives us an array of Argument tracing objects, one for each
- * character in the typed input, from which we can derive information about how
- * to display this typed input. It's a bit like toString on steroids.
- * <p>
- * The returned object has the following members:<ul>
- * <li>character: The character to which this arg trace refers.
- * <li>arg: The Argument to which this character is assigned.
- * <li>part: One of ['prefix'|'text'|suffix'] - how was this char understood
- * </ul>
- * <p>
- * The Argument objects are as output from tokenize() rather than as applied
- * to Assignments by _assign() (i.e. they are not instances of NamedArgument,
- * ArrayArgument, etc).
- * <p>
- * To get at the arguments applied to the assignments simply call
- * <tt>arg.assignment.arg</tt>. If <tt>arg.assignment.arg !== arg</tt> then
- * the arg applied to the assignment will contain the original arg.
- * See _assign() for details.
- */
-Requisition.prototype.createInputArgTrace = function() {
-  if (!this._args) {
-    throw new Error('createInputMap requires a command line. See source.');
-    // If this is a problem then we can fake command line input using
-    // something like the code in #toCanonicalString().
-  }
-
-  var args = [];
-  var i;
-  this._args.forEach(function(arg) {
-    for (i = 0; i < arg.prefix.length; i++) {
-      args.push({ arg: arg, character: arg.prefix[i], part: 'prefix' });
-    }
-    for (i = 0; i < arg.text.length; i++) {
-      args.push({ arg: arg, character: arg.text[i], part: 'text' });
-    }
-    for (i = 0; i < arg.suffix.length; i++) {
-      args.push({ arg: arg, character: arg.suffix[i], part: 'suffix' });
-    }
-  });
-
-  return args;
-};
-
-/**
- * Reconstitute the input from the args
- */
-Requisition.prototype.toString = function() {
-  if (this._args) {
-    return this._args.map(function(arg) {
-      return arg.toString();
-    }).join('');
-  }
-
-  return this.toCanonicalString();
-};
-
-/**
- * If the last character is whitespace then things that we suggest to add to
- * the end don't need a space prefix.
- * While this is quite a niche function, it has 2 benefits:
- * - it's more correct because we can distinguish between final whitespace that
- *   is part of an unclosed string, and parameter separating whitespace.
- * - also it's faster than toString() the whole thing and checking the end char
- * @return true iff the last character is interpreted as parameter separating
- * whitespace
- */
-Requisition.prototype.typedEndsWithSeparator = function() {
-  // This is not as easy as doing (this.toString().slice(-1) === ' ')
-  // See the doc comments above; We're checking for separators, not spaces
-  if (this._args) {
-    var lastArg = this._args.slice(-1)[0];
-    if (lastArg.suffix.slice(-1) === ' ') {
-      return true;
-    }
-    return lastArg.text === '' && lastArg.suffix === ''
-        && lastArg.prefix.slice(-1) === ' ';
-  }
-
-  return this.toCanonicalString().slice(-1) === ' ';
-};
-
-/**
- * Return an array of Status scores so we can create a marked up
- * version of the command line input.
- * @param cursor We only take a status of INCOMPLETE to be INCOMPLETE when the
- * cursor is actually in the argument. Otherwise it's an error.
- * @return Array of objects each containing <tt>status</tt> property and a
- * <tt>string</tt> property containing the characters to which the status
- * applies. Concatenating the strings in order gives the original input.
- */
-Requisition.prototype.getInputStatusMarkup = function(cursor) {
-  var argTraces = this.createInputArgTrace();
-  // Generally the 'argument at the cursor' is the argument before the cursor
-  // unless it is before the first char, in which case we take the first.
-  cursor = cursor === 0 ? 0 : cursor - 1;
-  var cTrace = argTraces[cursor];
-
-  var markup = [];
-  for (var i = 0; i < argTraces.length; i++) {
-    var argTrace = argTraces[i];
-    var arg = argTrace.arg;
-    var status = Status.VALID;
-    if (argTrace.part === 'text') {
-      status = arg.assignment.getStatus(arg);
-      // Promote INCOMPLETE to ERROR  ...
-      if (status === Status.INCOMPLETE) {
-        // If the cursor is in the prefix or suffix of an argument then we
-        // don't consider it in the argument for the purposes of preventing
-        // the escalation to ERROR. However if this is a NamedArgument, then we
-        // allow the suffix (as space between 2 parts of the argument) to be in.
-        // We use arg.assignment.arg not arg because we're looking at the arg
-        // that got put into the assignment not as returned by tokenize()
-        var isNamed = (cTrace.arg.assignment.arg.type === 'NamedArgument');
-        var isInside = cTrace.part === 'text' ||
-                        (isNamed && cTrace.part === 'suffix');
-        if (arg.assignment !== cTrace.arg.assignment || !isInside) {
-          // And if we're not in the command
-          if (!(arg.assignment instanceof CommandAssignment)) {
-            status = Status.ERROR;
-          }
-        }
-      }
-    }
-
-    markup.push({ status: status, string: argTrace.character });
-  }
-
-  // De-dupe: merge entries where 2 adjacent have same status
-  i = 0;
-  while (i < markup.length - 1) {
-    if (markup[i].status === markup[i + 1].status) {
-      markup[i].string += markup[i + 1].string;
-      markup.splice(i + 1, 1);
-    }
-    else {
-      i++;
-    }
-  }
-
-  return markup;
-};
-
-/**
- * Look through the arguments attached to our assignments for the assignment
- * at the given position.
- * @param {number} cursor The cursor position to query
- */
-Requisition.prototype.getAssignmentAt = function(cursor) {
-  if (!this._args) {
-    console.trace();
-    throw new Error('Missing args');
-  }
-
-  // We short circuit this one because we may have no args, or no args with
-  // any size and the alg below only finds arguments with size.
-  if (cursor === 0) {
-    return this.commandAssignment;
-  }
-
-  var assignForPos = [];
-  var i, j;
-  for (i = 0; i < this._args.length; i++) {
-    var arg = this._args[i];
-    var assignment = arg.assignment;
-
-    // prefix and text are clearly part of the argument
-    for (j = 0; j < arg.prefix.length; j++) {
-      assignForPos.push(assignment);
-    }
-    for (j = 0; j < arg.text.length; j++) {
-      assignForPos.push(assignment);
-    }
-
-    // suffix is part of the argument only if this is a named parameter,
-    // otherwise it looks forwards
-    if (arg.assignment.arg.type === 'NamedArgument') {
-      // leave the argument as it is
-    }
-    else if (this._args.length > i + 1) {
-      // first to the next argument
-      assignment = this._args[i + 1].assignment;
-    }
-    else {
-      // then to the first blank positional parameter, leaving 'as is' if none
-      var nextAssignment = this._getFirstBlankPositionalAssignment();
-      if (nextAssignment != null) {
-        assignment = nextAssignment;
-      }
-    }
-
-    for (j = 0; j < arg.suffix.length; j++) {
-      assignForPos.push(assignment);
-    }
-  }
-
-  // Possible shortcut, we don't really need to go through all the args
-  // to work out the solution to this
-
-  var reply = assignForPos[cursor - 1];
-
-  if (!reply) {
-    throw new Error('Missing assignment.' +
-        ' cursor=' + cursor + ' text=' + this.toString());
-  }
-
-  return reply;
-};
-
-/**
- * Entry point for keyboard accelerators or anything else that wants to execute
- * a command.
- * @param options Object describing how the execution should be handled.
- * (optional). Contains some of the following properties:
- * - hidden (boolean, default=false) Should the output be hidden from the
- *   commandOutputManager for this requisition
- * - command/args A fast shortcut to executing a known command with a known
- *   set of parsed arguments.
- */
-Requisition.prototype.exec = function(options) {
-  var command = null;
-  var args = null;
-  var hidden = false;
-
-  if (options) {
-    if (options.hidden) {
-      hidden = true;
-    }
-
-    if (options.command != null) {
-      // Fast track by looking up the command directly since passed args
-      // means there is no command line to parse.
-      command = canon.getCommand(options.command);
-      if (!command) {
-        console.error('Command not found: ' + options.command);
-      }
-      args = options.args;
-    }
-  }
-
-  if (!command) {
-    command = this.commandAssignment.value;
-    args = this.getArgsObject();
-  }
-
-  // Display JavaScript input without the initial { or closing }
-  var typed = this.toString();
-  if (evalCmd.isCommandRegexp.test(typed)) {
-    typed = typed.replace(evalCmd.isCommandRegexp, '');
-    // Bug 717763: What if the JavaScript naturally ends with a }?
-    typed = typed.replace(/\s*}\s*$/, '');
-  }
-
-  var output = new Output({
-    command: command,
-    args: args,
-    typed: typed,
-    canonical: this.toCanonicalString(),
-    hidden: hidden
-  });
-
-  this.commandOutputManager.onOutput({ output: output });
-
-  var onDone = function(data) {
-    output.complete(data, false);
-    return output;
-  };
-
-  var onError = function(ex) {
-    if (exports.logErrors) {
-      util.errorHandler(ex);
-    }
-
-    var data = ex.isTypedData ? ex : {
-      isTypedData: true,
-      data: ex,
-      type: 'error'
-    };
-    output.complete(data, true);
-    return output;
-  };
-
-  if (this.status !== Status.VALID) {
-    var ex = new Error(this.getStatusMessage());
-    return promise.resolve(onError(ex)).then(function(output) {
-      this.clear();
-      return output;
-    });
-  }
-  else {
-    try {
-      var reply = command.exec(args, this.executionContext);
-      return promise.resolve(reply).then(onDone, onError);
-    }
-    catch (ex) {
-      return promise.resolve(onError(ex));
-    }
-    finally {
-      this.clear();
-    }
-  }
-};
-
-/**
- * A shortcut for calling update, resolving the promise and then exec.
- * @param input The string to execute
- * @param options Passed to exec
- * @return A promise of an output object
- */
-Requisition.prototype.updateExec = function(input, options) {
-  return this.update(input).then(function() {
-    return this.exec(options);
-  }.bind(this));
-};
-
-/**
- * Similar to update('') except that it's guaranteed to execute synchronously
- */
-Requisition.prototype.clear = function() {
-  this.onTextChange.holdFire();
-
-  var arg = new Argument('', '', '');
-  this._args = [ arg ];
-
-  var commandType = this.commandAssignment.param.type;
-  var parsePromise = commandType.parse(arg, this.executionContext);
-  this.setAssignment(this.commandAssignment,
-                     util.synchronize(parsePromise),
-                     { internal: true });
-
-  this.onTextChange.resumeFire();
-  this.onTextChange();
-};
-
-/**
- * Helper to find the 'data-command' attribute, used by |update()|
- */
-function getDataCommandAttribute(element) {
-  var command = element.getAttribute('data-command');
-  if (!command) {
-    command = element.querySelector('*[data-command]')
-                     .getAttribute('data-command');
-  }
-  return command;
-}
-
-/**
- * Called by the UI when ever the user interacts with a command line input
- * @param typed The contents of the input field
- */
-Requisition.prototype.update = function(typed) {
-  if (typeof HTMLElement !== 'undefined' && typed instanceof HTMLElement) {
-    typed = getDataCommandAttribute(typed);
-  }
-  if (typeof Event !== 'undefined' && typed instanceof Event) {
-    typed = getDataCommandAttribute(typed.currentTarget);
-  }
-
-  var updateId = this._beginChange();
-
-  this._args = exports.tokenize(typed);
-  var args = this._args.slice(0); // i.e. clone
-
-  return this._split(args).then(function() {
-    if (!this._isChangeCurrent(updateId)) {
-      return false;
-    }
-
-    return this._assign(args).then(function() {
-      if (this._endChangeCheckOrder(updateId)) {
-        this.onTextChange();
-        return true;
-      }
-
-      return false;
-    }.bind(this));
-  }.bind(this));
-};
-
-/**
- * For test/debug use only. The output from this function is subject to wanton
- * random change without notice, and should not be relied upon to even exist
- * at some later date.
- */
-Object.defineProperty(Requisition.prototype, '_summaryJson', {
-  get: function() {
-    var summary = {
-      $args: this._args.map(function(arg) {
-        return arg._summaryJson;
-      }),
-      _command: this.commandAssignment._summaryJson,
-      _unassigned: this._unassigned.forEach(function(assignment) {
-        return assignment._summaryJson;
-      })
-    };
-
-    Object.keys(this._assignments).forEach(function(name) {
-      summary[name] = this.getAssignment(name)._summaryJson;
-    }.bind(this));
-
-    return summary;
-  },
-  enumerable: true
-});
-
-/**
- * tokenize() is a state machine. These are the states.
- */
-var In = {
-  /**
-   * The last character was ' '.
-   * Typing a ' ' character will not change the mode
-   * Typing one of '"{ will change mode to SINGLE_Q, DOUBLE_Q or SCRIPT.
-   * Anything else goes into SIMPLE mode.
-   */
-  WHITESPACE: 1,
-
-  /**
-   * The last character was part of a parameter.
-   * Typing ' ' returns to WHITESPACE mode. Any other character
-   * (including '"{} which are otherwise special) does not change the mode.
-   */
-  SIMPLE: 2,
-
-  /**
-   * We're inside single quotes: '
-   * Typing ' returns to WHITESPACE mode. Other characters do not change mode.
-   */
-  SINGLE_Q: 3,
-
-  /**
-   * We're inside double quotes: "
-   * Typing " returns to WHITESPACE mode. Other characters do not change mode.
-   */
-  DOUBLE_Q: 4,
-
-  /**
-   * We're inside { and }
-   * Typing } returns to WHITESPACE mode. Other characters do not change mode.
-   * SCRIPT mode is slightly different from other modes in that spaces between
-   * the {/} delimiters and the actual input are not considered significant.
-   * e.g: " x " is a 3 character string, delimited by double quotes, however
-   * { x } is a 1 character JavaScript surrounded by whitespace and {}
-   * delimiters.
-   * In the short term we assume that the JS routines can make sense of the
-   * extra whitespace, however at some stage we may need to move the space into
-   * the Argument prefix/suffix.
-   * Also we don't attempt to handle nested {}. See bug 678961
-   */
-  SCRIPT: 5
-};
-
-/**
- * Split up the input taking into account ', " and {.
- * We don't consider \t or other classical whitespace characters to split
- * arguments apart. For one thing these characters are hard to type, but also
- * if the user has gone to the trouble of pasting a TAB character into the
- * input field (or whatever it takes), they probably mean it.
- */
-exports.tokenize = function(typed) {
-  // For blank input, place a dummy empty argument into the list
-  if (typed == null || typed.length === 0) {
-    return [ new Argument('', '', '') ];
-  }
-
-  if (isSimple(typed)) {
-    return [ new Argument(typed, '', '') ];
-  }
-
-  var mode = In.WHITESPACE;
-
-  // First we swap out escaped characters that are special to the tokenizer.
-  // So a backslash followed by any of ['"{} ] is turned into a unicode private
-  // char so we can swap back later
-  typed = typed
-      .replace(/\\\\/g, '\uF000')
-      .replace(/\\ /g, '\uF001')
-      .replace(/\\'/g, '\uF002')
-      .replace(/\\"/g, '\uF003')
-      .replace(/\\{/g, '\uF004')
-      .replace(/\\}/g, '\uF005');
-
-  function unescape2(escaped) {
-    return escaped
-        .replace(/\uF000/g, '\\\\')
-        .replace(/\uF001/g, '\\ ')
-        .replace(/\uF002/g, '\\\'')
-        .replace(/\uF003/g, '\\\"')
-        .replace(/\uF004/g, '\\{')
-        .replace(/\uF005/g, '\\}');
-  }
-
-  var i = 0;          // The index of the current character
-  var start = 0;      // Where did this section start?
-  var prefix = '';    // Stuff that comes before the current argument
-  var args = [];      // The array that we're creating
-  var blockDepth = 0; // For JS with nested {}
-
-  // This is just a state machine. We're going through the string char by char
-  // The 'mode' is one of the 'In' states. As we go, we're adding Arguments
-  // to the 'args' array.
-
-  while (true) {
-    var c = typed[i];
-    var str;
-    switch (mode) {
-      case In.WHITESPACE:
-        if (c === '\'') {
-          prefix = typed.substring(start, i + 1);
-          mode = In.SINGLE_Q;
-          start = i + 1;
-        }
-        else if (c === '"') {
-          prefix = typed.substring(start, i + 1);
-          mode = In.DOUBLE_Q;
-          start = i + 1;
-        }
-        else if (c === '{') {
-          prefix = typed.substring(start, i + 1);
-          mode = In.SCRIPT;
-          blockDepth++;
-          start = i + 1;
-        }
-        else if (/ /.test(c)) {
-          // Still whitespace, do nothing
-        }
-        else {
-          prefix = typed.substring(start, i);
-          mode = In.SIMPLE;
-          start = i;
-        }
-        break;
-
-      case In.SIMPLE:
-        // There is an edge case of xx'xx which we are assuming to
-        // be a single parameter (and same with ")
-        if (c === ' ') {
-          str = unescape2(typed.substring(start, i));
-          args.push(new Argument(str, prefix, ''));
-          mode = In.WHITESPACE;
-          start = i;
-          prefix = '';
-        }
-        break;
-
-      case In.SINGLE_Q:
-        if (c === '\'') {
-          str = unescape2(typed.substring(start, i));
-          args.push(new Argument(str, prefix, c));
-          mode = In.WHITESPACE;
-          start = i + 1;
-          prefix = '';
-        }
-        break;
-
-      case In.DOUBLE_Q:
-        if (c === '"') {
-          str = unescape2(typed.substring(start, i));
-          args.push(new Argument(str, prefix, c));
-          mode = In.WHITESPACE;
-          start = i + 1;
-          prefix = '';
-        }
-        break;
-
-      case In.SCRIPT:
-        if (c === '{') {
-          blockDepth++;
-        }
-        else if (c === '}') {
-          blockDepth--;
-          if (blockDepth === 0) {
-            str = unescape2(typed.substring(start, i));
-            args.push(new ScriptArgument(str, prefix, c));
-            mode = In.WHITESPACE;
-            start = i + 1;
-            prefix = '';
-          }
-        }
-        break;
-    }
-
-    i++;
-
-    if (i >= typed.length) {
-      // There is nothing else to read - tidy up
-      if (mode === In.WHITESPACE) {
-        if (i !== start) {
-          // There's whitespace at the end of the typed string. Add it to the
-          // last argument's suffix, creating an empty argument if needed.
-          var extra = typed.substring(start, i);
-          var lastArg = args[args.length - 1];
-          if (!lastArg) {
-            args.push(new Argument('', extra, ''));
-          }
-          else {
-            lastArg.suffix += extra;
-          }
-        }
-      }
-      else if (mode === In.SCRIPT) {
-        str = unescape2(typed.substring(start, i + 1));
-        args.push(new ScriptArgument(str, prefix, ''));
-      }
-      else {
-        str = unescape2(typed.substring(start, i + 1));
-        args.push(new Argument(str, prefix, ''));
-      }
-      break;
-    }
-  }
-
-  return args;
-};
-
-/**
- * If the input has no spaces, quotes, braces or escapes,
- * we can take the fast track.
- */
-function isSimple(typed) {
-   for (var i = 0; i < typed.length; i++) {
-     var c = typed.charAt(i);
-     if (c === ' ' || c === '"' || c === '\'' ||
-         c === '{' || c === '}' || c === '\\') {
-       return false;
-     }
-   }
-   return true;
-}
-
-/**
- * Looks in the canon for a command extension that matches what has been
- * typed at the command line.
- */
-Requisition.prototype._split = function(args) {
-  // We're processing args, so we don't want the assignments that we make to
-  // try to adjust other args assuming this is an external update
-  var noArgUp = { internal: true };
-
-  // Handle the special case of the user typing { javascript(); }
-  // We use the hidden 'eval' command directly rather than shift()ing one of
-  // the parameters, and parse()ing it.
-  var conversion;
-  if (args[0].type === 'ScriptArgument') {
-    // Special case: if the user enters { console.log('foo'); } then we need to
-    // use the hidden 'eval' command
-    conversion = new Conversion(getEvalCommand(), new ScriptArgument());
-    return this.setAssignment(this.commandAssignment, conversion, noArgUp);
-  }
-
-  var argsUsed = 1;
-
-  var parsePromise;
-  var commandType = this.commandAssignment.param.type;
-  while (argsUsed <= args.length) {
-    var arg = (argsUsed === 1) ?
-              args[0] :
-              new MergedArgument(args, 0, argsUsed);
-
-    // Making the commandType.parse() promise as synchronous is OK because we
-    // know that commandType is a synchronous type.
-
-    if (this.prefix != null && this.prefix !== '') {
-      var prefixArg = new Argument(this.prefix, '', ' ');
-      var prefixedArg = new MergedArgument([ prefixArg, arg ]);
-
-      parsePromise = commandType.parse(prefixedArg, this.executionContext);
-      conversion = util.synchronize(parsePromise);
-
-      if (conversion.value == null) {
-        parsePromise = commandType.parse(arg, this.executionContext);
-        conversion = util.synchronize(parsePromise);
-      }
-    }
-    else {
-      parsePromise = commandType.parse(arg, this.executionContext);
-      conversion = util.synchronize(parsePromise);
-    }
-
-    // We only want to carry on if this command is a parent command,
-    // which means that there is a commandAssignment, but not one with
-    // an exec function.
-    if (!conversion.value || conversion.value.exec) {
-      break;
-    }
-
-    // Previously we needed a way to hide commands depending context.
-    // We have not resurrected that feature yet, but if we do we should
-    // insert code here to ignore certain commands depending on the
-    // context/environment
-
-    argsUsed++;
-  }
-
-  // This could probably be re-written to consume args as we go
-  for (var i = 0; i < argsUsed; i++) {
-    args.shift();
-  }
-
-  // Warning: we're returning a promise (from setAssignment) which tells us
-  // when we're done setting the current command, but mutating the args array
-  // as we go, so we're conflicted on when we're done
-
-  return this.setAssignment(this.commandAssignment, conversion, noArgUp);
-};
-
-/**
- * Add all the passed args to the list of unassigned assignments.
- */
-Requisition.prototype._addUnassignedArgs = function(args) {
-  args.forEach(function(arg) {
-    this._unassigned.push(new UnassignedAssignment(this, arg));
-  }.bind(this));
-};
-
-/**
- * Work out which arguments are applicable to which parameters.
- */
-Requisition.prototype._assign = function(args) {
-  // See comment in _split. Avoid multiple updates
-  var noArgUp = { internal: true };
-
-  this._unassigned = [];
-  var outstanding = [];
-
-  if (!this.commandAssignment.value) {
-    this._addUnassignedArgs(args);
-    return promise.all(outstanding);
-  }
-
-  if (args.length === 0) {
-    this.setBlankArguments();
-    return promise.all(outstanding);
-  }
-
-  // Create an error if the command does not take parameters, but we have
-  // been given them ...
-  if (this.assignmentCount === 0) {
-    this._addUnassignedArgs(args);
-    return promise.all(outstanding);
-  }
-
-  // Special case: if there is only 1 parameter, and that's of type
-  // text, then we put all the params into the first param
-  if (this.assignmentCount === 1) {
-    var assignment = this.getAssignment(0);
-    if (assignment.param.type.name === 'string') {
-      var arg = (args.length === 1) ? args[0] : new MergedArgument(args);
-      outstanding.push(this.setAssignment(assignment, arg, noArgUp));
-      return promise.all(outstanding);
-    }
-  }
-
-  // Positional arguments can still be specified by name, but if they are
-  // then we need to ignore them when working them out positionally
-  var unassignedParams = this.getParameterNames();
-
-  // We collect the arguments used in arrays here before assigning
-  var arrayArgs = {};
-
-  // Extract all the named parameters
-  this.getAssignments(false).forEach(function(assignment) {
-    // Loop over the arguments
-    // Using while rather than loop because we remove args as we go
-    var i = 0;
-    while (i < args.length) {
-      if (assignment.param.isKnownAs(args[i].text)) {
-        var arg = args.splice(i, 1)[0];
-        unassignedParams = unassignedParams.filter(function(test) {
-          return test !== assignment.param.name;
-        });
-
-        // boolean parameters don't have values, default to false
-        if (assignment.param.type.name === 'boolean') {
-          arg = new TrueNamedArgument(arg);
-        }
-        else {
-          var valueArg = null;
-          if (i + 1 <= args.length) {
-            valueArg = args.splice(i, 1)[0];
-          }
-          arg = new NamedArgument(arg, valueArg);
-        }
-
-        if (assignment.param.type.name === 'array') {
-          var arrayArg = arrayArgs[assignment.param.name];
-          if (!arrayArg) {
-            arrayArg = new ArrayArgument();
-            arrayArgs[assignment.param.name] = arrayArg;
-          }
-          arrayArg.addArgument(arg);
-        }
-        else {
-          if (assignment.arg.type === 'BlankArgument') {
-            outstanding.push(this.setAssignment(assignment, arg, noArgUp));
-          }
-          else {
-            this._addUnassignedArgs(arg.getArgs());
-          }
-        }
-      }
-      else {
-        // Skip this parameter and handle as a positional parameter
-        i++;
-      }
-    }
-  }, this);
-
-  // What's left are positional parameters: assign in order
-  unassignedParams.forEach(function(name) {
-    var assignment = this.getAssignment(name);
-
-    // If not set positionally, and we can't set it non-positionally,
-    // we have to default it to prevent previous values surviving
-    if (!assignment.param.isPositionalAllowed) {
-      outstanding.push(this.setAssignment(assignment, null, noArgUp));
-      return;
-    }
-
-    // If this is a positional array argument, then it swallows the
-    // rest of the arguments.
-    if (assignment.param.type.name === 'array') {
-      var arrayArg = arrayArgs[assignment.param.name];
-      if (!arrayArg) {
-        arrayArg = new ArrayArgument();
-        arrayArgs[assignment.param.name] = arrayArg;
-      }
-      arrayArg.addArguments(args);
-      args = [];
-      // The actual assignment to the array parameter is done below
-      return;
-    }
-
-    // Set assignment to defaults if there are no more arguments
-    if (args.length === 0) {
-      outstanding.push(this.setAssignment(assignment, null, noArgUp));
-      return;
-    }
-
-    var arg = args.splice(0, 1)[0];
-    // --foo and -f are named parameters, -4 is a number. So '-' is either
-    // the start of a named parameter or a number depending on the context
-    var isIncompleteName = assignment.param.type.name === 'number' ?
-        /-[-a-zA-Z_]/.test(arg.text) :
-        arg.text.charAt(0) === '-';
-
-    if (isIncompleteName) {
-      this._unassigned.push(new UnassignedAssignment(this, arg));
-    }
-    else {
-      outstanding.push(this.setAssignment(assignment, arg, noArgUp));
-    }
-  }, this);
-
-  // Now we need to assign the array argument (if any)
-  Object.keys(arrayArgs).forEach(function(name) {
-    var assignment = this.getAssignment(name);
-    outstanding.push(this.setAssignment(assignment, arrayArgs[name], noArgUp));
-  }, this);
-
-  // What's left is can't be assigned, but we need to officially unassign them
-  this._addUnassignedArgs(args);
-
-  return promise.all(outstanding);
-};
-
-exports.Requisition = Requisition;
-
-/**
- * A simple object to hold information about the output of a command
- */
-function Output(options) {
-  options = options || {};
-  this.command = options.command || '';
-  this.args = options.args || {};
-  this.typed = options.typed || '';
-  this.canonical = options.canonical || '';
-  this.hidden = options.hidden === true ? true : false;
-
-  this.type = undefined;
-  this.data = undefined;
-  this.completed = false;
-  this.error = false;
-  this.start = new Date();
-
-  this._deferred = promise.defer();
-  this.promise = this._deferred.promise;
-
-  this.onClose = util.createEvent('Output.onClose');
-}
-
-/**
- * Called when there is data to display, and the command has finished executing
- * See changed() for details on parameters.
- */
-Output.prototype.complete = function(data, error) {
-  this.end = new Date();
-  this.duration = this.end.getTime() - this.start.getTime();
-  this.completed = true;
-  this.error = error;
-
-  if (data != null && data.isTypedData) {
-    this.data = data.data;
-    this.type = data.type;
-  }
-  else {
-    this.data = data;
-    this.type = this.command.returnType;
-    if (this.type == null) {
-      this.type = (this.data == null) ? 'undefined' : typeof this.data;
-    }
-  }
-
-  if (this.type === 'object') {
-    throw new Error('No type from output of ' + this.typed);
-  }
-
-  this._deferred.resolve();
-};
-
-/**
- * Call converters.convert using the data in this Output object
- */
-Output.prototype.convert = function(type, conversionContext) {
-  return converters.convert(this.data, this.type, type, conversionContext);
-};
-
-exports.Output = Output;
-
-
-});
-define("text!gcli/ui/intro.html", [], "\n" +
-  "<div>\n" +
-  "  <p>${l10n.introTextOpening2}</p>\n" +
-  "\n" +
-  "  <p>\n" +
-  "    ${l10n.introTextCommands}\n" +
-  "    <span class=\"gcli-out-shortcut\" onclick=\"${onclick}\"\n" +
-  "        ondblclick=\"${ondblclick}\" data-command=\"help\">help</span>${l10n.introTextKeys2}\n" +
-  "    <code>${l10n.introTextF1Escape}</code>.\n" +
-  "  </p>\n" +
-  "\n" +
-  "  <button onclick=\"${onGotIt}\" if=\"${showHideButton}\">${l10n.introTextGo}</button>\n" +
-  "</div>\n" +
-  "");
-
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/ui/focus', ['require', 'exports', 'module' , 'util/util', 'util/l10n', 'gcli/settings'], function(require, exports, module) {
-
-'use strict';
-
-var util = require('util/util');
-var l10n = require('util/l10n');
-var settings = require('gcli/settings');
-
-/**
- * Record how much help the user wants from the tooltip
- */
-var Eagerness = {
-  NEVER: 1,
-  SOMETIMES: 2,
-  ALWAYS: 3
-};
-
-/**
- * Export the eagerHelper setting
- */
-exports.items = [
-  {
-    item: 'setting',
-    name: 'eagerHelper',
-    type: {
-      name: 'selection',
-      lookup: [
-        { name: 'never', value: Eagerness.NEVER },
-        { name: 'sometimes', value: Eagerness.SOMETIMES },
-        { name: 'always', value: Eagerness.ALWAYS }
-      ]
-    },
-    defaultValue: Eagerness.SOMETIMES,
-    description: l10n.lookup('eagerHelperDesc'),
-    ignoreTypeDifference: true
-  }
-];
-
-/**
- * FocusManager solves the problem of tracking focus among a set of nodes.
- * The specific problem we are solving is when the hint element must be visible
- * if either the command line or any of the inputs in the hint element has the
- * focus, and invisible at other times, without hiding and showing the hint
- * element even briefly as the focus changes between them.
- * It does this simply by postponing the hide events by 250ms to see if
- * something else takes focus.
- * @param options Object containing user customization properties, including:
- * - blurDelay (default=150ms)
- * - debug (default=false)
- * @param components Object that links to other UI components. GCLI provided:
- * - document
- * - requisition
- */
-function FocusManager(options, components) {
-  options = options || {};
-
-  this._document = components.document || document;
-  this._requisition = components.requisition;
-
-  this._debug = options.debug || false;
-  this._blurDelay = options.blurDelay || 150;
-  this._window = this._document.defaultView;
-
-  this._requisition.commandOutputManager.onOutput.add(this._outputted, this);
-
-  this._blurDelayTimeout = null; // Result of setTimeout in delaying a blur
-  this._monitoredElements = [];  // See addMonitoredElement()
-
-  this._isError = false;
-  this._hasFocus = false;
-  this._helpRequested = false;
-  this._recentOutput = false;
-
-  this.onVisibilityChange = util.createEvent('FocusManager.onVisibilityChange');
-
-  this._focused = this._focused.bind(this);
-  this._document.addEventListener('focus', this._focused, true);
-
-  var eagerHelper = settings.getSetting('eagerHelper');
-  eagerHelper.onChange.add(this._eagerHelperChanged, this);
-
-  this.isTooltipVisible = undefined;
-  this.isOutputVisible = undefined;
-  this._checkShow();
-}
-
-/**
- * Avoid memory leaks
- */
-FocusManager.prototype.destroy = function() {
-  var eagerHelper = settings.getSetting('eagerHelper');
-  eagerHelper.onChange.remove(this._eagerHelperChanged, this);
-
-  this._document.removeEventListener('focus', this._focused, true);
-  this._requisition.commandOutputManager.onOutput.remove(this._outputted, this);
-
-  for (var i = 0; i < this._monitoredElements.length; i++) {
-    var monitor = this._monitoredElements[i];
-    console.error('Hanging monitored element: ', monitor.element);
-
-    monitor.element.removeEventListener('focus', monitor.onFocus, true);
-    monitor.element.removeEventListener('blur', monitor.onBlur, true);
-  }
-
-  if (this._blurDelayTimeout) {
-    this._window.clearTimeout(this._blurDelayTimeout);
-    this._blurDelayTimeout = null;
-  }
-
-  delete this._focused;
-  delete this._document;
-  delete this._window;
-  delete this._requisition;
-};
-
-/**
- * The easy way to include an element in the set of things that are part of the
- * aggregate focus. Using [add|remove]MonitoredElement() is a simpler way of
- * option than calling report[Focus|Blur]()
- * @param element The element on which to track focus|blur events
- * @param where Optional source string for debugging only
- */
-FocusManager.prototype.addMonitoredElement = function(element, where) {
-  if (this._debug) {
-    console.log('FocusManager.addMonitoredElement(' + (where || 'unknown') + ')');
-  }
-
-  var monitor = {
-    element: element,
-    where: where,
-    onFocus: function() { this._reportFocus(where); }.bind(this),
-    onBlur: function() { this._reportBlur(where); }.bind(this)
-  };
-
-  element.addEventListener('focus', monitor.onFocus, true);
-  element.addEventListener('blur', monitor.onBlur, true);
-
-  if (this._document.activeElement === element) {
-    this._reportFocus(where);
-  }
-
-  this._monitoredElements.push(monitor);
-};
-
-/**
- * Undo the effects of addMonitoredElement()
- * @param element The element to stop tracking
- * @param where Optional source string for debugging only
- */
-FocusManager.prototype.removeMonitoredElement = function(element, where) {
-  if (this._debug) {
-    console.log('FocusManager.removeMonitoredElement(' + (where || 'unknown') + ')');
-  }
-
-  var newMonitoredElements = this._monitoredElements.filter(function(monitor) {
-    if (monitor.element === element) {
-      element.removeEventListener('focus', monitor.onFocus, true);
-      element.removeEventListener('blur', monitor.onBlur, true);
-      return false;
-    }
-    return true;
-  });
-
-  this._monitoredElements = newMonitoredElements;
-};
-
-/**
- * Monitor for new command executions
- */
-FocusManager.prototype.updatePosition = function(dimensions) {
-  var ev = {
-    tooltipVisible: this.isTooltipVisible,
-    outputVisible: this.isOutputVisible,
-    dimensions: dimensions
-  };
-  this.onVisibilityChange(ev);
-};
-
-/**
- * Monitor for new command executions
- */
-FocusManager.prototype._outputted = function(ev) {
-  this._recentOutput = true;
-  this._helpRequested = false;
-  this._checkShow();
-};
-
-/**
- * We take a focus event anywhere to be an indication that we might be about
- * to lose focus
- */
-FocusManager.prototype._focused = function() {
-  this._reportBlur('document');
-};
-
-/**
- * Some component has received a 'focus' event. This sets the internal status
- * straight away and informs the listeners
- * @param where Optional source string for debugging only
- */
-FocusManager.prototype._reportFocus = function(where) {
-  if (this._debug) {
-    console.log('FocusManager._reportFocus(' + (where || 'unknown') + ')');
-  }
-
-  if (this._blurDelayTimeout) {
-    if (this._debug) {
-      console.log('FocusManager.cancelBlur');
-    }
-    this._window.clearTimeout(this._blurDelayTimeout);
-    this._blurDelayTimeout = null;
-  }
-
-  if (!this._hasFocus) {
-    this._hasFocus = true;
-  }
-  this._checkShow();
-};
-
-/**
- * Some component has received a 'blur' event. This waits for a while to see if
- * we are going to get any subsequent 'focus' events and then sets the internal
- * status and informs the listeners
- * @param where Optional source string for debugging only
- */
-FocusManager.prototype._reportBlur = function(where) {
-  if (this._debug) {
-    console.log('FocusManager._reportBlur(' + where + ')');
-  }
-
-  if (this._hasFocus) {
-    if (this._blurDelayTimeout) {
-      if (this._debug) {
-        console.log('FocusManager.blurPending');
-      }
-      return;
-    }
-
-    this._blurDelayTimeout = this._window.setTimeout(function() {
-      if (this._debug) {
-        console.log('FocusManager.blur');
-      }
-      this._hasFocus = false;
-      this._checkShow();
-      this._blurDelayTimeout = null;
-    }.bind(this), this._blurDelay);
-  }
-};
-
-/**
- * The setting has changed
- */
-FocusManager.prototype._eagerHelperChanged = function() {
-  this._checkShow();
-};
-
-/**
- * The inputter tells us about keyboard events so we can decide to delay
- * showing the tooltip element
- */
-FocusManager.prototype.onInputChange = function() {
-  this._recentOutput = false;
-  this._checkShow();
-};
-
-/**
- * Generally called for something like a F1 key press, when the user explicitly
- * wants help
- */
-FocusManager.prototype.helpRequest = function() {
-  if (this._debug) {
-    console.log('FocusManager.helpRequest');
-  }
-
-  this._helpRequested = true;
-  this._recentOutput = false;
-  this._checkShow();
-};
-
-/**
- * Generally called for something like a ESC key press, when the user explicitly
- * wants to get rid of the help
- */
-FocusManager.prototype.removeHelp = function() {
-  if (this._debug) {
-    console.log('FocusManager.removeHelp');
-  }
-
-  this._importantFieldFlag = false;
-  this._isError = false;
-  this._helpRequested = false;
-  this._recentOutput = false;
-  this._checkShow();
-};
-
-/**
- * Set to true whenever a field thinks it's output is important
- */
-FocusManager.prototype.setImportantFieldFlag = function(flag) {
-  if (this._debug) {
-    console.log('FocusManager.setImportantFieldFlag', flag);
-  }
-  this._importantFieldFlag = flag;
-  this._checkShow();
-};
-
-/**
- * Set to true whenever a field thinks it's output is important
- */
-FocusManager.prototype.setError = function(isError) {
-  if (this._debug) {
-    console.log('FocusManager._isError', isError);
-  }
-  this._isError = isError;
-  this._checkShow();
-};
-
-/**
- * Helper to compare the current showing state with the value calculated by
- * _shouldShow() and take appropriate action
- */
-FocusManager.prototype._checkShow = function() {
-  var fire = false;
-  var ev = {
-    tooltipVisible: this.isTooltipVisible,
-    outputVisible: this.isOutputVisible
-  };
-
-  var showTooltip = this._shouldShowTooltip();
-  if (this.isTooltipVisible !== showTooltip.visible) {
-    ev.tooltipVisible = this.isTooltipVisible = showTooltip.visible;
-    fire = true;
-  }
-
-  var showOutput = this._shouldShowOutput();
-  if (this.isOutputVisible !== showOutput.visible) {
-    ev.outputVisible = this.isOutputVisible = showOutput.visible;
-    fire = true;
-  }
-
-  if (fire) {
-    if (this._debug) {
-      console.log('FocusManager.onVisibilityChange', ev);
-    }
-    this.onVisibilityChange(ev);
-  }
-};
-
-/**
- * Calculate if we should be showing or hidden taking into account all the
- * available inputs
- */
-FocusManager.prototype._shouldShowTooltip = function() {
-  if (!this._hasFocus) {
-    return { visible: false, reason: 'notHasFocus' };
-  }
-
-  var eagerHelper = settings.getSetting('eagerHelper');
-  if (eagerHelper.value === Eagerness.NEVER) {
-    return { visible: false, reason: 'eagerHelperNever' };
-  }
-
-  if (eagerHelper.value === Eagerness.ALWAYS) {
-    return { visible: true, reason: 'eagerHelperAlways' };
-  }
-
-  if (this._isError) {
-    return { visible: true, reason: 'isError' };
-  }
-
-  if (this._helpRequested) {
-    return { visible: true, reason: 'helpRequested' };
-  }
-
-  if (this._importantFieldFlag) {
-    return { visible: true, reason: 'importantFieldFlag' };
-  }
-
-  return { visible: false, reason: 'default' };
-};
-
-/**
- * Calculate if we should be showing or hidden taking into account all the
- * available inputs
- */
-FocusManager.prototype._shouldShowOutput = function() {
-  if (!this._hasFocus) {
-    return { visible: false, reason: 'notHasFocus' };
-  }
-
-  if (this._recentOutput) {
-    return { visible: true, reason: 'recentOutput' };
-  }
-
-  return { visible: false, reason: 'default' };
-};
-
-exports.FocusManager = FocusManager;
-
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 define('gcli/ui/fields/basic', ['require', 'exports', 'module' , 'util/util', 'util/promise', 'util/l10n', 'gcli/argument', 'gcli/types', 'gcli/ui/fields'], function(require, exports, module) {
 
 'use strict';
@@ -11489,9 +13434,9 @@ StringField.prototype = Object.create(Field.prototype);
 StringField.prototype.destroy = function() {
   Field.prototype.destroy.call(this);
   this.element.removeEventListener('keyup', this.onInputChange, false);
-  delete this.element;
-  delete this.document;
-  delete this.onInputChange;
+  this.element = undefined;
+  this.document = undefined;
+  this.onInputChange = undefined;
 };
 
 StringField.prototype.setConversion = function(conversion) {
@@ -11545,9 +13490,9 @@ NumberField.claim = function(type, context) {
 NumberField.prototype.destroy = function() {
   Field.prototype.destroy.call(this);
   this.element.removeEventListener('keyup', this.onInputChange, false);
-  delete this.element;
-  delete this.document;
-  delete this.onInputChange;
+  this.element = undefined;
+  this.document = undefined;
+  this.onInputChange = undefined;
 };
 
 NumberField.prototype.setConversion = function(conversion) {
@@ -11590,9 +13535,9 @@ BooleanField.claim = function(type, context) {
 BooleanField.prototype.destroy = function() {
   Field.prototype.destroy.call(this);
   this.element.removeEventListener('change', this.onInputChange, false);
-  delete this.element;
-  delete this.document;
-  delete this.onInputChange;
+  this.element = undefined;
+  this.document = undefined;
+  this.onInputChange = undefined;
 };
 
 BooleanField.prototype.setConversion = function(conversion) {
@@ -11657,9 +13602,9 @@ DelegateField.claim = function(type, context) {
 DelegateField.prototype.destroy = function() {
   Field.prototype.destroy.call(this);
   this.requisition.onTextChange.remove(this.update, this);
-  delete this.element;
-  delete this.document;
-  delete this.onInputChange;
+  this.element = undefined;
+  this.document = undefined;
+  this.onInputChange = undefined;
 };
 
 DelegateField.prototype.setConversion = function(conversion) {
@@ -11877,11 +13822,11 @@ JavascriptField.prototype.destroy = function() {
   this.input.removeEventListener('keyup', this.onInputChange, false);
   this.menu.onItemClick.remove(this.itemClicked, this);
   this.menu.destroy();
-  delete this.element;
-  delete this.input;
-  delete this.menu;
-  delete this.document;
-  delete this.onInputChange;
+  this.element = undefined;
+  this.input = undefined;
+  this.menu = undefined;
+  this.document = undefined;
+  this.onInputChange = undefined;
 };
 
 JavascriptField.prototype.setConversion = function(conversion) {
@@ -12028,9 +13973,9 @@ Menu.prototype.l10n = l10n.propertyLookup;
  * Avoid memory leaks
  */
 Menu.prototype.destroy = function() {
-  delete this.element;
-  delete this.template;
-  delete this.document;
+  this.element = undefined;
+  this.template = undefined;
+  this.document = undefined;
 };
 
 /**
@@ -12103,9 +14048,9 @@ function getHighlightingProxy(item, match, document) {
 
       var before = value.substr(0, startMatch);
       var after = value.substr(startMatch + match.length);
-      var parent = document.createElement('span');
+      var parent = util.createElement(document, 'span');
       parent.appendChild(document.createTextNode(before));
-      var highlight = document.createElement('span');
+      var highlight = util.createElement(document, 'span');
       highlight.classList.add('gcli-menu-typed');
       highlight.appendChild(document.createTextNode(match));
       parent.appendChild(highlight);
@@ -12137,7 +14082,7 @@ Menu.prototype.setChoiceIndex = function(choice) {
 };
 
 /**
- * Allow the inputter to use RETURN to chose the current menu item when
+ * Allow the terminal to use RETURN to chose the current menu item when
  * it can't execute the command line
  * @return true if an item was 'clicked', false otherwise
  */
@@ -12203,8 +14148,7 @@ define("text!gcli/ui/fields/menu.css", [], "\n" +
   "}\n" +
   "\n" +
   ".gcli-menu-option:hover {\n" +
-  "  background-image: -moz-linear-gradient(top, #f8f8f8, #ccc);\n" +
-  "  background-color: #ddd;\n" +
+  "  background-color: rgba(0, 0, 0, 0.2);\n" +
   "}\n" +
   "\n" +
   ".gcli-menu-name {\n" +
@@ -12222,8 +14166,7 @@ define("text!gcli/ui/fields/menu.css", [], "\n" +
   "\n" +
   ".gcli-menu-highlight,\n" +
   ".gcli-menu-highlight.gcli-menu-option:hover {\n" +
-  "  background-image: -moz-linear-gradient(top, #eee, #b8b8b8);\n" +
-  "  background-color: #c8c8c8;\n" +
+  "  background-color: rgba(0, 0, 0, 0.3);\n" +
   "}\n" +
   "\n" +
   ".gcli-menu-typed {\n" +
@@ -12325,9 +14268,9 @@ SelectionField.claim = function(type, context) {
 SelectionField.prototype.destroy = function() {
   Field.prototype.destroy.call(this);
   this.element.removeEventListener('change', this.onInputChange, false);
-  delete this.element;
-  delete this.document;
-  delete this.onInputChange;
+  this.element = undefined;
+  this.document = undefined;
+  this.onInputChange = undefined;
 };
 
 SelectionField.prototype.setConversion = function(conversion) {
@@ -12387,9 +14330,9 @@ SelectionTooltipField.prototype.destroy = function() {
   Field.prototype.destroy.call(this);
   this.menu.onItemClick.remove(this.itemClicked, this);
   this.menu.destroy();
-  delete this.element;
-  delete this.document;
-  delete this.onInputChange;
+  this.element = undefined;
+  this.document = undefined;
+  this.onInputChange = undefined;
 };
 
 SelectionTooltipField.prototype.setConversion = function(conversion) {
@@ -12439,7 +14382,7 @@ SelectionTooltipField.prototype.setChoiceIndex = function(choice) {
 };
 
 /**
- * Allow the inputter to use RETURN to chose the current menu item when
+ * Allow the terminal to use RETURN to chose the current menu item when
  * it can't execute the command line
  * @return true if an item was 'clicked', false otherwise
  */
@@ -12478,2222 +14421,7 @@ exports.items = [ SelectionField, SelectionTooltipField ];
  * limitations under the License.
  */
 
-define('gcli/ui/display', ['require', 'exports', 'module' , 'util/util', 'util/domtemplate', 'gcli/settings', 'gcli/canon', 'gcli/cli', 'gcli/ui/intro', 'gcli/ui/tooltip', 'gcli/ui/output_terminal', 'gcli/ui/inputter', 'gcli/ui/completer', 'gcli/ui/focus', 'gcli/ui/prompt', 'text!gcli/ui/display.css', 'text!gcli/ui/display.html'], function(require, exports, module) {
-
-'use strict';
-
-var util = require('util/util');
-var domtemplate = require('util/domtemplate');
-
-var settings = require('gcli/settings');
-var CommandOutputManager = require('gcli/canon').CommandOutputManager;
-var Requisition = require('gcli/cli').Requisition;
-
-var intro = require('gcli/ui/intro');
-var Tooltip = require('gcli/ui/tooltip').Tooltip;
-var OutputTerminal = require('gcli/ui/output_terminal').OutputTerminal;
-var Inputter = require('gcli/ui/inputter').Inputter;
-var Completer = require('gcli/ui/completer').Completer;
-var FocusManager = require('gcli/ui/focus').FocusManager;
-var Prompt = require('gcli/ui/prompt').Prompt;
-
-var displayCss = require('text!gcli/ui/display.css');
-var displayHtml = require('text!gcli/ui/display.html');
-
-
-/**
- * createDisplay() calls 'new Display()' but returns an object which exposes a
- * much restricted set of functions rather than all those exposed by Display.
- * This allows for robust testing without exposing too many internals.
- * @param options See Display() for a description of the available options.
- */
-exports.createDisplay = function(options) {
-  if (options.settings != null) {
-    settings.setDefaults(options.settings);
-  }
-  var display = new Display(options);
-  var requisition = display.requisition;
-  return {
-    /**
-     * The exact shape of the object returned by exec is likely to change in
-     * the near future. If you do use it, please expect your code to break.
-     */
-    exec: requisition.exec.bind(requisition),
-    update: requisition.update.bind(requisition),
-    updateExec: requisition.updateExec.bind(requisition),
-    destroy: display.destroy.bind(display)
-  };
-};
-
-/**
- * View is responsible for generating the web UI for GCLI.
- * @param options Object containing user customization properties.
- * See the documentation for the other components for more details.
- * Options supported directly include:
- * - document (default=document):
- * - environment (default={}):
- * - dontDecorate (default=false):
- * - inputElement (default=#gcli-input):
- * - completeElement (default=#gcli-row-complete):
- * - displayElement (default=#gcli-display):
- * - promptElement (default=#gcli-prompt):
- * - commandOutputManager (default=new CommandOutputManager):
- */
-function Display(options) {
-  var doc = options.document || document;
-
-  this.displayStyle = undefined;
-  if (displayCss != null) {
-    this.displayStyle = util.importCss(displayCss, doc, 'gcli-css-display');
-  }
-
-  // Configuring the document is complex because on the web side, there is an
-  // active desire to have nothing to configure, where as when embedded in
-  // Firefox there could be up to 4 documents, some of which can/should be
-  // derived from some root element.
-  // When a component uses a document to create elements for use under a known
-  // root element, then we pass in the element (if we have looked it up
-  // already) or an id/document
-
-  this.commandOutputManager = options.commandOutputManager;
-  if (this.commandOutputManager == null) {
-    this.commandOutputManager = new CommandOutputManager();
-  }
-
-  this.requisition = new Requisition(options.environment || {}, doc,
-                                     this.commandOutputManager);
-
-  this.focusManager = new FocusManager(options, {
-    document: doc,
-    requisition: this.requisition
-  });
-
-  this.inputElement = find(doc, options.inputElement || null, 'gcli-input');
-  this.inputter = new Inputter(options, {
-    requisition: this.requisition,
-    focusManager: this.focusManager,
-    element: this.inputElement
-  });
-
-  // autoResize logic: we want Completer to keep the elements at the same
-  // position if we created the completion element, but if someone else created
-  // it, then it's their job.
-  this.completeElement = insert(this.inputElement,
-                         options.completeElement || null, 'gcli-row-complete');
-  this.completer = new Completer(options, {
-    requisition: this.requisition,
-    inputter: this.inputter,
-    autoResize: this.completeElement.gcliCreated,
-    element: this.completeElement
-  });
-
-  this.prompt = new Prompt(options, {
-    inputter: this.inputter,
-    element: insert(this.inputElement,
-                    options.promptElement || null, 'gcli-prompt')
-  });
-
-  this.element = find(doc, options.displayElement || null, 'gcli-display');
-  this.element.classList.add('gcli-display');
-
-  this.template = util.toDom(doc, displayHtml);
-  this.elements = {};
-  domtemplate.template(this.template, this.elements, { stack: 'display.html' });
-  this.element.appendChild(this.template);
-
-  this.tooltip = new Tooltip(options, {
-    requisition: this.requisition,
-    inputter: this.inputter,
-    focusManager: this.focusManager,
-    element: this.elements.tooltip,
-    panelElement: this.elements.panel
-  });
-
-  this.inputter.tooltip = this.tooltip;
-
-  this.outputElement = util.createElement(doc, 'div');
-  this.outputElement.classList.add('gcli-output');
-  this.outputList = new OutputTerminal(options, {
-    requisition: this.requisition,
-    element: this.outputElement
-  });
-
-  this.element.appendChild(this.outputElement);
-
-  intro.maybeShowIntro(this.commandOutputManager,
-                       this.requisition.conversionContext);
-}
-
-/**
- * Call the destroy functions of the components that we created
- */
-Display.prototype.destroy = function() {
-  delete this.element;
-  delete this.template;
-
-  this.outputList.destroy();
-  delete this.outputList;
-  delete this.outputElement;
-
-  this.tooltip.destroy();
-  delete this.tooltip;
-
-  this.prompt.destroy();
-  delete this.prompt;
-
-  this.completer.destroy();
-  delete this.completer;
-  delete this.completeElement;
-
-  this.inputter.destroy();
-  delete this.inputter;
-  delete this.inputElement;
-
-  this.focusManager.destroy();
-  delete this.focusManager;
-
-  this.requisition.destroy();
-  delete this.requisition;
-
-  if (this.displayStyle) {
-    this.displayStyle.parentNode.removeChild(this.displayStyle);
-  }
-  delete this.displayStyle;
-};
-
-exports.Display = Display;
-
-/**
- * Utility to help find an element by id, throwing if it wasn't found
- */
-function find(doc, element, id) {
-  if (!element) {
-    element = doc.getElementById(id);
-    if (!element) {
-      throw new Error('Missing element, id=' + id);
-    }
-  }
-  return element;
-}
-
-/**
- * Utility to help find an element by id, creating it if it wasn't found
- */
-function insert(sibling, element, id) {
-  var doc = sibling.ownerDocument;
-  if (!element) {
-    element = doc.getElementById('gcli-row-complete');
-    if (!element) {
-      element = util.createElement(doc, 'div');
-      sibling.parentNode.insertBefore(element, sibling.nextSibling);
-      element.gcliCreated = true;
-    }
-  }
-  return element;
-}
-
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/ui/tooltip', ['require', 'exports', 'module' , 'util/util', 'util/domtemplate', 'gcli/cli', 'gcli/ui/fields', 'text!gcli/ui/tooltip.css', 'text!gcli/ui/tooltip.html'], function(require, exports, module) {
-
-'use strict';
-
-var util = require('util/util');
-var domtemplate = require('util/domtemplate');
-
-var CommandAssignment = require('gcli/cli').CommandAssignment;
-var fields = require('gcli/ui/fields');
-
-var tooltipCss = require('text!gcli/ui/tooltip.css');
-var tooltipHtml = require('text!gcli/ui/tooltip.html');
-
-
-/**
- * A widget to display an inline dialog which allows the user to fill out
- * the arguments to a command.
- * @param options Object containing user customization properties, including:
- * - tooltipClass (default='gcli-tooltip'): Custom class name when generating
- *   the top level element which allows different layout systems
- * @param components Object that links to other UI components. GCLI provided:
- * - requisition: The Requisition to fill out
- * - inputter: An instance of Inputter
- * - focusManager: Component to manage hiding/showing this element
- * - panelElement (optional): The element to show/hide on visibility events
- * - element: The root element to populate
- */
-function Tooltip(options, components) {
-  this.inputter = components.inputter;
-  this.requisition = components.requisition;
-  this.focusManager = components.focusManager;
-
-  this.element = components.element;
-  this.element.classList.add(options.tooltipClass || 'gcli-tooltip');
-  this.document = this.element.ownerDocument;
-
-  this.panelElement = components.panelElement;
-  if (this.panelElement) {
-    this.panelElement.classList.add('gcli-panel-hide');
-    this.focusManager.onVisibilityChange.add(this.visibilityChanged, this);
-  }
-  this.focusManager.addMonitoredElement(this.element, 'tooltip');
-
-  // We cache the fields we create so we can destroy them later
-  this.fields = [];
-
-  // Pull the HTML into the DOM, but don't add it to the document
-  if (tooltipCss != null) {
-    this.style = util.importCss(tooltipCss, this.document, 'gcli-tooltip');
-  }
-
-  this.template = util.toDom(this.document, tooltipHtml);
-  this.templateOptions = { blankNullUndefined: true, stack: 'tooltip.html' };
-
-  this.inputter.onChoiceChange.add(this.choiceChanged, this);
-  this.inputter.onAssignmentChange.add(this.assignmentChanged, this);
-  this.requisition.onTextChange.add(this.textChanged, this);
-
-  // We keep a track of which assignment the cursor is in
-  this.assignment = undefined;
-  this.assignmentChanged({ assignment: this.inputter.assignment });
-
-  // We also keep track of the last known arg text for the current assignment
-  this.lastText = undefined;
-}
-
-/**
- * Avoid memory leaks
- */
-Tooltip.prototype.destroy = function() {
-  this.inputter.onAssignmentChange.remove(this.assignmentChanged, this);
-  this.inputter.onChoiceChange.remove(this.choiceChanged, this);
-  this.requisition.onTextChange.remove(this.textChanged, this);
-
-  if (this.panelElement) {
-    this.focusManager.onVisibilityChange.remove(this.visibilityChanged, this);
-  }
-  this.focusManager.removeMonitoredElement(this.element, 'tooltip');
-
-  if (this.style) {
-    this.style.parentNode.removeChild(this.style);
-    delete this.style;
-  }
-
-  this.field.onFieldChange.remove(this.fieldChanged, this);
-  this.field.destroy();
-
-  delete this.lastText;
-  delete this.assignment;
-
-  delete this.errorEle;
-  delete this.descriptionEle;
-  delete this.highlightEle;
-
-  delete this.document;
-  delete this.element;
-  delete this.panelElement;
-  delete this.template;
-};
-
-/**
- * The inputter acts on UP/DOWN if there is a menu showing
- */
-Object.defineProperty(Tooltip.prototype, 'isMenuShowing', {
-  get: function() {
-    return this.focusManager.isTooltipVisible &&
-           this.field != null &&
-           this.field.menu != null;
-  },
-  enumerable: true
-});
-
-/**
- * Called whenever the assignment that we're providing help with changes
- */
-Tooltip.prototype.assignmentChanged = function(ev) {
-  // This can be kicked off either by requisition doing an assign or by
-  // inputter noticing a cursor movement out of a command, so we should check
-  // that this really is a new assignment
-  if (this.assignment === ev.assignment) {
-    return;
-  }
-
-  this.assignment = ev.assignment;
-  this.lastText = this.assignment.arg.text;
-
-  if (this.field) {
-    this.field.onFieldChange.remove(this.fieldChanged, this);
-    this.field.destroy();
-  }
-
-  this.field = fields.getField(this.assignment.param.type, {
-    document: this.document,
-    name: this.assignment.param.name,
-    requisition: this.requisition,
-    required: this.assignment.param.isDataRequired,
-    named: !this.assignment.param.isPositionalAllowed,
-    tooltip: true
-  });
-
-  this.focusManager.setImportantFieldFlag(this.field.isImportant);
-
-  this.field.onFieldChange.add(this.fieldChanged, this);
-  this.field.setConversion(this.assignment.conversion);
-
-  // Filled in by the template process
-  this.errorEle = undefined;
-  this.descriptionEle = undefined;
-  this.highlightEle = undefined;
-
-  var contents = this.template.cloneNode(true);
-  domtemplate.template(contents, this, this.templateOptions);
-  util.clearElement(this.element);
-  this.element.appendChild(contents);
-  this.element.style.display = 'block';
-
-  this.field.setMessageElement(this.errorEle);
-
-  this._updatePosition();
-};
-
-/**
- * Forward the event to the current field
- */
-Tooltip.prototype.choiceChanged = function(ev) {
-  if (this.field && this.field.setChoiceIndex) {
-    var conversion = this.assignment.conversion;
-    conversion.constrainPredictionIndex(ev.choice).then(function(choice) {
-      this.field.setChoiceIndex(choice);
-    }.bind(this)).then(null, util.errorHandler);
-  }
-};
-
-/**
- * Allow the inputter to use RETURN to chose the current menu item when
- * it can't execute the command line
- * @return true if there was a selection to use, false otherwise
- */
-Tooltip.prototype.selectChoice = function(ev) {
-  if (this.field && this.field.selectChoice) {
-    return this.field.selectChoice();
-  }
-  return false;
-};
-
-/**
- * Called by the onFieldChange event on the current Field
- */
-Tooltip.prototype.fieldChanged = function(ev) {
-  this.requisition.setAssignment(this.assignment, ev.conversion.arg,
-                                 { matchPadding: true });
-
-  var isError = ev.conversion.message != null && ev.conversion.message !== '';
-  this.focusManager.setError(isError);
-
-  // Nasty hack, the inputter won't know about the text change yet, so it will
-  // get it's calculations wrong. We need to wait until the current set of
-  // changes has had a chance to propagate
-  this.document.defaultView.setTimeout(function() {
-    this.inputter.focus();
-  }.bind(this), 10);
-};
-
-/**
- * Called by the onTextChanged event on the Requisition
- */
-Tooltip.prototype.textChanged = function() {
-  // Requisition fires onTextChanged events on any change, including minor
-  // things like whitespace change in arg prefix, so we ignore anything but
-  // an actual value change.
-  if (this.assignment.arg.text === this.lastText) {
-    return;
-  }
-
-  this.lastText = this.assignment.arg.text;
-
-  this.field.setConversion(this.assignment.conversion);
-  util.setTextContent(this.descriptionEle, this.description);
-
-  this._updatePosition();
-};
-
-/**
- * Called to move the tooltip to the correct horizontal position
- */
-Tooltip.prototype._updatePosition = function() {
-  var dimensions = this.getDimensionsOfAssignment();
-
-  // 10 is roughly the width of a char
-  if (this.panelElement) {
-    this.panelElement.style.left = (dimensions.start * 10) + 'px';
-  }
-
-  this.focusManager.updatePosition(dimensions);
-};
-
-/**
- * Returns a object containing 'start' and 'end' properties which identify the
- * number of pixels from the left hand edge of the input element that represent
- * the text portion of the current assignment.
- */
-Tooltip.prototype.getDimensionsOfAssignment = function() {
-  var before = '';
-  var assignments = this.requisition.getAssignments(true);
-  for (var i = 0; i < assignments.length; i++) {
-    if (assignments[i] === this.assignment) {
-      break;
-    }
-    before += assignments[i].toString();
-  }
-  before += this.assignment.arg.prefix;
-
-  var startChar = before.length;
-  before += this.assignment.arg.text;
-  var endChar = before.length;
-
-  return { start: startChar, end: endChar };
-};
-
-/**
- * The description (displayed at the top of the hint area) should be blank if
- * we're entering the CommandAssignment (because it's obvious) otherwise it's
- * the parameter description.
- */
-Object.defineProperty(Tooltip.prototype, 'description', {
-  get: function() {
-    if (this.assignment instanceof CommandAssignment &&
-            this.assignment.value == null) {
-      return '';
-    }
-
-    return this.assignment.param.manual || this.assignment.param.description;
-  },
-  enumerable: true
-});
-
-/**
- * Tweak CSS to show/hide the output
- */
-Tooltip.prototype.visibilityChanged = function(ev) {
-  if (!this.panelElement) {
-    return;
-  }
-
-  if (ev.tooltipVisible) {
-    this.panelElement.classList.remove('gcli-panel-hide');
-  }
-  else {
-    this.panelElement.classList.add('gcli-panel-hide');
-  }
-};
-
-exports.Tooltip = Tooltip;
-
-
-});
-define("text!gcli/ui/tooltip.css", [], "\n" +
-  ".gcli-panel {\n" +
-  "  -moz-transition-property: opacity, height;\n" +
-  "  -moz-transition-duration: 0.5s, 2s;\n" +
-  "  overflow-y: auto;\n" +
-  "  overflow-x: hidden;\n" +
-  "  z-index: 2;\n" +
-  "  position: absolute;\n" +
-  "  max-height: 100%;\n" +
-  "  max-width: 350px;\n" +
-  "  left: 0;\n" +
-  "  bottom: 0;\n" +
-  "  font-family: Segoe UI, Helvetica Neue, Verdana, Arial, sans-serif;\n" +
-  "  margin-bottom: -3px;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-panel.gcli-panel-hide {\n" +
-  "  opacity: 0;\n" +
-  "  height: 0;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-panel-connector {\n" +
-  "  height: 10px;\n" +
-  "  margin-top: -1px;\n" +
-  "  margin-left: 20px;\n" +
-  "  width: 20px;\n" +
-  "  background: white;\n" +
-  "  border-left: 1px solid #999;\n" +
-  "  border-right: 1px solid #999;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-tt-description {\n" +
-  "  padding: 5px 10px 0;\n" +
-  "  font-size: 90%;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-tt-error {\n" +
-  "  font-size: 80%;\n" +
-  "  color: #900;\n" +
-  "  padding: 0 10px;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-field {\n" +
-  "  width: 100%;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-field-javascript {\n" +
-  "  margin-bottom: 0;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-tt {\n" +
-  "  box-shadow: 0 0 10px 1px #ddd;\n" +
-  "  border: 1px solid #999;\n" +
-  "  border-radius: 3px;\n" +
-  "  margin: 10px 0 0 0;\n" +
-  "  background: hsla(0, 100%, 100%, 0.95);\n" +
-  "  padding-bottom: 5px;\n" +
-  "}\n" +
-  "");
-
-define("text!gcli/ui/tooltip.html", [], "\n" +
-  "<div class=\"gcli-tt\" aria-live=\"polite\">\n" +
-  "  <div class=\"gcli-tt-description\" save=\"${descriptionEle}\">${description}</div>\n" +
-  "  ${field.element}\n" +
-  "  <div class=\"gcli-tt-error\" save=\"${errorEle}\">${assignment.conversion.message}</div>\n" +
-  "  <div class=\"gcli-tt-highlight\" save=\"${highlightEle}\"></div>\n" +
-  "</div>\n" +
-  "");
-
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/ui/output_terminal', ['require', 'exports', 'module' , 'util/util', 'util/domtemplate', 'text!gcli/ui/output_view.css', 'text!gcli/ui/output_terminal.html'], function(require, exports, module) {
-
-'use strict';
-
-var util = require('util/util');
-var domtemplate = require('util/domtemplate');
-
-var outputViewCss = require('text!gcli/ui/output_view.css');
-var outputViewHtml = require('text!gcli/ui/output_terminal.html');
-
-
-/**
- * A wrapper for a set of rows|command outputs.
- * Register with the canon to be notified when commands have output to be
- * displayed.
- * @param options Object containing user customization properties, although
- * none are currently supported
- * @param components Object that links to other UI components. GCLI provided:
- * - element: Root element to populate
- * - requisition (optional): A click/double-click to an input row causes the
- *   command to be sent to the input/executed if we know the requisition use
- */
-function OutputTerminal(options, components) {
-  this.element = components.element;
-  this.requisition = components.requisition;
-
-  this.requisition.commandOutputManager.onOutput.add(this.outputted, this);
-
-  var document = components.element.ownerDocument;
-  if (outputViewCss != null) {
-    this.style = util.importCss(outputViewCss, document, 'gcli-output-view');
-  }
-
-  this.template = util.toDom(document, outputViewHtml);
-  this.templateOptions = { allowEval: true, stack: 'output_terminal.html' };
-}
-
-/**
- * Avoid memory leaks
- */
-OutputTerminal.prototype.destroy = function() {
-  if (this.style) {
-    this.style.parentNode.removeChild(this.style);
-    delete this.style;
-  }
-
-  this.requisition.commandOutputManager.onOutput.remove(this.outputted, this);
-
-  delete this.requisition;
-  delete this.element;
-  delete this.template;
-};
-
-/**
- * Monitor for new command executions
- */
-OutputTerminal.prototype.outputted = function(ev) {
-  if (ev.output.hidden) {
-    return;
-  }
-
-  ev.output.view = new OutputView(ev.output, this);
-};
-
-/**
- * Display likes to be able to control the height of its children
- */
-OutputTerminal.prototype.setHeight = function(height) {
-  this.element.style.height = height + 'px';
-};
-
-exports.OutputTerminal = OutputTerminal;
-
-
-/**
- * Adds a row to the CLI output display
- */
-function OutputView(output, outputTerminal) {
-  this.output = output;
-  this.outputTerminal = outputTerminal;
-
-  this._outputted = this._outputted.bind(this);
-  this.url = util.createUrlLookup(module);
-
-  // Elements attached to this by template().
-  this.elems = {
-    rowin: null,
-    rowout: null,
-    hide: null,
-    show: null,
-    duration: null,
-    throb: null,
-    prompt: null
-  };
-
-  // Handle clicks and double clicks to copy and exec commands
-  var context = this.outputTerminal.requisition.conversionContext;
-  this.onclick = context.update;
-  this.ondblclick = context.updateExec;
-
-  var template = this.outputTerminal.template.cloneNode(true);
-  domtemplate.template(template, this, this.outputTerminal.templateOptions);
-
-  this.outputTerminal.element.appendChild(this.elems.rowin);
-  this.outputTerminal.element.appendChild(this.elems.rowout);
-
-  this.output.onClose.add(this.closed, this);
-  this.output.promise.then(this._outputted);
-
-  this.scrollToBottom();
-}
-
-OutputView.prototype.destroy = function() {
-  this.output.onClose.remove(this.closed, this);
-
-  this.outputTerminal.element.removeChild(this.elems.rowin);
-  this.outputTerminal.element.removeChild(this.elems.rowout);
-
-  delete this.output;
-  delete this.outputTerminal;
-  delete this.url;
-  delete this.elems;
-};
-
-/**
- * Only display a prompt if there is a command, otherwise, leave blank
- */
-Object.defineProperty(OutputView.prototype, 'prompt', {
-  get: function() {
-    return this.output.canonical ? '\u00bb' : '';
-  },
-  enumerable: true
-});
-
-OutputView.prototype.hideOutput = function(ev) {
-  this.elems.rowout.style.display = 'none';
-  this.elems.hide.classList.add('cmd_hidden');
-  this.elems.show.classList.remove('cmd_hidden');
-
-  ev.stopPropagation();
-};
-
-OutputView.prototype.showOutput = function(ev) {
-  this.elems.rowout.style.display = 'block';
-  this.elems.hide.classList.remove('cmd_hidden');
-  this.elems.show.classList.add('cmd_hidden');
-
-  ev.stopPropagation();
-};
-
-OutputView.prototype.closed = function(ev) {
-  this.destroy();
-};
-
-OutputView.prototype._outputted = function() {
-  var document = this.elems.rowout.ownerDocument;
-  var duration = this.output.duration != null ?
-          'completed in ' + (this.output.duration / 1000) + ' sec ' :
-          '';
-  duration = document.createTextNode(duration);
-  this.elems.duration.appendChild(duration);
-
-  if (this.output.completed) {
-    this.elems.prompt.classList.add('gcli-row-complete');
-  }
-  if (this.output.error) {
-    this.elems.prompt.classList.add('gcli-row-error');
-  }
-
-  util.clearElement(this.elems.rowout);
-  var context = this.outputTerminal.requisition.conversionContext;
-  this.output.convert('dom', context).then(function(node) {
-    util.linksToNewTab(node);
-    this.elems.rowout.appendChild(node);
-
-    this.scrollToBottom();
-
-    this.elems.throb.style.display = this.output.completed ? 'none' : 'block';
-  }.bind(this));
-};
-
-OutputView.prototype.scrollToBottom = function() {
-  // We need to see the output of the latest command entered
-  // Certain browsers have a bug such that scrollHeight is too small
-  // when content does not fill the client area of the element
-  var scrollHeight = Math.max(this.outputTerminal.element.scrollHeight,
-                              this.outputTerminal.element.clientHeight);
-  this.outputTerminal.element.scrollTop =
-                      scrollHeight - this.outputTerminal.element.clientHeight;
-};
-
-exports.OutputView = OutputView;
-
-
-});
-define("text!gcli/ui/output_view.css", [], "\n" +
-  ".gcli-row-in {\n" +
-  "  padding: 0 4px;\n" +
-  "  box-shadow: 0 -6px 10px -6px #ddd;\n" +
-  "  border-top: 1px solid #bbb;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-in > img {\n" +
-  "  cursor: pointer;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-hover {\n" +
-  "  display: none;\n" +
-  "  float: right;\n" +
-  "  padding: 2px 2px 0;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-in:hover > .gcli-row-hover {\n" +
-  "  display: inline;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-in:hover > .gcli-row-hover.gcli-row-hidden {\n" +
-  "  display: none;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-duration {\n" +
-  "  color: #666;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-prompt {\n" +
-  "  color: #00F;\n" +
-  "  font-weight: bold;\n" +
-  "  font-size: 120%;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-prompt.gcli-row-complete {\n" +
-  "  color: #060;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-prompt.gcli-row-error {\n" +
-  "  color: #F00;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-duration {\n" +
-  "  font-size: 80%;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-out {\n" +
-  "  margin: 0 10px 15px;\n" +
-  "  padding: 0 10px;\n" +
-  "  line-height: 1.2em;\n" +
-  "  font-size: 95%;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-out strong,\n" +
-  ".gcli-row-out b,\n" +
-  ".gcli-row-out th,\n" +
-  ".gcli-row-out h1,\n" +
-  ".gcli-row-out h2,\n" +
-  ".gcli-row-out h3 {\n" +
-  "  color: #000;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-out p {\n" +
-  "  margin: 5px 0;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-out a {\n" +
-  "  color: hsl(200,40%,40%);\n" +
-  "  text-decoration: none;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-out a:hover {\n" +
-  "  cursor: pointer;\n" +
-  "  border-bottom: 1px dotted hsl(200,40%,60%);\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-out input[type=password],\n" +
-  ".gcli-row-out input[type=text],\n" +
-  ".gcli-row-out textarea {\n" +
-  "  font-size: 120%;\n" +
-  "  background: transparent;\n" +
-  "  padding: 3px;\n" +
-  "  border-radius: 3px;\n" +
-  "  border: 1px solid #bbb;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-out table,\n" +
-  ".gcli-row-out td,\n" +
-  ".gcli-row-out th {\n" +
-  "  border: 0;\n" +
-  "  padding: 0 2px;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-terminal,\n" +
-  ".gcli-row-subterminal {\n" +
-  "  border-radius: 3px;\n" +
-  "  border: 1px solid #ddd;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-terminal {\n" +
-  "  height: 200px;\n" +
-  "  width: 620px;\n" +
-  "  font-size: 80%;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-row-subterminal {\n" +
-  "  height: 150px;\n" +
-  "  width: 300px;\n" +
-  "  font-size: 75%;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-out-shortcut {\n" +
-  "  font-weight: normal;\n" +
-  "  border: 1px solid #999;\n" +
-  "  border-radius: 3px;\n" +
-  "  color: #666;\n" +
-  "  cursor: pointer;\n" +
-  "  padding: 0 3px 1px;\n" +
-  "  margin: 1px 4px;\n" +
-  "  display: inline-block;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-out-shortcut:before {\n" +
-  "  content: '\\bb';\n" +
-  "  padding-right: 2px;\n" +
-  "  color: hsl(25,78%,50%);\n" +
-  "  font-weight: bold;\n" +
-  "  font-size: 110%;\n" +
-  "}\n" +
-  "");
-
-define("text!gcli/ui/output_terminal.html", [], "\n" +
-  "<div class=\"gcli-row\">\n" +
-  "  <!-- The div for the input (i.e. what was typed) -->\n" +
-  "  <div class=\"gcli-row-in\" save=\"${elems.rowin}\" aria-live=\"assertive\"\n" +
-  "      onclick=\"${onclick}\" ondblclick=\"${ondblclick}\"\n" +
-  "      data-command=\"${output.canonical}\">\n" +
-  "\n" +
-  "    <!-- What the user actually typed -->\n" +
-  "    <span save=\"${elems.prompt}\" class=\"gcli-row-prompt ${elems.error ? 'gcli-row-error' : ''} ${elems.completed ? 'gcli-row-complete' : ''}\">${prompt}</span>\n" +
-  "    <span class=\"gcli-row-in-typed\">${output.canonical}</span>\n" +
-  "\n" +
-  "    <!-- The extra details that appear on hover -->\n" +
-  "    <span class=\"gcli-row-duration gcli-row-hover\" save=\"${elems.duration}\"></span>\n" +
-  "    <!--\n" +
-  "    <img class=\"gcli-row-hover\" onclick=\"${hideOutput}\" save=\"${elems.hide}\"\n" +
-  "        alt=\"Hide command output\" _src=\"${url('images/minus.png')}\"/>\n" +
-  "    <img class=\"gcli-row-hover gcli-row-hidden\" onclick=\"${showOutput}\" save=\"${elems.show}\"\n" +
-  "        alt=\"Show command output\" _src=\"${url('images/plus.png')}\"/>\n" +
-  "    <img class=\"gcli-row-hover\" onclick=\"${remove}\"\n" +
-  "        alt=\"Remove this command from the history\"\n" +
-  "        _src=\"${url('images/closer.png')}\"/>\n" +
-  "    -->\n" +
-  "    <img style=\"float:right;\" _src=\"${url('images/throbber.gif')}\" save=\"${elems.throb}\"/>\n" +
-  "  </div>\n" +
-  "\n" +
-  "  <!-- The div for the command output -->\n" +
-  "  <div class=\"gcli-row-out\" aria-live=\"assertive\" save=\"${elems.rowout}\">\n" +
-  "  </div>\n" +
-  "</div>\n" +
-  "");
-
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/ui/inputter', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'gcli/types', 'gcli/history', 'text!gcli/ui/inputter.css'], function(require, exports, module) {
-
-'use strict';
-
-var promise = require('util/promise');
-var util = require('util/util');
-var KeyEvent = require('util/util').KeyEvent;
-
-var Status = require('gcli/types').Status;
-var History = require('gcli/history').History;
-
-var inputterCss = require('text!gcli/ui/inputter.css');
-
-var RESOLVED = promise.resolve(true);
-
-/**
- * A wrapper to take care of the functions concerning an input element
- * @param options Object containing user customization properties, including:
- * - scratchpad (default=none)
- * - promptWidth (default=22px)
- * @param components Object that links to other UI components. GCLI provided:
- * - requisition
- * - focusManager
- * - element
- */
-function Inputter(options, components) {
-  this.requisition = components.requisition;
-  this.focusManager = components.focusManager;
-
-  this.element = components.element;
-  this.element.classList.add('gcli-in-input');
-  this.element.spellcheck = false;
-
-  this.document = this.element.ownerDocument;
-
-  this.scratchpad = options.scratchpad;
-
-  if (inputterCss != null) {
-    this.style = util.importCss(inputterCss, this.document, 'gcli-inputter');
-  }
-
-  // Used to distinguish focus from TAB in CLI. See onKeyUp()
-  this.lastTabDownAt = 0;
-
-  // Used to effect caret changes. See _processCaretChange()
-  this._caretChange = null;
-
-  // Ensure that TAB/UP/DOWN isn't handled by the browser
-  this.onKeyDown = this.onKeyDown.bind(this);
-  this.onKeyUp = this.onKeyUp.bind(this);
-  this.element.addEventListener('keydown', this.onKeyDown, false);
-  this.element.addEventListener('keyup', this.onKeyUp, false);
-
-  // Setup History
-  this.history = new History();
-  this._scrollingThroughHistory = false;
-
-  // Used when we're selecting which prediction to complete with
-  this._choice = null;
-  this.onChoiceChange = util.createEvent('Inputter.onChoiceChange');
-
-  // Cursor position affects hint severity
-  this.onMouseUp = this.onMouseUp.bind(this);
-  this.element.addEventListener('mouseup', this.onMouseUp, false);
-
-  if (this.focusManager) {
-    this.focusManager.addMonitoredElement(this.element, 'input');
-  }
-
-  // Initially an asynchronous completion isn't in-progress
-  this._completed = RESOLVED;
-
-  this.requisition.onTextChange.add(this.textChanged, this);
-
-  this.assignment = this.requisition.getAssignmentAt(0);
-  this.onAssignmentChange = util.createEvent('Inputter.onAssignmentChange');
-  this.onInputChange = util.createEvent('Inputter.onInputChange');
-
-  this.onResize = util.createEvent('Inputter.onResize');
-  this.onWindowResize = this.onWindowResize.bind(this);
-  this.document.defaultView.addEventListener('resize', this.onWindowResize, false);
-
-  this._previousValue = undefined;
-  this.requisition.update(this.element.value || '');
-}
-
-/**
- * Avoid memory leaks
- */
-Inputter.prototype.destroy = function() {
-  this.document.defaultView.removeEventListener('resize', this.onWindowResize, false);
-
-  this.requisition.onTextChange.remove(this.textChanged, this);
-  if (this.focusManager) {
-    this.focusManager.removeMonitoredElement(this.element, 'input');
-  }
-
-  this.element.removeEventListener('mouseup', this.onMouseUp, false);
-  this.element.removeEventListener('keydown', this.onKeyDown, false);
-  this.element.removeEventListener('keyup', this.onKeyUp, false);
-
-  this.history.destroy();
-
-  if (this.style) {
-    this.style.parentNode.removeChild(this.style);
-    delete this.style;
-  }
-
-  delete this.onMouseUp;
-  delete this.onKeyDown;
-  delete this.onKeyUp;
-  delete this.onWindowResize;
-  delete this.tooltip;
-  delete this.document;
-  delete this.element;
-};
-
-/**
- * Make ourselves visually similar to the input element, and make the input
- * element transparent so our background shines through
- */
-Inputter.prototype.onWindowResize = function() {
-  // Mochitest sometimes causes resize after shutdown. See Bug 743190
-  if (!this.element) {
-    return;
-  }
-
-  // Simplify when jsdom does getBoundingClientRect(). See Bug 717269
-  var dimensions = this.getDimensions();
-  if (dimensions) {
-    this.onResize(dimensions);
-  }
-};
-
-/**
- * Make ourselves visually similar to the input element, and make the input
- * element transparent so our background shines through
- */
-Inputter.prototype.getDimensions = function() {
-  // Remove this when jsdom does getBoundingClientRect(). See Bug 717269
-  if (!this.element.getBoundingClientRect) {
-    return undefined;
-  }
-
-  var fixedLoc = {};
-  var currentElement = this.element.parentNode;
-  while (currentElement && currentElement.nodeName !== '#document') {
-    var style = this.document.defaultView.getComputedStyle(currentElement, '');
-    if (style) {
-      var position = style.getPropertyValue('position');
-      if (position === 'absolute' || position === 'fixed') {
-        var bounds = currentElement.getBoundingClientRect();
-        fixedLoc.top = bounds.top;
-        fixedLoc.left = bounds.left;
-        break;
-      }
-    }
-    currentElement = currentElement.parentNode;
-  }
-
-  var rect = this.element.getBoundingClientRect();
-  return {
-    top: rect.top - (fixedLoc.top || 0) + 1,
-    height: rect.bottom - rect.top - 1,
-    left: rect.left - (fixedLoc.left || 0) + 2,
-    width: rect.right - rect.left
-  };
-};
-
-/**
- * Handler for the input-element.onMouseUp event
- */
-Inputter.prototype.onMouseUp = function(ev) {
-  this._checkAssignment();
-};
-
-/**
- * Handler for the Requisition.textChanged event
- */
-Inputter.prototype.textChanged = function() {
-  if (!this.document) {
-    return; // This can happen post-destroy()
-  }
-
-  if (this._caretChange == null) {
-    // We weren't expecting a change so this was requested by the hint system
-    // we should move the cursor to the end of the 'changed section', and the
-    // best we can do for that right now is the end of the current argument.
-    this._caretChange = Caret.TO_ARG_END;
-  }
-
-  var newStr = this.requisition.toString();
-  var input = this.getInputState();
-
-  input.typed = newStr;
-  this._processCaretChange(input);
-
-  if (this.element.value !== newStr) {
-    this.element.value = newStr;
-  }
-  this.onInputChange({ inputState: input });
-};
-
-/**
- * Various ways in which we need to manipulate the caret/selection position.
- * A value of null means we're not expecting a change
- */
-var Caret = {
-  /**
-   * We are expecting changes, but we don't need to move the cursor
-   */
-  NO_CHANGE: 0,
-
-  /**
-   * We want the entire input area to be selected
-   */
-  SELECT_ALL: 1,
-
-  /**
-   * The whole input has changed - push the cursor to the end
-   */
-  TO_END: 2,
-
-  /**
-   * A part of the input has changed - push the cursor to the end of the
-   * changed section
-   */
-  TO_ARG_END: 3
-};
-
-/**
- * If this._caretChange === Caret.TO_ARG_END, we alter the input object to move
- * the selection start to the end of the current argument.
- * @param input An object shaped like { typed:'', cursor: { start:0, end:0 }}
- */
-Inputter.prototype._processCaretChange = function(input) {
-  var start, end;
-  switch (this._caretChange) {
-    case Caret.SELECT_ALL:
-      start = 0;
-      end = input.typed.length;
-      break;
-
-    case Caret.TO_END:
-      start = input.typed.length;
-      end = input.typed.length;
-      break;
-
-    case Caret.TO_ARG_END:
-      // There could be a fancy way to do this involving assignment/arg math
-      // but it doesn't seem easy, so we cheat a move the cursor to just before
-      // the next space, or the end of the input
-      start = input.cursor.start;
-      do {
-        start++;
-      }
-      while (start < input.typed.length && input.typed[start - 1] !== ' ');
-
-      end = start;
-      break;
-
-    default:
-      start = input.cursor.start;
-      end = input.cursor.end;
-      break;
-  }
-
-  start = (start > input.typed.length) ? input.typed.length : start;
-  end = (end > input.typed.length) ? input.typed.length : end;
-
-  var newInput = {
-    typed: input.typed,
-    cursor: { start: start, end: end }
-  };
-
-  if (this.element.selectionStart !== start) {
-    this.element.selectionStart = start;
-  }
-  if (this.element.selectionEnd !== end) {
-    this.element.selectionEnd = end;
-  }
-
-  this._checkAssignment(start);
-
-  this._caretChange = null;
-  return newInput;
-};
-
-/**
- * To be called internally whenever we think that the current assignment might
- * have changed, typically on mouse-clicks or key presses.
- * @param start Optional - if specified, the cursor position to use in working
- * out the current assignment. This is needed because setting the element
- * selection start is only recognised when the event loop has finished
- */
-Inputter.prototype._checkAssignment = function(start) {
-  if (start == null) {
-    start = this.element.selectionStart;
-  }
-  var newAssignment = this.requisition.getAssignmentAt(start);
-  if (this.assignment !== newAssignment) {
-    if (this.assignment.param.type.onLeave) {
-      this.assignment.param.type.onLeave(this.assignment);
-    }
-
-    this.assignment = newAssignment;
-    this.onAssignmentChange({ assignment: this.assignment });
-
-    if (this.assignment.param.type.onEnter) {
-      this.assignment.param.type.onEnter(this.assignment);
-    }
-  }
-  else {
-    if (this.assignment && this.assignment.param.type.onChange) {
-      this.assignment.param.type.onChange(this.assignment);
-    }
-  }
-
-  // This is slightly nasty - the focusManager generally relies on people
-  // telling it what it needs to know (which makes sense because the event
-  // system to do it with events would be unnecessarily complex). However
-  // requisition doesn't know about the focusManager either. So either one
-  // needs to know about the other, or a third-party needs to break the
-  // deadlock. These 2 lines are all we're quibbling about, so for now we hack
-  if (this.focusManager) {
-    this.focusManager.setError(this.assignment.message);
-  }
-};
-
-/**
- * Set the input field to a value, for external use.
- * This function updates the data model. It sets the caret to the end of the
- * input. It does not make any similarity checks so calling this function with
- * it's current value resets the cursor position.
- * It does not execute the input or affect the history.
- * This function should not be called internally, by Inputter and never as a
- * result of a keyboard event on this.element or bug 676520 could be triggered.
- */
-Inputter.prototype.setInput = function(str) {
-  this._caretChange = Caret.TO_END;
-  return this.requisition.update(str);
-};
-
-/**
- * Counterpart to |setInput| for moving the cursor.
- * @param cursor An object shaped like { start: x, end: y }
- */
-Inputter.prototype.setCursor = function(cursor) {
-  this._caretChange = Caret.NO_CHANGE;
-  this._processCaretChange({ typed: this.element.value, cursor: cursor });
-};
-
-/**
- * Focus the input element
- */
-Inputter.prototype.focus = function() {
-  this.element.focus();
-  this._checkAssignment();
-};
-
-/**
- * Ensure certain keys (arrows, tab, etc) that we would like to handle
- * are not handled by the browser
- */
-Inputter.prototype.onKeyDown = function(ev) {
-  if (ev.keyCode === KeyEvent.DOM_VK_UP || ev.keyCode === KeyEvent.DOM_VK_DOWN) {
-    ev.preventDefault();
-    return;
-  }
-
-  // The following keys do not affect the state of the command line so we avoid
-  // informing the focusManager about keyboard events that involve these keys
-  if (ev.keyCode === KeyEvent.DOM_VK_F1 ||
-      ev.keyCode === KeyEvent.DOM_VK_ESCAPE ||
-      ev.keyCode === KeyEvent.DOM_VK_UP ||
-      ev.keyCode === KeyEvent.DOM_VK_DOWN) {
-    return;
-  }
-
-  if (this.focusManager) {
-    this.focusManager.onInputChange();
-  }
-
-  if (ev.keyCode === KeyEvent.DOM_VK_TAB) {
-    this.lastTabDownAt = 0;
-    if (!ev.shiftKey) {
-      ev.preventDefault();
-      // Record the timestamp of this TAB down so onKeyUp can distinguish
-      // focus from TAB in the CLI.
-      this.lastTabDownAt = ev.timeStamp;
-    }
-    if (ev.metaKey || ev.altKey || ev.crtlKey) {
-      if (this.document.commandDispatcher) {
-        this.document.commandDispatcher.advanceFocus();
-      }
-      else {
-        this.element.blur();
-      }
-    }
-  }
-};
-
-/**
- * Handler for use with DOM events, which just calls the promise enabled
- * handleKeyUp function but checks the exit state of the promise so we know
- * if something went wrong.
- */
-Inputter.prototype.onKeyUp = function(ev) {
-  this.handleKeyUp(ev).then(null, util.errorHandler);
-};
-
-/**
- * The main keyboard processing loop
- * @return A promise that resolves (to undefined) when the actions kicked off
- * by this handler are completed.
- */
-Inputter.prototype.handleKeyUp = function(ev) {
-  if (this.focusManager && ev.keyCode === KeyEvent.DOM_VK_F1) {
-    this.focusManager.helpRequest();
-    return RESOLVED;
-  }
-
-  if (this.focusManager && ev.keyCode === KeyEvent.DOM_VK_ESCAPE) {
-    this.focusManager.removeHelp();
-    return RESOLVED;
-  }
-
-  if (ev.keyCode === KeyEvent.DOM_VK_UP) {
-    return this._handleUpArrow();
-  }
-
-  if (ev.keyCode === KeyEvent.DOM_VK_DOWN) {
-    return this._handleDownArrow();
-  }
-
-  if (ev.keyCode === KeyEvent.DOM_VK_RETURN) {
-    return this._handleReturn();
-  }
-
-  if (ev.keyCode === KeyEvent.DOM_VK_TAB && !ev.shiftKey) {
-    return this._handleTab(ev);
-  }
-
-  // Give the scratchpad (if enabled) a chance to activate
-  if (this.scratchpad && this.scratchpad.shouldActivate(ev)) {
-    if (this.scratchpad.activate(this.element.value)) {
-      return this.requisition.update('');
-    }
-    return RESOLVED;
-  }
-
-  if (this._previousValue === this.element.value) {
-    return RESOLVED;
-  }
-
-  this._scrollingThroughHistory = false;
-  this._caretChange = Caret.NO_CHANGE;
-
-  this._completed = this.requisition.update(this.element.value);
-  this._previousValue = this.element.value;
-
-  return this._completed.then(function(updated) {
-    // Abort UI changes if this UI update has been overtaken
-    if (updated) {
-      this._choice = null;
-      this.onChoiceChange({ choice: this._choice });
-    }
-  }.bind(this));
-};
-
-/**
- * See also _handleDownArrow for some symmetry
- */
-Inputter.prototype._handleUpArrow = function() {
-  if (this.tooltip && this.tooltip.isMenuShowing) {
-    this.changeChoice(-1);
-    return RESOLVED;
-  }
-
-  if (this.element.value === '' || this._scrollingThroughHistory) {
-    this._scrollingThroughHistory = true;
-    return this.requisition.update(this.history.backward());
-  }
-
-  // If the user is on a valid value, then we increment the value, but if
-  // they've typed something that's not right we page through predictions
-  if (this.assignment.getStatus() === Status.VALID) {
-    this.requisition.increment(this.assignment);
-    // See notes on focusManager.onInputChange in onKeyDown
-    if (this.focusManager) {
-      this.focusManager.onInputChange();
-    }
-  }
-  else {
-    this.changeChoice(-1);
-  }
-
-  return RESOLVED;
-};
-
-/**
- * See also _handleUpArrow for some symmetry
- */
-Inputter.prototype._handleDownArrow = function() {
-  if (this.tooltip && this.tooltip.isMenuShowing) {
-    this.changeChoice(+1);
-    return RESOLVED;
-  }
-
-  if (this.element.value === '' || this._scrollingThroughHistory) {
-    this._scrollingThroughHistory = true;
-    return this.requisition.update(this.history.forward());
-  }
-
-  // See notes above for the UP key
-  if (this.assignment.getStatus() === Status.VALID) {
-    this.requisition.decrement(this.assignment,
-                               this.requisition.executionContext);
-    // See notes on focusManager.onInputChange in onKeyDown
-    if (this.focusManager) {
-      this.focusManager.onInputChange();
-    }
-  }
-  else {
-    this.changeChoice(+1);
-  }
-
-  return RESOLVED;
-};
-
-/**
- * RETURN checks status and might exec
- */
-Inputter.prototype._handleReturn = function() {
-  // Deny RETURN unless the command might work
-  if (this.requisition.status === Status.VALID) {
-    this._scrollingThroughHistory = false;
-    this.history.add(this.element.value);
-    this.requisition.exec();
-  }
-  else {
-    // If we can't execute the command, but there is a menu choice to use
-    // then use it.
-    if (!this.tooltip.selectChoice()) {
-      this.focusManager.setError(true);
-    }
-  }
-
-  this._choice = null;
-  return RESOLVED;
-};
-
-/**
- * Warning: We get TAB events for more than just the user pressing TAB in our
- * input element.
- */
-Inputter.prototype._handleTab = function(ev) {
-  // Being able to complete 'nothing' is OK if there is some context, but
-  // when there is nothing on the command line it just looks bizarre.
-  var hasContents = (this.element.value.length > 0);
-
-  // If the TAB keypress took the cursor from another field to this one,
-  // then they get the keydown/keypress, and we get the keyup. In this
-  // case we don't want to do any completion.
-  // If the time of the keydown/keypress of TAB was close (i.e. within
-  // 1 second) to the time of the keyup then we assume that we got them
-  // both, and do the completion.
-  if (hasContents && this.lastTabDownAt + 1000 > ev.timeStamp) {
-    // It's possible for TAB to not change the input, in which case the
-    // textChanged event will not fire, and the caret move will not be
-    // processed. So we check that this is done first
-    this._caretChange = Caret.TO_ARG_END;
-    var inputState = this.getInputState();
-    this._processCaretChange(inputState);
-
-    if (this._choice == null) {
-      this._choice = 0;
-    }
-
-    // The changes made by complete may happen asynchronously, so after the
-    // the call to complete() we should avoid making changes before the end
-    // of the event loop
-    this._completed = this.requisition.complete(inputState.cursor,
-                                                this._choice);
-    this._previousValue = this.element.value;
-  }
-  this.lastTabDownAt = 0;
-  this._scrollingThroughHistory = false;
-
-  return this._completed.then(function(updated) {
-    // Abort UI changes if this UI update has been overtaken
-    if (updated) {
-      this._choice = null;
-      this.onChoiceChange({ choice: this._choice });
-    }
-  }.bind(this));
-};
-
-/**
- * Used by onKeyUp for UP/DOWN to change the current choice from an options
- * menu.
- */
-Inputter.prototype.changeChoice = function(amount) {
-  if (this._choice == null) {
-    this._choice = 0;
-  }
-  // There's an annoying up is down thing here, the menu is presented
-  // with the zeroth index at the top working down, so the UP arrow needs
-  // pick the choice below because we're working down
-  this._choice += amount;
-  this.onChoiceChange({ choice: this._choice });
-};
-
-/**
- * Accessor for the assignment at the cursor.
- * i.e Requisition.getAssignmentAt(cursorPos);
- */
-Inputter.prototype.getCurrentAssignment = function() {
-  var start = this.element.selectionStart;
-  return this.requisition.getAssignmentAt(start);
-};
-
-/**
- * Pull together an input object, which may include XUL hacks
- */
-Inputter.prototype.getInputState = function() {
-  var input = {
-    typed: this.element.value,
-    cursor: {
-      start: this.element.selectionStart,
-      end: this.element.selectionEnd
-    }
-  };
-
-  // Workaround for potential XUL bug 676520 where textbox gives incorrect
-  // values for its content
-  if (input.typed == null) {
-    input = { typed: '', cursor: { start: 0, end: 0 } };
-  }
-
-  // Workaround for a Bug 717268 (which is really a jsdom bug)
-  if (input.cursor.start == null) {
-    input.cursor.start = 0;
-  }
-
-  return input;
-};
-
-exports.Inputter = Inputter;
-
-
-});
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/history', ['require', 'exports', 'module' ], function(require, exports, module) {
-
-'use strict';
-
-/**
- * A History object remembers commands that have been entered in the past and
- * provides an API for accessing them again.
- * See Bug 681340: Search through history (like C-r in bash)?
- */
-function History() {
-  // This is the actual buffer where previous commands are kept.
-  // 'this._buffer[0]' should always be equal the empty string. This is so
-  // that when you try to go in to the "future", you will just get an empty
-  // command.
-  this._buffer = [''];
-
-  // This is an index in to the history buffer which points to where we
-  // currently are in the history.
-  this._current = 0;
-}
-
-/**
- * Avoid memory leaks
- */
-History.prototype.destroy = function() {
-  delete this._buffer;
-};
-
-/**
- * Record and save a new command in the history.
- */
-History.prototype.add = function(command) {
-  this._buffer.splice(1, 0, command);
-  this._current = 0;
-};
-
-/**
- * Get the next (newer) command from history.
- */
-History.prototype.forward = function() {
-  if (this._current > 0 ) {
-    this._current--;
-  }
-  return this._buffer[this._current];
-};
-
-/**
- * Get the previous (older) item from history.
- */
-History.prototype.backward = function() {
-  if (this._current < this._buffer.length - 1) {
-    this._current++;
-  }
-  return this._buffer[this._current];
-};
-
-exports.History = History;
-
-});
-define("text!gcli/ui/inputter.css", [], "\n" +
-  ".gcli-in-input,\n" +
-  ".gcli-in-complete,\n" +
-  ".gcli-prompt {\n" +
-  "  font-family: Segoe UI, Helvetica Neue, Verdana, Arial, sans-serif;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-in-input,\n" +
-  ".gcli-in-complete {\n" +
-  "  font-size: 110%;\n" +
-  "  font-weight: normal;\n" +
-  "  font-style: normal;\n" +
-  "  padding: 0 0 0 22px;\n" +
-  "  background-color: transparent;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-in-input {\n" +
-  "  color: #000;\n" +
-  "  border: 0;\n" +
-  "  box-shadow: 0 0 10px 1px #ddd;\n" +
-  "  border-top: 1px solid #999;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-in-complete {\n" +
-  "  position: absolute;\n" +
-  "  z-index: -1000;\n" +
-  "  color: transparent;\n" +
-  "  margin-top: -1px;\n" +
-  "  border-top: 1px solid transparent;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-prompt {\n" +
-  "  position: absolute;\n" +
-  "  z-index: -1001;\n" +
-  "  padding: 0 1px;\n" +
-  "  color: hsl(25,78%,50%);\n" +
-  "  font-size: 150%;\n" +
-  "  font-weight: bold;\n" +
-  "  line-height: 95%;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-in-incomplete {\n" +
-  "  border-bottom: 2px dotted #999;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-in-error {\n" +
-  "  border-bottom: 2px dotted #F00;\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-in-ontab {\n" +
-  "  color: hsl(200,40%,70%);\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-in-todo {\n" +
-  "  color: hsl(48,28%,76%);\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-in-closebrace {\n" +
-  "  color: hsl(0,0%,80%);\n" +
-  "}\n" +
-  "\n" +
-  ".gcli-in-scratchlink {\n" +
-  "  float: right;\n" +
-  "  font-size: 85%;\n" +
-  "  color: #888;\n" +
-  "  padding-right: 10px;\n" +
-  "}\n" +
-  "");
-
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/ui/completer', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'util/domtemplate', 'text!gcli/ui/completer.html'], function(require, exports, module) {
-
-'use strict';
-
-var promise = require('util/promise');
-var util = require('util/util');
-var domtemplate = require('util/domtemplate');
-
-var completerHtml = require('text!gcli/ui/completer.html');
-
-/**
- * Completer is an 'input-like' element that sits  an input element annotating
- * it with visual goodness.
- * @param options Object containing user customization properties, including:
- * - scratchpad (default=none) A way to move JS content to custom JS editor
- * @param components Object that links to other UI components. GCLI provided:
- * - requisition: A GCLI Requisition object whose state is monitored
- * - element: Element to use as root
- * - autoResize: (default=false): Should we attempt to sync the dimensions of
- *   the complete element with the input element.
- */
-function Completer(options, components) {
-  this.requisition = components.requisition;
-  this.scratchpad = options.scratchpad;
-  this.input = { typed: '', cursor: { start: 0, end: 0 } };
-  this.choice = 0;
-
-  this.element = components.element;
-  this.element.classList.add('gcli-in-complete');
-  this.element.setAttribute('tabindex', '-1');
-  this.element.setAttribute('aria-live', 'polite');
-
-  this.document = this.element.ownerDocument;
-
-  this.inputter = components.inputter;
-
-  this.inputter.onInputChange.add(this.update, this);
-  this.inputter.onAssignmentChange.add(this.update, this);
-  this.inputter.onChoiceChange.add(this.update, this);
-
-  this.autoResize = components.autoResize;
-  if (this.autoResize) {
-    this.inputter.onResize.add(this.resized, this);
-
-    var dimensions = this.inputter.getDimensions();
-    if (dimensions) {
-      this.resized(dimensions);
-    }
-  }
-
-  this.template = util.toDom(this.document, completerHtml);
-  // We want the spans to line up without the spaces in the template
-  util.removeWhitespace(this.template, true);
-
-  this.update();
-}
-
-/**
- * Avoid memory leaks
- */
-Completer.prototype.destroy = function() {
-  this.inputter.onInputChange.remove(this.update, this);
-  this.inputter.onAssignmentChange.remove(this.update, this);
-  this.inputter.onChoiceChange.remove(this.update, this);
-
-  if (this.autoResize) {
-    this.inputter.onResize.remove(this.resized, this);
-  }
-
-  delete this.document;
-  delete this.element;
-  delete this.template;
-  delete this.inputter;
-};
-
-/**
- * Ensure that the completion element is the same size and the inputter element
- */
-Completer.prototype.resized = function(ev) {
-  this.element.style.top = ev.top + 'px';
-  this.element.style.height = ev.height + 'px';
-  this.element.style.lineHeight = ev.height + 'px';
-  this.element.style.left = ev.left + 'px';
-  this.element.style.width = ev.width + 'px';
-};
-
-/**
- * Bring the completion element up to date with what the requisition says
- */
-Completer.prototype.update = function(ev) {
-  this.choice = (ev && ev.choice != null) ? ev.choice : 0;
-
-  var data = this._getCompleterTemplateData();
-  var template = this.template.cloneNode(true);
-  domtemplate.template(template, data, { stack: 'completer.html' });
-
-  util.clearElement(this.element);
-  while (template.hasChildNodes()) {
-    this.element.appendChild(template.firstChild);
-  }
-};
-
-/**
- * Calculate the properties required by the template process for completer.html
- */
-Completer.prototype._getCompleterTemplateData = function() {
-  // Some of the data created by this function can be calculated synchronously
-  // but other parts depend on predictions which are asynchronous.
-  var promisedDirectTabText = promise.defer();
-  var promisedArrowTabText = promise.defer();
-  var promisedEmptyParameters = promise.defer();
-
-  var input = this.inputter.getInputState();
-  var current = this.requisition.getAssignmentAt(input.cursor.start);
-  var predictionPromise;
-
-  if (input.typed.trim().length !== 0) {
-    predictionPromise = current.getPredictionAt(this.choice);
-  }
-
-  // If anything goes wrong, we pass the error on to all the child promises
-  var onError = function(ex) {
-    promisedDirectTabText.reject(ex);
-    promisedArrowTabText.reject(ex);
-    promisedEmptyParameters.reject(ex);
-  };
-
-  promise.resolve(predictionPromise).then(function(prediction) {
-    // directTabText is for when the current input is a prefix of the completion
-    // arrowTabText is for when we need to use an -> to show what will be used
-    var directTabText = '';
-    var arrowTabText = '';
-    var emptyParameters = [];
-
-    if (input.typed.trim().length !== 0) {
-      var cArg = current.arg;
-
-      if (prediction) {
-        var tabText = prediction.name;
-        var existing = cArg.text;
-
-        // Normally the cursor being just before whitespace means that you are
-        // 'in' the previous argument, which means that the prediction is based
-        // on that argument, however NamedArguments break this by having 2 parts
-        // so we need to prepend the tabText with a space for NamedArguments,
-        // but only when there isn't already a space at the end of the prefix
-        // (i.e. ' --name' not ' --name ')
-        if (current.isInName()) {
-          tabText = ' ' + tabText;
-        }
-
-        if (existing !== tabText) {
-          // Decide to use directTabText or arrowTabText
-          // Strip any leading whitespace from the user inputted value because
-          // the tabText will never have leading whitespace.
-          var inputValue = existing.replace(/^\s*/, '');
-          var isStrictCompletion = tabText.indexOf(inputValue) === 0;
-          if (isStrictCompletion && input.cursor.start === input.typed.length) {
-            // Display the suffix of the prediction as the completion
-            var numLeadingSpaces = existing.match(/^(\s*)/)[0].length;
-
-            directTabText = tabText.slice(existing.length - numLeadingSpaces);
-          }
-          else {
-            // Display the '-> prediction' at the end of the completer element
-            // \u21E5 is the JS escape right arrow
-            arrowTabText = '\u21E5 ' + tabText;
-          }
-        }
-      }
-      else {
-        // There's no prediction, but if this is a named argument that needs a
-        // value (that is without any) then we need to show that one is needed
-        // For example 'git commit --message ', clearly needs some more text
-        if (cArg.type === 'NamedArgument' && cArg.valueArg == null) {
-          emptyParameters.push('<' + current.param.type.name + '>\u00a0');
-        }
-      }
-    }
-
-    // Add a space between the typed text (+ directTabText) and the hints,
-    // making sure we don't add 2 sets of padding
-    if (directTabText !== '') {
-      directTabText += '\u00a0';
-    }
-    else if (!this.requisition.typedEndsWithSeparator()) {
-      emptyParameters.unshift('\u00a0');
-    }
-
-    // Calculate the list of parameters to be filled in
-    // We generate an array of emptyParameter markers for each positional
-    // parameter to the current command.
-    // Generally each emptyParameter marker begins with a space to separate it
-    // from whatever came before, unless what comes before ends in a space.
-
-    this.requisition.getAssignments().forEach(function(assignment) {
-      // Named arguments are handled with a group [options] marker
-      if (!assignment.param.isPositionalAllowed) {
-        return;
-      }
-
-      // No hints if we've got content for this parameter
-      if (assignment.arg.toString().trim() !== '') {
-        return;
-      }
-
-      if (directTabText !== '' && current === assignment) {
-        return;
-      }
-
-      var text = (assignment.param.isDataRequired) ?
-          '<' + assignment.param.name + '>\u00a0' :
-          '[' + assignment.param.name + ']\u00a0';
-
-      emptyParameters.push(text);
-    }.bind(this));
-
-    var command = this.requisition.commandAssignment.value;
-    var addOptionsMarker = false;
-
-    // We add an '[options]' marker when there are named parameters that are
-    // not filled in and not hidden, and we don't have any directTabText
-    if (command && command.hasNamedParameters) {
-      command.params.forEach(function(param) {
-        var arg = this.requisition.getAssignment(param.name).arg;
-        if (!param.isPositionalAllowed && !param.hidden
-                && arg.type === 'BlankArgument') {
-          addOptionsMarker = true;
-        }
-      }, this);
-    }
-
-    if (addOptionsMarker) {
-      // Add an nbsp if we don't have one at the end of the input or if
-      // this isn't the first param we've mentioned
-      emptyParameters.push('[options]\u00a0');
-    }
-
-    promisedDirectTabText.resolve(directTabText);
-    promisedArrowTabText.resolve(arrowTabText);
-    promisedEmptyParameters.resolve(emptyParameters);
-  }.bind(this), onError);
-
-  return {
-    statusMarkup: this._getStatusMarkup(input),
-    unclosedJs: this._getUnclosedJs(),
-    scratchLink: this._getScratchLink(),
-    directTabText: promisedDirectTabText.promise,
-    arrowTabText: promisedArrowTabText.promise,
-    emptyParameters: promisedEmptyParameters.promise
-  };
-};
-
-/**
- * Calculate the statusMarkup required to show wavy lines underneath the input
- * text (like that of an inline spell-checker) which used by the template
- * process for completer.html
- */
-Completer.prototype._getStatusMarkup = function(input) {
-  // statusMarkup is wrapper around requisition.getInputStatusMarkup converting
-  // space to &nbsp; in the string member (for HTML display) and status to an
-  // appropriate class name (i.e. lower cased, prefixed with gcli-in-)
-  var statusMarkup = this.requisition.getInputStatusMarkup(input.cursor.start);
-
-  statusMarkup.forEach(function(member) {
-    member.string = member.string.replace(/ /g, '\u00a0'); // i.e. &nbsp;
-    member.className = 'gcli-in-' + member.status.toString().toLowerCase();
-  }, this);
-
-  return statusMarkup;
-};
-
-/**
- * Is the entered command a JS command with no closing '}'?
- */
-Completer.prototype._getUnclosedJs = function() {
-  // TWEAK: This code should be considered for promotion to Requisition
-  var command = this.requisition.commandAssignment.value;
-  return command && command.name === '{' &&
-      this.requisition.getAssignment(0).arg.suffix.indexOf('}') === -1;
-};
-
-/**
- * The text for the 'jump to scratchpad' feature, or '' if it is disabled
- */
-Completer.prototype._getScratchLink = function() {
-  var command = this.requisition.commandAssignment.value;
-  return this.scratchpad && command && command.name === '{' ?
-      this.scratchpad.linkText :
-      '';
-};
-
-exports.Completer = Completer;
-
-
-});
-define("text!gcli/ui/completer.html", [], "\n" +
-  "<div>\n" +
-  "  <loop foreach=\"member in ${statusMarkup}\">\n" +
-  "    <span class=\"${member.className}\">${member.string}</span>\n" +
-  "  </loop>\n" +
-  "  <span class=\"gcli-in-ontab\">${directTabText}</span>\n" +
-  "  <span class=\"gcli-in-todo\" foreach=\"param in ${emptyParameters}\">${param}</span>\n" +
-  "  <span class=\"gcli-in-ontab\">${arrowTabText}</span>\n" +
-  "  <span class=\"gcli-in-closebrace\" if=\"${unclosedJs}\">}</span>\n" +
-  "  <div class=\"gcli-in-scratchlink\" if=\"${scratchLink}\">${scratchLink}</div>\n" +
-  "</div>\n" +
-  "");
-
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('gcli/ui/prompt', ['require', 'exports', 'module' ], function(require, exports, module) {
-
-'use strict';
-
-/**
- * Prompt is annoying because some systems provide a UI elements (i.e. firefox)
- * while some expect you to overlay them on an input element (i.e. the web)
- * Also we want to provide click -> show menu ability.
- * @param options Object containing user customization properties, including:
- * - promptChar (default='\u00bb') (double greater-than, a.k.a right guillemet)
- *   The prompt is used directly in a TextNode, so no HTML entities.
- * @param components Object that links to other UI components. GCLI provided:
- * - element
- * - inputter
- */
-function Prompt(options, components) {
-  this.element = components.element;
-  this.element.classList.add('gcli-prompt');
-
-  var prompt = options.promptChar || '\u00bb';
-  var text = this.element.ownerDocument.createTextNode(prompt);
-  this.element.appendChild(text);
-
-  this.inputter = components.inputter;
-  if (this.inputter) {
-    this.inputter.onResize.add(this.resized, this);
-
-    var dimensions = this.inputter.getDimensions();
-    if (dimensions) {
-      this.resized(dimensions);
-    }
-  }
-}
-
-/**
- * Avoid memory leaks
- */
-Prompt.prototype.destroy = function() {
-  if (this.inputter) {
-    this.inputter.onResize.remove(this.resized, this);
-  }
-
-  delete this.element;
-};
-
-/**
- * Ensure that the completion element is the same size and the inputter element
- */
-Prompt.prototype.resized = function(ev) {
-  this.element.style.top = ev.top + 'px';
-  this.element.style.height = ev.height + 'px';
-  this.element.style.left = ev.left + 'px';
-  this.element.style.width = ev.width + 'px';
-};
-
-exports.Prompt = Prompt;
-
-
-});
-define("text!gcli/ui/display.css", [], "\n" +
-  ".gcli-output {\n" +
-  "  height: 100%;\n" +
-  "  overflow-x: hidden;\n" +
-  "  overflow-y: auto;\n" +
-  "  font-family: Segoe UI, Helvetica Neue, Verdana, Arial, sans-serif;\n" +
-  "}\n" +
-  "");
-
-define("text!gcli/ui/display.html", [], "\n" +
-  "<div class=\"gcli-panel\" save=\"${panel}\">\n" +
-  "  <div save=\"${tooltip}\"></div>\n" +
-  "  <div class=\"gcli-panel-connector\"></div>\n" +
-  "</div>\n" +
-  "");
-
-/*
- * Copyright 2012, Mozilla Foundation and contributors
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/api', 'gcli/commands/connect', 'gcli/commands/context', 'gcli/commands/exec', 'gcli/commands/help', 'gcli/commands/intro', 'gcli/commands/pref_list', 'gcli/commands/pref', 'demo/commands/alert', 'demo/commands/bugs', 'demo/commands/demo', 'demo/commands/echo', 'demo/commands/edit', 'demo/commands/sleep'], function(require, exports, module) {
+define('demo/index', ['require', 'exports', 'module' , 'gcli/index', 'gcli/api', 'gcli/commands/connect', 'gcli/commands/context', 'gcli/commands/exec', 'gcli/commands/help', 'gcli/commands/intro', 'gcli/commands/pref_list', 'gcli/commands/pref', 'demo/commands/alert', 'demo/commands/bugs', 'demo/commands/demo', 'demo/commands/echo', 'demo/commands/edit', 'demo/commands/sleep', 'demo/commands/theme'], function(require, exports, module) {
 
 'use strict';
 
@@ -14716,7 +14444,7 @@ gcli.addItems(require('demo/commands/edit').items);
 // gcli.addItems(require('demo/commands/git').items);
 // gcli.addItems(require('demo/commands/hg').items);
 gcli.addItems(require('demo/commands/sleep').items);
-
+gcli.addItems(require('demo/commands/theme').items);
 
 });
 /*
@@ -14854,7 +14582,7 @@ var disconnect = {
     {
       name: 'prefix',
       type: 'connection',
-      description: l10n.lookup('disconnectPrefixDesc'),
+      description: l10n.lookup('disconnectPrefixDesc')
     },
     {
       name: 'force',
@@ -14894,11 +14622,12 @@ exports.items = [ connection, connect, disconnect ];
  * limitations under the License.
  */
 
-define('util/connect/connector', ['require', 'exports', 'module' , 'util/promise', 'util/l10n'], function(require, exports, module) {
+define('util/connect/connector', ['require', 'exports', 'module' , 'util/promise', 'util/util', 'util/l10n'], function(require, exports, module) {
 
 'use strict';
 
 var promise = require('util/promise');
+var util = require('util/util');
 var l10n = require('util/l10n');
 
 /**
@@ -14946,7 +14675,7 @@ function Connection(prefix, host, port) {
 Connection.prototype.connect = function() {
   var deferred = promise.defer();
 
-  this.script = exports.document.createElement('script');
+  this.script = util.createElement(exports.document, 'script');
   this.script.src = '/socket.io/socket.io.js';
 
   this.script.addEventListener('load', function() {
@@ -15166,7 +14895,7 @@ var cd = {
         filetype: 'directory',
         existing: 'yes'
       },
-      description: l10n.lookup('cdDirectoryDesc'),
+      description: l10n.lookup('cdDirectoryDesc')
     }
   ],
   returnType: 'string',
@@ -15188,7 +14917,7 @@ var exec = {
     {
       name: 'command',
       type: 'string',
-      description: l10n.lookup('execCommandDesc'),
+      description: l10n.lookup('execCommandDesc')
     }
   ],
   returnType: 'output',
@@ -15226,10 +14955,10 @@ var outputToView = {
   from: 'output',
   to: 'view',
   exec: function(output, context) {
-    return context.createView({
+    return {
       html: '<pre>${output.data}</pre>',
       data: { output: output }
-    });
+    };
   }
 };
 
@@ -15266,140 +14995,80 @@ exports.items = [ outputToView, outputToString, cd, exec ];
  * limitations under the License.
  */
 
-define('gcli/commands/help', ['require', 'exports', 'module' , 'util/l10n', 'gcli/canon', 'text!gcli/commands/help_man.html', 'text!gcli/commands/help_list.html', 'text!gcli/commands/help.css'], function(require, exports, module) {
+define('gcli/commands/help', ['require', 'exports', 'module' , 'util/l10n', 'gcli/canon', 'text!gcli/commands/help_man.html', 'text!gcli/commands/help.css', 'text!gcli/commands/help_man.txt', 'text!gcli/commands/help_list.html', 'text!gcli/commands/help_list.txt'], function(require, exports, module) {
 
 'use strict';
 
 var l10n = require('util/l10n');
 var canon = require('gcli/canon');
 
-var helpManHtml = require('text!gcli/commands/help_man.html');
-var helpListHtml = require('text!gcli/commands/help_list.html');
-var helpCss = require('text!gcli/commands/help.css');
+/**
+ * Get a data block for the help_man.html/help_man.txt templates
+ */
+function getHelpManData(commandData, context) {
+  return {
+    l10n: l10n.propertyLookup,
+    onclick: context.update,
+    ondblclick: context.updateExec,
+    describe: function(item) {
+      return item.manual || item.description;
+    },
+    getTypeDescription: function(param) {
+      var input = '';
+      if (param.defaultValue === undefined) {
+        input = l10n.lookup('helpManRequired');
+      }
+      else if (param.defaultValue === null) {
+        input = l10n.lookup('helpManOptional');
+      }
+      else {
+        var defaultValue = param.type.stringify(param.defaultValue);
+        input = l10n.lookupFormat('helpManDefault', [ defaultValue ]);
+      }
+      return '(' + param.type.name + ', ' + input + ')';
+    },
+    getSynopsis: function(param) {
+      var short = param.short ? '|-' + param.short : '';
+      if (param.isPositionalAllowed) {
+        return param.defaultValue !== undefined ?
+            '[' + param.name + short + ']' :
+            '<' + param.name + short + '>';
+      }
+      else {
+        return param.type.name === 'boolean' ?
+            '[--' + param.name + short + ']' :
+            '[--' + param.name + short + ' ...]';
+      }
+    },
+    command: commandData.command,
+    subcommands: commandData.subcommands
+  };
+}
 
 /**
- * Convert a command into a man page
+ * Get a data block for the help_list.html/help_list.txt templates
  */
-var helpCommand = {
-  item: 'converter',
-  from: 'commandData',
-  to: 'view',
-  exec: function(commandData, context) {
-    return context.createView({
-      html: helpManHtml,
-      options: { allowEval: true, stack: 'help_man.html' },
-      data: {
-        l10n: l10n.propertyLookup,
-        onclick: context.update,
-        ondblclick: context.updateExec,
-        describe: function(item) {
-          return item.manual || item.description;
-        },
-        getTypeDescription: function(param) {
-          var input = '';
-          if (param.defaultValue === undefined) {
-            input = l10n.lookup('helpManRequired');
-          }
-          else if (param.defaultValue === null) {
-            input = l10n.lookup('helpManOptional');
-          }
-          else {
-            var defaultValue = param.type.stringify(param.defaultValue);
-            input = l10n.lookupFormat('helpManDefault', [ defaultValue ]);
-          }
-          return '(' + param.type.name + ', ' + input + ')';
-        },
-        getSynopsis: function(param) {
-          var short = param.short ? '|-' + param.short : '';
-          if (param.isPositionalAllowed) {
-            return param.defaultValue !== undefined ?
-                '[' + param.name + short + ']' :
-                '<' + param.name + short + '>';
-          }
-          else {
-            return param.type.name === 'boolean' ?
-                '[--' + param.name + short + ']' :
-                '[--' + param.name + short + ' ...]';
-          }
-        },
-        command: commandData.command,
-        subcommands: commandData.subcommands
-      },
-      css: helpCss,
-      cssId: 'gcli-help'
-    });
+function getHelpListData(commandsData, context) {
+  var heading;
+  if (commandsData.commands.length === 0) {
+    heading = l10n.lookupFormat('helpListNone', [ commandsData.prefix ]);
   }
-};
-
-/**
- * Convert a list of commands into a formatted list
- */
-var helpCommands = {
-  item: 'converter',
-  from: 'commandsData',
-  to: 'view',
-  exec: function(commandsData, context) {
-    var heading;
-    if (commandsData.commands.length === 0) {
-      heading = l10n.lookupFormat('helpListNone', [ commandsData.prefix ]);
-    }
-    else if (commandsData.prefix == null) {
-      heading = l10n.lookup('helpListAll');
-    }
-    else {
-      heading = l10n.lookupFormat('helpListPrefix', [ commandsData.prefix ]);
-    }
-
-    return context.createView({
-      html: helpListHtml,
-      options: { allowEval: true, stack: 'help_list.html' },
-      data: {
-        l10n: l10n.propertyLookup,
-        includeIntro: commandsData.prefix == null,
-        heading: heading,
-        onclick: context.update,
-        ondblclick: context.updateExec,
-        matchingCommands: commandsData.commands
-      },
-      css: helpCss,
-      cssId: 'gcli-help'
-    });
+  else if (commandsData.prefix == null) {
+    heading = l10n.lookup('helpListAll');
   }
-};
-
-/**
- * 'help' command
- */
-var help = {
-  item: 'command',
-  name: 'help',
-  description: l10n.lookup('helpDesc'),
-  manual: l10n.lookup('helpManual'),
-  params: [
-    {
-      name: 'search',
-      type: 'string',
-      description: l10n.lookup('helpSearchDesc'),
-      manual: l10n.lookup('helpSearchManual3'),
-      defaultValue: null
-    }
-  ],
-
-  exec: function(args, context) {
-    var command = canon.getCommand(args.search);
-    if (command) {
-      return context.typedData('commandData', {
-        command: command,
-        subcommands: getSubCommands(command)
-      });
-    }
-
-    return context.typedData('commandsData', {
-      prefix: args.search,
-      commands: getMatchingCommands(args.search)
-    });
+  else {
+    heading = l10n.lookupFormat('helpListPrefix', [ commandsData.prefix ]);
   }
-};
+
+  return {
+    l10n: l10n.propertyLookup,
+    includeIntro: commandsData.prefix == null,
+    heading: heading,
+    onclick: context.update,
+    ondblclick: context.updateExec,
+    matchingCommands: commandsData.commands
+  };
+}
 
 /**
  * Create a block of data suitable to be passed to the help_list.html template
@@ -15448,28 +15117,113 @@ function getSubCommands(command) {
   return subcommands;
 }
 
-exports.items = [ help, helpCommand, helpCommands ];
+exports.items = [
+  {
+    // 'help' command
+    item: 'command',
+    name: 'help',
+    description: l10n.lookup('helpDesc'),
+    manual: l10n.lookup('helpManual'),
+    params: [
+      {
+        name: 'search',
+        type: 'string',
+        description: l10n.lookup('helpSearchDesc'),
+        manual: l10n.lookup('helpSearchManual3'),
+        defaultValue: null
+      }
+    ],
+
+    exec: function(args, context) {
+      var command = canon.getCommand(args.search);
+      if (command) {
+        return context.typedData('commandData', {
+          command: command,
+          subcommands: getSubCommands(command)
+        });
+      }
+
+      return context.typedData('commandsData', {
+        prefix: args.search,
+        commands: getMatchingCommands(args.search)
+      });
+    }
+  },
+  {
+    // Convert a command into an HTML man page
+    item: 'converter',
+    from: 'commandData',
+    to: 'view',
+    exec: function(commandData, context) {
+      return {
+        html: require('text!gcli/commands/help_man.html'),
+        options: { allowEval: true, stack: 'help_man.html' },
+        data: getHelpManData(commandData, context),
+        css: require('text!gcli/commands/help.css'),
+        cssId: 'gcli-help'
+      };
+    }
+  },
+  {
+    // Convert a command into a string based man page
+    item: 'converter',
+    from: 'commandData',
+    to: 'stringView',
+    exec: function(commandData, context) {
+      return {
+        html: require('text!gcli/commands/help_man.txt'),
+        options: { allowEval: true, stack: 'help_man.txt' },
+        data: getHelpManData(commandData, context)
+      };
+    }
+  },
+  {
+    // Convert a list of commands into a formatted list
+    item: 'converter',
+    from: 'commandsData',
+    to: 'view',
+    exec: function(commandsData, context) {
+      return {
+        html: require('text!gcli/commands/help_list.html'),
+        options: { allowEval: true, stack: 'help_list.html' },
+        data: getHelpListData(commandsData, context),
+        css: require('text!gcli/commands/help.css'),
+        cssId: 'gcli-help'
+      };
+    }
+  },
+  {
+    // Convert a list of commands into a formatted list
+    item: 'converter',
+    from: 'commandsData',
+    to: 'stringView',
+    exec: function(commandsData, context) {
+      return {
+        html: require('text!gcli/commands/help_list.txt'),
+        options: { allowEval: true, stack: 'help_list.txt' },
+        data: getHelpListData(commandsData, context)
+      };
+    }
+  }
+];
 
 });
 define("text!gcli/commands/help_man.html", [], "\n" +
   "<div>\n" +
-  "  <h3>${command.name}</h3>\n" +
-  "\n" +
-  "  <h4 class=\"gcli-help-header\">\n" +
+  "  <p class=\"gcli-help-header\">\n" +
   "    ${l10n.helpManSynopsis}:\n" +
-  "    <span class=\"gcli-out-shortcut\" onclick=\"${onclick}\" data-command=\"${command.name}\">\n" +
+  "    <span class=\"gcli-out-shortcut\" data-command=\"${command.name}\"\n" +
+  "        onclick=\"${onclick}\" ondblclick=\"${ondblclick}\">\n" +
   "      ${command.name}\n" +
   "      <span foreach=\"param in ${command.params}\">${getSynopsis(param)} </span>\n" +
   "    </span>\n" +
-  "  </h4>\n" +
-  "\n" +
-  "  <h4 class=\"gcli-help-header\">${l10n.helpManDescription}:</h4>\n" +
+  "  </p>\n" +
   "\n" +
   "  <p class=\"gcli-help-description\">${describe(command)}</p>\n" +
   "\n" +
   "  <div if=\"${command.exec}\">\n" +
   "    <div foreach=\"groupName in ${command.paramGroups}\">\n" +
-  "      <h4 class=\"gcli-help-header\">${groupName}:</h4>\n" +
+  "      <p class=\"gcli-help-header\">${groupName}:</p>\n" +
   "      <ul class=\"gcli-help-parameter\">\n" +
   "        <li if=\"${command.params.length === 0}\">${l10n.helpManNone}</li>\n" +
   "        <li foreach=\"param in ${command.paramGroups[groupName]}\">\n" +
@@ -15482,13 +15236,11 @@ define("text!gcli/commands/help_man.html", [], "\n" +
   "  </div>\n" +
   "\n" +
   "  <div if=\"${!command.exec}\">\n" +
-  "    <h4 class=\"gcli-help-header\">${l10n.subCommands}:</h4>\n" +
-  "\n" +
+  "    <p class=\"gcli-help-header\">${l10n.subCommands}:</p>\n" +
   "    <ul class=\"gcli-help-${subcommands}\">\n" +
   "      <li if=\"${subcommands.length === 0}\">${l10n.subcommandsNone}</li>\n" +
   "      <li foreach=\"subcommand in ${subcommands}\">\n" +
-  "        <strong>${subcommand.name}</strong>:\n" +
-  "        ${subcommand.description}\n" +
+  "        ${subcommand.name}: ${subcommand.description}\n" +
   "        <span class=\"gcli-out-shortcut\" data-command=\"help ${subcommand.name}\"\n" +
   "            onclick=\"${onclick}\" ondblclick=\"${ondblclick}\">\n" +
   "          help ${subcommand.name}\n" +
@@ -15497,36 +15249,6 @@ define("text!gcli/commands/help_man.html", [], "\n" +
   "    </ul>\n" +
   "  </div>\n" +
   "\n" +
-  "</div>\n" +
-  "");
-
-define("text!gcli/commands/help_list.html", [], "\n" +
-  "<div>\n" +
-  "  <div if=\"${includeIntro}\">\n" +
-  "    <h2>Welcome to GCLI</h2>\n" +
-  "    <p>GCLI is an experiment to create a highly usable JavaScript command line for developers.</p>\n" +
-  "    <p>\n" +
-  "      Useful links:\n" +
-  "      <a href='https://github.com/joewalker/gcli'>Source</a> (Apache-2.0),\n" +
-  "      <a href='https://github.com/joewalker/gcli/blob/master/docs/index.md'>Documentation</a> (for users/embedders),\n" +
-  "      <a href='https://wiki.mozilla.org/DevTools/Features/GCLI'>Mozilla feature page</a> (for GCLI in the web console).\n" +
-  "    </p>\n" +
-  "  </div>\n" +
-  "\n" +
-  "  <h3>${heading}</h3>\n" +
-  "\n" +
-  "  <table>\n" +
-  "    <tr foreach=\"command in ${matchingCommands}\">\n" +
-  "      <th class=\"gcli-help-name\">${command.name}</th>\n" +
-  "      <td class=\"gcli-help-arrow\">-</td>\n" +
-  "      <td>\n" +
-  "        ${command.description}\n" +
-  "        <span class=\"gcli-out-shortcut\"\n" +
-  "            onclick=\"${onclick}\" ondblclick=\"${ondblclick}\"\n" +
-  "            data-command=\"help ${command.name}\">help ${command.name}</span>\n" +
-  "      </td>\n" +
-  "    </tr>\n" +
-  "  </table>\n" +
   "</div>\n" +
   "");
 
@@ -15553,6 +15275,74 @@ define("text!gcli/commands/help.css", [], "\n" +
   "  margin: 10px 0 6px;\n" +
   "}\n" +
   "");
+
+define("text!gcli/commands/help_man.txt", [], "\n" +
+  "<div>## ${command.name}\n" +
+  "\n" +
+  "# ${l10n.helpManSynopsis}: ${command.name} <loop foreach=\"param in ${command.params}\">${getSynopsis(param)} </loop>\n" +
+  "\n" +
+  "# ${l10n.helpManDescription}:\n" +
+  "\n" +
+  "${command.manual || command.description}\n" +
+  "\n" +
+  "<loop foreach=\"groupName in ${command.paramGroups}\">\n" +
+  "<span if=\"${command.exec}\"># ${groupName}:\n" +
+  "\n" +
+  "<span if=\"${command.params.length === 0}\">${l10n.helpManNone}</span><loop foreach=\"param in ${command.paramGroups[groupName]}\">* ${param.name}: ${getTypeDescription(param)}\n" +
+  "  ${param.manual || param.description}\n" +
+  "</loop>\n" +
+  "</span>\n" +
+  "</loop>\n" +
+  "\n" +
+  "<span if=\"${!command.exec}\"># ${l10n.subCommands}:\n" +
+  "\n" +
+  "<span if=\"${subcommands.length === 0}\">${l10n.subcommandsNone}</span>\n" +
+  "<loop foreach=\"subcommand in ${subcommands}\">* ${subcommand.name}: ${subcommand.description}\n" +
+  "</loop>\n" +
+  "</div>\n" +
+  "");
+
+define("text!gcli/commands/help_list.html", [], "\n" +
+  "<div>\n" +
+  "  <div if=\"${includeIntro}\">\n" +
+  "    <p>GCLI is an experiment to create a highly usable command line for web developers.</p>\n" +
+  "    <p>\n" +
+  "      Useful links:\n" +
+  "      <a href='https://github.com/joewalker/gcli'>Source</a> (Apache-2.0),\n" +
+  "      <a href='https://github.com/joewalker/gcli/blob/master/docs/index.md'>Documentation</a> (for users/embedders),\n" +
+  "      <a href='https://wiki.mozilla.org/DevTools/Features/GCLI'>Mozilla feature page</a> (for GCLI in the web console).\n" +
+  "    </p>\n" +
+  "  </div>\n" +
+  "\n" +
+  "  <p>${heading}</p>\n" +
+  "\n" +
+  "  <table>\n" +
+  "    <tr foreach=\"command in ${matchingCommands}\">\n" +
+  "      <td class=\"gcli-help-name\">${command.name}</td>\n" +
+  "      <td class=\"gcli-help-arrow\">-</td>\n" +
+  "      <td>\n" +
+  "        ${command.description}\n" +
+  "        <span class=\"gcli-out-shortcut\"\n" +
+  "            onclick=\"${onclick}\" ondblclick=\"${ondblclick}\"\n" +
+  "            data-command=\"help ${command.name}\">help ${command.name}</span>\n" +
+  "      </td>\n" +
+  "    </tr>\n" +
+  "  </table>\n" +
+  "</div>\n" +
+  "");
+
+define("text!gcli/commands/help_list.txt", [], "<pre><span if=\"${includeIntro}\">## Welcome to GCLI\n" +
+  "\n" +
+  "GCLI is an experiment to create a highly usable JavaScript command line for developers.\n" +
+  "\n" +
+  "Useful links:\n" +
+  "- Source (Apache-2.0): https://github.com/joewalker/gcli\n" +
+  "- Documentation: https://github.com/joewalker/gcli/blob/master/docs/index.md</span>\n" +
+  "\n" +
+  "# ${heading}\n" +
+  "\n" +
+  "<loop foreach=\"command in ${matchingCommands}\">${command.name} &#x2192; ${command.description}\n" +
+  "</loop></pre>");
 
 /*
  * Copyright 2012, Mozilla Foundation and contributors
@@ -15630,7 +15420,7 @@ var prefsData = {
   to: 'view',
   exec: function(prefsData, conversionContext) {
     var prefList = new PrefList(prefsData, conversionContext);
-    return conversionContext.createView({
+    return {
       html: require('text!gcli/commands/pref_list_outer.html'),
       data: prefList,
       options: {
@@ -15640,7 +15430,7 @@ var prefsData = {
       },
       css: require('text!gcli/commands/pref_list.css'),
       cssId: 'gcli-pref-list'
-    });
+    };
   }
 };
 
@@ -15837,125 +15627,108 @@ define('gcli/commands/pref', ['require', 'exports', 'module' , 'util/l10n', 'gcl
 var l10n = require('util/l10n');
 var settings = require('gcli/settings');
 
-/**
- * Record if the user has clicked on 'Got It!'
- */
-var allowSet = {
-  item: 'setting',
-  name: 'allowSet',
-  type: 'boolean',
-  description: l10n.lookup('allowSetDesc'),
-  defaultValue: false
-};
-
-/**
- * 'pref' command
- */
-var pref = {
-  item: 'command',
-  name: 'pref',
-  description: l10n.lookup('prefDesc'),
-  manual: l10n.lookup('prefManual')
-};
-
-/**
- * 'pref show' command
- */
-var prefShow = {
-  item: 'command',
-  name: 'pref show',
-  description: l10n.lookup('prefShowDesc'),
-  manual: l10n.lookup('prefShowManual'),
-  params: [
-    {
-      name: 'setting',
-      type: 'setting',
-      description: l10n.lookup('prefShowSettingDesc'),
-      manual: l10n.lookup('prefShowSettingManual')
-    }
-  ],
-  exec: function(args, context) {
-    return l10n.lookupFormat('prefShowSettingValue',
-                             [ args.setting.name, args.setting.value ]);
-  }
-};
-
-/**
- * 'pref set' command
- */
-var prefSet = {
-  item: 'command',
-  name: 'pref set',
-  description: l10n.lookup('prefSetDesc'),
-  manual: l10n.lookup('prefSetManual'),
-  params: [
-    {
-      name: 'setting',
-      type: 'setting',
-      description: l10n.lookup('prefSetSettingDesc'),
-      manual: l10n.lookup('prefSetSettingManual')
-    },
-    {
-      name: 'value',
-      type: 'settingValue',
-      description: l10n.lookup('prefSetValueDesc'),
-      manual: l10n.lookup('prefSetValueManual')
-    }
-  ],
-  exec: function(args, context) {
-    var allowSet = settings.getSetting('allowSet');
-    if (!allowSet.value &&
-        args.setting.name !== allowSet.name) {
-      return context.typedData('prefSetWarning', null);
-    }
-
-    args.setting.value = args.value;
-  }
-};
-
-var prefSetWarning = {
-  item: 'converter',
-  from: 'prefSetWarning',
-  to: 'view',
-  exec: function(data, context) {
-    var allowSet = settings.getSetting('settings');
-    return context.createView({
-      html: require('text!gcli/commands/pref_set_check.html'),
-      options: { allowEval: true, stack: 'pref_set_check.html' },
-      data: {
-        l10n: l10n.propertyLookup,
-        activate: function() {
-          context.updateExec('pref set ' + allowSet.name + ' true');
-        }
-      }
-    });
-  }
-};
-
-/**
- * 'pref reset' command
- */
-var prefReset = {
-  item: 'command',
-  name: 'pref reset',
-  description: l10n.lookup('prefResetDesc'),
-  manual: l10n.lookup('prefResetManual'),
-  params: [
-    {
-      name: 'setting',
-      type: 'setting',
-      description: l10n.lookup('prefResetSettingDesc'),
-      manual: l10n.lookup('prefResetSettingManual')
-    }
-  ],
-  exec: function(args, context) {
-    args.setting.setDefault();
-  }
-};
-
 exports.items = [
-  pref, prefShow, prefSet, prefReset,
-  allowSet, prefSetWarning
+  {
+    // 'pref' command
+    item: 'command',
+    name: 'pref',
+    description: l10n.lookup('prefDesc'),
+    manual: l10n.lookup('prefManual')
+  },
+  {
+    // 'pref show' command
+    item: 'command',
+    name: 'pref show',
+    description: l10n.lookup('prefShowDesc'),
+    manual: l10n.lookup('prefShowManual'),
+    params: [
+      {
+        name: 'setting',
+        type: 'setting',
+        description: l10n.lookup('prefShowSettingDesc'),
+        manual: l10n.lookup('prefShowSettingManual')
+      }
+    ],
+    exec: function(args, context) {
+      return l10n.lookupFormat('prefShowSettingValue',
+                               [ args.setting.name, args.setting.value ]);
+    }
+  },
+  {
+    // 'pref set' command
+    item: 'command',
+    name: 'pref set',
+    description: l10n.lookup('prefSetDesc'),
+    manual: l10n.lookup('prefSetManual'),
+    params: [
+      {
+        name: 'setting',
+        type: 'setting',
+        description: l10n.lookup('prefSetSettingDesc'),
+        manual: l10n.lookup('prefSetSettingManual')
+      },
+      {
+        name: 'value',
+        type: 'settingValue',
+        description: l10n.lookup('prefSetValueDesc'),
+        manual: l10n.lookup('prefSetValueManual')
+      }
+    ],
+    exec: function(args, context) {
+      var allowSet = settings.getSetting('allowSet');
+      if (!allowSet.value &&
+          args.setting.name !== allowSet.name) {
+        return context.typedData('prefSetWarning', null);
+      }
+
+      args.setting.value = args.value;
+    }
+  },
+  {
+    // 'pref reset' command
+    item: 'command',
+    name: 'pref reset',
+    description: l10n.lookup('prefResetDesc'),
+    manual: l10n.lookup('prefResetManual'),
+    params: [
+      {
+        name: 'setting',
+        type: 'setting',
+        description: l10n.lookup('prefResetSettingDesc'),
+        manual: l10n.lookup('prefResetSettingManual')
+      }
+    ],
+    exec: function(args, context) {
+      args.setting.setDefault();
+    }
+  },
+  {
+    // Record if the user has clicked on 'Got It!'
+    item: 'setting',
+    name: 'allowSet',
+    type: 'boolean',
+    description: l10n.lookup('allowSetDesc'),
+    defaultValue: false
+  },
+  {
+    // A view to hold an 'are you sure' warning
+    item: 'converter',
+    from: 'prefSetWarning',
+    to: 'view',
+    exec: function(data, context) {
+      var allowSet = settings.getSetting('settings');
+      return {
+        html: require('text!gcli/commands/pref_set_check.html'),
+        options: { allowEval: true, stack: 'pref_set_check.html' },
+        data: {
+          l10n: l10n.propertyLookup,
+          activate: function() {
+            context.updateExec('pref set ' + allowSet.name + ' true');
+          }
+        }
+      };
+    }
+  }
 ];
 
 
@@ -16033,10 +15806,10 @@ exports.items = [
     from: 'bugz',
     to: 'view',
     exec: function(bugz, context) {
-      return context.createView({
+      return {
         html: require('text!demo/commands/bugs.html'),
         data: bugz
-      });
+      };
     }
   },
   {
@@ -16605,6 +16378,110 @@ exports.items = [
 
 
 });
+/*
+ * Copyright 2012, Mozilla Foundation and contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+define('demo/commands/theme', ['require', 'exports', 'module' , 'text!demo/commands/theme.html'], function(require, exports, module) {
+
+'use strict';
+
+exports.items = [
+  {
+    item: 'type',
+    name: 'theme',
+    parent: 'selection',
+    data: [ 'dark', 'light' ]
+  },
+  {
+    item: 'command',
+    name: 'theme',
+    description: 'Change themes',
+    params: [
+      {
+        name: 'theme',
+        type: 'theme',
+        description: 'The theme to use'
+      },
+      {
+        name: 'show',
+        type: 'boolean',
+        description: 'Display a preview of the current theme',
+        hidden: true,
+        option: true
+      }
+    ],
+    exec: function(args, context) {
+      if (args.show) {
+        return context.typedData('theme-preview', args);
+      }
+      else {
+        return context.typedData('theme-change', args);
+      }
+    }
+  },
+  {
+    item: 'converter',
+    from: 'theme-change',
+    to: 'view',
+    exec: function(args, context) {
+      var body = context.document.body;
+
+      // Remove existing themes. This is very dependent on how themes are
+      // setup. This code will probably require local customization
+      exports.items[0].data.forEach(function(theme) {
+        body.classList.remove(theme);
+      });
+      body.classList.add(args.theme);
+
+      return {
+        html: '<div>Set theme to ${theme}</div>',
+        data: args,
+        options: { allowEval: true, stack: 'theme.html#change' }
+      };
+    }
+  },
+  {
+    item: 'converter',
+    from: 'theme-preview',
+    to: 'view',
+    exec: function(args, context) {
+      return {
+        html: require('text!demo/commands/theme.html'),
+        data: args,
+        options: { allowEval: true, stack: 'theme.html#preview' }
+      };
+    }
+  }
+];
+
+
+});
+define("text!demo/commands/theme.html", [], "\n" +
+  "<div class=\"${theme}\">\n" +
+  "  <table class=\"theme-body\" style=\"padding: 10px;\">\n" +
+  "    <tbody>\n" +
+  "      <tr foreach=\"className in ${[ 'theme-selected', 'theme-link', 'theme-comment', 'theme-gutter', 'theme-separator', 'theme-fg-color1', 'theme-fg-color2', 'theme-fg-color3', 'theme-fg-color4', 'theme-fg-color5', 'theme-fg-color6', 'theme-fg-color7' ]}\">\n" +
+  "        <td>${className}</td>\n" +
+  "        <td class=\"${className}\">Lorem ipsum dolor sit amet ↑ → ↓ ← ██████████</td>\n" +
+  "      </tr>\n" +
+  "    </tbody>\n" +
+  "  </table>\n" +
+  "</div>\n" +
+  "");
+
 define("text!/gcli/commands/pref_list_edit.png", [], "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAABGdBTUEAALGOfPtRkwAAACBjSFJNAACHDwAAjA8AAP1SAACBQAAAfXkAAOmLAAA85QAAGcxzPIV3AAAKOWlDQ1BQaG90b3Nob3AgSUNDIHByb2ZpbGUAAEjHnZZ3VFTXFofPvXd6oc0wAlKG3rvAANJ7k15FYZgZYCgDDjM0sSGiAhFFRJoiSFDEgNFQJFZEsRAUVLAHJAgoMRhFVCxvRtaLrqy89/Ly++Osb+2z97n77L3PWhcAkqcvl5cGSwGQyhPwgzyc6RGRUXTsAIABHmCAKQBMVka6X7B7CBDJy82FniFyAl8EAfB6WLwCcNPQM4BOB/+fpFnpfIHomAARm7M5GSwRF4g4JUuQLrbPipgalyxmGCVmvihBEcuJOWGRDT77LLKjmNmpPLaIxTmns1PZYu4V8bZMIUfEiK+ICzO5nCwR3xKxRoowlSviN+LYVA4zAwAUSWwXcFiJIjYRMYkfEuQi4uUA4EgJX3HcVyzgZAvEl3JJS8/hcxMSBXQdli7d1NqaQffkZKVwBALDACYrmcln013SUtOZvBwAFu/8WTLi2tJFRbY0tba0NDQzMv2qUP91829K3NtFehn4uWcQrf+L7a/80hoAYMyJarPziy2uCoDOLQDI3fti0zgAgKSobx3Xv7oPTTwviQJBuo2xcVZWlhGXwzISF/QP/U+Hv6GvvmckPu6P8tBdOfFMYYqALq4bKy0lTcinZ6QzWRy64Z+H+B8H/nUeBkGceA6fwxNFhImmjMtLELWbx+YKuGk8Opf3n5r4D8P+pMW5FonS+BFQY4yA1HUqQH7tBygKESDR+8Vd/6NvvvgwIH554SqTi3P/7zf9Z8Gl4iWDm/A5ziUohM4S8jMX98TPEqABAUgCKpAHykAd6ABDYAasgC1wBG7AG/iDEBAJVgMWSASpgA+yQB7YBApBMdgJ9oBqUAcaQTNoBcdBJzgFzoNL4Bq4AW6D+2AUTIBnYBa8BgsQBGEhMkSB5CEVSBPSh8wgBmQPuUG+UBAUCcVCCRAPEkJ50GaoGCqDqqF6qBn6HjoJnYeuQIPQXWgMmoZ+h97BCEyCqbASrAUbwwzYCfaBQ+BVcAK8Bs6FC+AdcCXcAB+FO+Dz8DX4NjwKP4PnEIAQERqiihgiDMQF8UeikHiEj6xHipAKpAFpRbqRPuQmMorMIG9RGBQFRUcZomxRnqhQFAu1BrUeVYKqRh1GdaB6UTdRY6hZ1Ec0Ga2I1kfboL3QEegEdBa6EF2BbkK3oy+ib6Mn0K8xGAwNo42xwnhiIjFJmLWYEsw+TBvmHGYQM46Zw2Kx8lh9rB3WH8vECrCF2CrsUexZ7BB2AvsGR8Sp4Mxw7rgoHA+Xj6vAHcGdwQ3hJnELeCm8Jt4G749n43PwpfhGfDf+On4Cv0CQJmgT7AghhCTCJkIloZVwkfCA8JJIJKoRrYmBRC5xI7GSeIx4mThGfEuSIemRXEjRJCFpB+kQ6RzpLuklmUzWIjuSo8gC8g5yM/kC+RH5jQRFwkjCS4ItsUGiRqJDYkjiuSReUlPSSXK1ZK5kheQJyeuSM1J4KS0pFymm1HqpGqmTUiNSc9IUaVNpf+lU6RLpI9JXpKdksDJaMm4ybJkCmYMyF2TGKQhFneJCYVE2UxopFykTVAxVm+pFTaIWU7+jDlBnZWVkl8mGyWbL1sielh2lITQtmhcthVZKO04bpr1borTEaQlnyfYlrUuGlszLLZVzlOPIFcm1yd2WeydPl3eTT5bfJd8p/1ABpaCnEKiQpbBf4aLCzFLqUtulrKVFS48vvacIK+opBimuVTyo2K84p6Ss5KGUrlSldEFpRpmm7KicpFyufEZ5WoWiYq/CVSlXOavylC5Ld6Kn0CvpvfRZVUVVT1Whar3qgOqCmrZaqFq+WpvaQ3WCOkM9Xr1cvUd9VkNFw08jT6NF454mXpOhmai5V7NPc15LWytca6tWp9aUtpy2l3audov2Ax2yjoPOGp0GnVu6GF2GbrLuPt0berCehV6iXo3edX1Y31Kfq79Pf9AAbWBtwDNoMBgxJBk6GWYathiOGdGMfI3yjTqNnhtrGEcZ7zLuM/5oYmGSYtJoct9UxtTbNN+02/R3Mz0zllmN2S1zsrm7+QbzLvMXy/SXcZbtX3bHgmLhZ7HVosfig6WVJd+y1XLaSsMq1qrWaoRBZQQwShiXrdHWztYbrE9Zv7WxtBHYHLf5zdbQNtn2iO3Ucu3lnOWNy8ft1OyYdvV2o/Z0+1j7A/ajDqoOTIcGh8eO6o5sxybHSSddpySno07PnU2c+c7tzvMuNi7rXM65Iq4erkWuA24ybqFu1W6P3NXcE9xb3Gc9LDzWepzzRHv6eO7yHPFS8mJ5NXvNelt5r/Pu9SH5BPtU+zz21fPl+3b7wX7efrv9HqzQXMFb0ekP/L38d/s/DNAOWBPwYyAmMCCwJvBJkGlQXlBfMCU4JvhI8OsQ55DSkPuhOqHC0J4wybDosOaw+XDX8LLw0QjjiHUR1yIVIrmRXVHYqLCopqi5lW4r96yciLaILoweXqW9KnvVldUKq1NWn46RjGHGnIhFx4bHHol9z/RnNjDn4rziauNmWS6svaxnbEd2OXuaY8cp40zG28WXxU8l2CXsTphOdEisSJzhunCruS+SPJPqkuaT/ZMPJX9KCU9pS8Wlxqae5Mnwknm9acpp2WmD6frphemja2zW7Fkzy/fhN2VAGasyugRU0c9Uv1BHuEU4lmmfWZP5Jiss60S2dDYvuz9HL2d7zmSue+63a1FrWWt78lTzNuWNrXNaV78eWh+3vmeD+oaCDRMbPTYe3kTYlLzpp3yT/LL8V5vDN3cXKBVsLBjf4rGlpVCikF84stV2a9021DbutoHt5turtn8sYhddLTYprih+X8IqufqN6TeV33zaEb9joNSydP9OzE7ezuFdDrsOl0mX5ZaN7/bb3VFOLy8qf7UnZs+VimUVdXsJe4V7Ryt9K7uqNKp2Vr2vTqy+XeNc01arWLu9dn4fe9/Qfsf9rXVKdcV17w5wD9yp96jvaNBqqDiIOZh58EljWGPft4xvm5sUmoqbPhziHRo9HHS4t9mqufmI4pHSFrhF2DJ9NProje9cv+tqNWytb6O1FR8Dx4THnn4f+/3wcZ/jPScYJ1p/0Pyhtp3SXtQBdeR0zHYmdo52RXYNnvQ+2dNt293+o9GPh06pnqo5LXu69AzhTMGZT2dzz86dSz83cz7h/HhPTM/9CxEXbvUG9g5c9Ll4+ZL7pQt9Tn1nL9tdPnXF5srJq4yrndcsr3X0W/S3/2TxU/uA5UDHdavrXTesb3QPLh88M+QwdP6m681Lt7xuXbu94vbgcOjwnZHokdE77DtTd1PuvriXeW/h/sYH6AdFD6UeVjxSfNTws+7PbaOWo6fHXMf6Hwc/vj/OGn/2S8Yv7ycKnpCfVEyqTDZPmU2dmnafvvF05dOJZ+nPFmYKf5X+tfa5zvMffnP8rX82YnbiBf/Fp99LXsq/PPRq2aueuYC5R69TXy/MF72Rf3P4LeNt37vwd5MLWe+x7ys/6H7o/ujz8cGn1E+f/gUDmPP8usTo0wAAAAlwSFlzAAALEgAACxIB0t1+/AAAABp0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuMTAw9HKhAAAAmUlEQVQoU2NgIAyKgUqWA7EoYaUMDKVARSVAfAmIHwKxCD5NVUDJLCB+DMTxUE0bcGmoAUr8B+KvQBwNxE+AuACIm7BpqIYqBmkA4W9AnAbEDcQohmlqJkVxOzbFMDfDTITRbdgU6wAF76C5G6QBq8kgAzZBQ+IWkiasJsNsOwdk/INqug2k8SoGaQJFzBUg3gHEJtjcjCwGAMxwM5E5ELkxAAAAAElFTkSuQmCC");
 
 define("text!/gcli/ui/images/closer.png", [], "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAj9JREFUeNp0ks+LUlEUx7/vV1o8Z8wUx3IEHcQmiBiQlomjRNCiZpEuEqF/oEUwq/6EhvoHggmRcJUQBM1CRJAW0aLIaGQimZJxJsWxyV/P9/R1zzWlFl04vPvOPZ9z7rnnK5imidmKRCIq+zxgdoPZ1T/ut8xeM3tcKpW6s1hhBkaj0Qj7bDebTX+324WmadxvsVigqipcLleN/d4rFoulORiLxTZY8ItOp8MBCpYkiYPj8Xjus9vtlORWoVB4KcTjcQc732dLpSRXvCZaAws6Q4WDdqsO52kNH+oCRFGEz+f7ydwBKRgMPmTXi49GI1x2D/DsznesB06ws2eDbI7w9HYN6bVjvGss4KAjwDAMq81mM2SW5Wa/3weBbz42UL9uYnVpiO2Nr9ANHSGXib2Wgm9tCYIggGKJEVkvlwgi5/FQRmTLxO6hgJVzI1x0T/fJrBtHJxPeL6tI/fsZLA6ot8lkQi8HRVbw94gkWYI5MaHrOjcCGSNRxZosy9y5cErDzn0Dqx7gcwO8WtBp4PndI35GMYqiUMUvBL5yOBz8yRfFNpbPmqgcCFh/IuHa1nR/YXGM8+oUpFhihEQiwcdRLpfVRqOBtWXWq34Gra6AXq8Hp2piZcmKT4cKnE4nwuHwdByVSmWQz+d32WCTlHG/qaHHREN9kgi0sYQfv0R4PB4EAgESQDKXy72fSy6VSnHJVatVf71eR7vd5n66mtfrRSgU4pLLZrOlf7RKK51Ok8g3/yPyR5lMZi7y3wIMAME4EigHWgKnAAAAAElFTkSuQmCC");

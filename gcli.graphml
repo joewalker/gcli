@@ -92,10 +92,80 @@
         </y:ShapeNode>
       </data>
     </node>
+    <node id="gcli/cli">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/cli</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/view">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/view</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="util/domtemplate">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">util/domtemplate</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
     <node id="gcli/ui/fields">
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">gcli/ui/fields</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/intro">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/intro</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/ui/intro.html">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/ui/intro.html</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/terminal">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/terminal</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/history">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/history</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="gcli/ui/focus">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">gcli/ui/focus</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/ui/terminal.css">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/ui/terminal.css</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/ui/terminal.html">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/ui/terminal.html</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -239,48 +309,6 @@
         </y:ShapeNode>
       </data>
     </node>
-    <node id="gcli/ui/intro">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/ui/intro</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="gcli/ui/view">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/ui/view</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="util/domtemplate">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">util/domtemplate</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="gcli/cli">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/cli</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="text!gcli/ui/intro.html">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/ui/intro.html</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="gcli/ui/focus">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/ui/focus</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
     <node id="gcli/ui/fields/basic">
       <data key="d0">
         <y:ShapeNode>
@@ -320,111 +348,6 @@
       <data key="d0">
         <y:ShapeNode>
            <y:NodeLabel textColor="#000000">gcli/ui/fields/selection</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="gcli/ui/display">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/ui/display</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="gcli/ui/tooltip">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/ui/tooltip</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="text!gcli/ui/tooltip.css">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/ui/tooltip.css</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="text!gcli/ui/tooltip.html">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/ui/tooltip.html</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="gcli/ui/output_terminal">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/ui/output_terminal</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="text!gcli/ui/output_view.css">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/ui/output_view.css</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="text!gcli/ui/output_terminal.html">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/ui/output_terminal.html</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="gcli/ui/inputter">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/ui/inputter</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="gcli/history">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/history</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="text!gcli/ui/inputter.css">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/ui/inputter.css</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="gcli/ui/completer">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/ui/completer</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="text!gcli/ui/completer.html">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/ui/completer.html</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="gcli/ui/prompt">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">gcli/ui/prompt</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="text!gcli/ui/display.css">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/ui/display.css</y:NodeLabel>
-        </y:ShapeNode>
-      </data>
-    </node>
-    <node id="text!gcli/ui/display.html">
-      <data key="d0">
-        <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/ui/display.html</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -477,6 +400,20 @@
         </y:ShapeNode>
       </data>
     </node>
+    <node id="text!gcli/commands/help.css">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/commands/help.css</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!gcli/commands/help_man.txt">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!gcli/commands/help_man.txt</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
     <node id="text!gcli/commands/help_list.html">
       <data key="d0">
         <y:ShapeNode>
@@ -484,10 +421,10 @@
         </y:ShapeNode>
       </data>
     </node>
-    <node id="text!gcli/commands/help.css">
+    <node id="text!gcli/commands/help_list.txt">
       <data key="d0">
         <y:ShapeNode>
-           <y:NodeLabel textColor="#000000">text!gcli/commands/help.css</y:NodeLabel>
+           <y:NodeLabel textColor="#000000">text!gcli/commands/help_list.txt</y:NodeLabel>
         </y:ShapeNode>
       </data>
     </node>
@@ -589,6 +526,20 @@
         </y:ShapeNode>
       </data>
     </node>
+    <node id="demo/commands/theme">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">demo/commands/theme</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
+    <node id="text!demo/commands/theme.html">
+      <data key="d0">
+        <y:ShapeNode>
+           <y:NodeLabel textColor="#000000">text!demo/commands/theme.html</y:NodeLabel>
+        </y:ShapeNode>
+      </data>
+    </node>
     <edge source="gcli/index" target="util/legacy"/>
     <edge source="gcli/index" target="gcli/settings"/>
     <edge source="gcli/index" target="gcli/api"/>
@@ -615,7 +566,6 @@
     <edge source="gcli/index" target="gcli/ui/fields/javascript"/>
     <edge source="gcli/index" target="gcli/ui/fields/selection"/>
     <edge source="gcli/index" target="gcli/cli"/>
-    <edge source="gcli/index" target="gcli/ui/display"/>
     <edge source="gcli/settings" target="util/util"/>
     <edge source="gcli/settings" target="gcli/types"/>
     <edge source="util/util" target="util/promise"/>
@@ -626,15 +576,47 @@
     <edge source="gcli/api" target="gcli/converters"/>
     <edge source="gcli/api" target="gcli/types"/>
     <edge source="gcli/api" target="gcli/settings"/>
+    <edge source="gcli/api" target="gcli/cli"/>
     <edge source="gcli/api" target="gcli/ui/fields"/>
+    <edge source="gcli/api" target="gcli/ui/intro"/>
+    <edge source="gcli/api" target="gcli/ui/terminal"/>
     <edge source="gcli/canon" target="util/util"/>
     <edge source="gcli/canon" target="util/l10n"/>
     <edge source="gcli/canon" target="gcli/types"/>
     <edge source="util/l10n" target="gcli/nls/strings"/>
     <edge source="gcli/converters" target="util/promise"/>
+    <edge source="gcli/converters" target="util/util"/>
+    <edge source="gcli/cli" target="util/promise"/>
+    <edge source="gcli/cli" target="util/util"/>
+    <edge source="gcli/cli" target="util/l10n"/>
+    <edge source="gcli/cli" target="gcli/ui/view"/>
+    <edge source="gcli/cli" target="gcli/converters"/>
+    <edge source="gcli/cli" target="gcli/canon"/>
+    <edge source="gcli/cli" target="gcli/types"/>
+    <edge source="gcli/cli" target="gcli/argument"/>
+    <edge source="gcli/ui/view" target="util/util"/>
+    <edge source="gcli/ui/view" target="util/domtemplate"/>
     <edge source="gcli/ui/fields" target="util/promise"/>
     <edge source="gcli/ui/fields" target="util/util"/>
     <edge source="gcli/ui/fields" target="gcli/argument"/>
+    <edge source="gcli/ui/intro" target="util/l10n"/>
+    <edge source="gcli/ui/intro" target="gcli/settings"/>
+    <edge source="gcli/ui/intro" target="gcli/ui/view"/>
+    <edge source="gcli/ui/intro" target="gcli/cli"/>
+    <edge source="gcli/ui/intro" target="text!gcli/ui/intro.html"/>
+    <edge source="gcli/ui/terminal" target="util/promise"/>
+    <edge source="gcli/ui/terminal" target="util/util"/>
+    <edge source="gcli/ui/terminal" target="util/domtemplate"/>
+    <edge source="gcli/ui/terminal" target="gcli/types"/>
+    <edge source="gcli/ui/terminal" target="gcli/history"/>
+    <edge source="gcli/ui/terminal" target="gcli/cli"/>
+    <edge source="gcli/ui/terminal" target="gcli/ui/fields"/>
+    <edge source="gcli/ui/terminal" target="gcli/ui/focus"/>
+    <edge source="gcli/ui/terminal" target="text!gcli/ui/terminal.css"/>
+    <edge source="gcli/ui/terminal" target="text!gcli/ui/terminal.html"/>
+    <edge source="gcli/ui/focus" target="util/util"/>
+    <edge source="gcli/ui/focus" target="util/l10n"/>
+    <edge source="gcli/ui/focus" target="gcli/settings"/>
     <edge source="gcli/types/selection" target="util/promise"/>
     <edge source="gcli/types/selection" target="util/util"/>
     <edge source="gcli/types/selection" target="util/l10n"/>
@@ -689,24 +671,6 @@
     <edge source="gcli/converters/basic" target="util/util"/>
     <edge source="gcli/converters/html" target="util/util"/>
     <edge source="gcli/converters/terminal" target="util/util"/>
-    <edge source="gcli/ui/intro" target="util/l10n"/>
-    <edge source="gcli/ui/intro" target="gcli/settings"/>
-    <edge source="gcli/ui/intro" target="gcli/ui/view"/>
-    <edge source="gcli/ui/intro" target="gcli/cli"/>
-    <edge source="gcli/ui/intro" target="text!gcli/ui/intro.html"/>
-    <edge source="gcli/ui/view" target="util/util"/>
-    <edge source="gcli/ui/view" target="util/domtemplate"/>
-    <edge source="gcli/cli" target="util/promise"/>
-    <edge source="gcli/cli" target="util/util"/>
-    <edge source="gcli/cli" target="util/l10n"/>
-    <edge source="gcli/cli" target="gcli/ui/view"/>
-    <edge source="gcli/cli" target="gcli/converters"/>
-    <edge source="gcli/cli" target="gcli/canon"/>
-    <edge source="gcli/cli" target="gcli/types"/>
-    <edge source="gcli/cli" target="gcli/argument"/>
-    <edge source="gcli/ui/focus" target="util/util"/>
-    <edge source="gcli/ui/focus" target="util/l10n"/>
-    <edge source="gcli/ui/focus" target="gcli/settings"/>
     <edge source="gcli/ui/fields/basic" target="util/util"/>
     <edge source="gcli/ui/fields/basic" target="util/promise"/>
     <edge source="gcli/ui/fields/basic" target="util/l10n"/>
@@ -733,39 +697,6 @@
     <edge source="gcli/ui/fields/selection" target="gcli/argument"/>
     <edge source="gcli/ui/fields/selection" target="gcli/ui/fields/menu"/>
     <edge source="gcli/ui/fields/selection" target="gcli/ui/fields"/>
-    <edge source="gcli/ui/display" target="util/util"/>
-    <edge source="gcli/ui/display" target="util/domtemplate"/>
-    <edge source="gcli/ui/display" target="gcli/settings"/>
-    <edge source="gcli/ui/display" target="gcli/canon"/>
-    <edge source="gcli/ui/display" target="gcli/cli"/>
-    <edge source="gcli/ui/display" target="gcli/ui/intro"/>
-    <edge source="gcli/ui/display" target="gcli/ui/tooltip"/>
-    <edge source="gcli/ui/display" target="gcli/ui/output_terminal"/>
-    <edge source="gcli/ui/display" target="gcli/ui/inputter"/>
-    <edge source="gcli/ui/display" target="gcli/ui/completer"/>
-    <edge source="gcli/ui/display" target="gcli/ui/focus"/>
-    <edge source="gcli/ui/display" target="gcli/ui/prompt"/>
-    <edge source="gcli/ui/display" target="text!gcli/ui/display.css"/>
-    <edge source="gcli/ui/display" target="text!gcli/ui/display.html"/>
-    <edge source="gcli/ui/tooltip" target="util/util"/>
-    <edge source="gcli/ui/tooltip" target="util/domtemplate"/>
-    <edge source="gcli/ui/tooltip" target="gcli/cli"/>
-    <edge source="gcli/ui/tooltip" target="gcli/ui/fields"/>
-    <edge source="gcli/ui/tooltip" target="text!gcli/ui/tooltip.css"/>
-    <edge source="gcli/ui/tooltip" target="text!gcli/ui/tooltip.html"/>
-    <edge source="gcli/ui/output_terminal" target="util/util"/>
-    <edge source="gcli/ui/output_terminal" target="util/domtemplate"/>
-    <edge source="gcli/ui/output_terminal" target="text!gcli/ui/output_view.css"/>
-    <edge source="gcli/ui/output_terminal" target="text!gcli/ui/output_terminal.html"/>
-    <edge source="gcli/ui/inputter" target="util/promise"/>
-    <edge source="gcli/ui/inputter" target="util/util"/>
-    <edge source="gcli/ui/inputter" target="gcli/types"/>
-    <edge source="gcli/ui/inputter" target="gcli/history"/>
-    <edge source="gcli/ui/inputter" target="text!gcli/ui/inputter.css"/>
-    <edge source="gcli/ui/completer" target="util/promise"/>
-    <edge source="gcli/ui/completer" target="util/util"/>
-    <edge source="gcli/ui/completer" target="util/domtemplate"/>
-    <edge source="gcli/ui/completer" target="text!gcli/ui/completer.html"/>
     <edge source="demo/index" target="gcli/index"/>
     <edge source="demo/index" target="gcli/api"/>
     <edge source="demo/index" target="gcli/commands/connect"/>
@@ -781,10 +712,12 @@
     <edge source="demo/index" target="demo/commands/echo"/>
     <edge source="demo/index" target="demo/commands/edit"/>
     <edge source="demo/index" target="demo/commands/sleep"/>
+    <edge source="demo/index" target="demo/commands/theme"/>
     <edge source="gcli/commands/connect" target="util/l10n"/>
     <edge source="gcli/commands/connect" target="gcli/canon"/>
     <edge source="gcli/commands/connect" target="util/connect/connector"/>
     <edge source="util/connect/connector" target="util/promise"/>
+    <edge source="util/connect/connector" target="util/util"/>
     <edge source="util/connect/connector" target="util/l10n"/>
     <edge source="gcli/commands/context" target="util/l10n"/>
     <edge source="gcli/commands/exec" target="gcli/cli"/>
@@ -793,8 +726,10 @@
     <edge source="gcli/commands/help" target="util/l10n"/>
     <edge source="gcli/commands/help" target="gcli/canon"/>
     <edge source="gcli/commands/help" target="text!gcli/commands/help_man.html"/>
-    <edge source="gcli/commands/help" target="text!gcli/commands/help_list.html"/>
     <edge source="gcli/commands/help" target="text!gcli/commands/help.css"/>
+    <edge source="gcli/commands/help" target="text!gcli/commands/help_man.txt"/>
+    <edge source="gcli/commands/help" target="text!gcli/commands/help_list.html"/>
+    <edge source="gcli/commands/help" target="text!gcli/commands/help_list.txt"/>
     <edge source="gcli/commands/intro" target="util/l10n"/>
     <edge source="gcli/commands/intro" target="gcli/ui/intro"/>
     <edge source="gcli/commands/pref_list" target="util/util"/>
@@ -807,5 +742,6 @@
     <edge source="gcli/commands/pref" target="gcli/settings"/>
     <edge source="gcli/commands/pref" target="text!gcli/commands/pref_set_check.html"/>
     <edge source="demo/commands/bugs" target="text!demo/commands/bugs.html"/>
+    <edge source="demo/commands/theme" target="text!demo/commands/theme.html"/>
   </graph>
 </graphml>
