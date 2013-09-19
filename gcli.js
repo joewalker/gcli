@@ -108,6 +108,7 @@ gcli.addItems(require('./lib/server/commands/standard').items);
 gcli.addItems(require('./lib/server/commands/test').items);
 gcli.addItems(require('./lib/server/commands/unamd').items);
 
+var util = exports.require('util/util');
 var Requisition = exports.require('gcli/cli').Requisition;
 var Status = exports.require('gcli/types').Status;
 
@@ -158,7 +159,10 @@ function logResults(output) {
   });
 }
 
-requisition.updateExec(command).then(logResults).then(extraActions);
+requisition.updateExec(command)
+           .then(logResults)
+           .then(extraActions)
+           .then(null, util.errorHandler);
 
 /**
  * Start a NodeJS REPL to execute commands
@@ -173,7 +177,12 @@ function startRepl() {
     });
 
     if (command.length !== 0) {
-      requisition.updateExec(command).then(logResults).then(function() { callback(); });
+      requisition.updateExec(command)
+                 .then(logResults)
+                 .then(
+                     function() { callback(); },
+                     function(ex) { util.errorHandler(ex); callback(); }
+                 );
     }
   };
 
