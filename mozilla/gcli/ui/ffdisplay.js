@@ -84,9 +84,9 @@ function FFDisplay(options) {
                                      options.outputDocument,
                                      this.commandOutputManager);
 
-  this.focusManager = new FocusManager(options, {
+  this.focusManager = new FocusManager({
     document: options.chromeDocument,
-    requisition: this.requisition,
+    requisition: this.requisition
   });
   this.onVisibilityChange = this.focusManager.onVisibilityChange;
 
