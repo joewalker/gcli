@@ -1,6 +1,6 @@
 {
   "undef": true,
-  "camelcase": true,
+  "camelcase": false,
   "curly": true,
   "noarg": true,
   "quotmark": "single",
@@ -13,6 +13,7 @@
   "node": true,
   "phantom": true,
   "laxbreak": true,
+  "iterator": true,
   "globals": {
     "define": false,
     "Components": false,
