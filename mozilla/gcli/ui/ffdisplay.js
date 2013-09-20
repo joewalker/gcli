@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
 'use strict';
 
 var Inputter = require('gcli/ui/inputter').Inputter;
@@ -255,5 +253,3 @@ FFDisplay.prototype.resizer = function() {
 };
 
 exports.FFDisplay = FFDisplay;
-
-});

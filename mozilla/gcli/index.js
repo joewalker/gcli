@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
 'use strict';
 
 require('gcli/settings').startup();
@@ -127,6 +125,3 @@ catch (ex) {
     return name;
   };
 }
-
-
-});

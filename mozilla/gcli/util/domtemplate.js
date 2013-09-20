@@ -14,12 +14,8 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
   'use strict';
 
   var obj = {};
   Components.utils.import('resource://gre/modules/devtools/Templater.jsm', obj);
   exports.template = obj.template;
-
-});

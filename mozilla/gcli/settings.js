@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
 'use strict';
 
 var imports = {};
@@ -297,6 +295,3 @@ exports.onChange = util.createEvent('Settings.onChange');
  * Remove a setting. A no-op in this case
  */
 exports.removeSetting = function() { };
-
-
-});

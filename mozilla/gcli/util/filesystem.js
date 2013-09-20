@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
 'use strict';
 
 var OS = Components.utils.import('resource://gre/modules/osfile.jsm', {}).OS;
@@ -122,6 +120,3 @@ exports.stat = function(pathname) {
 exports.describe = function(pathname) {
   return promise.resolve('');
 };
-
-
-});

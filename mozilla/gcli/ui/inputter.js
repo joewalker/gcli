@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
 'use strict';
 
 var promise = require('gcli/util/promise');
@@ -643,6 +641,3 @@ Inputter.prototype.getInputState = function() {
 };
 
 exports.Inputter = Inputter;
-
-
-});

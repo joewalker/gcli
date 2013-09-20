@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
 'use strict';
 
 var XPCOMUtils = Components.utils.import('resource://gre/modules/XPCOMUtils.jsm', {}).XPCOMUtils;
@@ -87,6 +85,3 @@ exports.lookupFormat = function(key, swaps) {
     return key;
   }
 };
-
-
-});

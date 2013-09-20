@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
 'use strict';
 
 var util = require('gcli/util/util');
@@ -307,6 +305,3 @@ Tooltip.prototype.visibilityChanged = function(ev) {
 };
 
 exports.Tooltip = Tooltip;
-
-
-});

@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
 'use strict';
 
 var imported = {};
@@ -27,5 +25,3 @@ exports.resolve = imported.Promise.resolve;
 exports.reject = imported.Promise.reject;
 exports.promised = imported.Promise.promised;
 exports.all = imported.Promise.all;
-
-});

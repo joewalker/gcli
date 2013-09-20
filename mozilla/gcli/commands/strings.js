@@ -1,6 +1,4 @@
 
-define(function(require, exports, module) {
-
 'use strict';
 
 /**
@@ -18,4 +16,3 @@ var i18n = {
   }
 };
 exports.root = i18n.root;
-});

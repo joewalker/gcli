@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
 'use strict';
 
 var promise = require('gcli/util/promise');
@@ -137,6 +135,3 @@ Completer.prototype._getCompleterTemplateData = function() {
 };
 
 exports.Completer = Completer;
-
-
-});

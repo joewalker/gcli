@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
 'use strict';
 
 var debuggerSocketConnect = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).debuggerSocketConnect;
@@ -170,6 +168,3 @@ Request.prototype.complete = function(error, type, data) {
     data: data
   });
 };
-
-
-});

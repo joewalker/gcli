@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
 'use strict';
 
 var util = require('gcli/util/util');
@@ -66,6 +64,3 @@ exports.Highlighter = Highlighter;
 exports.exec = function(execSpec) {
   throw new Error('Not supported');
 };
-
-
-});
