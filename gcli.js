@@ -103,6 +103,7 @@ gcli.addItems(exports.require('demo/commands/sleep').items);
 // Commands using the Node API
 gcli.addItems(require('./lib/server/commands/exit').items);
 gcli.addItems(require('./lib/server/commands/firefox').items);
+gcli.addItems(require('./lib/server/commands/orion').items);
 gcli.addItems(require('./lib/server/commands/server').items);
 gcli.addItems(require('./lib/server/commands/standard').items);
 gcli.addItems(require('./lib/server/commands/test').items);
