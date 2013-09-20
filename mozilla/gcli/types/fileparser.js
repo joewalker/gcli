@@ -20,7 +20,7 @@ define(function(require, exports, module) {
 
 var fileparser = require('util/fileparser');
 
-fileparser.supportsPredictions = false;
+//fileparser.supportsPredictions = true;
 exports.parse = fileparser.parse;
 
 });
