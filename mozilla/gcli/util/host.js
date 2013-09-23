@@ -18,11 +18,13 @@ define(function(require, exports, module) {
 
 'use strict';
 
-var xhr = require('util/xhr');
-var util = require('util/util');
+var util = require('gcli/util/util');
 
-var ATTR_NAME = '__gcli_border';
-var HIGHLIGHT_STYLE = '1px dashed black';
+/**
+ * The chromeWindow as as required by Highlighter, so it knows where to
+ * create temporary highlight nodes.
+ */
+exports.chromeWindow = undefined;
 
 function Highlighter(document) {
   this._document = document;
@@ -48,53 +50,21 @@ Highlighter.prototype.destroy = function() {
 };
 
 Highlighter.prototype._highlightNode = function(node) {
-  if (node.hasAttribute(ATTR_NAME)) {
-    return;
-  }
-
-  var styles = this._document.defaultView.getComputedStyle(node);
-  node.setAttribute(ATTR_NAME, styles.border);
-  node.style.border = HIGHLIGHT_STYLE;
+  // Enable when the highlighter rewrite is done
 };
 
 Highlighter.prototype._unhighlightNode = function(node) {
-  var previous = node.getAttribute(ATTR_NAME);
-  node.style.border = previous;
-  node.removeAttribute(ATTR_NAME);
+  // Enable when the highlighter rewrite is done
 };
 
 exports.Highlighter = Highlighter;
 
 
 /**
- * Helper to execute an arbitrary OS-level command.
- * @param execSpec Object containing some of the following properties:
- * - cmd (string): The command to execute (required)
- * - args (string[]): The arguments to pass to the command (default: [])
- * - cwd (string): The current working directory
- * - env (object): A map of properties to append to the default environment
- * @return A promise of an object containing the following properties:
- * - data (string): The text of the output from the command
- * - code (number): The exit code of the command
+ * See docs in lib/gcli/util/host.js:exec
  */
 exports.exec = function(execSpec) {
-  // Make sure we're only sending strings across XHR
-  var cleanArgs = (execSpec.args || []).map(function(arg) {
-    return '' + arg;
-  });
-  var cleanEnv = Object.keys(execSpec.env || {}).reduce(function(prev, key) {
-    prev[key] = '' + execSpec.env[key];
-    return prev;
-  }, {});
-
-  var data = JSON.stringify({
-    cmd: '' + execSpec.cmd,
-    args: cleanArgs,
-    cwd: '' + execSpec.cwd,
-    env: cleanEnv
-  });
-
-  return xhr.post('/exec', data);
+  throw new Error('Not supported');
 };
 
 

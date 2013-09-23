@@ -36,7 +36,7 @@ XPCOMUtils.defineLazyGetter(imports, 'supportsString', function() {
 });
 
 
-var util = require('util/util');
+var util = require('gcli/util/util');
 var types = require('gcli/types');
 
 /**

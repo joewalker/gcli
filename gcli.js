@@ -56,8 +56,7 @@ else {
         { name: 'test', main: 'index', lib: '.' },
         { name: 'gclitest', main: 'index', lib: '.' },
         { name: 'demo', main: 'index', lib: '.' },
-        { name: 'server', main: 'index', lib: '.' },
-        { name: 'util', main: 'index', lib: '.' }
+        { name: 'server', main: 'index', lib: '.' }
       ]
     }
   });
@@ -75,8 +74,8 @@ else {
     });
   };
 
-  serverOverride('util/host', './lib/server/util/host');
-  serverOverride('util/filesystem', './lib/server/util/filesystem');
+  serverOverride('gcli/util/host', './lib/server/gcli/util/host');
+  serverOverride('gcli/util/filesystem', './lib/server/gcli/util/filesystem');
   serverOverride('gcli/types/fileparser', './lib/server/gcli/types/fileparser');
 }
 
@@ -109,7 +108,7 @@ gcli.addItems(require('./lib/server/commands/standard').items);
 gcli.addItems(require('./lib/server/commands/test').items);
 gcli.addItems(require('./lib/server/commands/unamd').items);
 
-var util = exports.require('util/util');
+var util = exports.require('gcli/util/util');
 var Requisition = exports.require('gcli/cli').Requisition;
 var Status = exports.require('gcli/types').Status;
 

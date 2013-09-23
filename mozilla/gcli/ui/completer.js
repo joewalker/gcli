@@ -18,9 +18,9 @@ define(function(require, exports, module) {
 
 'use strict';
 
-var promise = require('util/promise');
-var util = require('util/util');
-var domtemplate = require('util/domtemplate');
+var promise = require('gcli/util/promise');
+var util = require('gcli/util/util');
+var domtemplate = require('gcli/util/domtemplate');
 
 var completerHtml = require('text!gcli/ui/completer.html');
 

@@ -50,7 +50,7 @@ exports.getPreferredLocales = function() {
   return [ 'root' ];
 };
 
-/** @see lookup() in lib/util/l10n.js */
+/** @see lookup() in lib/gcli/util/l10n.js */
 exports.lookup = function(key) {
   try {
     // Our memory leak hunter walks reachable objects trying to work out what
@@ -70,14 +70,14 @@ exports.lookup = function(key) {
   }
 };
 
-/** @see propertyLookup in lib/util/l10n.js */
+/** @see propertyLookup in lib/gcli/util/l10n.js */
 exports.propertyLookup = Proxy.create({
   get: function(rcvr, name) {
     return exports.lookup(name);
   }
 });
 
-/** @see lookupFormat in lib/util/l10n.js */
+/** @see lookupFormat in lib/gcli/util/l10n.js */
 exports.lookupFormat = function(key, swaps) {
   try {
     return imports.stringBundle.formatStringFromName(key, swaps, swaps.length);

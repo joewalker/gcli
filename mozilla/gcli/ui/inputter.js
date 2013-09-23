@@ -18,9 +18,9 @@ define(function(require, exports, module) {
 
 'use strict';
 
-var promise = require('util/promise');
-var util = require('util/util');
-var KeyEvent = require('util/util').KeyEvent;
+var promise = require('gcli/util/promise');
+var util = require('gcli/util/util');
+var KeyEvent = require('gcli/util/util').KeyEvent;
 
 var Status = require('gcli/types').Status;
 var History = require('gcli/history').History;

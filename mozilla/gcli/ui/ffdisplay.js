@@ -29,7 +29,7 @@ var cli = require('gcli/cli');
 var jstype = require('gcli/types/javascript');
 var nodetype = require('gcli/types/node');
 var resource = require('gcli/types/resource');
-var host = require('util/host');
+var host = require('gcli/util/host');
 var intro = require('gcli/ui/intro');
 
 var CommandOutputManager = require('gcli/canon').CommandOutputManager;

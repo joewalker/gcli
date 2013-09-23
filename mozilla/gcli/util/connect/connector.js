@@ -21,7 +21,7 @@ define(function(require, exports, module) {
 var debuggerSocketConnect = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).debuggerSocketConnect;
 var DebuggerClient = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).DebuggerClient;
 
-var promise = require('util/promise');
+var promise = require('gcli/util/promise');
 
 /**
  * What port should we use by default?

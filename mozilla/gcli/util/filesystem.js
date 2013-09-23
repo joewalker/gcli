@@ -19,7 +19,7 @@ define(function(require, exports, module) {
 'use strict';
 
 var OS = Components.utils.import('resource://gre/modules/osfile.jsm', {}).OS;
-var promise = require('util/promise');
+var promise = require('gcli/util/promise');
 
 /**
  * A set of functions that don't really belong in 'fs' (because they're not

@@ -18,8 +18,8 @@ define(function(require, exports, module) {
 
 'use strict';
 
-var util = require('util/util');
-var domtemplate = require('util/domtemplate');
+var util = require('gcli/util/util');
+var domtemplate = require('gcli/util/domtemplate');
 
 var CommandAssignment = require('gcli/cli').CommandAssignment;
 var fields = require('gcli/ui/fields');

@@ -18,7 +18,7 @@ define(function(require, exports, module) {
 
 'use strict';
 
-var fileparser = require('util/fileparser');
+var fileparser = require('gcli/util/fileparser');
 
 //fileparser.supportsPredictions = true;
 exports.parse = fileparser.parse;
