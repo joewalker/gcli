@@ -35,7 +35,7 @@ exports.useUnamd = false;
 // - node's require (via unamd)
 if (exports.useUnamd) {
   var unamd = require('./lib/server/unamd');
-  [ 'gcli', 'gclitest', 'test' ].forEach(function(packageName) {
+  [ 'gcli', 'gclitest' ].forEach(function(packageName) {
     var srcDir = exports.gcliHome + '/lib/' + packageName;
     var destDir = exports.gcliHome + '/node_modules/' + packageName;
     unamd.unamdize(srcDir, destDir);
@@ -53,7 +53,6 @@ else {
     packagePaths: {
       'lib': [
         { name: 'gcli', main: 'index', lib: '.' },
-        { name: 'test', main: 'index', lib: '.' },
         { name: 'gclitest', main: 'index', lib: '.' },
         { name: 'server', main: 'index', lib: '.' }
       ]
