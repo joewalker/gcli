@@ -55,7 +55,6 @@ else {
         { name: 'gcli', main: 'index', lib: '.' },
         { name: 'test', main: 'index', lib: '.' },
         { name: 'gclitest', main: 'index', lib: '.' },
-        { name: 'demo', main: 'index', lib: '.' },
         { name: 'server', main: 'index', lib: '.' }
       ]
     }
@@ -90,14 +89,14 @@ gcli.addItems(exports.require('gcli/commands/intro').items);
 gcli.addItems(exports.require('gcli/commands/pref_list').items);
 gcli.addItems(exports.require('gcli/commands/pref').items);
 
-gcli.addItems(exports.require('demo/commands/alert').items);
-// gcli.addItems(exports.require('demo/commands/bugs').items);
-// gcli.addItems(exports.require('demo/commands/demo').items);
-gcli.addItems(exports.require('demo/commands/echo').items);
-// gcli.addItems(exports.require('demo/commands/edit').items);
-// gcli.addItems(exports.require('demo/commands/git').items);
-// gcli.addItems(exports.require('demo/commands/hg').items);
-gcli.addItems(exports.require('demo/commands/sleep').items);
+gcli.addItems(exports.require('gcli/demo/alert').items);
+// gcli.addItems(exports.require('gcli/demo/bugs').items);
+// gcli.addItems(exports.require('gcli/demo/demo').items);
+gcli.addItems(exports.require('gcli/demo/echo').items);
+// gcli.addItems(exports.require('gcli/demo/edit').items);
+// gcli.addItems(exports.require('gcli/demo/git').items);
+// gcli.addItems(exports.require('gcli/demo/hg').items);
+gcli.addItems(exports.require('gcli/demo/sleep').items);
 
 // Commands using the Node API
 gcli.addItems(require('./lib/server/commands/exit').items);
