@@ -84,22 +84,22 @@ gcli.addItems(exports.require('gcli/commands/intro').items);
 gcli.addItems(exports.require('gcli/commands/preflist').items);
 gcli.addItems(exports.require('gcli/commands/pref').items);
 
-gcli.addItems(exports.require('gcli/demo/alert').items);
-// gcli.addItems(exports.require('gcli/demo/bugs').items);
-// gcli.addItems(exports.require('gcli/demo/demo').items);
-gcli.addItems(exports.require('gcli/demo/echo').items);
-// gcli.addItems(exports.require('gcli/demo/edit').items);
-// gcli.addItems(exports.require('gcli/demo/git').items);
-// gcli.addItems(exports.require('gcli/demo/hg').items);
-gcli.addItems(exports.require('gcli/demo/sleep').items);
+gcli.addItems(exports.require('gcli/commands/demo/alert').items);
+// gcli.addItems(exports.require('gcli/commands/demo/bugs').items);
+// gcli.addItems(exports.require('gcli/commands/demo/demo').items);
+gcli.addItems(exports.require('gcli/commands/demo/echo').items);
+// gcli.addItems(exports.require('gcli/commands/demo/edit').items);
+// gcli.addItems(exports.require('gcli/commands/demo/git').items);
+// gcli.addItems(exports.require('gcli/commands/demo/hg').items);
+gcli.addItems(exports.require('gcli/commands/demo/sleep').items);
 
 // Commands using the Node API
-gcli.addItems(require('./lib/server/commands/exit').items);
-gcli.addItems(require('./lib/server/commands/firefox').items);
-gcli.addItems(require('./lib/server/commands/orion').items);
-gcli.addItems(require('./lib/server/commands/server').items);
-gcli.addItems(require('./lib/server/commands/standard').items);
-gcli.addItems(require('./lib/server/commands/test').items);
+gcli.addItems(require('./lib/gcli/commands/server/exit').items);
+gcli.addItems(require('./lib/gcli/commands/server/firefox').items);
+gcli.addItems(require('./lib/gcli/commands/server/orion').items);
+gcli.addItems(require('./lib/gcli/commands/server/server').items);
+gcli.addItems(require('./lib/gcli/commands/server/standard').items);
+gcli.addItems(require('./lib/gcli/commands/server/test').items);
 
 var util = exports.require('gcli/util/util');
 var Requisition = exports.require('gcli/cli').Requisition;
