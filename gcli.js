@@ -19,60 +19,6 @@
 
 exports.gcliHome = __dirname;
 
-/**
- * There are 2 options for loading GCLI CommonJS modules:
- * 1. Use Require's r.js
- * 2. Convert the modules to CommonJS format on the fly.
- *
- * The former feels less hacky, the latter allows us to use 'cover' test
- * coverage. Neither are complex so we've left them both in so they can fight
- * it out.
- */
-exports.useUnamd = false;
-
-// Setup the exports.require function to use either:
-// - requirejs (through r.js) or
-// - node's require (via unamd)
-if (exports.useUnamd) {
-  var unamd = require('./lib/server/unamd');
-  unamd.unamdize(exports.gcliHome + '/lib/gcli',
-                 exports.gcliHome + '/node_modules/gcli');
-
-  exports.require = require;
-}
-else {
-  // It's tempting to use RequireJS from NPM, however that would break
-  // running GCLI in Firefox just by opening index.html
-  var requirejs = require('./scripts/r.js');
-  requirejs.config({
-    nodeRequire: require,
-    paths: { 'text': 'scripts/text', 'i18n': 'scripts/i18n' },
-    packagePaths: {
-      'lib': [
-        { name: 'gcli', main: 'index', lib: '.' },
-        { name: 'server', main: 'index', lib: '.' }
-      ]
-    }
-  });
-
-  exports.require = requirejs;
-
-  // The Firefox build has an override directory to enable custom code, but in
-  // NodeJS it's more hacky - we inject into require
-  var serverOverride = function(requirePath, nodePath) {
-    var host = require(nodePath);
-    requirejs.define(requirePath, function(require, exports, module) {
-      Object.keys(host).forEach(function(key) {
-        exports[key] = host[key];
-      });
-    });
-  };
-
-  serverOverride('gcli/util/host', './lib/server/gcli/util/host');
-  serverOverride('gcli/util/filesystem', './lib/server/gcli/util/filesystem');
-  serverOverride('gcli/types/fileparser', './lib/server/gcli/types/fileparser');
-}
-
 require('./lib/gcli/index');
 var gcli = require('./lib/gcli/api').getApi();
 
