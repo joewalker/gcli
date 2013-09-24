@@ -16,12 +16,7 @@
 
 'use strict';
 
-// Warning - gcli.js causes this version of host.js to be favored in NodeJS
-// which means that it's also used in testing in NodeJS
-
-var childProcess = require('child_process');
-
-var promise = require('./promise');
+var xhr = require('./xhr');
 var util = require('./util');
 
 var ATTR_NAME = '__gcli_border';
@@ -68,35 +63,34 @@ Highlighter.prototype._unhighlightNode = function(node) {
 
 exports.Highlighter = Highlighter;
 
+
 /**
- * See docs in lib/gcli/util/host.js:exec
+ * Helper to execute an arbitrary OS-level command.
+ * @param execSpec Object containing some of the following properties:
+ * - cmd (string): The command to execute (required)
+ * - args (string[]): The arguments to pass to the command (default: [])
+ * - cwd (string): The current working directory
+ * - env (object): A map of properties to append to the default environment
+ * @return A promise of an object containing the following properties:
+ * - data (string): The text of the output from the command
+ * - code (number): The exit code of the command
  */
 exports.exec = function(execSpec) {
-  var deferred = promise.defer();
+  // Make sure we're only sending strings across XHR
+  var cleanArgs = (execSpec.args || []).map(function(arg) {
+    return '' + arg;
+  });
+  var cleanEnv = Object.keys(execSpec.env || {}).reduce(function(prev, key) {
+    prev[key] = '' + execSpec.env[key];
+    return prev;
+  }, {});
 
-  var output = { data: '' };
-  var child = childProcess.spawn(execSpec.cmd, execSpec.args, {
-    env: execSpec.env,
-    cwd: execSpec.cwd
+  var data = JSON.stringify({
+    cmd: '' + execSpec.cmd,
+    args: cleanArgs,
+    cwd: '' + execSpec.cwd,
+    env: cleanEnv
   });
 
-  child.stdout.on('data', function(data) {
-    output.data += data;
-  });
-
-  child.stderr.on('data', function(data) {
-    output.data += data;
-  });
-
-  child.on('close', function(code) {
-    output.code = code;
-    if (code === 0) {
-      deferred.resolve(output);
-    }
-    else {
-      deferred.reject(output);
-    }
-  });
-
-  return deferred.promise;
+  return xhr.post('/exec', data);
 };

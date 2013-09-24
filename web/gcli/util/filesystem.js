@@ -16,4 +16,14 @@
 
 'use strict';
 
-exports.parse = require('../util/fileparser').parse;
+function notImplemented() {
+  throw new Error('Not implemented');
+}
+
+exports.join = notImplemented;
+exports.sep = notImplemented;
+exports.dirname = notImplemented;
+exports.split = notImplemented;
+exports.ls = notImplemented;
+exports.stat = notImplemented;
+exports.describe = notImplemented;
