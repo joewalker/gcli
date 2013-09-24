@@ -81,7 +81,7 @@ gcli.addItems(exports.require('gcli/commands/context').items);
 gcli.addItems(exports.require('gcli/commands/exec').items);
 gcli.addItems(exports.require('gcli/commands/help').items);
 gcli.addItems(exports.require('gcli/commands/intro').items);
-gcli.addItems(exports.require('gcli/commands/pref_list').items);
+gcli.addItems(exports.require('gcli/commands/preflist').items);
 gcli.addItems(exports.require('gcli/commands/pref').items);
 
 gcli.addItems(exports.require('gcli/demo/alert').items);
