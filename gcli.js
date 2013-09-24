@@ -73,25 +73,25 @@ else {
   serverOverride('gcli/types/fileparser', './lib/server/gcli/types/fileparser');
 }
 
-exports.require('gcli/index');
-var gcli = exports.require('gcli/api').getApi();
+require('./lib/gcli/index');
+var gcli = require('./lib/gcli/api').getApi();
 
-// gcli.addItems(exports.require('gcli/commands/connect').items);
-gcli.addItems(exports.require('gcli/commands/context').items);
-gcli.addItems(exports.require('gcli/commands/exec').items);
-gcli.addItems(exports.require('gcli/commands/help').items);
-gcli.addItems(exports.require('gcli/commands/intro').items);
-gcli.addItems(exports.require('gcli/commands/preflist').items);
-gcli.addItems(exports.require('gcli/commands/pref').items);
+// gcli.addItems(require('./lib/gcli/commands/connect').items);
+gcli.addItems(require('./lib/gcli/commands/context').items);
+gcli.addItems(require('./lib/gcli/commands/exec').items);
+gcli.addItems(require('./lib/gcli/commands/help').items);
+gcli.addItems(require('./lib/gcli/commands/intro').items);
+gcli.addItems(require('./lib/gcli/commands/preflist').items);
+gcli.addItems(require('./lib/gcli/commands/pref').items);
 
-gcli.addItems(exports.require('gcli/commands/demo/alert').items);
-// gcli.addItems(exports.require('gcli/commands/demo/bugs').items);
-// gcli.addItems(exports.require('gcli/commands/demo/demo').items);
-gcli.addItems(exports.require('gcli/commands/demo/echo').items);
-// gcli.addItems(exports.require('gcli/commands/demo/edit').items);
-// gcli.addItems(exports.require('gcli/commands/demo/git').items);
-// gcli.addItems(exports.require('gcli/commands/demo/hg').items);
-gcli.addItems(exports.require('gcli/commands/demo/sleep').items);
+gcli.addItems(require('./lib/gcli/commands/demo/alert').items);
+// gcli.addItems(require('./lib/gcli/commands/demo/bugs').items);
+// gcli.addItems(require('./lib/gcli/commands/demo/demo').items);
+gcli.addItems(require('./lib/gcli/commands/demo/echo').items);
+// gcli.addItems(require('./lib/gcli/commands/demo/edit').items);
+// gcli.addItems(require('./lib/gcli/commands/demo/git').items);
+// gcli.addItems(require('./lib/gcli/commands/demo/hg').items);
+gcli.addItems(require('./lib/gcli/commands/demo/sleep').items);
 
 // Commands using the Node API
 gcli.addItems(require('./lib/gcli/commands/server/exit').items);
@@ -101,9 +101,8 @@ gcli.addItems(require('./lib/gcli/commands/server/server').items);
 gcli.addItems(require('./lib/gcli/commands/server/standard').items);
 gcli.addItems(require('./lib/gcli/commands/server/test').items);
 
-var util = exports.require('gcli/util/util');
-var Requisition = exports.require('gcli/cli').Requisition;
-var Status = exports.require('gcli/types').Status;
+var util = require('./lib/gcli/util/util');
+var Requisition = require('./lib/gcli/cli').Requisition;
 
 var jsdom = require('jsdom').jsdom;
 var doc = jsdom('<html><head></head><body></body></html>');
