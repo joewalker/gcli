@@ -100,7 +100,6 @@ gcli.addItems(require('./lib/server/commands/orion').items);
 gcli.addItems(require('./lib/server/commands/server').items);
 gcli.addItems(require('./lib/server/commands/standard').items);
 gcli.addItems(require('./lib/server/commands/test').items);
-gcli.addItems(require('./lib/server/commands/unamd').items);
 
 var util = exports.require('gcli/util/util');
 var Requisition = exports.require('gcli/cli').Requisition;
