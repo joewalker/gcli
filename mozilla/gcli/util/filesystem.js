@@ -16,7 +16,11 @@
 
 'use strict';
 
-var OS = Components.utils.import('resource://gre/modules/osfile.jsm', {}).OS;
+var Cu = require('chrome').Cu;
+var Cc = require('chrome').Cc;
+var Ci = require('chrome').Ci;
+
+var OS = Cu.import('resource://gre/modules/osfile.jsm', {}).OS;
 var promise = require('gcli/util/promise');
 
 /**
@@ -29,9 +33,9 @@ exports.join = OS.Path.join;
 exports.sep = OS.Path.sep;
 exports.dirname = OS.Path.dirname;
 
-var dirService = Components.classes['@mozilla.org/file/directory_service;1']
-                           .getService(Components.interfaces.nsIProperties);
-exports.home = dirService.get('Home', Components.interfaces.nsIFile).path;
+var dirService = Cc['@mozilla.org/file/directory_service;1']
+                           .getService(Ci.nsIProperties);
+exports.home = dirService.get('Home', Ci.nsIFile).path;
 
 if ('winGetDrive' in OS.Path) {
   exports.sep = '\\';

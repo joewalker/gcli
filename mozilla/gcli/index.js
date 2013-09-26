@@ -16,6 +16,10 @@
 
 'use strict';
 
+var Cc = require('chrome').Cc;
+var Ci = require('chrome').Ci;
+var Cu = require('chrome').Cu;
+
 require('gcli/settings').startup();
 
 var api = require('gcli/api');
@@ -76,10 +80,9 @@ exports.createDisplay = function(opts) {
   return new FFDisplay(opts);
 };
 
-var prefSvc = Components.classes['@mozilla.org/preferences-service;1']
-                        .getService(Components.interfaces.nsIPrefService);
-var prefBranch = prefSvc.getBranch(null)
-                        .QueryInterface(Components.interfaces.nsIPrefBranch2);
+var prefSvc = Cc['@mozilla.org/preferences-service;1']
+                        .getService(Ci.nsIPrefService);
+var prefBranch = prefSvc.getBranch(null).QueryInterface(Ci.nsIPrefBranch2);
 
 exports.hiddenByChromePref = function() {
   return !prefBranch.prefHasUserValue('devtools.chrome.enabled');
@@ -87,7 +90,7 @@ exports.hiddenByChromePref = function() {
 
 
 try {
-  var Services = Components.utils.import('resource://gre/modules/Services.jsm', {}).Services;
+  var Services = Cu.import('resource://gre/modules/Services.jsm', {}).Services;
   var stringBundle = Services.strings.createBundle(
           'chrome://browser/locale/devtools/gclicommands.properties');
 

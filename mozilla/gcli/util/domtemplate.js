@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-  'use strict';
+'use strict';
 
-  var obj = {};
-  Components.utils.import('resource://gre/modules/devtools/Templater.jsm', obj);
-  exports.template = obj.template;
+var Cu = require('chrome').Cu;
+module.exports = exports =
+    Cu.import('resource://gre/modules/devtools/Templater.jsm', {});

@@ -16,8 +16,10 @@
 
 'use strict';
 
-var debuggerSocketConnect = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).debuggerSocketConnect;
-var DebuggerClient = Components.utils.import('resource://gre/modules/devtools/dbg-client.jsm', {}).DebuggerClient;
+var Cu = require('chrome').Cu;
+
+var debuggerSocketConnect = Cu.import('resource://gre/modules/devtools/dbg-client.jsm', {}).debuggerSocketConnect;
+var DebuggerClient = Cu.import('resource://gre/modules/devtools/dbg-client.jsm', {}).DebuggerClient;
 
 var promise = require('gcli/util/promise');
 
@@ -26,7 +28,7 @@ var promise = require('gcli/util/promise');
  */
 Object.defineProperty(exports, 'defaultPort', {
   get: function() {
-    var Services = Components.utils.import('resource://gre/modules/Services.jsm', {}).Services;
+    var Services = Cu.import('resource://gre/modules/Services.jsm', {}).Services;
     try {
       return Services.prefs.getIntPref('devtools.debugger.chrome-debugging-port');
     }

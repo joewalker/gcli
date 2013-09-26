@@ -18,19 +18,22 @@
 
 var imports = {};
 
-var XPCOMUtils = Components.utils.import('resource://gre/modules/XPCOMUtils.jsm', {}).XPCOMUtils;
-var Services = Components.utils.import('resource://gre/modules/Services.jsm', {}).Services;
+var Cc = require('chrome').Cc;
+var Ci = require('chrome').Ci;
+var Cu = require('chrome').Cu;
+
+var XPCOMUtils = Cu.import('resource://gre/modules/XPCOMUtils.jsm', {}).XPCOMUtils;
+var Services = Cu.import('resource://gre/modules/Services.jsm', {}).Services;
 
 XPCOMUtils.defineLazyGetter(imports, 'prefBranch', function() {
-  var prefService = Components.classes['@mozilla.org/preferences-service;1']
-          .getService(Components.interfaces.nsIPrefService);
-  return prefService.getBranch(null)
-          .QueryInterface(Components.interfaces.nsIPrefBranch2);
+  var prefService = Cc['@mozilla.org/preferences-service;1']
+          .getService(Ci.nsIPrefService);
+  return prefService.getBranch(null).QueryInterface(Ci.nsIPrefBranch2);
 });
 
 XPCOMUtils.defineLazyGetter(imports, 'supportsString', function() {
-  return Components.classes['@mozilla.org/supports-string;1']
-          .createInstance(Components.interfaces.nsISupportsString);
+  return Cc['@mozilla.org/supports-string;1']
+          .createInstance(Ci.nsISupportsString);
 });
 
 
@@ -105,11 +108,11 @@ Object.defineProperty(Setting.prototype, 'value', {
 
       case imports.prefBranch.PREF_STRING:
         var value = imports.prefBranch.getComplexValue(this.name,
-                Components.interfaces.nsISupportsString).data;
+                Ci.nsISupportsString).data;
         // In case of a localized string
         if (/^chrome:\/\/.+\/locale\/.+\.properties/.test(value)) {
           value = imports.prefBranch.getComplexValue(this.name,
-                  Components.interfaces.nsIPrefLocalizedString).data;
+                  Ci.nsIPrefLocalizedString).data;
         }
         return value;
 
@@ -135,7 +138,7 @@ Object.defineProperty(Setting.prototype, 'value', {
       case imports.prefBranch.PREF_STRING:
         imports.supportsString.data = value;
         imports.prefBranch.setComplexValue(this.name,
-                Components.interfaces.nsISupportsString,
+                Ci.nsISupportsString,
                 imports.supportsString);
         break;
 
