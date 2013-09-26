@@ -18,6 +18,7 @@
 
 var xhr = require('./xhr');
 var util = require('./util');
+var promise = require('./promise');
 
 var ATTR_NAME = '__gcli_border';
 var HIGHLIGHT_STYLE = '1px dashed black';
@@ -63,7 +64,6 @@ Highlighter.prototype._unhighlightNode = function(node) {
 
 exports.Highlighter = Highlighter;
 
-
 /**
  * Helper to execute an arbitrary OS-level command.
  * @param execSpec Object containing some of the following properties:
@@ -93,4 +93,28 @@ exports.exec = function(execSpec) {
   });
 
   return xhr.post('/exec', data);
+};
+
+/**
+ * Asynchronously load a text resource
+ * @see lib/gcli/util/host.js
+ */
+exports.staticRequire = function(requistingModule, name) {
+  var deferred = promise.defer();
+  setTimeout(function() {
+    if (name === './terminal.html') {
+      deferred.resolve(require('text!gcli/ui/terminal.html'));
+    }
+    if (name === './terminal.css') {
+      deferred.resolve(require('text!gcli/ui/terminal.css'));
+    }
+    if (name === './menu.html') {
+      deferred.resolve(require('text!gcli/ui/fields/menu.html'));
+    }
+    if (name === './menu.css') {
+      deferred.resolve(require('text!gcli/ui/fields/menu.css'));
+    }
+    deferred.reject(new Error('Unexpected requirement: ' + name));
+  }, 10);
+  return deferred.promise;
 };

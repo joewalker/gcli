@@ -19,11 +19,12 @@
 var promise = require('../util/promise');
 var util = require('../util/util');
 var KeyEvent = require('../util/util').KeyEvent;
+var host = require('../util/host');
 
 var Status = require('../types').Status;
 var History = require('../history').History;
 
-var inputterCss = require('text!gcli/ui/inputter.css');
+var inputterCssPromise = host.staticRequire(module, './inputter.css');
 
 var RESOLVED = promise.resolve(true);
 
@@ -46,9 +47,11 @@ function Inputter(options, components) {
 
   this.document = this.element.ownerDocument;
 
-  if (inputterCss != null) {
-    this.style = util.importCss(inputterCss, this.document, 'gcli-inputter');
-  }
+  inputterCssPromise.then(function(inputterCss) {
+    if (inputterCss != null) {
+      this.style = util.importCss(inputterCss, this.document, 'gcli-inputter');
+    }
+  }.bind(this));
 
   // Used to distinguish focus from TAB in CLI. See onKeyUp()
   this.lastTabDownAt = 0;

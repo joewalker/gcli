@@ -16,7 +16,17 @@
 
 'use strict';
 
-var util = require('../util/util');
+var Cu = require('chrome').Cu;
+var Cc = require('chrome').Cc;
+var Ci = require('chrome').Ci;
+
+var OS = Cu.import('resource://gre/modules/osfile.jsm', {}).OS;
+var TextDecoder = Cu.import('resource://gre/modules/commonjs/toolkit/loader.js', {}).TextDecoder;
+
+var promise = require('./promise');
+var util = require('./util');
+
+var decoder = new TextDecoder('utf8');
 
 /**
  * The chromeWindow as as required by Highlighter, so it knows where to
@@ -57,10 +67,41 @@ Highlighter.prototype._unhighlightNode = function(node) {
 
 exports.Highlighter = Highlighter;
 
-
 /**
  * See docs in lib/gcli/util/host.js:exec
  */
 exports.exec = function(execSpec) {
   throw new Error('Not supported');
+};
+
+/**
+ * Asynchronously load a text resource
+ * @see lib/gcli/util/host.js
+ */
+exports.staticRequire = function(requistingModule, name) {
+  var filename = OS.Path.dirname(requistingModule.id) + '/' + name;
+  filename = filename.replace(/\/\.\//g, '/');
+  filename = 'resource://gre/modules/devtools/' + filename;
+
+  var deferred = promise.defer();
+  var xhr = Cc['@mozilla.org/xmlextras/xmlhttprequest;1']
+              .createInstance(Ci.nsIXMLHttpRequest);
+
+  xhr.onload = function onload() {
+    deferred.resolve(xhr.responseText);
+  }.bind(this);
+
+  xhr.onabort = xhr.onerror = xhr.ontimeout = function(err) {
+    deferred.reject(err);
+  }.bind(this);
+
+  try {
+    xhr.open('GET', filename);
+    xhr.send();
+  }
+  catch (ex) {
+    deferred.reject(ex);
+  }
+
+  return deferred.promise;
 };

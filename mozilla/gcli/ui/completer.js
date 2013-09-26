@@ -19,8 +19,20 @@
 var promise = require('../util/promise');
 var util = require('../util/util');
 var domtemplate = require('../util/domtemplate');
+var host = require('../util/host');
 
-var completerHtml = require('text!gcli/ui/completer.html');
+/**
+ * Kick off a resource load as soon as we can
+ */
+var resourcesPromise = host.staticRequire(module, './completer.html');
+
+/**
+ * Asynchronous construction. Use Completer.create();
+ * @private
+ */
+function Completer() {
+  throw new Error('Use Completer.create().then(...) rather than new Completer()');
+}
 
 /**
  * Completer is an 'input-like' element that sits  an input element annotating
@@ -31,7 +43,19 @@ var completerHtml = require('text!gcli/ui/completer.html');
  * - autoResize: (default=false): Should we attempt to sync the dimensions of
  *   the complete element with the input element.
  */
-function Completer(components) {
+Completer.create = function(components) {
+  var completer = Object.create(Completer.prototype);
+  return resourcesPromise.then(function(completerHtml) {
+    completer._init(components, completerHtml);
+    return completer;
+  });
+};
+
+/**
+ * Asynchronous construction. Use Terminal.create();
+ * @private
+ */
+Completer.prototype._init = function(components, completerHtml) {
   this.requisition = components.requisition;
   this.input = { typed: '', cursor: { start: 0, end: 0 } };
   this.choice = 0;
@@ -64,7 +88,7 @@ function Completer(components) {
   util.removeWhitespace(this.template, true);
 
   this.update();
-}
+};
 
 /**
  * Avoid memory leaks
