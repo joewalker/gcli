@@ -16,7 +16,7 @@
 
 'use strict';
 
-var fileparser = require('gcli/util/fileparser');
+var fileparser = require('../util/fileparser');
 
 //fileparser.supportsPredictions = true;
 exports.parse = fileparser.parse;

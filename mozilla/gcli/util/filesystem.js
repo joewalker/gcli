@@ -21,7 +21,7 @@ var Cc = require('chrome').Cc;
 var Ci = require('chrome').Ci;
 
 var OS = Cu.import('resource://gre/modules/osfile.jsm', {}).OS;
-var promise = require('gcli/util/promise');
+var promise = require('./promise');
 
 /**
  * A set of functions that don't really belong in 'fs' (because they're not

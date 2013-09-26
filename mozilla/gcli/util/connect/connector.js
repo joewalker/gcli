@@ -21,7 +21,7 @@ var Cu = require('chrome').Cu;
 var debuggerSocketConnect = Cu.import('resource://gre/modules/devtools/dbg-client.jsm', {}).debuggerSocketConnect;
 var DebuggerClient = Cu.import('resource://gre/modules/devtools/dbg-client.jsm', {}).DebuggerClient;
 
-var promise = require('gcli/util/promise');
+var promise = require('../../util/promise');
 
 /**
  * What port should we use by default?

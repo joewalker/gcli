@@ -16,21 +16,21 @@
 
 'use strict';
 
-var Inputter = require('gcli/ui/inputter').Inputter;
-var Completer = require('gcli/ui/completer').Completer;
-var Tooltip = require('gcli/ui/tooltip').Tooltip;
-var FocusManager = require('gcli/ui/focus').FocusManager;
+var Inputter = require('../ui/inputter').Inputter;
+var Completer = require('../ui/completer').Completer;
+var Tooltip = require('../ui/tooltip').Tooltip;
+var FocusManager = require('../ui/focus').FocusManager;
 
-var Requisition = require('gcli/cli').Requisition;
+var Requisition = require('../cli').Requisition;
 
-var cli = require('gcli/cli');
-var jstype = require('gcli/types/javascript');
-var nodetype = require('gcli/types/node');
-var resource = require('gcli/types/resource');
-var host = require('gcli/util/host');
-var intro = require('gcli/ui/intro');
+var cli = require('../cli');
+var jstype = require('../types/javascript');
+var nodetype = require('../types/node');
+var resource = require('../types/resource');
+var host = require('../util/host');
+var intro = require('../ui/intro');
 
-var CommandOutputManager = require('gcli/canon').CommandOutputManager;
+var CommandOutputManager = require('../canon').CommandOutputManager;
 
 /**
  * Handy utility to inject the content document (i.e. for the viewed page,

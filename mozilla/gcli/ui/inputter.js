@@ -16,12 +16,12 @@
 
 'use strict';
 
-var promise = require('gcli/util/promise');
-var util = require('gcli/util/util');
-var KeyEvent = require('gcli/util/util').KeyEvent;
+var promise = require('../util/promise');
+var util = require('../util/util');
+var KeyEvent = require('../util/util').KeyEvent;
 
-var Status = require('gcli/types').Status;
-var History = require('gcli/history').History;
+var Status = require('../types').Status;
+var History = require('../history').History;
 
 var inputterCss = require('text!gcli/ui/inputter.css');
 

@@ -16,11 +16,11 @@
 
 'use strict';
 
-var util = require('gcli/util/util');
-var domtemplate = require('gcli/util/domtemplate');
+var util = require('../util/util');
+var domtemplate = require('../util/domtemplate');
 
-var CommandAssignment = require('gcli/cli').CommandAssignment;
-var fields = require('gcli/ui/fields');
+var CommandAssignment = require('../cli').CommandAssignment;
+var fields = require('../ui/fields');
 
 var tooltipCss = require('text!gcli/ui/tooltip.css');
 var tooltipHtml = require('text!gcli/ui/tooltip.html');

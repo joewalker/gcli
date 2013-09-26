@@ -20,46 +20,46 @@ var Cc = require('chrome').Cc;
 var Ci = require('chrome').Ci;
 var Cu = require('chrome').Cu;
 
-require('gcli/settings').startup();
+require('./settings').startup();
 
-var api = require('gcli/api');
+var api = require('./api');
 api.populateApi(exports);
 
-exports.addItems(require('gcli/types/selection').items);
-exports.addItems(require('gcli/types/delegate').items);
+exports.addItems(require('./types/selection').items);
+exports.addItems(require('./types/delegate').items);
 
-exports.addItems(require('gcli/types/array').items);
-exports.addItems(require('gcli/types/boolean').items);
-exports.addItems(require('gcli/types/command').items);
-exports.addItems(require('gcli/types/date').items);
-exports.addItems(require('gcli/types/file').items);
-exports.addItems(require('gcli/types/javascript').items);
-exports.addItems(require('gcli/types/node').items);
-exports.addItems(require('gcli/types/number').items);
-exports.addItems(require('gcli/types/resource').items);
-exports.addItems(require('gcli/types/setting').items);
-exports.addItems(require('gcli/types/string').items);
+exports.addItems(require('./types/array').items);
+exports.addItems(require('./types/boolean').items);
+exports.addItems(require('./types/command').items);
+exports.addItems(require('./types/date').items);
+exports.addItems(require('./types/file').items);
+exports.addItems(require('./types/javascript').items);
+exports.addItems(require('./types/node').items);
+exports.addItems(require('./types/number').items);
+exports.addItems(require('./types/resource').items);
+exports.addItems(require('./types/setting').items);
+exports.addItems(require('./types/string').items);
 
-exports.addItems(require('gcli/converters').items);
-exports.addItems(require('gcli/converters/basic').items);
+exports.addItems(require('./converters').items);
+exports.addItems(require('./converters/basic').items);
 // Don't export the 'html' type to avoid use of innerHTML
-// exports.addItems(require('gcli/converters/html').items);
-exports.addItems(require('gcli/converters/terminal').items);
+// exports.addItems(require('./converters/html').items);
+exports.addItems(require('./converters/terminal').items);
 
-exports.addItems(require('gcli/ui/intro').items);
-exports.addItems(require('gcli/ui/focus').items);
+exports.addItems(require('./ui/intro').items);
+exports.addItems(require('./ui/focus').items);
 
-exports.addItems(require('gcli/ui/fields/basic').items);
-exports.addItems(require('gcli/ui/fields/javascript').items);
-exports.addItems(require('gcli/ui/fields/selection').items);
+exports.addItems(require('./ui/fields/basic').items);
+exports.addItems(require('./ui/fields/javascript').items);
+exports.addItems(require('./ui/fields/selection').items);
 
 // Don't export the '{' command
-// exports.addItems(require('gcli/cli').items);
+// exports.addItems(require('./cli').items);
 
-exports.addItems(require('gcli/commands/connect').items);
-exports.addItems(require('gcli/commands/context').items);
-exports.addItems(require('gcli/commands/help').items);
-exports.addItems(require('gcli/commands/pref').items);
+exports.addItems(require('./commands/connect').items);
+exports.addItems(require('./commands/context').items);
+exports.addItems(require('./commands/help').items);
+exports.addItems(require('./commands/pref').items);
 
 /**
  * This code is internal and subject to change without notice.
@@ -76,7 +76,7 @@ exports.addItems(require('gcli/commands/pref').items);
  * - inputBackgroundElement: GCLITerm.inputStack
  */
 exports.createDisplay = function(opts) {
-  var FFDisplay = require('gcli/ui/ffdisplay').FFDisplay;
+  var FFDisplay = require('./ui/ffdisplay').FFDisplay;
   return new FFDisplay(opts);
 };
 

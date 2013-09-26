@@ -16,7 +16,7 @@
 
 'use strict';
 
-var util = require('gcli/util/util');
+var util = require('../util/util');
 
 /**
  * The chromeWindow as as required by Highlighter, so it knows where to

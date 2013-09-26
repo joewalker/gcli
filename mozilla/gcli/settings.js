@@ -37,8 +37,8 @@ XPCOMUtils.defineLazyGetter(imports, 'supportsString', function() {
 });
 
 
-var util = require('gcli/util/util');
-var types = require('gcli/types');
+var types = require('./types');
+var util = require('./util/util');
 
 /**
  * All local settings have this prefix when used in Firefox
