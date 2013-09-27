@@ -105,12 +105,12 @@ There are 3 basic steps in using GCLI in your system.
 
         require([ 'gcli/index' ], function(gcli) {
           gcli.addCommand(...); // Register custom commands
-          gcli.createDisplay(); // Create a user interface
+          gcli.createTerminal(); // Create a user interface
         });
 
-   Both the startup() and createDisplay() commands take ``options`` objects
-   which allow customization. At the current time the documentation of these
-   object is left to the source.
+   The createTerminal() function takes an ``options`` objects which allows
+   customization. At the current time the documentation of these object is left
+   to the source.
 
 
 ## Backwards Compatibility

@@ -611,7 +611,7 @@ display as ``args.message``.
 The ``context`` object has the following signature:
 
     {
-      environment: ..., // environment object passed to createDisplay()
+      environment: ..., // environment object passed to createTerminal()
       exec: ...,        // function to execute a command
       update: ...,      // function to alter the text of the input area
       createView: ...,  // function to help creating rich output
@@ -626,7 +626,7 @@ An example use for ``environment`` would be a page with several tabs, each
 containing an editor with a command line. Commands executed in those editors
 should apply to the relevant editor.
 The ``environment`` object is passed to GCLI at startup (probably in the
-``createDisplay()`` function).
+``createTerminal()`` function).
 
 The ``document`` object is also passed to GCLI at startup. In some environments
 (e.g. embedded in Firefox) there is no global ``document``. This object
