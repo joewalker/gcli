@@ -38,16 +38,13 @@ page.onConsoleMessage = function() {
 };
 
 if (system.args.length === 1) {
-  page.open('localtest.html', pageLoaded);
+  page.open('http://localhost:9999/localtest.html', pageLoaded);
 } else {
-  if (system.args[1] === '--http') {
-    page.open('http://localhost:9999/localtest.html', pageLoaded);
-  }
-  else if (system.args[1] === '--shutdown') {
+  if (system.args[1] === '--shutdown') {
     page.open('http://localhost:9999/localtest.html?shutdown=true', pageLoaded);
   }
   else {
-    console.error('Options: --shutdown or --http');
+    console.error('Options: --shutdown');
     phantom.exit(-1);
   }
 }

@@ -6,7 +6,7 @@ node_js:
 before_script:
   - "node gcli.js server start --allowexec --websocket &"
 script:
-  - "node gcli.js test && phantomjs ./phantom-test.js && phantomjs ./phantom-test.js --http"
+  - "node gcli.js test && phantomjs ./phantom-test.js"
 after_script:
   - "phantomjs ./phantom-test.js --shutdown"
 
