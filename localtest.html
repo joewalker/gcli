@@ -22,8 +22,8 @@
   <script type="text/javascript" src="scripts/require.js"></script>
   <script type="text/javascript">
     requirejs.config({
-      paths: { "text": "scripts/text", "i18n": "scripts/i18n" },
-      packagePaths: { "lib": [ { name: "gcli", main: "index", lib: "." } ] }
+      baseUrl: 'lib',
+      paths: { i18n: '../scripts/i18n', text: '../scripts/text' }
     });
 
     require([ 'gcli/test/index', 'gcli/demo' ], function(gcli) {
