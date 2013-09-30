@@ -17,5 +17,5 @@
 'use strict';
 
 var Cu = require('chrome').Cu;
-module.exports = exports =
-    Cu.import('resource://gre/modules/devtools/Templater.jsm', {});
+var template = Cu.import('resource://gre/modules/devtools/Templater.jsm', {}).template;
+exports.template = template;
