@@ -79,39 +79,6 @@ ArgFetch displays a number of Fields. There are fields for most of the Types
 discussed earlier. See 'Writing Fields' above for more information.
 
 
-## Assumed Environment
-
-There are differences between the environment provided by a browser and the
-environment in a JSM in Firefox. We attempt to make this environment as
-browser-like as possible.
-
-- ``console``: The console object doesn't exist in firefox (although it could
-  and dump() is close)
-  There is an implementation of ``console`` in the ``build/prefix-gcli.jsm``
-  which uses ``dump()``.
-  Since the GCLI jsm is built from all the GCLI JS files concatenated together,
-  we could use this implementation directly as all the files are in the same
-  lexical scope. However for historical reasons (not all browsers used to have
-  console objects, and their implementation isn't uniform) we wrap this as a
-  CommonJS module, and import it as needed, which allows us to provide
-  different stubs to certain browsers.
-  At some stage we should probably allow use of ``console`` without importing
-  it first.
-
-- ``document/window``: It is common to want access to ``document`` and
-  ``window`` when doing DOM manipulation or using timeouts/intervals, however
-  there is no concept of the current window when in chrome.
-  The web console, however is tied to a window, so we could allow use of a
-  CommonJS imported ``document/window`` object however this would only work for
-  commands defined inside gcli.jsm. Instead we provide a getDocument() method
-  on the ExecutionContext.
-
-- ``Node``/``DOMElement``/etc: The Mozilla JSM environment does not define DOM
-  objects like the Node constructor etc for use in constants and instanceof.
-  Currently the lack of these objects is mostly hacked around, however we
-  probably should support this better. (See [bug 668488](https://bugzilla.mozilla.org/show_bug.cgi?id=668488))
-
-
 ## Testing
 
 GCLI contains 2 test suites:
