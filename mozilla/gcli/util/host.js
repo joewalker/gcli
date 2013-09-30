@@ -28,12 +28,6 @@ var util = require('./util');
 
 var decoder = new TextDecoder('utf8');
 
-/**
- * The chromeWindow as as required by Highlighter, so it knows where to
- * create temporary highlight nodes.
- */
-exports.chromeWindow = undefined;
-
 function Highlighter(document) {
   this._document = document;
   this._nodes = util.createEmptyNodeList(this._document);

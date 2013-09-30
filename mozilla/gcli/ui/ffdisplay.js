@@ -27,7 +27,6 @@ var cli = require('../cli');
 var jstype = require('../types/javascript');
 var nodetype = require('../types/node');
 var resource = require('../types/resource');
-var host = require('../util/host');
 var intro = require('../ui/intro');
 
 var CommandOutputManager = require('../canon').CommandOutputManager;
@@ -70,7 +69,6 @@ function FFDisplay(options) {
     cli.setEvalFunction(options.eval);
   }
   setContentDocument(options.contentDocument);
-  host.chromeWindow = options.chromeWindow;
 
   this.commandOutputManager = options.commandOutputManager;
   if (this.commandOutputManager == null) {
@@ -145,7 +143,6 @@ FFDisplay.prototype.maybeShowIntro = function() {
  */
 FFDisplay.prototype.reattach = function(options) {
   setContentDocument(options.contentDocument);
-  host.chromeWindow = options.chromeWindow;
   this.requisition.environment = options.environment;
 };
 
@@ -167,7 +164,6 @@ FFDisplay.prototype.destroy = function() {
 
   this.requisition.destroy();
 
-  host.chromeWindow = undefined;
   setContentDocument(null);
   cli.unsetEvalFunction();
 
