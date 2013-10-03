@@ -25,6 +25,7 @@ var gcli = require('./lib/gcli/api').getApi();
 // gcli.addItems(require('./lib/gcli/commands/connect').items);
 gcli.addItems(require('./lib/gcli/commands/context').items);
 gcli.addItems(require('./lib/gcli/commands/exec').items);
+gcli.addItems(require('./lib/gcli/commands/global').items);
 gcli.addItems(require('./lib/gcli/commands/help').items);
 gcli.addItems(require('./lib/gcli/commands/intro').items);
 gcli.addItems(require('./lib/gcli/commands/preflist').items);

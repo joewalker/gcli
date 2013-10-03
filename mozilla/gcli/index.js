@@ -58,6 +58,7 @@ exports.addItems(require('./ui/fields/selection').items);
 
 exports.addItems(require('./commands/connect').items);
 exports.addItems(require('./commands/context').items);
+exports.addItems(require('./commands/global').items);
 exports.addItems(require('./commands/help').items);
 exports.addItems(require('./commands/pref').items);
 
