@@ -56,6 +56,7 @@ exports.addItems(require('./ui/fields/selection').items);
 // Don't export the '{' command
 // exports.addItems(require('./cli').items);
 
+exports.addItems(require('./commands/clear').items);
 exports.addItems(require('./commands/connect').items);
 exports.addItems(require('./commands/context').items);
 exports.addItems(require('./commands/global').items);

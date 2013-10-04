@@ -23,6 +23,7 @@ require('./lib/gcli/index');
 var gcli = require('./lib/gcli/api').getApi();
 
 // gcli.addItems(require('./lib/gcli/commands/connect').items);
+gcli.addItems(require('./lib/gcli/commands/clear').items);
 gcli.addItems(require('./lib/gcli/commands/context').items);
 gcli.addItems(require('./lib/gcli/commands/exec').items);
 gcli.addItems(require('./lib/gcli/commands/global').items);
