@@ -29,6 +29,7 @@ gcli.addItems(require('./lib/gcli/commands/exec').items);
 gcli.addItems(require('./lib/gcli/commands/global').items);
 gcli.addItems(require('./lib/gcli/commands/help').items);
 gcli.addItems(require('./lib/gcli/commands/intro').items);
+gcli.addItems(require('./lib/gcli/commands/lang').items);
 gcli.addItems(require('./lib/gcli/commands/preflist').items);
 gcli.addItems(require('./lib/gcli/commands/pref').items);
 
