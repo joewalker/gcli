@@ -47,7 +47,7 @@ exports.addItems(require('./converters/basic').items);
 exports.addItems(require('./converters/terminal').items);
 
 exports.addItems(require('./languages/command').items);
-// exports.addItems(require('./languages/javascript').items);
+exports.addItems(require('./languages/javascript').items);
 
 exports.addItems(require('./ui/intro').items);
 exports.addItems(require('./ui/focus').items);
