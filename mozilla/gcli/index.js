@@ -40,7 +40,7 @@ exports.addItems(require('./types/resource').items);
 exports.addItems(require('./types/setting').items);
 exports.addItems(require('./types/string').items);
 
-exports.addItems(require('./converters').items);
+exports.addItems(require('./converters/converters').items);
 exports.addItems(require('./converters/basic').items);
 // Don't export the 'html' type to avoid use of innerHTML
 // exports.addItems(require('./converters/html').items);
