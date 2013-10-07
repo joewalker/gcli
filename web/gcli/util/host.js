@@ -109,10 +109,10 @@ exports.staticRequire = function(requistingModule, name) {
       deferred.resolve(require('text!gcli/ui/terminal.css'));
     }
     if (name === './menu.html') {
-      deferred.resolve(require('text!gcli/ui/fields/menu.html'));
+      deferred.resolve(require('text!gcli/fields/menu.html'));
     }
     if (name === './menu.css') {
-      deferred.resolve(require('text!gcli/ui/fields/menu.css'));
+      deferred.resolve(require('text!gcli/fields/menu.css'));
     }
     deferred.reject(new Error('Unexpected requirement: ' + name));
   }, 10);
