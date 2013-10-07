@@ -297,6 +297,10 @@
   font-size: 75%;
 }
 
+.gcli-row-script {
+  font-family: monospace;
+}
+
 
 /* Dark Theme */
 
