@@ -5,16 +5,6 @@
   font-size: 90%;
 }
 
-.gcli-menu-field {
-  border: 1px solid #aaa;
-  border-top: 0;
-  border-bottom-right-radius: 5px;
-  border-bottom-left-radius: 5px;
-  max-height: 300px;
-  margin: 0 3px;
-  padding: 0;
-}
-
 .gcli-menu-template {
   border-collapse: collapse;
   width: 100%;
