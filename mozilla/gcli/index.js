@@ -53,7 +53,6 @@ exports.addItems(require('./ui/intro').items);
 exports.addItems(require('./ui/focus').items);
 
 exports.addItems(require('./fields/basic').items);
-exports.addItems(require('./fields/javascript').items);
 exports.addItems(require('./fields/selection').items);
 
 // Don't export the '{' command
