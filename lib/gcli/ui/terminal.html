@@ -1,23 +1,6 @@
 
 <div>
   <div save="${displayElement}" class="gcli-display">
-    <!-- Sub template used for each executed command -->
-    <div>
-      <!-- The div for the input (i.e. what was typed) -->
-      <div class="gcli-row-in" save="${rowinEle}" aria-live="assertive"
-          onclick="${onclick}" ondblclick="${ondblclick}"
-          data-command="${output.canonical}">
-        <!-- What the user actually typed -->
-        <span save="${promptEle}" class="gcli-row-prompt ${promptClass}">${prompt}</span>
-        <span class="gcli-row-in-typed">${output.typed}</span>
-        <!-- The extra details that appear on hover -->
-        <span class="gcli-row-duration gcli-row-hover theme-comment" save="${durationEle}"></span>
-        <div class="gcli-row-throbber" save="${throbEle}"></div>
-      </div>
-      <!-- The div for the command output -->
-      <div class="gcli-row-out" aria-live="assertive" save="${rowoutEle}">
-      </div>
-    </div>
     <div class="gcli-in-top">
       <input save="${inputElement}" class="gcli-in-input" type="text" autofocus="autofocus" spellcheck="false"/>
       <div save="${completeElement}" class="gcli-in-complete" tabindex="-1" aria-live="polite">

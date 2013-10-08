@@ -102,6 +102,9 @@ exports.exec = function(execSpec) {
 exports.staticRequire = function(requistingModule, name) {
   var deferred = promise.defer();
   setTimeout(function() {
+    if (name === './command.html') {
+      deferred.resolve(require('text!gcli/languages/command.html'));
+    }
     if (name === './terminal.html') {
       deferred.resolve(require('text!gcli/ui/terminal.html'));
     }
