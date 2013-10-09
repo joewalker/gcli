@@ -98,8 +98,12 @@
 
 .gcli-row-out {
   margin: 0 10px 15px;
-  padding: 0 10px;
-  line-height: 1.2em;
+  padding: 0 21px;
+  line-height: 20px;
+}
+
+.gcli-row-out.gcli-row-script {
+  margin: 0;
 }
 
 .gcli-row-out p {
@@ -222,6 +226,13 @@
   src: local('Source Sans Pro Bold'), local('SourceSansPro-Bold'), url(http://themes.googleusercontent.com/static/fonts/sourcesanspro/v5/toadOcfmlt9b38dHJxOBGIqjGYJUyOXcBwUQbRaNH6c.woff) format('woff');
 }
 
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Source Code Pro'), local('SourceCodePro-Regular'), url(http://themes.googleusercontent.com/static/fonts/sourcecodepro/v3/mrl8jkM18OlOQN8JLgasD9Hq-FFgoDNV3GTKpHwuvtI.woff) format('woff');
+}
+
 .gcli-in-input,
 .gcli-in-complete,
 .gcli-prompt,
@@ -232,6 +243,19 @@
   font-weight: 400;
 }
 
+.gcli-in-script .gcli-in-input,
+.gcli-in-script .gcli-in-complete,
+.gcli-in-script .gcli-prompt {
+  font-family: 'Source Code Pro', Monaco, monospace;
+  font-weight: 400;
+}
+
+.gcli-row-script {
+  font-family: 'Source Code Pro', Monaco, monospace;
+  font-weight: 400;
+  font-size: 100%;
+}
+
 .gcli-prompt,
 .gcli-row-prompt,
 .gcli-out-shortcut:before {
@@ -240,18 +264,18 @@
 
 .gcli-in-top,
 .gcli-in-input {
-  height: 28px;
+  height: 20px;
 }
 
 .gcli-in-input,
 .gcli-in-complete,
 .gcli-prompt {
-  line-height: 28px;
+  line-height: 20px;
 }
 
 .gcli-in-input,
 .gcli-in-complete {
-  padding-left: 16px;
+  padding-left: 20px;
 }
 
 .gcli-prompt,
@@ -270,6 +294,10 @@
 
 .gcli-row-out {
   font-size: 90%;
+}
+
+.gcli-row-script.gcli-row-out {
+  font-size: 100%;
 }
 
 .gcli-tt-description {
@@ -297,12 +325,8 @@
   font-size: 75%;
 }
 
-.gcli-row-script {
-  font-family: monospace;
-}
 
-
-/* Dark Theme */
+/* Themes */
 
 body.dark,
 .dark .theme-body {
@@ -373,22 +397,34 @@ body.light,
 .dark .theme-comment {
   color: #5c6773; /* grey */
 }
+  .dark .token.comment {
+    color: #5c6773;
+  }
 
 .light .theme-comment {
   color: hsl(90,2%,46%); /* grey */
 }
+  .light .token.comment {
+    color: #5c6773;
+  }
 
 .dark .theme-gutter {
   background-color: #0f171f;
   color: #667380;
   border-color: #303b47;
 }
+  .dark .token.punctuation {
+    color: #667380;
+  }
 
 .light .theme-gutter {
   background-color: hsl(0,0%,90%);
   color: #667380;
   border-color: hsl(0,0%,65%);
 }
+  .light .token.punctuation {
+    color: #667380;
+  }
 
 .dark .theme-separator {
   border-color: #303b47; /* grey */
@@ -402,11 +438,19 @@ body.light,
 .dark .gcli-row-prompt.gcli-row-complete {
   color: #5c9966; /* green */
 }
+  .dark .token.boolean,
+  .dark .token.number {
+    color: #5c9966;
+  }
 
 .light .theme-fg-color1,
 .light .gcli-row-prompt.gcli-row-complete {
   color: hsl(72,100%,27%) /* green */;
 }
+  .light .token.boolean,
+  .light .token.number {
+    color: hsl(72,100%,27%);
+  }
 
 .dark .theme-fg-color2 {
   color: #3689b2; /* blue */
@@ -414,29 +458,47 @@ body.light,
   .dark .gcli-in-ontab {
     color: hsl(211.6, 33.3%, 25%);
   }
+  .dark .token.operator {
+    color: #3689b2;
+  }
 
 .light .theme-fg-color2,
 .light .gcli-in-ontab {
   color: hsl(208,56%,40%); /* blue */
 }
+  .light .token.operator {
+    color: hsl(208,56%,40%);
+  }
 
 .dark .theme-fg-color3 {
   color: #a673bf; /* pink/lavender */
 }
+  .dark .token.keyword {
+    color: #a673bf;
+  }
 
 .light .theme-fg-color3 {
   color: hsl(208,81%,21%) /* dark blue */
 }
+  .light .token.keyword {
+    color: hsl(208,81%,21%);
+  }
 
 .dark .theme-fg-color4,
 .dark .gcli-row-prompt {
   color: #6270b2; /* purple/violet */
 }
+  .dark .token.regex {
+    color: #6270b2;
+  }
 
 .light .theme-fg-color4,
 .light .gcli-row-prompt {
   color: hsl(24,85%,39%); /* Orange */
 }
+  .light .token.regex {
+    color: hsl(24,85%,39%);
+  }
 
 .dark .theme-fg-color5 {
   color: #a18650; /* Yellow */
@@ -444,11 +506,17 @@ body.light,
 .dark .gcli-in-todo {
   color: hsl(211.6, 33.3%, 0%);
 }
+  .dark .token.string {
+    color: #a18650;
+  }
 
 .light .theme-fg-color5,
 .light .gcli-in-todo {
   color: #a18650; /* Yellow */
 }
+  .light .token.string {
+    color: #a18650;
+  }
 
 .dark .theme-fg-color6,
 .dark .gcli-out-shortcut:before {

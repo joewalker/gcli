@@ -104,19 +104,29 @@ exports.staticRequire = function(requistingModule, name) {
   setTimeout(function() {
     if (name === './command.html') {
       deferred.resolve(require('text!gcli/languages/command.html'));
+      return;
     }
+
     if (name === './terminal.html') {
       deferred.resolve(require('text!gcli/ui/terminal.html'));
+      return;
     }
+
     if (name === './terminal.css') {
       deferred.resolve(require('text!gcli/ui/terminal.css'));
+      return;
     }
+
     if (name === './menu.html') {
       deferred.resolve(require('text!gcli/ui/menu.html'));
+      return;
     }
+
     if (name === './menu.css') {
       deferred.resolve(require('text!gcli/ui/menu.css'));
+      return;
     }
+
     deferred.reject(new Error('Unexpected requirement: ' + name));
   }, 10);
   return deferred.promise;
