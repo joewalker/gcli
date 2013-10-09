@@ -78,14 +78,24 @@
   padding-bottom: 5px;
 }
 
-.gcli-row-in {
-  padding: 0 4px;
+.gcli-row-prompt {
+  padding: 0 7px 0 4px;
+}
+
+.gcli-section {
+  border-top: 1px solid #D1D0D0;
+  margin-top: 9px;
 }
 
 .gcli-row-hover {
   display: none;
   float: right;
   padding: 2px 2px 0;
+}
+
+.gcli-row-in {
+  height: 20px;
+  line-height: 20px;
 }
 
 .gcli-row-in:hover > .gcli-row-hover {
@@ -97,13 +107,9 @@
 }
 
 .gcli-row-out {
-  margin: 0 10px 15px;
+  margin: 0;
   padding: 0 21px;
   line-height: 20px;
-}
-
-.gcli-row-out.gcli-row-script {
-  margin: 0;
 }
 
 .gcli-row-out p {
@@ -292,10 +298,6 @@
   font-size: 100%;
 }
 
-.gcli-row-out {
-  font-size: 90%;
-}
-
 .gcli-row-script.gcli-row-out {
   font-size: 100%;
 }
@@ -318,7 +320,7 @@
 
 .gcli-row-out button,
 .gcli-out-shortcut {
-  font-size: 80%;
+  font-size: 100%;
 }
 
 .gcli-row-subterminal {
