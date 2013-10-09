@@ -129,5 +129,5 @@ function startRepl() {
 
   console.log('This is also a limited GCLI REPL. ' +
               'Type \'help\' for a list of commands, CTRL+C 3 times to exit:');
-  repl.start('\u00bb ', process, gcliEval, false, true);
+  repl.start(': ', process, gcliEval, false, true);
 }

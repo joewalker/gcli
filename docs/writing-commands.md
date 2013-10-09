@@ -72,7 +72,7 @@ This is how to create a basic ``greet`` command:
 
 This command is used as follows:
 
-    » greet Joe
+    : greet Joe
     Hello, Joe
 
 Some terminology that isn't always obvious: a function has 'parameters', and
@@ -170,7 +170,7 @@ parameter:
 
 Now we can also use the ``greet`` command as follows:
 
-    » greet
+    : greet
     Hello, World!
 
 
@@ -182,7 +182,7 @@ can be more self documenting.
 
 For example, we can also invoke the greet command as follows:
 
-    » greet --name Joe
+    : greet --name Joe
     Hello, Joe
 
 
@@ -205,7 +205,7 @@ GCLI allows you to specify a 'short' character for any parameter:
 
 This is used as follows:
 
-    » greet -n Fred
+    : greet -n Fred
     Hello, Fred
 
 Currently GCLI does not allow short parameter merging (i.e. ```ls -la```)
@@ -247,11 +247,11 @@ command:
 
 Parameters can be specified either with named arguments:
 
-    » greet --name Joe --repeat 2
+    : greet --name Joe --repeat 2
 
 And sometimes positionally:
 
-    » greet Joe 2
+    : greet Joe 2
 
 Parameters can be specified positionally if they are considered 'important'.
 Unimportant parameters must be specified with a named argument.
@@ -260,20 +260,20 @@ Named arguments can be specified anywhere on the command line (after the
 command itself) however positional arguments must be in order. So
 these examples are the same:
 
-    » greet --name Joe --repeat 2
-    » greet --repeat 2 --name Joe
+    : greet --name Joe --repeat 2
+    : greet --repeat 2 --name Joe
 
 However (obviously) these are not the same:
 
-    » greet Joe 2
-    » greet 2 Joe
+    : greet Joe 2
+    : greet 2 Joe
 
 (The second would be an error because 'Joe' is not a number).
 
 Named arguments are assigned first, then the remaining arguments are assigned
 to the remaining parameters. So the following is valid and unambiguous:
 
-    » greet 2 --name Joe
+    : greet 2 --name Joe
 
 Positional parameters quickly become unwieldy with long parameter lists so we
 recommend only having 2 or 3 important parameters. GCLI provides hints for
@@ -295,11 +295,11 @@ For example, using:
 
 Would mean that this is an error
 
-    » greet Joe 2
+    : greet Joe 2
 
 You would instead need to do the following:
 
-    » greet Joe --repeat 2
+    : greet Joe --repeat 2
 
 For more on parameter groups, see below.
 
@@ -380,8 +380,8 @@ the input type of a dialog generated from this command.
 Delegate types are needed when the type of some parameter depends on the type
 of another parameter. For example:
 
-    » set height 100
-    » set name "Joe Walker"
+    : set height 100
+    : set name "Joe Walker"
 
 We can achieve this as follows:
 
@@ -430,12 +430,12 @@ Parameters can have a type of ``array``. For example:
 
 This would be used as follows:
 
-    » greet Fred Jim Shiela
+    : greet Fred Jim Shiela
     Hello, Fred, Jim, Shiela.
 
 Or using named arguments:
 
-    » greet --names Fred --names Jim --names Shiela
+    : greet --names Fred --names Jim --names Shiela
     Hello, Fred, Jim, Shiela.
 
 There can only be one ungrouped parameter with an array type, and it must be
@@ -521,7 +521,7 @@ Finally, parameters can be grouped together as follows:
 
 This could be used as follows:
 
-    » greet Joe --repeat 2 --debug
+    : greet Joe --repeat 2 --debug
     About to send greeting
     Hello, Joe
     Hello, Joe

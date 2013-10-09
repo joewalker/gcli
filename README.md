@@ -42,7 +42,7 @@ Getting Started
     $ node ./gcli.js
       -> Load http://localhost:9999/
 
-When you see the '»' prompt, type 'help' to see a list of commands.
+When you see the ':' prompt, type 'help' to see a list of commands.
 
 
 Related Links

@@ -37,7 +37,7 @@ Or, using the `test` command:
     Serving GCLI to http://localhost:9999/
     This is also a limited GCLI prompt.
     Type 'help' for a list of commands, CTRL+C twice to exit:
-    » test
+    : test
     
     testCli: Pass (funcs=9, checks=208)
     testCompletion: Pass (funcs=1, checks=139)
