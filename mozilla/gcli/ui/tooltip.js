@@ -21,7 +21,7 @@ var domtemplate = require('../util/domtemplate');
 var host = require('../util/host');
 
 var CommandAssignment = require('../cli').CommandAssignment;
-var fields = require('../fields/fields'');
+var fields = require('../fields/fields');
 
 var tooltipCssPromise = host.staticRequire(module, './tooltip.css');
 var tooltipHtmlPromise = host.staticRequire(module, './tooltip.html');
