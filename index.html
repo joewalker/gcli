@@ -26,7 +26,7 @@
     });
 
     require([ 'gcli/index', 'gcli/demo' ], function(gcli) {
-      gcli.createTerminal().done();
+      gcli.createTerminal().then(null, console.error);
     });
   </script>
 
