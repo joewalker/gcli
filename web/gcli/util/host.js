@@ -131,3 +131,32 @@ exports.staticRequire = function(requistingModule, name) {
   }, 10);
   return deferred.promise;
 };
+
+/**
+ * A group of functions to help scripting. Small enough that it doesn't need
+ * a separate module (it's basically a wrapper around 'eval' in some contexts)
+ */
+exports.script = {
+  onOutput: util.createEvent('Script.onOutput'),
+
+  // Setup the environment to eval JavaScript, a no-op on the web
+  useTarget: function(tgt) { },
+
+  // Execute some JavaScript
+  eval: function(javascript) {
+    try {
+      return promise.resolve({
+        input: javascript,
+        output: eval(javascript),
+        exception: null
+      });
+    }
+    catch (ex) {
+      return promise.resolve({
+        input: javascript,
+        output: null,
+        exception: ex
+      });
+    }
+  }
+};

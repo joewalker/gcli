@@ -66,6 +66,10 @@ exports.addItems(require('./commands/help').items);
 exports.addItems(require('./commands/lang').items);
 exports.addItems(require('./commands/pref').items);
 
+var host = require('./util/host');
+
+exports.useTarget = host.script.useTarget;
+
 /**
  * This code is internal and subject to change without notice.
  * createDisplay() for Firefox requires an options object with the following
