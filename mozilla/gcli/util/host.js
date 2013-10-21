@@ -73,28 +73,35 @@ exports.exec = function(execSpec) {
  * @see lib/gcli/util/host.js
  */
 exports.staticRequire = function(requistingModule, name) {
-  var filename = OS.Path.dirname(requistingModule.id) + '/' + name;
-  filename = filename.replace(/\/\.\//g, '/');
-  filename = 'resource://gre/modules/devtools/' + filename;
-
   var deferred = promise.defer();
-  var xhr = Cc['@mozilla.org/xmlextras/xmlhttprequest;1']
-              .createInstance(Ci.nsIXMLHttpRequest);
 
-  xhr.onload = function onload() {
-    deferred.resolve(xhr.responseText);
-  }.bind(this);
-
-  xhr.onabort = xhr.onerror = xhr.ontimeout = function(err) {
-    deferred.reject(err);
-  }.bind(this);
-
-  try {
-    xhr.open('GET', filename);
-    xhr.send();
+  if (name.match(/\.css$/)) {
+    deferred.resolve('');
+    console.log('Skipping' + name);
   }
-  catch (ex) {
-    deferred.reject(ex);
+  else {
+    var filename = OS.Path.dirname(requistingModule.id) + '/' + name;
+    filename = filename.replace(/\/\.\//g, '/');
+    filename = 'resource://gre/modules/devtools/' + filename;
+
+    var xhr = Cc['@mozilla.org/xmlextras/xmlhttprequest;1']
+                .createInstance(Ci.nsIXMLHttpRequest);
+
+    xhr.onload = function onload() {
+      deferred.resolve(xhr.responseText);
+    }.bind(this);
+
+    xhr.onabort = xhr.onerror = xhr.ontimeout = function(err) {
+      deferred.reject(err);
+    }.bind(this);
+
+    try {
+      xhr.open('GET', filename);
+      xhr.send();
+    }
+    catch (ex) {
+      deferred.reject(ex);
+    }
   }
 
   return deferred.promise;
