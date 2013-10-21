@@ -1,15 +1,14 @@
 
 <div>
-  <!-- The div for the input (i.e. what was typed) -->
   <div class="gcli-row-in" save="${rowinEle}" aria-live="assertive"
       onclick="${onclick}" ondblclick="${ondblclick}"
       data-command="${output.canonical}">
-    <!-- What the user actually typed -->
-    <span save="${promptEle}" class="gcli-row-prompt ${promptClass}">${prompt}</span>
-    <span class="gcli-row-in-typed">${output.typed}</span>
+    <span
+        save="${promptEle}"
+        class="gcli-row-prompt ${promptClass}">${prompt}</span><span
+        class="gcli-row-in-typed">${output.typed}</span>
     <div class="gcli-row-throbber" save="${throbEle}"></div>
   </div>
-  <!-- The div for the command output -->
   <div class="gcli-row-out" aria-live="assertive" save="${rowoutEle}">
   </div>
 </div>

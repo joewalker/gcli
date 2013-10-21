@@ -87,23 +87,9 @@
   margin-top: 9px;
 }
 
-.gcli-row-hover {
-  display: none;
-  float: right;
-  padding: 2px 2px 0;
-}
-
 .gcli-row-in {
   height: 20px;
   line-height: 20px;
-}
-
-.gcli-row-in:hover > .gcli-row-hover {
-  display: inline;
-}
-
-.gcli-row-in:hover > .gcli-row-hover.gcli-row-hidden {
-  display: none;
 }
 
 .gcli-row-out {
@@ -158,7 +144,7 @@
 }
 
 .gcli-out-shortcut:before {
-  content: '\bb';
+  content: ':';
   padding-right: 2px;
 }
 
