@@ -25,8 +25,11 @@ require('./settings').startup();
 var api = require('./api');
 api.populateApi(exports);
 
-exports.addItems(require('./types/selection').items);
 exports.addItems(require('./types/delegate').items);
+exports.addItems(require('./types/selection').items);
+
+exports.addItems(require('./fields/delegate').items);
+exports.addItems(require('./fields/selection').items);
 
 exports.addItems(require('./types/array').items);
 exports.addItems(require('./types/boolean').items);
@@ -46,14 +49,11 @@ exports.addItems(require('./converters/basic').items);
 // exports.addItems(require('./converters/html').items);
 exports.addItems(require('./converters/terminal').items);
 
-exports.addItems(require('./languages/command').items);
 exports.addItems(require('./languages/javascript').items);
+exports.addItems(require('./languages/command').items);
 
 exports.addItems(require('./ui/intro').items);
 exports.addItems(require('./ui/focus').items);
-
-exports.addItems(require('./fields/basic').items);
-exports.addItems(require('./fields/selection').items);
 
 // Don't export the '{' command
 // exports.addItems(require('./cli').items);
