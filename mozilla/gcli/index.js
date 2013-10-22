@@ -39,6 +39,7 @@ exports.addItems(require('./types/file').items);
 exports.addItems(require('./types/javascript').items);
 exports.addItems(require('./types/node').items);
 exports.addItems(require('./types/number').items);
+exports.addItems(require('./types/remote').items);
 exports.addItems(require('./types/resource').items);
 exports.addItems(require('./types/setting').items);
 exports.addItems(require('./types/string').items);
