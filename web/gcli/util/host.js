@@ -16,17 +16,20 @@
 
 'use strict';
 
-var xhr = require('./xhr');
 var util = require('./util');
 var promise = require('./promise');
+var connectors = require('../connectors/connectors');
 
-var ATTR_NAME = '__gcli_border';
-var HIGHLIGHT_STYLE = '1px dashed black';
-
+/**
+ * Markup a web page to highlight a collection of elements
+ */
 function Highlighter(document) {
   this._document = document;
   this._nodes = util.createEmptyNodeList(this._document);
 }
+
+var ATTR_NAME = '__gcli_border';
+var HIGHLIGHT_STYLE = '1px dashed black';
 
 Object.defineProperty(Highlighter.prototype, 'nodelist', {
   set: function(nodes) {
@@ -85,14 +88,17 @@ exports.exec = function(execSpec) {
     return prev;
   }, {});
 
-  var data = JSON.stringify({
-    cmd: '' + execSpec.cmd,
-    args: cleanArgs,
-    cwd: '' + execSpec.cwd,
-    env: cleanEnv
+  return connectors.get('xhr').connect().then(function(connection) {
+    return connection.call('system', {
+      cmd: '' + execSpec.cmd,
+      args: cleanArgs,
+      cwd: '' + execSpec.cwd,
+      env: cleanEnv
+    }).then(function(reply) {
+      connection.disconnect();
+      return reply;
+    });
   });
-
-  return xhr.post('/exec', data);
 };
 
 /**

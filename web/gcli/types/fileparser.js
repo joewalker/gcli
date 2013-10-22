@@ -16,7 +16,7 @@
 
 'use strict';
 
-var xhr = require('../util/xhr');
+var connectors = require('../connectors/connectors');
 var promise = require('../util/promise');
 var Status = require('../types').Status;
 
@@ -45,14 +45,16 @@ exports.parse = function(typed, options) {
     matches: options.matches == null ? undefined : options.matches.source
   };
 
-  return xhr.post('/filesystem/parse', data).then(function(reply) {
-
-    reply.status = Status.fromString(reply.status);
-    if (reply.predictions != null) {
-      reply.predictor = function() {
-        return promise.resolve(reply.predictions);
-      };
-    }
-    return reply;
+  return connectors.get('xhr').connect().then(function(connection) {
+    return connection.call('parsefile', data).then(function(reply) {
+      reply.status = Status.fromString(reply.status);
+      if (reply.predictions != null) {
+        reply.predictor = function() {
+          return promise.resolve(reply.predictions);
+        };
+      }
+      connection.disconnect();
+      return reply;
+    });
   });
 };

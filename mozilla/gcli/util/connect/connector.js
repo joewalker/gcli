@@ -97,7 +97,7 @@ Connection.prototype.connect = function() {
 Connection.prototype.getCommandSpecs = function() {
   var deferred = promise.defer();
 
-  var request = { to: this.actor, type: 'getCommandSpecs' };
+  var request = { to: this.actor, type: 'specs' };
 
   this.client.request(request, function(response) {
     deferred.resolve(response.commandSpecs);
