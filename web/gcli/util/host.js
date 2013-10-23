@@ -28,7 +28,6 @@ function Highlighter(document) {
   this._nodes = util.createEmptyNodeList(this._document);
 }
 
-var ATTR_NAME = '__gcli_border';
 var HIGHLIGHT_STYLE = '1px dashed black';
 
 Object.defineProperty(Highlighter.prototype, 'nodelist', {
@@ -50,19 +49,17 @@ Highlighter.prototype.destroy = function() {
 };
 
 Highlighter.prototype._highlightNode = function(node) {
-  if (node.hasAttribute(ATTR_NAME)) {
+  if (node.__gcli_orig_border) {
     return;
   }
 
-  var styles = this._document.defaultView.getComputedStyle(node);
-  node.setAttribute(ATTR_NAME, styles.border);
+  node.__gcli_orig_border = node.style.border;
   node.style.border = HIGHLIGHT_STYLE;
 };
 
 Highlighter.prototype._unhighlightNode = function(node) {
-  var previous = node.getAttribute(ATTR_NAME);
-  node.style.border = previous;
-  node.removeAttribute(ATTR_NAME);
+  node.style.border = node.__gcli_orig_border;
+  delete node.__gcli_orig_border;
 };
 
 exports.Highlighter = Highlighter;
