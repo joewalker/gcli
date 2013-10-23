@@ -1,21 +1,28 @@
 
 /* Layout */
 
+.gcli-display {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .gcli-in-input,
 .gcli-in-complete,
-.gcli-prompt,
-.gcli-display {
-  position: absolute; top: 0; bottom: 0; left: 0; right: 0;
+.gcli-prompt {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
 }
 
 .gcli-in-top {
   position: relative;
-}
-
-.gcli-display {
-  height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
 }
 
 .gcli-in-input,
@@ -45,8 +52,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   z-index: 2;
-  max-height: 100%;
-  max-width: 350px;
+  height: 5em;
   left: 0;
   bottom: 0;
   margin-bottom: -3px;
@@ -58,7 +64,7 @@
 }
 
 .gcli-tt-description {
-  padding: 5px 10px 0;
+  padding: 0 10px;
 }
 
 .gcli-tt-error {
@@ -71,11 +77,6 @@
 
 .gcli-field-javascript {
   margin-bottom: 0;
-}
-
-.gcli-tt {
-  margin: 0 0 10px 0;
-  padding-bottom: 5px;
 }
 
 .gcli-row-prompt {
@@ -176,10 +177,6 @@
   border-bottom-style: dotted;
 }
 
-.gcli-tt {
-  border-radius: 5px;
-}
-
 .gcli-row-out input[type=password],
 .gcli-row-out input[type=text],
 .gcli-row-out textarea,
@@ -267,7 +264,7 @@
 
 .gcli-in-input,
 .gcli-in-complete {
-  padding-left: 20px;
+  padding-left: 17px;
 }
 
 .gcli-prompt,
