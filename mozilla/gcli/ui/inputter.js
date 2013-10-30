@@ -84,7 +84,11 @@ function Inputter(options, components) {
   // Initially an asynchronous completion isn't in-progress
   this._completed = RESOLVED;
 
+  this.textChanged = this.textChanged.bind(this);
   this.requisition.onTextChange.add(this.textChanged, this);
+
+  this.outputted = this.outputted.bind(this);
+  this.requisition.commandOutputManager.onOutput.add(this.outputted, this);
 
   this.assignment = this.requisition.getAssignmentAt(0);
   this.onAssignmentChange = util.createEvent('Inputter.onAssignmentChange');
@@ -104,6 +108,7 @@ function Inputter(options, components) {
 Inputter.prototype.destroy = function() {
   this.document.defaultView.removeEventListener('resize', this.onWindowResize, false);
 
+  this.requisition.commandOutputManager.onOutput.remove(this.outputted, this);
   this.requisition.onTextChange.remove(this.textChanged, this);
   if (this.focusManager) {
     this.focusManager.removeMonitoredElement(this.element, 'input');
@@ -120,6 +125,8 @@ Inputter.prototype.destroy = function() {
     this.style = undefined;
   }
 
+  this.textChanged = undefined;
+  this.outputted = undefined;
   this.onMouseUp = undefined;
   this.onKeyDown = undefined;
   this.onKeyUp = undefined;
@@ -179,6 +186,15 @@ Inputter.prototype.getDimensions = function() {
     left: rect.left - (fixedLoc.left || 0) + 2,
     width: rect.right - rect.left
   };
+};
+
+/**
+ * Pass 'outputted' events on to the focus manager
+ */
+Inputter.prototype.outputted = function() {
+  if (this.focusManager) {
+    this.focusManager.outputted();
+  }
 };
 
 /**

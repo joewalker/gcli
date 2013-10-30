@@ -297,13 +297,13 @@
   font-size: 80%;
 }
 
+.gcli-row-subterminal {
+  font-size: 75%;
+}
+
 .gcli-row-out button,
 .gcli-out-shortcut {
   font-size: 100%;
-}
-
-.gcli-row-subterminal {
-  font-size: 75%;
 }
 
 
