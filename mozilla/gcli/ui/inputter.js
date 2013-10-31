@@ -353,7 +353,8 @@ Inputter.prototype._checkAssignment = function(start) {
   // needs to know about the other, or a third-party needs to break the
   // deadlock. These 2 lines are all we're quibbling about, so for now we hack
   if (this.focusManager) {
-    this.focusManager.setError(this.assignment.message);
+    var error = (this.assignment.status === Status.ERROR);
+    this.focusManager.setError(error);
   }
 };
 
