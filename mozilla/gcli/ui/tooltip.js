@@ -23,16 +23,13 @@ var host = require('../util/host');
 var CommandAssignment = require('../cli').CommandAssignment;
 var fields = require('../fields/fields');
 
-var tooltipCssPromise = host.staticRequire(module, './tooltip.css');
-var tooltipHtmlPromise = host.staticRequire(module, './tooltip.html');
-
-/**
- * Asynchronous construction. Use Terminal.create();
- * @private
- */
-function Tooltip() {
-  throw new Error('Use Tooltip.create().then(...) rather than new Tooltip()');
-}
+var tooltipHtml =
+  '<div class="gcli-tt" aria-live="polite">\n' +
+  '  <div class="gcli-tt-description" save="${descriptionEle}">${description}</div>\n' +
+  '  ${field.element}\n' +
+  '  <div class="gcli-tt-error" save="${errorEle}">${assignment.conversion.message}</div>\n' +
+  '  <div class="gcli-tt-highlight" save="${highlightEle}"></div>\n' +
+  '</div>';
 
 /**
  * A widget to display an inline dialog which allows the user to fill out
@@ -47,19 +44,7 @@ function Tooltip() {
  * - panelElement (optional): The element to show/hide on visibility events
  * - element: The root element to populate
  */
-Tooltip.create = function(options, components) {
-  var terminal = Object.create(Tooltip.prototype);
-  return tooltipHtmlPromise.then(function(tooltipHtml) {
-    terminal._init(options, components, tooltipHtml);
-    return terminal;
-  });
-};
-
-/**
- * Asynchronous construction. Use Terminal.create();
- * @private
- */
-Tooltip.prototype._init = function(options, components, tooltipHtml) {
+function Tooltip(options, components) {
   this.inputter = components.inputter;
   this.requisition = components.requisition;
   this.focusManager = components.focusManager;
@@ -78,12 +63,6 @@ Tooltip.prototype._init = function(options, components, tooltipHtml) {
   // We cache the fields we create so we can destroy them later
   this.fields = [];
 
-  tooltipCssPromise.then(function(tooltipCss) {
-    if (tooltipCss != null) {
-      this.style = util.importCss(tooltipCss, this.document, 'gcli-tooltip');
-    }
-  }.bind(this));
-
   this.template = util.toDom(this.document, tooltipHtml);
   this.templateOptions = { blankNullUndefined: true, stack: 'tooltip.html' };
 
@@ -97,7 +76,7 @@ Tooltip.prototype._init = function(options, components, tooltipHtml) {
 
   // We also keep track of the last known arg text for the current assignment
   this.lastText = undefined;
-};
+}
 
 /**
  * Avoid memory leaks

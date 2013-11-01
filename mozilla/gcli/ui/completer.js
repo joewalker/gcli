@@ -21,18 +21,17 @@ var util = require('../util/util');
 var domtemplate = require('../util/domtemplate');
 var host = require('../util/host');
 
-/**
- * Kick off a resource load as soon as we can
- */
-var resourcesPromise = host.staticRequire(module, './completer.html');
-
-/**
- * Asynchronous construction. Use Completer.create();
- * @private
- */
-function Completer() {
-  throw new Error('Use Completer.create().then(...) rather than new Completer()');
-}
+var completerHtml =
+  '<description\n' +
+  '    xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">\n' +
+  '  <loop foreach="member in ${statusMarkup}">\n' +
+  '    <label class="${member.className}" value="${member.string}"></label>\n' +
+  '  </loop>\n' +
+  '  <label class="gcli-in-ontab" value="${directTabText}"/>\n' +
+  '  <label class="gcli-in-todo" foreach="param in ${emptyParameters}" value="${param}"/>\n' +
+  '  <label class="gcli-in-ontab" value="${arrowTabText}"/>\n' +
+  '  <label class="gcli-in-closebrace" if="${unclosedJs}" value="}"/>\n' +
+  '</description>\n';
 
 /**
  * Completer is an 'input-like' element that sits  an input element annotating
@@ -43,19 +42,7 @@ function Completer() {
  * - autoResize: (default=false): Should we attempt to sync the dimensions of
  *   the complete element with the input element.
  */
-Completer.create = function(components) {
-  var completer = Object.create(Completer.prototype);
-  return resourcesPromise.then(function(completerHtml) {
-    completer._init(components, completerHtml);
-    return completer;
-  });
-};
-
-/**
- * Asynchronous construction. Use Terminal.create();
- * @private
- */
-Completer.prototype._init = function(components, completerHtml) {
+function Completer(components) {
   this.requisition = components.requisition;
   this.input = { typed: '', cursor: { start: 0, end: 0 } };
   this.choice = 0;
@@ -88,7 +75,7 @@ Completer.prototype._init = function(components, completerHtml) {
   util.removeWhitespace(this.template, true);
 
   this.update();
-};
+}
 
 /**
  * Avoid memory leaks

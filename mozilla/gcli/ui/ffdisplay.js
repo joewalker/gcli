@@ -89,23 +89,19 @@ function FFDisplay(options) {
     element: options.inputElement
   });
 
-  Completer.create({
+  this.completer = new Completer({
     requisition: this.requisition,
     inputter: this.inputter,
     backgroundElement: options.backgroundElement,
     element: options.completeElement
-  }).then(function(completer) {
-    this.completer = completer;
-  }.bind(this));
+  });
 
-  Tooltip.create(options, {
+  this.tooltip = new Tooltip(options, {
     requisition: this.requisition,
     focusManager: this.focusManager,
     inputter: this.inputter,
     element: options.hintElement
-  }).then(function(tooltip) {
-    this.tooltip = tooltip;
-  }.bind(this));
+  });
 
   this.inputter.tooltip = this.tooltip;
 
