@@ -77,7 +77,6 @@ exports.staticRequire = function(requistingModule, name) {
 
   if (name.match(/\.css$/)) {
     deferred.resolve('');
-    console.log('Skipping' + name);
   }
   else {
     var filename = OS.Path.dirname(requistingModule.id) + '/' + name;
