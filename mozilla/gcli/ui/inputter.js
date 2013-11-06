@@ -500,16 +500,15 @@ Inputter.prototype._handleUpArrow = function() {
   // If the user is on a valid value, then we increment the value, but if
   // they've typed something that's not right we page through predictions
   if (this.assignment.getStatus() === Status.VALID) {
-    this.requisition.increment(this.assignment);
-    // See notes on focusManager.onInputChange in onKeyDown
-    if (this.focusManager) {
-      this.focusManager.onInputChange();
-    }
-  }
-  else {
-    this.changeChoice(-1);
+    return this.requisition.increment(this.assignment).then(function() {
+      // See notes on focusManager.onInputChange in onKeyDown
+      if (this.focusManager) {
+        this.focusManager.onInputChange();
+      }
+    }.bind(this));
   }
 
+  this.changeChoice(-1);
   return RESOLVED;
 };
 
@@ -529,17 +528,15 @@ Inputter.prototype._handleDownArrow = function() {
 
   // See notes above for the UP key
   if (this.assignment.getStatus() === Status.VALID) {
-    this.requisition.decrement(this.assignment,
-                               this.requisition.executionContext);
-    // See notes on focusManager.onInputChange in onKeyDown
-    if (this.focusManager) {
-      this.focusManager.onInputChange();
-    }
-  }
-  else {
-    this.changeChoice(+1);
+    return this.requisition.decrement(this.assignment).then(function() {
+      // See notes on focusManager.onInputChange in onKeyDown
+      if (this.focusManager) {
+        this.focusManager.onInputChange();
+      }
+    }.bind(this));
   }
 
+  this.changeChoice(+1);
   return RESOLVED;
 };
 
