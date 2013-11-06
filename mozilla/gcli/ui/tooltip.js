@@ -145,11 +145,7 @@ Tooltip.prototype.assignmentChanged = function(ev) {
 
   this.field = fields.getField(this.assignment.param.type, {
     document: this.document,
-    name: this.assignment.param.name,
-    requisition: this.requisition,
-    required: this.assignment.param.isDataRequired,
-    named: !this.assignment.param.isPositionalAllowed,
-    tooltip: true
+    requisition: this.requisition
   });
 
   this.focusManager.setImportantFieldFlag(this.field.isImportant);
