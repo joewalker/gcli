@@ -53,14 +53,7 @@ gcli.addItems(require('./lib/gcli/commands/server/test').items);
 var util = require('./lib/gcli/util/util');
 var Requisition = require('./lib/gcli/cli').Requisition;
 
-var jsdom = require('jsdom').jsdom;
-var doc = jsdom('<html><head></head><body></body></html>');
-var environment = {
-  document: doc,
-  window: doc.defaultView
-};
-var requisition = new Requisition(environment, doc);
-
+var requisition = new Requisition();
 var command, extraActions;
 
 if (process.argv.length < 3) {

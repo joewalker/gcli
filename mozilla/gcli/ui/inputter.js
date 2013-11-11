@@ -138,11 +138,7 @@ Inputter.prototype.onWindowResize = function() {
     return;
   }
 
-  // Simplify when jsdom does getBoundingClientRect(). See Bug 717269
-  var dimensions = this.getDimensions();
-  if (dimensions) {
-    this.onResize(dimensions);
-  }
+  this.onResize(this.getDimensions());
 };
 
 /**
@@ -150,11 +146,6 @@ Inputter.prototype.onWindowResize = function() {
  * element transparent so our background shines through
  */
 Inputter.prototype.getDimensions = function() {
-  // Remove this when jsdom does getBoundingClientRect(). See Bug 717269
-  if (!this.element.getBoundingClientRect) {
-    return undefined;
-  }
-
   var fixedLoc = {};
   var currentElement = this.element.parentNode;
   while (currentElement && currentElement.nodeName !== '#document') {
@@ -640,11 +631,6 @@ Inputter.prototype.getInputState = function() {
   // values for its content
   if (input.typed == null) {
     input = { typed: '', cursor: { start: 0, end: 0 } };
-  }
-
-  // Workaround for a Bug 717268 (which is really a jsdom bug)
-  if (input.cursor.start == null) {
-    input.cursor.start = 0;
   }
 
   return input;
