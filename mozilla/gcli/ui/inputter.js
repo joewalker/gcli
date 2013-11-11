@@ -371,6 +371,7 @@ Inputter.prototype.setInput = function(str) {
 Inputter.prototype.setCursor = function(cursor) {
   this._caretChange = Caret.NO_CHANGE;
   this._processCaretChange({ typed: this.element.value, cursor: cursor });
+  return RESOLVED;
 };
 
 /**
