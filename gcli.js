@@ -32,6 +32,7 @@ gcli.addItems(require('./lib/gcli/commands/intro').items);
 gcli.addItems(require('./lib/gcli/commands/lang').items);
 gcli.addItems(require('./lib/gcli/commands/preflist').items);
 gcli.addItems(require('./lib/gcli/commands/pref').items);
+gcli.addItems(require('./lib/gcli/commands/test').items);
 
 gcli.addItems(require('./lib/gcli/commands/demo/alert').items);
 // gcli.addItems(require('./lib/gcli/commands/demo/bugs').items);
@@ -48,7 +49,6 @@ gcli.addItems(require('./lib/gcli/commands/server/firefox').items);
 gcli.addItems(require('./lib/gcli/commands/server/orion').items);
 gcli.addItems(require('./lib/gcli/commands/server/server').items);
 gcli.addItems(require('./lib/gcli/commands/server/standard').items);
-gcli.addItems(require('./lib/gcli/commands/server/test').items);
 
 var util = require('./lib/gcli/util/util');
 var Requisition = require('./lib/gcli/cli').Requisition;
