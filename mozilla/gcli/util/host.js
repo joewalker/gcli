@@ -22,7 +22,6 @@ var Ci = require('chrome').Ci;
 
 var OS = Cu.import('resource://gre/modules/osfile.jsm', {}).OS;
 var TextDecoder = Cu.import('resource://gre/modules/commonjs/toolkit/loader.js', {}).TextDecoder;
-var Timer = Cu.import('resource://gre/modules/Timer.jsm', {});
 
 var promise = require('./promise');
 var util = require('./util');
@@ -84,26 +83,24 @@ exports.staticRequire = function(requistingModule, name) {
     filename = filename.replace(/\/\.\//g, '/');
     filename = 'resource://gre/modules/devtools/' + filename;
 
-    Timer.setTimeout(function() {
-      var xhr = Cc['@mozilla.org/xmlextras/xmlhttprequest;1']
-                  .createInstance(Ci.nsIXMLHttpRequest);
+    var xhr = Cc['@mozilla.org/xmlextras/xmlhttprequest;1']
+                .createInstance(Ci.nsIXMLHttpRequest);
 
-      xhr.onload = function onload() {
-        deferred.resolve(xhr.responseText);
-      }.bind(this);
+    xhr.onload = function onload() {
+      deferred.resolve(xhr.responseText);
+    }.bind(this);
 
-      xhr.onabort = xhr.onerror = xhr.ontimeout = function(err) {
-        deferred.reject(err);
-      }.bind(this);
+    xhr.onabort = xhr.onerror = xhr.ontimeout = function(err) {
+      deferred.reject(err);
+    }.bind(this);
 
-      try {
-        xhr.open('GET', filename);
-        xhr.send();
-      }
-      catch (ex) {
-        deferred.reject(ex);
-      }
-    }, 10);
+    try {
+      xhr.open('GET', filename);
+      xhr.send();
+    }
+    catch (ex) {
+      deferred.reject(ex);
+    }
   }
 
   return deferred.promise;
