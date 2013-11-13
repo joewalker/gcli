@@ -17,9 +17,5 @@
 'use strict';
 
 var Cu = require('chrome').Cu;
-var Promise = Cu.import('resource://gre/modules/Promise.jsm', {}).Promise;
-
-exports.defer = Promise.defer;
-exports.resolve = Promise.resolve;
-exports.reject = Promise.reject;
-exports.all = Promise.all;
+module.exports = exports =
+    Cu.import('resource://gre/modules/commonjs/sdk/core/promise.js', {}).Promise;
