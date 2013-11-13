@@ -4,7 +4,7 @@ node_js:
   - "0.10"
   - "0.8"
 before_script:
-  - "node gcli.js server start --allowexec --websocket &"
+  - "node gcli.js server start --allowexec &"
 script:
   - "node gcli.js test && phantomjs ./phantom-test.js"
 after_script:
