@@ -44,8 +44,8 @@ Object.defineProperty(exports, 'defaultPort', {
 /**
  * Create a Connection object and initiate a connection.
  */
-exports.connect = function(prefix, host, port) {
-  var connection = new Connection(prefix, host, port);
+exports.connect = function(url) {
+  var connection = new Connection(url);
   return connection.connect().then(function() {
     return connection;
   });
@@ -54,8 +54,7 @@ exports.connect = function(prefix, host, port) {
 /**
  * Manage a named connection to an HTTP server over web-sockets using socket.io
  */
-function Connection(prefix, host, port) {
-  this.prefix = prefix;
+function Connection(host, port) {
   this.host = host;
   this.port = port;
 
