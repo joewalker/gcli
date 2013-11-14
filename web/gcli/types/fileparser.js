@@ -45,7 +45,7 @@ exports.parse = function(typed, options) {
     matches: options.matches == null ? undefined : options.matches.source
   };
 
-  return connectors.get('xhr').connect().then(function(connection) {
+  return connectors.get().connect().then(function(connection) {
     return connection.call('parsefile', data).then(function(reply) {
       reply.status = Status.fromString(reply.status);
       if (reply.predictions != null) {

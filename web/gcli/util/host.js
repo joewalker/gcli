@@ -85,7 +85,7 @@ exports.exec = function(execSpec) {
     return prev;
   }, {});
 
-  return connectors.get('xhr').connect().then(function(connection) {
+  return connectors.get().connect().then(function(connection) {
     return connection.call('system', {
       cmd: '' + execSpec.cmd,
       args: cleanArgs,
