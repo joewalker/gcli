@@ -51,9 +51,11 @@ gcli.addItems(require('./lib/gcli/commands/server/server').items);
 gcli.addItems(require('./lib/gcli/commands/server/standard').items);
 
 var util = require('./lib/gcli/util/util');
+var cli = require('./lib/gcli/cli');
 var Requisition = require('./lib/gcli/cli').Requisition;
 
 var requisition = new Requisition();
+cli.addMapping(requisition, { requisition: requisition });
 var command, extraActions;
 
 if (process.argv.length < 3) {
