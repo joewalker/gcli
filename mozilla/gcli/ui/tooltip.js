@@ -175,7 +175,8 @@ Tooltip.prototype.assignmentChanged = function(ev) {
 Tooltip.prototype.choiceChanged = function(ev) {
   if (this.field && this.field.menu) {
     var conversion = this.assignment.conversion;
-    conversion.constrainPredictionIndex(ev.choice).then(function(choice) {
+    var context = this.requisition.executionContext;
+    conversion.constrainPredictionIndex(context, ev.choice).then(function(choice) {
       this.field.menu._choice = choice;
       this.field.menu._updateHighlight();
     }.bind(this)).then(null, util.errorHandler);
