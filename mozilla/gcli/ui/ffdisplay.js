@@ -76,9 +76,11 @@ function FFDisplay(options) {
   }
 
   this.onOutput = this.commandOutputManager.onOutput;
-  this.requisition = new Requisition(options.environment,
-                                     options.outputDocument,
-                                     this.commandOutputManager);
+  this.requisition = new Requisition({
+    environment: options.environment,
+    document: options.outputDocument,
+    commandOutputManager: this.commandOutputManager
+  });
 
   this.focusManager = new FocusManager(options.chromeDocument);
   this.onVisibilityChange = this.focusManager.onVisibilityChange;
