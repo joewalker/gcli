@@ -36,8 +36,6 @@ XPCOMUtils.defineLazyGetter(imports, 'supportsString', function() {
           .createInstance(Ci.nsISupportsString);
 });
 
-
-var types = require('./types').centralTypes;
 var util = require('./util/util');
 
 /**
@@ -49,7 +47,9 @@ var DEVTOOLS_PREFIX = 'devtools.gcli.';
  * A class to wrap up the properties of a preference.
  * @see toolkit/components/viewconfig/content/config.js
  */
-function Setting(prefSpec) {
+function Setting(types, prefSpec) {
+  this.types = types;
+
   if (typeof prefSpec === 'string') {
     // We're coming from getAll() i.e. a full listing of prefs
     this.name = prefSpec;
@@ -79,13 +79,13 @@ Object.defineProperty(Setting.prototype, 'type', {
   get: function() {
     switch (imports.prefBranch.getPrefType(this.name)) {
       case imports.prefBranch.PREF_BOOL:
-        return types.createType('boolean');
+        return this.types.createType('boolean');
 
       case imports.prefBranch.PREF_INT:
-        return types.createType('number');
+        return this.types.createType('number');
 
       case imports.prefBranch.PREF_STRING:
-        return types.createType('string');
+        return this.types.createType('string');
 
       default:
         throw new Error('Unknown type for ' + this.name);
@@ -237,8 +237,8 @@ exports.getAll = function(filter) {
 /**
  * Add a new setting.
  */
-exports.addSetting = function(prefSpec) {
-  var setting = new Setting(prefSpec);
+exports.addSetting = function(types, prefSpec) {
+  var setting = new Setting(types, prefSpec);
 
   if (settingsMap.has(setting.name)) {
     // Once exists already, we're going to need to replace it in the array
