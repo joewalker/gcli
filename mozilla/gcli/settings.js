@@ -37,7 +37,7 @@ XPCOMUtils.defineLazyGetter(imports, 'supportsString', function() {
 });
 
 
-var types = require('./types');
+var types = require('./types').centralTypes;
 var util = require('./util/util');
 
 /**
