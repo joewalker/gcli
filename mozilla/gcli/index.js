@@ -20,8 +20,6 @@ var Cc = require('chrome').Cc;
 var Ci = require('chrome').Ci;
 var Cu = require('chrome').Cu;
 
-require('./settings').startup();
-
 var api = require('./api');
 api.populateApi(exports);
 

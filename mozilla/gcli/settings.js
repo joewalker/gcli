@@ -44,12 +44,15 @@ var util = require('./util/util');
 var DEVTOOLS_PREFIX = 'devtools.gcli.';
 
 /**
+ * The type library that we use in creating types for settings
+ */
+var types;
+
+/**
  * A class to wrap up the properties of a preference.
  * @see toolkit/components/viewconfig/content/config.js
  */
-function Setting(types, prefSpec) {
-  this.types = types;
-
+function Setting(prefSpec) {
   if (typeof prefSpec === 'string') {
     // We're coming from getAll() i.e. a full listing of prefs
     this.name = prefSpec;
@@ -79,13 +82,13 @@ Object.defineProperty(Setting.prototype, 'type', {
   get: function() {
     switch (imports.prefBranch.getPrefType(this.name)) {
       case imports.prefBranch.PREF_BOOL:
-        return this.types.createType('boolean');
+        return types.createType('boolean');
 
       case imports.prefBranch.PREF_INT:
-        return this.types.createType('number');
+        return types.createType('number');
 
       case imports.prefBranch.PREF_STRING:
-        return this.types.createType('string');
+        return types.createType('string');
 
       default:
         throw new Error('Unknown type for ' + this.name);
@@ -188,8 +191,12 @@ function reset() {
 /**
  * Reset everything on startup and shutdown because we're doing lazy loading
  */
-exports.startup = function() {
+exports.startup = function(t) {
   reset();
+  types = t;
+  if (types == null) {
+    throw new Error('no types');
+  }
 };
 
 exports.shutdown = function() {
@@ -237,8 +244,8 @@ exports.getAll = function(filter) {
 /**
  * Add a new setting.
  */
-exports.addSetting = function(types, prefSpec) {
-  var setting = new Setting(types, prefSpec);
+exports.addSetting = function(prefSpec) {
+  var setting = new Setting(prefSpec);
 
   if (settingsMap.has(setting.name)) {
     // Once exists already, we're going to need to replace it in the array
