@@ -38,10 +38,10 @@ page.onConsoleMessage = function() {
 };
 
 if (system.args.length === 1) {
-  page.open('http://localhost:9999/localtest.html', pageLoaded);
+  page.open('http://localhost:9999/index.html', pageLoaded);
 } else {
   if (system.args[1] === '--shutdown') {
-    page.open('http://localhost:9999/localtest.html?shutdown=true', pageLoaded);
+    page.open('http://localhost:9999/index.html?shutdown=true', pageLoaded);
   }
   else {
     console.error('Options: --shutdown');

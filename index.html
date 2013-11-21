@@ -25,8 +25,18 @@
       paths: { i18n: '../scripts/i18n', text: '../scripts/text' }
     });
 
-    require([ 'gcli/index', 'gcli/demo' ], function(gcli) {
-      gcli.createTerminal().then(null, console.error);
+    var modules = [ 'gcli/index', 'gcli/demo', 'gcli/test/index' ];
+    require(modules, function(gcli, demo, test) {
+      // Add demo commands. You'll probably want to replace this with
+      // your own set of commands
+      gcli.addItems(demo.items);
+
+      // To run commands remotely, 
+      // Hook GCLI into this page, using gcli-root above
+      gcli.createTerminal().then(function(terminal) {
+        // Run the unit test at each startup.
+        test.run(terminal);
+      }).then(null, console.error);
     });
   </script>
 
