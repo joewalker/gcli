@@ -77,7 +77,6 @@ function Inputter(options, components) {
   this._completed = RESOLVED;
 
   this.textChanged = this.textChanged.bind(this);
-  this.requisition.onTextChange.add(this.textChanged, this);
 
   this.outputted = this.outputted.bind(this);
   this.requisition.commandOutputManager.onOutput.add(this.outputted, this);
@@ -101,7 +100,6 @@ Inputter.prototype.destroy = function() {
   this.document.defaultView.removeEventListener('resize', this.onWindowResize, false);
 
   this.requisition.commandOutputManager.onOutput.remove(this.outputted, this);
-  this.requisition.onTextChange.remove(this.textChanged, this);
   if (this.focusManager) {
     this.focusManager.removeMonitoredElement(this.element, 'input');
   }
@@ -212,6 +210,8 @@ Inputter.prototype.textChanged = function() {
     this.element.value = newStr;
   }
   this.onInputChange({ inputState: input });
+
+  this.tooltip.textChanged();
 };
 
 /**
@@ -352,7 +352,10 @@ Inputter.prototype._checkAssignment = function(start) {
  */
 Inputter.prototype.setInput = function(str) {
   this._caretChange = Caret.TO_END;
-  return this.requisition.update(str);
+  return this.requisition.update(str).then(function(updated) {
+    this.textChanged();
+    return updated;
+  }.bind(this));
 };
 
 /**
@@ -470,6 +473,7 @@ Inputter.prototype.handleKeyUp = function(ev) {
     // Abort UI changes if this UI update has been overtaken
     if (updated) {
       this._choice = null;
+      this.textChanged();
       this.onChoiceChange({ choice: this._choice });
     }
   }.bind(this));
@@ -486,7 +490,10 @@ Inputter.prototype._handleUpArrow = function() {
 
   if (this.element.value === '' || this._scrollingThroughHistory) {
     this._scrollingThroughHistory = true;
-    return this.requisition.update(this.history.backward());
+    return this.requisition.update(this.history.backward()).then(function(updated) {
+      this.textChanged();
+      return updated;
+    }.bind(this));
   }
 
   // If the user is on a valid value, then we increment the value, but if
@@ -494,6 +501,7 @@ Inputter.prototype._handleUpArrow = function() {
   if (this.assignment.getStatus() === Status.VALID) {
     return this.requisition.increment(this.assignment).then(function() {
       // See notes on focusManager.onInputChange in onKeyDown
+      this.textChanged();
       if (this.focusManager) {
         this.focusManager.onInputChange();
       }
@@ -515,13 +523,17 @@ Inputter.prototype._handleDownArrow = function() {
 
   if (this.element.value === '' || this._scrollingThroughHistory) {
     this._scrollingThroughHistory = true;
-    return this.requisition.update(this.history.forward());
+    return this.requisition.update(this.history.forward()).then(function(updated) {
+      this.textChanged();
+      return updated;
+    }.bind(this));
   }
 
   // See notes above for the UP key
   if (this.assignment.getStatus() === Status.VALID) {
     return this.requisition.decrement(this.assignment).then(function() {
       // See notes on focusManager.onInputChange in onKeyDown
+      this.textChanged();
       if (this.focusManager) {
         this.focusManager.onInputChange();
       }
@@ -540,14 +552,16 @@ Inputter.prototype._handleReturn = function() {
   if (this.requisition.status === Status.VALID) {
     this._scrollingThroughHistory = false;
     this.history.add(this.element.value);
-    this.requisition.exec();
+
+    return this.requisition.exec().then(function() {
+      this.textChanged();
+    }.bind(this));
   }
-  else {
-    // If we can't execute the command, but there is a menu choice to use
-    // then use it.
-    if (!this.tooltip.selectChoice()) {
-      this.focusManager.setError(true);
-    }
+
+  // If we can't execute the command, but there is a menu choice to use
+  // then use it.
+  if (!this.tooltip.selectChoice()) {
+    this.focusManager.setError(true);
   }
 
   this._choice = null;
@@ -594,6 +608,7 @@ Inputter.prototype._handleTab = function(ev) {
   return this._completed.then(function(updated) {
     // Abort UI changes if this UI update has been overtaken
     if (updated) {
+      this.textChanged();
       this._choice = null;
       this.onChoiceChange({ choice: this._choice });
     }

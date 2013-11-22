@@ -68,7 +68,6 @@ function Tooltip(options, components) {
 
   this.inputter.onChoiceChange.add(this.choiceChanged, this);
   this.inputter.onAssignmentChange.add(this.assignmentChanged, this);
-  this.requisition.onTextChange.add(this.textChanged, this);
 
   // We keep a track of which assignment the cursor is in
   this.assignment = undefined;
@@ -84,7 +83,6 @@ function Tooltip(options, components) {
 Tooltip.prototype.destroy = function() {
   this.inputter.onAssignmentChange.remove(this.assignmentChanged, this);
   this.inputter.onChoiceChange.remove(this.choiceChanged, this);
-  this.requisition.onTextChange.remove(this.textChanged, this);
 
   if (this.panelElement) {
     this.focusManager.onVisibilityChange.remove(this.visibilityChanged, this);
@@ -214,12 +212,11 @@ Tooltip.prototype.fieldChanged = function(ev) {
 };
 
 /**
- * Called by the onTextChanged event on the Requisition
+ * Called by the Inputter when the text changes
  */
 Tooltip.prototype.textChanged = function() {
-  // Requisition fires onTextChanged events on any change, including minor
-  // things like whitespace change in arg prefix, so we ignore anything but
-  // an actual value change.
+  // We get here for minor things like whitespace change in arg prefix,
+  // so we ignore anything but an actual value change.
   if (this.assignment.arg.text === this.lastText) {
     return;
   }

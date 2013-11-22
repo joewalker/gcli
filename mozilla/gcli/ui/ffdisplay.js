@@ -108,12 +108,11 @@ function FFDisplay(options) {
   this.inputter.tooltip = this.tooltip;
 
   if (options.consoleWrap) {
-    this.consoleWrap = options.consoleWrap;
-    var win = options.consoleWrap.ownerDocument.defaultView;
     this.resizer = this.resizer.bind(this);
 
+    this.consoleWrap = options.consoleWrap;
+    var win = options.consoleWrap.ownerDocument.defaultView;
     win.addEventListener('resize', this.resizer, false);
-    this.requisition.onTextChange.add(this.resizer, this);
   }
 
   this.options = options;
@@ -147,8 +146,6 @@ FFDisplay.prototype.reattach = function(options) {
 FFDisplay.prototype.destroy = function() {
   if (this.consoleWrap) {
     var win = this.options.consoleWrap.ownerDocument.defaultView;
-
-    this.requisition.onTextChange.remove(this.resizer, this);
     win.removeEventListener('resize', this.resizer, false);
   }
 
