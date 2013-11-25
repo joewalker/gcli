@@ -35,7 +35,7 @@
       // Hook GCLI into this page, using gcli-root above
       gcli.createTerminal().then(function(terminal) {
         // Run the unit test at each startup.
-        test.run(terminal);
+        test.run(terminal, gcli);
       }).then(null, console.error);
     });
   </script>
