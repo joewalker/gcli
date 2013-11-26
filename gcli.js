@@ -31,6 +31,7 @@ var items = [
   require('./lib/gcli/commands/help').items,
   require('./lib/gcli/commands/intro').items,
   require('./lib/gcli/commands/lang').items,
+  require('./lib/gcli/commands/mocks').items,
   require('./lib/gcli/commands/preflist').items,
   require('./lib/gcli/commands/pref').items,
   require('./lib/gcli/commands/test').items,
