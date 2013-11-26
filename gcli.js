@@ -22,33 +22,37 @@ exports.gcliHome = __dirname;
 require('./lib/gcli/index');
 var gcli = require('./lib/gcli/api').getApi();
 
-// gcli.addItems(require('./lib/gcli/commands/connect').items);
-gcli.addItems(require('./lib/gcli/commands/clear').items);
-gcli.addItems(require('./lib/gcli/commands/context').items);
-gcli.addItems(require('./lib/gcli/commands/exec').items);
-gcli.addItems(require('./lib/gcli/commands/global').items);
-gcli.addItems(require('./lib/gcli/commands/help').items);
-gcli.addItems(require('./lib/gcli/commands/intro').items);
-gcli.addItems(require('./lib/gcli/commands/lang').items);
-gcli.addItems(require('./lib/gcli/commands/preflist').items);
-gcli.addItems(require('./lib/gcli/commands/pref').items);
-gcli.addItems(require('./lib/gcli/commands/test').items);
+var items = [
+  // require('./lib/gcli/commands/connect').items,
+  require('./lib/gcli/commands/clear').items,
+  require('./lib/gcli/commands/context').items,
+  require('./lib/gcli/commands/exec').items,
+  require('./lib/gcli/commands/global').items,
+  require('./lib/gcli/commands/help').items,
+  require('./lib/gcli/commands/intro').items,
+  require('./lib/gcli/commands/lang').items,
+  require('./lib/gcli/commands/preflist').items,
+  require('./lib/gcli/commands/pref').items,
+  require('./lib/gcli/commands/test').items,
 
-gcli.addItems(require('./lib/gcli/commands/demo/alert').items);
-// gcli.addItems(require('./lib/gcli/commands/demo/bugs').items);
-// gcli.addItems(require('./lib/gcli/commands/demo/demo').items);
-gcli.addItems(require('./lib/gcli/commands/demo/echo').items);
-// gcli.addItems(require('./lib/gcli/commands/demo/edit').items);
-// gcli.addItems(require('./lib/gcli/commands/demo/git').items);
-// gcli.addItems(require('./lib/gcli/commands/demo/hg').items);
-gcli.addItems(require('./lib/gcli/commands/demo/sleep').items);
+  require('./lib/gcli/commands/demo/alert').items,
+  // require('./lib/gcli/commands/demo/bugs').items,
+  // require('./lib/gcli/commands/demo/demo').items,
+  require('./lib/gcli/commands/demo/echo').items,
+  // require('./lib/gcli/commands/demo/edit').items,
+  // require('./lib/gcli/commands/demo/git').items,
+  // require('./lib/gcli/commands/demo/hg').items,
+  require('./lib/gcli/commands/demo/sleep').items,
 
-// Commands using the Node API
-gcli.addItems(require('./lib/gcli/commands/server/exit').items);
-gcli.addItems(require('./lib/gcli/commands/server/firefox').items);
-gcli.addItems(require('./lib/gcli/commands/server/orion').items);
-gcli.addItems(require('./lib/gcli/commands/server/server').items);
-gcli.addItems(require('./lib/gcli/commands/server/standard').items);
+  // Commands using the Node API
+  require('./lib/gcli/commands/server/exit').items,
+  require('./lib/gcli/commands/server/firefox').items,
+  require('./lib/gcli/commands/server/orion').items,
+  require('./lib/gcli/commands/server/server').items,
+  require('./lib/gcli/commands/server/standard').items
+].reduce(function(prev, curr) { return prev.concat(curr); }, []);
+
+gcli.addItems(items);
 
 var util = require('./lib/gcli/util/util');
 var Requisition = require('./lib/gcli/cli').Requisition;
