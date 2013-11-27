@@ -37,7 +37,6 @@ var basicTypes = [
   require('../types/date').items,
   require('../types/file').items,
   require('../types/number').items,
-  require('../types/remote').items,
   require('../types/string').items
 
 ].reduce(function(prev, curr) { return prev.concat(curr); }, []);
@@ -116,13 +115,6 @@ exports.createRemoteTerminal = function(options) {
 
 exports.fetchRemoteItems = function(connection) {
   return connection.call('specs').then(function(specs) {
-
-    // We need to inject the connection into all the remote types
-    specs.types.forEach(function(typeSpec) {
-      if (typeSpec.parent === 'remote') {
-        typeSpec.connection = connection;
-      }
-    });
 
     // Inject an 'exec' function into the commands
     specs.commands.forEach(function(commandSpec) {
