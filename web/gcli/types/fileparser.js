@@ -18,7 +18,7 @@
 
 var connectors = require('../connectors/connectors');
 var promise = require('../util/promise');
-var Status = require('../types').Status;
+var Status = require('./types').Status;
 
 /**
  * Helper for the parse() function from the file type.

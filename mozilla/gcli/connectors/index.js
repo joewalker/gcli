@@ -18,8 +18,8 @@
 
 var api = require('../api');
 var connectors = require('./connectors');
-var Canon = require('../canon').Canon;
-var Types = require('../types').Types;
+var Canon = require('../commands/commands').Canon;
+var Types = require('../types/types').Types;
 
 /**
  * The set of basic types that we'll need everywhere, even in a setup that

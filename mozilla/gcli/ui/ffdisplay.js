@@ -29,7 +29,7 @@ var nodetype = require('../types/node');
 var resource = require('../types/resource');
 var intro = require('../ui/intro');
 
-var CommandOutputManager = require('../canon').CommandOutputManager;
+var CommandOutputManager = require('../commands/commands').CommandOutputManager;
 
 /**
  * Handy utility to inject the content document (i.e. for the viewed page,
