@@ -117,7 +117,7 @@ exports.fetchRemoteItems = function(connection) {
   return connection.call('specs').then(function(specs) {
 
     // Inject an 'exec' function into the commands
-    specs.commands.forEach(function(commandSpec) {
+    specs.forEach(function(commandSpec) {
       if (!commandSpec.isParent) {
         commandSpec.exec = function(args, context) {
           var data = {
@@ -140,6 +140,6 @@ exports.fetchRemoteItems = function(connection) {
       commandSpec.isProxy = true;
     });
 
-    return specs.types.concat(specs.commands);
+    return specs;
   });
 };
