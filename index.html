@@ -33,9 +33,10 @@
 
       // To run commands remotely, 
       // Hook GCLI into this page, using gcli-root above
-      gcli.createTerminal().then(function(terminal) {
+      var options = {};
+      gcli.createTerminal(options).then(function() {
         // Run the unit test at each startup.
-        test.run(terminal, gcli);
+        test.run(options);
       }).then(null, console.error);
     });
   </script>

@@ -26,10 +26,12 @@
       paths: { i18n: '../scripts/i18n', text: '../scripts/text' }
     });
 
-    require([ 'gcli/connectors/index', 'gcli/test/index' ], function(gcli, test) {
-      gcli.createRemoteTerminal().then(function(terminal) {
-        // Run the unit test at each startup.
-        test.run(terminal, gcli.api, true);
+    require([ 'gcli/index', 'gcli/test/index', 'gcli/connectors/index' ], function(gcli, test, cnx) {
+      var options = { connector: 'websocket' };
+      cnx.connect(options).then(function() {
+        gcli.createTerminal(options).then(function() {
+          test.run(options);
+        });
       }).then(null, console.error.bind(console));
     });
   </script>
