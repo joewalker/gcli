@@ -18,7 +18,6 @@
 
 var util = require('../util/util');
 var domtemplate = require('../util/domtemplate');
-var host = require('../util/host');
 
 var CommandAssignment = require('../cli').CommandAssignment;
 var fields = require('../fields/fields');

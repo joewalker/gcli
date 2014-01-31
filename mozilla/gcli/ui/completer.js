@@ -16,10 +16,8 @@
 
 'use strict';
 
-var promise = require('../util/promise');
 var util = require('../util/util');
 var domtemplate = require('../util/domtemplate');
-var host = require('../util/host');
 
 var completerHtml =
   '<description\n' +

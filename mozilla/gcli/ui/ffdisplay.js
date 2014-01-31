@@ -197,7 +197,6 @@ FFDisplay.prototype.resizer = function() {
   var doc = this.options.hintElement.ownerDocument;
 
   var outputNode = this.options.hintElement.parentNode.parentNode.children[1];
-  var outputs = outputNode.getElementsByClassName('gcliterm-msg-body');
   var listItems = outputNode.getElementsByClassName('hud-msg-node');
 
   // This is an top-side estimate. We could try to calculate it, maybe using

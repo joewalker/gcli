@@ -21,12 +21,9 @@ var Cc = require('chrome').Cc;
 var Ci = require('chrome').Ci;
 
 var OS = Cu.import('resource://gre/modules/osfile.jsm', {}).OS;
-var TextDecoder = Cu.import('resource://gre/modules/commonjs/toolkit/loader.js', {}).TextDecoder;
 
 var promise = require('./promise');
 var util = require('./util');
-
-var decoder = new TextDecoder('utf8');
 
 function Highlighter(document) {
   this._document = document;

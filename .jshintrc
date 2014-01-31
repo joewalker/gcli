@@ -14,6 +14,7 @@
   "phantom": true,
   "laxbreak": true,
   "iterator": true,
+  "unused":"vars",
   "globals": {
     "define": false,
     "Components": false,
