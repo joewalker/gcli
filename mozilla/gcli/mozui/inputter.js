@@ -21,7 +21,7 @@ var util = require('../util/util');
 var KeyEvent = require('../util/util').KeyEvent;
 
 var Status = require('../types/types').Status;
-var History = require('./history').History;
+var History = require('../ui/history').History;
 
 var RESOLVED = promise.resolve(true);
 

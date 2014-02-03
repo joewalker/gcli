@@ -83,7 +83,7 @@ exports.useTarget = host.script.useTarget;
  * - inputBackgroundElement: GCLITerm.inputStack
  */
 exports.createDisplay = function(opts) {
-  var FFDisplay = require('./ui/ffdisplay').FFDisplay;
+  var FFDisplay = require('./mozui/ffdisplay').FFDisplay;
   return new FFDisplay(opts);
 };
 

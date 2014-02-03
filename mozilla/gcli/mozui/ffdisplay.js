@@ -16,9 +16,9 @@
 
 'use strict';
 
-var Inputter = require('../ui/inputter').Inputter;
-var Completer = require('../ui/completer').Completer;
-var Tooltip = require('../ui/tooltip').Tooltip;
+var Inputter = require('./inputter').Inputter;
+var Completer = require('./completer').Completer;
+var Tooltip = require('./tooltip').Tooltip;
 var FocusManager = require('../ui/focus').FocusManager;
 
 var Requisition = require('../cli').Requisition;
@@ -132,12 +132,9 @@ FFDisplay.prototype.maybeShowIntro = function() {
  * Called when the page to which we're attached changes
  * @params options Object with the following properties:
  * - contentDocument: Points to the page that we should now work against
- * - environment: A replacement environment for Requisition use
- * - chromeWindow: Allow node type to create overlay
  */
 FFDisplay.prototype.reattach = function(options) {
   setContentDocument(options.contentDocument);
-  this.requisition.environment = options.environment;
 };
 
 /**
