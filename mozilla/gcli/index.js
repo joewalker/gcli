@@ -65,13 +65,13 @@ var items = [
   require('./languages/javascript').items,
 
   // require('./connectors/direct').items, // No need for loopback testing
-  require('./connectors/rdp').items,
+  // require('./connectors/rdp').items, // Needs fixing
   // require('./connectors/websocket').items, // Not from chrome
   // require('./connectors/xhr').items, // Not from chrome
 
   // require('./cli').items, // No need for '{' with web console
   require('./commands/clear').items,
-  require('./commands/connect').items,
+  // require('./commands/connect').items, // We need to fix our RDP connector
   require('./commands/context').items,
   // require('./commands/exec').items, // No exec in Firefox yet
   require('./commands/global').items,
