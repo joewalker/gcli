@@ -22,9 +22,24 @@ exports.gcliHome = __dirname;
 require('./lib/gcli/index');
 var gcli = require('./lib/gcli/api').getApi();
 
+/*
+ * GCLI is built from a number of components (called items) to be composed as
+ * required for the environment in which it is used. So this list of 'items we
+ * need' be customized from environment to environment.
+ * When adding to or removing from this list, we should keep the basics in sync
+ * with the other environments.
+ * See:
+ * - lib/gcli/index.js: Generic basic set (without commands)
+ * - lib/gcli/demo.js: Adds demo commands to basic set for use in web demo
+ * - gcli.js: Add commands to basic set for use in Node command line
+ * - mozilla/gcli/index.js: From scratch listing for Firefox
+ * - lib/gcli/connectors/index.js: Client only items when executing remotely
+ * - lib/gcli/connectors/direct.js: Test items for connecting to in-process GCLI
+ */
 var items = [
-  // require('./lib/gcli/commands/connect').items,
+  require('./lib/gcli/cli').items,
   require('./lib/gcli/commands/clear').items,
+  // require('./lib/gcli/commands/connect').items,
   require('./lib/gcli/commands/context').items,
   require('./lib/gcli/commands/exec').items,
   require('./lib/gcli/commands/global').items,
@@ -32,8 +47,8 @@ var items = [
   require('./lib/gcli/commands/intro').items,
   require('./lib/gcli/commands/lang').items,
   require('./lib/gcli/commands/mocks').items,
-  require('./lib/gcli/commands/preflist').items,
   require('./lib/gcli/commands/pref').items,
+  require('./lib/gcli/commands/preflist').items,
   require('./lib/gcli/commands/test').items,
 
   require('./lib/gcli/commands/demo/alert').items,
@@ -44,8 +59,8 @@ var items = [
   // require('./lib/gcli/commands/demo/git').items,
   // require('./lib/gcli/commands/demo/hg').items,
   require('./lib/gcli/commands/demo/sleep').items,
+  // require('./lib/gcli/commands/demo/theme').items,
 
-  // Commands using the Node API
   require('./lib/gcli/commands/server/exit').items,
   require('./lib/gcli/commands/server/firefox').items,
   require('./lib/gcli/commands/server/orion').items,

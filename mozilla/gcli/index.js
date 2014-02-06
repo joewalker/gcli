@@ -20,49 +20,76 @@ var Cc = require('chrome').Cc;
 var Ci = require('chrome').Ci;
 var Cu = require('chrome').Cu;
 
+/*
+ * GCLI is built from a number of components (called items) to be composed as
+ * required for the environment in which it is used. So this list of 'items we
+ * need' be customized from environment to environment.
+ * When adding to or removing from this list, we should keep the basics in sync
+ * with the other environments.
+ * See:
+ * - lib/gcli/index.js: Generic basic set (without commands)
+ * - lib/gcli/demo.js: Adds demo commands to basic set for use in web demo
+ * - gcli.js: Add commands to basic set for use in Node command line
+ * - mozilla/gcli/index.js: From scratch listing for Firefox
+ * - lib/gcli/connectors/index.js: Client only items when executing remotely
+ * - lib/gcli/connectors/direct.js: Test items for connecting to in-process GCLI
+ */
+var items = [
+  require('./types/delegate').items,
+  require('./types/selection').items,
+  require('./types/array').items,
+
+  require('./types/boolean').items,
+  require('./types/command').items,
+  require('./types/date').items,
+  require('./types/file').items,
+  require('./types/javascript').items,
+  require('./types/node').items,
+  require('./types/number').items,
+  require('./types/resource').items,
+  require('./types/setting').items,
+  require('./types/string').items,
+
+  require('./fields/delegate').items,
+  require('./fields/selection').items,
+
+  require('./ui/focus').items,
+  require('./ui/intro').items,
+
+  require('./converters/converters').items,
+  require('./converters/basic').items,
+  // require('./converters/html').items, // Prevent use of innerHTML
+  require('./converters/terminal').items,
+
+  require('./languages/command').items,
+  require('./languages/javascript').items,
+
+  // require('./connectors/direct').items, // No need for loopback testing
+  require('./connectors/rdp').items,
+  // require('./connectors/websocket').items, // Not from chrome
+  // require('./connectors/xhr').items, // Not from chrome
+
+  // require('./cli').items, // No need for '{' with web console
+  require('./commands/clear').items,
+  require('./commands/connect').items,
+  require('./commands/context').items,
+  // require('./commands/exec').items, // No exec in Firefox yet
+  require('./commands/global').items,
+  require('./commands/help').items,
+  // require('./commands/intro').items, // No need for intro command
+  require('./commands/lang').items,
+  // require('./commands/mocks').items, // Only for testing
+  require('./commands/pref').items,
+  // require('./commands/preflist').items, // Too slow in Firefox
+  // require('./commands/test').items, // Only for testing
+
+  // No demo or node commands
+
+].reduce(function(prev, curr) { return prev.concat(curr); }, []);
+
 var api = require('./api');
 api.populateApi(exports);
-
-exports.addItems(require('./types/delegate').items);
-exports.addItems(require('./types/selection').items);
-
-exports.addItems(require('./fields/delegate').items);
-exports.addItems(require('./fields/selection').items);
-
-exports.addItems(require('./types/array').items);
-exports.addItems(require('./types/boolean').items);
-exports.addItems(require('./types/command').items);
-exports.addItems(require('./types/date').items);
-exports.addItems(require('./types/file').items);
-exports.addItems(require('./types/javascript').items);
-exports.addItems(require('./types/node').items);
-exports.addItems(require('./types/number').items);
-exports.addItems(require('./types/resource').items);
-exports.addItems(require('./types/setting').items);
-exports.addItems(require('./types/string').items);
-
-exports.addItems(require('./converters/converters').items);
-exports.addItems(require('./converters/basic').items);
-// Don't export the 'html' type to avoid use of innerHTML
-// exports.addItems(require('./converters/html').items);
-exports.addItems(require('./converters/terminal').items);
-
-exports.addItems(require('./languages/javascript').items);
-exports.addItems(require('./languages/command').items);
-
-exports.addItems(require('./ui/intro').items);
-exports.addItems(require('./ui/focus').items);
-
-// Don't export the '{' command
-// exports.addItems(require('./cli').items);
-
-exports.addItems(require('./commands/clear').items);
-exports.addItems(require('./commands/connect').items);
-exports.addItems(require('./commands/context').items);
-exports.addItems(require('./commands/global').items);
-exports.addItems(require('./commands/help').items);
-exports.addItems(require('./commands/lang').items);
-exports.addItems(require('./commands/pref').items);
+exports.addItems(items);
 
 var host = require('./util/host');
 
