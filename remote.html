@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="author" content="Joe Walker">
+  <title>GCLI: Graphical Command Line</title>
+  <style type="text/css" media="screen">
+    body {
+      width: 100%; height: 100%; overflow: hidden;
+    }
+    #gcli-root {
+      position: absolute; top: 0; bottom: 0; left: 0; right: 0;
+    }
+  </style>
+</head>
+
+<body class="light">
+
+  <div id="gcli-root"></div>
+
+  <script type="text/javascript" src="scripts/shim.js"></script>
+  <script type="text/javascript" src="scripts/require.js"></script>
+  <script type="text/javascript">
+    requirejs.config({
+      baseUrl: 'lib',
+      paths: { i18n: '../scripts/i18n', text: '../scripts/text' }
+    });
+
+    require([ 'gcli/index', 'gcli/test/index', 'gcli/connectors/index' ], function(gcli, test, cnx) {
+      var options = { connector: 'websocket' };
+      cnx.connect(options).then(function() {
+        gcli.createTerminal(options).then(function() {
+          test.run(options);
+        });
+      }).then(null, console.error.bind(console));
+    });
+  </script>
+
+</body>
+</html>

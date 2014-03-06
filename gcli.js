@@ -19,112 +19,60 @@
 
 exports.gcliHome = __dirname;
 
-/**
- * There are 2 options for loading GCLI CommonJS modules:
- * 1. Use Require's r.js
- * 2. Convert the modules to CommonJS format on the fly.
- *
- * The former feels less hacky, the latter allows us to use 'cover' test
- * coverage. Neither are complex so we've left them both in so they can fight
- * it out.
+require('./lib/gcli/index');
+var gcli = require('./lib/gcli/api').getApi();
+
+/*
+ * GCLI is built from a number of components (called items) composed as
+ * required for each environment.
+ * When adding to or removing from this list, we should keep the basics in sync
+ * with the other environments.
+ * See:
+ * - lib/gcli/index.js: Generic basic set (without commands)
+ * - lib/gcli/demo.js: Adds demo commands to basic set for use in web demo
+ * - gcli.js: Add commands to basic set for use in Node command line
+ * - mozilla/gcli/index.js: From scratch listing for Firefox
+ * - lib/gcli/connectors/index.js: Client only items when executing remotely
+ * - lib/gcli/connectors/direct.js: Test items for connecting to in-process GCLI
  */
-exports.useUnamd = false;
+var items = [
+  require('./lib/gcli/cli').items,
+  require('./lib/gcli/commands/clear').items,
+  // require('./lib/gcli/commands/connect').items,
+  require('./lib/gcli/commands/context').items,
+  require('./lib/gcli/commands/exec').items,
+  require('./lib/gcli/commands/global').items,
+  require('./lib/gcli/commands/help').items,
+  require('./lib/gcli/commands/intro').items,
+  require('./lib/gcli/commands/lang').items,
+  require('./lib/gcli/commands/mocks').items,
+  require('./lib/gcli/commands/pref').items,
+  require('./lib/gcli/commands/preflist').items,
+  require('./lib/gcli/commands/test').items,
 
-// Setup the exports.require function to use either:
-// - requirejs (through r.js) or
-// - node's require (via unamd)
-if (exports.useUnamd) {
-  var unamd = require('./lib/server/unamd');
-  [ 'gcli', 'gclitest', 'test' ].forEach(function(packageName) {
-    var srcDir = exports.gcliHome + '/lib/' + packageName;
-    var destDir = exports.gcliHome + '/node_modules/' + packageName;
-    unamd.unamdize(srcDir, destDir);
-  });
+  require('./lib/gcli/commands/demo/alert').items,
+  // require('./lib/gcli/commands/demo/bugs').items,
+  // require('./lib/gcli/commands/demo/demo').items,
+  require('./lib/gcli/commands/demo/echo').items,
+  // require('./lib/gcli/commands/demo/edit').items,
+  // require('./lib/gcli/commands/demo/git').items,
+  // require('./lib/gcli/commands/demo/hg').items,
+  require('./lib/gcli/commands/demo/sleep').items,
+  // require('./lib/gcli/commands/demo/theme').items,
 
-  exports.require = require;
-}
-else {
-  // It's tempting to use RequireJS from NPM, however that would break
-  // running GCLI in Firefox just by opening index.html
-  var requirejs = require('./scripts/r.js');
-  requirejs.config({
-    nodeRequire: require,
-    paths: { 'text': 'scripts/text', 'i18n': 'scripts/i18n' },
-    packagePaths: {
-      'lib': [
-        { name: 'gcli', main: 'index', lib: '.' },
-        { name: 'test', main: 'index', lib: '.' },
-        { name: 'gclitest', main: 'index', lib: '.' },
-        { name: 'demo', main: 'index', lib: '.' },
-        { name: 'server', main: 'index', lib: '.' },
-        { name: 'util', main: 'index', lib: '.' }
-      ]
-    }
-  });
+  require('./lib/gcli/commands/server/exit').items,
+  require('./lib/gcli/commands/server/firefox').items,
+  require('./lib/gcli/commands/server/orion').items,
+  require('./lib/gcli/commands/server/server').items,
+  require('./lib/gcli/commands/server/standard').items
+].reduce(function(prev, curr) { return prev.concat(curr); }, []);
 
-  exports.require = requirejs;
+gcli.addItems(items);
 
-  // The Firefox build has an override directory to enable custom code, but in
-  // NodeJS it's more hacky - we inject into require
-  var serverOverride = function(requirePath, nodePath) {
-    var host = require(nodePath);
-    requirejs.define(requirePath, function(require, exports, module) {
-      Object.keys(host).forEach(function(key) {
-        exports[key] = host[key];
-      });
-    });
-  };
+var util = require('./lib/gcli/util/util');
+var Requisition = require('./lib/gcli/cli').Requisition;
 
-  serverOverride('util/host', './lib/server/util/host');
-  serverOverride('util/filesystem', './lib/server/util/filesystem');
-  serverOverride('gcli/types/fileparser', './lib/server/gcli/types/fileparser');
-
-  var fs = require('fs');
-  var helpManHtml = fs.readFileSync(exports.gcliHome + '/lib/server/gcli/commands/help_man.html', 'utf8');
-  var helpListHtml = fs.readFileSync(exports.gcliHome + '/lib/server/gcli/commands/help_list.html', 'utf8');
-  requirejs.define('text!gcli/commands/help_man.html', helpManHtml);
-  requirejs.define('text!gcli/commands/help_list.html', helpListHtml);
-}
-
-exports.require('gcli/index');
-var gcli = exports.require('gcli/api').getApi();
-
-// gcli.addItems(exports.require('gcli/commands/connect').items);
-gcli.addItems(exports.require('gcli/commands/context').items);
-gcli.addItems(exports.require('gcli/commands/exec').items);
-gcli.addItems(exports.require('gcli/commands/help').items);
-gcli.addItems(exports.require('gcli/commands/intro').items);
-gcli.addItems(exports.require('gcli/commands/pref_list').items);
-gcli.addItems(exports.require('gcli/commands/pref').items);
-
-gcli.addItems(exports.require('demo/commands/alert').items);
-// gcli.addItems(exports.require('demo/commands/bugs').items);
-// gcli.addItems(exports.require('demo/commands/demo').items);
-gcli.addItems(exports.require('demo/commands/echo').items);
-// gcli.addItems(exports.require('demo/commands/edit').items);
-// gcli.addItems(exports.require('demo/commands/git').items);
-// gcli.addItems(exports.require('demo/commands/hg').items);
-gcli.addItems(exports.require('demo/commands/sleep').items);
-
-// Commands using the Node API
-gcli.addItems(require('./lib/server/commands/exit').items);
-gcli.addItems(require('./lib/server/commands/firefox').items);
-gcli.addItems(require('./lib/server/commands/server').items);
-gcli.addItems(require('./lib/server/commands/standard').items);
-gcli.addItems(require('./lib/server/commands/test').items);
-gcli.addItems(require('./lib/server/commands/unamd').items);
-
-var Requisition = exports.require('gcli/cli').Requisition;
-var Status = exports.require('gcli/types').Status;
-
-var jsdom = require('jsdom').jsdom;
-var doc = jsdom('<html><head></head><body></body></html>');
-var environment = {
-  document: doc,
-  window: doc.defaultView
-};
-var requisition = new Requisition(environment, doc);
-
+var requisition = new Requisition();
 var command, extraActions;
 
 if (process.argv.length < 3) {
@@ -164,7 +112,10 @@ function logResults(output) {
   });
 }
 
-requisition.updateExec(command).then(logResults).then(extraActions);
+requisition.updateExec(command)
+           .then(logResults)
+           .then(extraActions)
+           .then(null, util.errorHandler);
 
 /**
  * Start a NodeJS REPL to execute commands
@@ -179,11 +130,16 @@ function startRepl() {
     });
 
     if (command.length !== 0) {
-      requisition.updateExec(command).then(logResults).then(function() { callback(); });
+      requisition.updateExec(command)
+                 .then(logResults)
+                 .then(
+                     function() { callback(); },
+                     function(ex) { util.errorHandler(ex); callback(); }
+                 );
     }
   };
 
   console.log('This is also a limited GCLI REPL. ' +
               'Type \'help\' for a list of commands, CTRL+C 3 times to exit:');
-  repl.start('\u00bb ', process, gcliEval, false, true);
+  repl.start(': ', process, gcliEval, false, true);
 }

@@ -6,7 +6,6 @@ node_modules/dryice
 node_modules/express
 node_modules/formidable
 node_modules/gclitest
-node_modules/jsdom
 node_modules/socket.io
 node_modules/test
 

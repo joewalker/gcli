@@ -14,50 +14,85 @@
  * limitations under the License.
  */
 
-define(function(require, exports, module) {
-
 'use strict';
 
-require('gcli/settings').startup();
+var Cc = require('chrome').Cc;
+var Ci = require('chrome').Ci;
+var Cu = require('chrome').Cu;
 
-var api = require('gcli/api');
+/*
+ * GCLI is built from a number of components (called items) composed as
+ * required for each environment.
+ * When adding to or removing from this list, we should keep the basics in sync
+ * with the other environments.
+ * See:
+ * - lib/gcli/index.js: Generic basic set (without commands)
+ * - lib/gcli/demo.js: Adds demo commands to basic set for use in web demo
+ * - gcli.js: Add commands to basic set for use in Node command line
+ * - mozilla/gcli/index.js: From scratch listing for Firefox
+ * - lib/gcli/connectors/index.js: Client only items when executing remotely
+ * - lib/gcli/connectors/direct.js: Test items for connecting to in-process GCLI
+ */
+var items = [
+  require('./types/delegate').items,
+  require('./types/selection').items,
+  require('./types/array').items,
+
+  require('./types/boolean').items,
+  require('./types/command').items,
+  require('./types/date').items,
+  require('./types/file').items,
+  require('./types/javascript').items,
+  require('./types/node').items,
+  require('./types/number').items,
+  require('./types/resource').items,
+  require('./types/setting').items,
+  require('./types/string').items,
+
+  require('./fields/delegate').items,
+  require('./fields/selection').items,
+
+  require('./ui/focus').items,
+  require('./ui/intro').items,
+
+  require('./converters/converters').items,
+  require('./converters/basic').items,
+  // require('./converters/html').items, // Prevent use of innerHTML
+  require('./converters/terminal').items,
+
+  require('./languages/command').items,
+  require('./languages/javascript').items,
+
+  // require('./connectors/direct').items, // No need for loopback testing
+  // require('./connectors/rdp').items, // Needs fixing
+  // require('./connectors/websocket').items, // Not from chrome
+  // require('./connectors/xhr').items, // Not from chrome
+
+  // require('./cli').items, // No need for '{' with web console
+  require('./commands/clear').items,
+  // require('./commands/connect').items, // We need to fix our RDP connector
+  require('./commands/context').items,
+  // require('./commands/exec').items, // No exec in Firefox yet
+  require('./commands/global').items,
+  require('./commands/help').items,
+  // require('./commands/intro').items, // No need for intro command
+  require('./commands/lang').items,
+  // require('./commands/mocks').items, // Only for testing
+  require('./commands/pref').items,
+  // require('./commands/preflist').items, // Too slow in Firefox
+  // require('./commands/test').items, // Only for testing
+
+  // No demo or node commands
+
+].reduce(function(prev, curr) { return prev.concat(curr); }, []);
+
+var api = require('./api');
 api.populateApi(exports);
+exports.addItems(items);
 
-exports.addItems(require('gcli/types/selection').items);
-exports.addItems(require('gcli/types/delegate').items);
+var host = require('./util/host');
 
-exports.addItems(require('gcli/types/array').items);
-exports.addItems(require('gcli/types/boolean').items);
-exports.addItems(require('gcli/types/command').items);
-exports.addItems(require('gcli/types/date').items);
-exports.addItems(require('gcli/types/file').items);
-exports.addItems(require('gcli/types/javascript').items);
-exports.addItems(require('gcli/types/node').items);
-exports.addItems(require('gcli/types/number').items);
-exports.addItems(require('gcli/types/resource').items);
-exports.addItems(require('gcli/types/setting').items);
-exports.addItems(require('gcli/types/string').items);
-
-exports.addItems(require('gcli/converters').items);
-exports.addItems(require('gcli/converters/basic').items);
-// Don't export the 'html' type to avoid use of innerHTML
-// exports.addItems(require('gcli/converters/html').items);
-exports.addItems(require('gcli/converters/terminal').items);
-
-exports.addItems(require('gcli/ui/intro').items);
-exports.addItems(require('gcli/ui/focus').items);
-
-exports.addItems(require('gcli/ui/fields/basic').items);
-exports.addItems(require('gcli/ui/fields/javascript').items);
-exports.addItems(require('gcli/ui/fields/selection').items);
-
-// Don't export the '{' command
-// exports.addItems(require('gcli/cli').items);
-
-exports.addItems(require('gcli/commands/connect').items);
-exports.addItems(require('gcli/commands/context').items);
-exports.addItems(require('gcli/commands/help').items);
-exports.addItems(require('gcli/commands/pref').items);
+exports.useTarget = host.script.useTarget;
 
 /**
  * This code is internal and subject to change without notice.
@@ -74,14 +109,13 @@ exports.addItems(require('gcli/commands/pref').items);
  * - inputBackgroundElement: GCLITerm.inputStack
  */
 exports.createDisplay = function(opts) {
-  var FFDisplay = require('gcli/ui/ffdisplay').FFDisplay;
+  var FFDisplay = require('./mozui/ffdisplay').FFDisplay;
   return new FFDisplay(opts);
 };
 
-var prefSvc = Components.classes['@mozilla.org/preferences-service;1']
-                        .getService(Components.interfaces.nsIPrefService);
-var prefBranch = prefSvc.getBranch(null)
-                        .QueryInterface(Components.interfaces.nsIPrefBranch2);
+var prefSvc = Cc['@mozilla.org/preferences-service;1']
+                        .getService(Ci.nsIPrefService);
+var prefBranch = prefSvc.getBranch(null).QueryInterface(Ci.nsIPrefBranch2);
 
 exports.hiddenByChromePref = function() {
   return !prefBranch.prefHasUserValue('devtools.chrome.enabled');
@@ -89,7 +123,7 @@ exports.hiddenByChromePref = function() {
 
 
 try {
-  var Services = Components.utils.import('resource://gre/modules/Services.jsm', {}).Services;
+  var Services = Cu.import('resource://gre/modules/Services.jsm', {}).Services;
   var stringBundle = Services.strings.createBundle(
           'chrome://browser/locale/devtools/gclicommands.properties');
 
@@ -127,6 +161,3 @@ catch (ex) {
     return name;
   };
 }
-
-
-});

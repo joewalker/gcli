@@ -23,14 +23,6 @@ and to enable us to provide sensible context sensitive help. GCLI provides
 integration with JavaScript rather than being an alternative (like CoffeeScript).
 
 
-## Status
-
-Most parts of GCLI are usable, although like any project there are incomplete
-sections. We don't currently release special version numbers, or alternatively
-we release on a daily basis using the day as a version number. The master
-branch is generally stable and should pass all unit tests.
-
-
 ## History
 
 GCLI was born as part of the
@@ -60,7 +52,7 @@ Other sources of GCLI documentation:
 - [Writing Commands](writing-commands.md)
 - [Writing Types](writing-types.md)
 - [Developing GCLI](developing-gcli.md)
-- [Running Tests](running-tests.md)
+- [Writing Tests](writing-tests.md) / [Running Tests](running-tests.md)
 - [The Design of GCLI](design.md)
 - Source
   - The most up-to-date source is in [this Github repository](https://github.com/joewalker/gcli/).
@@ -113,12 +105,12 @@ There are 3 basic steps in using GCLI in your system.
 
         require([ 'gcli/index' ], function(gcli) {
           gcli.addCommand(...); // Register custom commands
-          gcli.createDisplay(); // Create a user interface
+          gcli.createTerminal(); // Create a user interface
         });
 
-   Both the startup() and createDisplay() commands take ``options`` objects
-   which allow customization. At the current time the documentation of these
-   object is left to the source.
+   The createTerminal() function takes an ``options`` objects which allows
+   customization. At the current time the documentation of these object is left
+   to the source.
 
 
 ## Backwards Compatibility

@@ -1,3 +1,4 @@
+
 # Writing Commands
 
 ## Basics
@@ -71,7 +72,7 @@ This is how to create a basic ``greet`` command:
 
 This command is used as follows:
 
-    » greet Joe
+    : greet Joe
     Hello, Joe
 
 Some terminology that isn't always obvious: a function has 'parameters', and
@@ -169,7 +170,7 @@ parameter:
 
 Now we can also use the ``greet`` command as follows:
 
-    » greet
+    : greet
     Hello, World!
 
 
@@ -181,21 +182,34 @@ can be more self documenting.
 
 For example, we can also invoke the greet command as follows:
 
-    » greet --name Joe
+    : greet --name Joe
     Hello, Joe
 
 
 ## Short argument names
 
-Originally GCLI automatically assigned shortened parameter names, so these 2
-commands were equivalent:
+GCLI allows you to specify a 'short' character for any parameter:
 
-    » greet Joe -r 2 -d
-    » greet Joe --repeat 2 --debug
+    gcli.addCommand({
+      name: 'greet',
+      params: [
+        {
+          name: 'name',
+          short: 'n',
+          type: 'string',
+          ...
+        }
+      ],
+      ...
+    });
 
-There are a number of problems with this approach, so we have removed automatic
-shortening feature. We plan to add in proper short argument name support soon,
-using the ``short`` property to specify a single character shortcut.
+This is used as follows:
+
+    : greet -n Fred
+    Hello, Fred
+
+Currently GCLI does not allow short parameter merging (i.e. ```ls -la```)
+however this is planned.
 
 
 ## Parameter types
@@ -205,9 +219,16 @@ Initially the available types are:
 - string
 - boolean
 - number
-- array
 - selection
 - delegate
+- date
+- array
+- file
+- node
+- nodelist
+- resource
+- command
+- setting
 
 This list can be extended. See [Writing Types](writing-types.md) on types for
 more information.
@@ -226,11 +247,11 @@ command:
 
 Parameters can be specified either with named arguments:
 
-    » greet --name Joe --repeat 2
+    : greet --name Joe --repeat 2
 
 And sometimes positionally:
 
-    » greet Joe 2
+    : greet Joe 2
 
 Parameters can be specified positionally if they are considered 'important'.
 Unimportant parameters must be specified with a named argument.
@@ -239,20 +260,20 @@ Named arguments can be specified anywhere on the command line (after the
 command itself) however positional arguments must be in order. So
 these examples are the same:
 
-    » greet --name Joe --repeat 2
-    » greet --repeat 2 --name Joe
+    : greet --name Joe --repeat 2
+    : greet --repeat 2 --name Joe
 
 However (obviously) these are not the same:
 
-    » greet Joe 2
-    » greet 2 Joe
+    : greet Joe 2
+    : greet 2 Joe
 
 (The second would be an error because 'Joe' is not a number).
 
 Named arguments are assigned first, then the remaining arguments are assigned
 to the remaining parameters. So the following is valid and unambiguous:
 
-    » greet 2 --name Joe
+    : greet 2 --name Joe
 
 Positional parameters quickly become unwieldy with long parameter lists so we
 recommend only having 2 or 3 important parameters. GCLI provides hints for
@@ -274,11 +295,11 @@ For example, using:
 
 Would mean that this is an error
 
-    » greet Joe 2
+    : greet Joe 2
 
 You would instead need to do the following:
 
-    » greet Joe --repeat 2
+    : greet Joe --repeat 2
 
 For more on parameter groups, see below.
 
@@ -359,8 +380,8 @@ the input type of a dialog generated from this command.
 Delegate types are needed when the type of some parameter depends on the type
 of another parameter. For example:
 
-    » set height 100
-    » set name "Joe Walker"
+    : set height 100
+    : set name "Joe Walker"
 
 We can achieve this as follows:
 
@@ -409,12 +430,12 @@ Parameters can have a type of ``array``. For example:
 
 This would be used as follows:
 
-    » greet Fred Jim Shiela
+    : greet Fred Jim Shiela
     Hello, Fred, Jim, Shiela.
 
 Or using named arguments:
 
-    » greet --names Fred --names Jim --names Shiela
+    : greet --names Fred --names Jim --names Shiela
     Hello, Fred, Jim, Shiela.
 
 There can only be one ungrouped parameter with an array type, and it must be
@@ -432,17 +453,17 @@ examples of commands that should be structured as in a sub-command style -
 Groups of commands are specified with the top level command not having an
 exec function:
 
-    canon.addCommand({
+    gcli.addCommand({
       name: 'tar',
       description: 'Commands to manipulate archives',
     });
-    canon.addCommand({
+    gcli.addCommand({
       name: 'tar create',
       description: 'Create a new archive',
       exec: function(args, context) { ... },
       ...
     });
-    canon.addCommand({
+    gcli.addCommand({
       name: 'tar extract',
       description: 'Extract from an archive',
       exec: function(args, context) { ... },
@@ -500,7 +521,7 @@ Finally, parameters can be grouped together as follows:
 
 This could be used as follows:
 
-    » greet Joe --repeat 2 --debug
+    : greet Joe --repeat 2 --debug
     About to send greeting
     Hello, Joe
     Hello, Joe
@@ -567,7 +588,7 @@ The parameters to the exec function are designed to be useful when you have a
 large number of parameters, and to give direct access to the environment (if
 used).
 
-    canon.addCommand({
+    gcli.addCommand({
       name: 'echo',
       description: 'The message to display.',
       params: [
@@ -590,7 +611,7 @@ display as ``args.message``.
 The ``context`` object has the following signature:
 
     {
-      environment: ..., // environment object passed to createDisplay()
+      environment: ..., // environment object passed to createTerminal()
       exec: ...,        // function to execute a command
       update: ...,      // function to alter the text of the input area
       createView: ...,  // function to help creating rich output
@@ -605,7 +626,7 @@ An example use for ``environment`` would be a page with several tabs, each
 containing an editor with a command line. Commands executed in those editors
 should apply to the relevant editor.
 The ``environment`` object is passed to GCLI at startup (probably in the
-``createDisplay()`` function).
+``createTerminal()`` function).
 
 The ``document`` object is also passed to GCLI at startup. In some environments
 (e.g. embedded in Firefox) there is no global ``document``. This object
