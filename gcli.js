@@ -23,9 +23,8 @@ require('./lib/gcli/index');
 var gcli = require('./lib/gcli/api').getApi();
 
 /*
- * GCLI is built from a number of components (called items) to be composed as
- * required for the environment in which it is used. So this list of 'items we
- * need' be customized from environment to environment.
+ * GCLI is built from a number of components (called items) composed as
+ * required for each environment.
  * When adding to or removing from this list, we should keep the basics in sync
  * with the other environments.
  * See:
