@@ -52,7 +52,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   z-index: 2;
-  height: 5em;
+  height: 86px;
   left: 0;
   bottom: 0;
   margin-bottom: -3px;
@@ -63,12 +63,8 @@
   height: 0;
 }
 
-.gcli-tt-description {
-  padding: 0 10px;
-}
-
-.gcli-tt-error {
-  padding: 0 10px;
+.gcli-tt {
+  padding: 5px 10px 7px;
 }
 
 .gcli-field {
@@ -290,7 +286,7 @@
 }
 
 .gcli-tt-error {
-  font-size: 80%;
+  font-size: 90%;
 }
 
 .gcli-row-terminal {
