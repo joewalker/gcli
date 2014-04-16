@@ -1,16 +1,16 @@
 
-<div class="gcli-menu-template" aria-live="polite">
-  <div class="gcli-menu-vert" foreach="subitems in ${itemsSubdivided}">
+<div>
+  <div class="gcli-menu-template" aria-live="polite">
     <div class="gcli-menu-names">
       <div class="gcli-menu-name"
-          foreach="item in ${subitems}"
+          foreach="item in ${items}"
           data-name="${item.name}"
           onclick="${onItemClickInternal}"
           title="${item.manual}">${item.highlight}</div>
     </div>
     <div class="gcli-menu-descs">
       <div class="gcli-menu-desc"
-          foreach="item in ${subitems}"
+          foreach="item in ${items}"
           data-name="${item.name}"
           onclick="${onItemClickInternal}"
           title="${item.manual}">${item.description}</div>
