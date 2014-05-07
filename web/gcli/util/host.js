@@ -65,31 +65,24 @@ Highlighter.prototype._unhighlightNode = function(node) {
 exports.Highlighter = Highlighter;
 
 /**
- * Helper to execute an arbitrary OS-level command.
- * @param execSpec Object containing some of the following properties:
- * - cmd (string): The command to execute (required)
- * - args (string[]): The arguments to pass to the command (default: [])
- * - cwd (string): The current working directory
- * - env (object): A map of properties to append to the default environment
- * @return A promise of an object containing the following properties:
- * - data (string): The text of the output from the command
- * - code (number): The exit code of the command
+ * Helper to execute an arbitrary OS-level command
+ * @see lib/gcli/util/host.js
  */
-exports.exec = function(execSpec) {
+exports.spawn = function(spawnSpec) {
   // Make sure we're only sending strings across XHR
-  var cleanArgs = (execSpec.args || []).map(function(arg) {
+  var cleanArgs = (spawnSpec.args || []).map(function(arg) {
     return '' + arg;
   });
-  var cleanEnv = Object.keys(execSpec.env || {}).reduce(function(prev, key) {
-    prev[key] = '' + execSpec.env[key];
+  var cleanEnv = Object.keys(spawnSpec.env || {}).reduce(function(prev, key) {
+    prev[key] = '' + spawnSpec.env[key];
     return prev;
   }, {});
 
   return connectors.get().connect().then(function(connection) {
     return connection.call('system', {
-      cmd: '' + execSpec.cmd,
+      cmd: '' + spawnSpec.cmd,
       args: cleanArgs,
-      cwd: '' + execSpec.cwd,
+      cwd: '' + spawnSpec.cwd,
       env: cleanEnv
     }).then(function(reply) {
       connection.disconnect();
