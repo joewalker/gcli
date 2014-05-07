@@ -92,6 +92,14 @@ exports.spawn = function(spawnSpec) {
 };
 
 /**
+ * Execute a Javascript function
+ * @see lib/gcli/util/host.js
+ */
+exports.exec = function(task) {
+  return promise.resolve(task());
+};
+
+/**
  * Asynchronously load a text resource
  * @see lib/gcli/util/host.js
  */
