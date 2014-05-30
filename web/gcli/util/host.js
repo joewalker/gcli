@@ -17,7 +17,7 @@
 'use strict';
 
 var util = require('./util');
-var promise = require('./promise');
+var Promise = require('../util/promise').Promise;
 var connectors = require('../connectors/connectors');
 
 /**
@@ -96,7 +96,7 @@ exports.spawn = function(spawnSpec) {
  * @see lib/gcli/util/host.js
  */
 exports.exec = function(task) {
-  return promise.resolve(task());
+  return Promise.resolve(task());
 };
 
 /**
@@ -104,36 +104,36 @@ exports.exec = function(task) {
  * @see lib/gcli/util/host.js
  */
 exports.staticRequire = function(requistingModule, name) {
-  var deferred = promise.defer();
-  setTimeout(function() {
-    if (name === './command.html') {
-      deferred.resolve(require('text!gcli/languages/command.html'));
-      return;
-    }
+  return new Promise(function(resolve, reject) {
+    setTimeout(function() {
+      if (name === './command.html') {
+        resolve(require('text!gcli/languages/command.html'));
+        return;
+      }
 
-    if (name === './terminal.html') {
-      deferred.resolve(require('text!gcli/ui/terminal.html'));
-      return;
-    }
+      if (name === './terminal.html') {
+        resolve(require('text!gcli/ui/terminal.html'));
+        return;
+      }
 
-    if (name === './terminal.css') {
-      deferred.resolve(require('text!gcli/ui/terminal.css'));
-      return;
-    }
+      if (name === './terminal.css') {
+        resolve(require('text!gcli/ui/terminal.css'));
+        return;
+      }
 
-    if (name === './menu.html') {
-      deferred.resolve(require('text!gcli/ui/menu.html'));
-      return;
-    }
+      if (name === './menu.html') {
+        resolve(require('text!gcli/ui/menu.html'));
+        return;
+      }
 
-    if (name === './menu.css') {
-      deferred.resolve(require('text!gcli/ui/menu.css'));
-      return;
-    }
+      if (name === './menu.css') {
+        resolve(require('text!gcli/ui/menu.css'));
+        return;
+      }
 
-    deferred.reject(new Error('Unexpected requirement: ' + name));
-  }, 10);
-  return deferred.promise;
+      reject(new Error('Unexpected requirement: ' + name));
+    }, 10);
+  });
 };
 
 /**
@@ -149,14 +149,14 @@ exports.script = {
   // Execute some JavaScript
   eval: function(javascript) {
     try {
-      return promise.resolve({
+      return Promise.resolve({
         input: javascript,
         output: eval(javascript),
         exception: null
       });
     }
     catch (ex) {
-      return promise.resolve({
+      return Promise.resolve({
         input: javascript,
         output: null,
         exception: ex
