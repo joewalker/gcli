@@ -59,7 +59,7 @@
 }
 
 .gcli-panel-hide {
-  opacity: 0;
+  visibility: hidden;
   height: 0;
 }
 
