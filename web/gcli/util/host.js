@@ -100,6 +100,16 @@ exports.exec = function(task) {
 };
 
 /**
+ * Load some HTML into the given document and return a DOM element.
+ * This utility assumes that the html has a single root (other than whitespace)
+ */
+exports.toDom = function(document, html) {
+  var div = util.createElement(document, 'div');
+  util.setContents(div, html);
+  return div.children[0];
+};
+
+/**
  * Asynchronously load a text resource
  * @see lib/gcli/util/host.js
  */
