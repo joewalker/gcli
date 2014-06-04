@@ -17,7 +17,7 @@
 'use strict';
 
 var connectors = require('../connectors/connectors');
-var promise = require('../util/promise');
+var Promise = require('../util/promise').Promise;
 var Status = require('./types').Status;
 
 /**
@@ -50,7 +50,7 @@ exports.parse = function(typed, options) {
       reply.status = Status.fromString(reply.status);
       if (reply.predictions != null) {
         reply.predictor = function() {
-          return promise.resolve(reply.predictions);
+          return Promise.resolve(reply.predictions);
         };
       }
       connection.disconnect();
