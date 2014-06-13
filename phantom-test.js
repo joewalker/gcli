@@ -23,9 +23,13 @@ var exitOnComplete = function() {
   var complete = page.evaluate(function() {
     return document.complete;
   });
+  var status = page.evaluate(function() {
+    return document.testStatus;
+  });
 
   if (complete === true) {
-    phantom.exit();
+    var exitValue = (status == 'Pass' ? 0 : -1);
+    phantom.exit(exitValue);
   }
 };
 
