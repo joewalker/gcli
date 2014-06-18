@@ -100,6 +100,14 @@ exports.exec = function(task) {
 };
 
 /**
+ * The URL API is new enough that we need specific platform help
+ */
+exports.createUrl = function(uristr, base) {
+  // Chrome is picky about the base URL parameter. undefined != undefined.
+  return (base == null) ? new URL(uristr) : new URL(uristr, base);
+};
+
+/**
  * Load some HTML into the given document and return a DOM element.
  * This utility assumes that the html has a single root (other than whitespace)
  */
