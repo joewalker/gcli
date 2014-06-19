@@ -23,6 +23,7 @@
     "Proxy": false,
     "info": false,
     "io": false,
-    "ok": false
+    "ok": false,
+    "URL": false
   }
 }
