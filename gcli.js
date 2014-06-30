@@ -72,7 +72,7 @@ system.addItems(items);
 var util = require('./lib/gcli/util/util');
 var Requisition = require('./lib/gcli/cli').Requisition;
 
-var requisition = new Requisition();
+var requisition = new Requisition(system);
 var command, extraActions;
 
 if (process.argv.length < 3) {
