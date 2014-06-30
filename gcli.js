@@ -20,7 +20,7 @@
 exports.gcliHome = __dirname;
 
 require('./lib/gcli/index');
-var gcli = require('./lib/gcli/api').getApi();
+var system = require('./lib/gcli/api').createSystem();
 
 /*
  * GCLI is built from a number of components (called items) composed as
@@ -67,7 +67,7 @@ var items = [
   require('./lib/gcli/commands/server/standard').items
 ].reduce(function(prev, curr) { return prev.concat(curr); }, []);
 
-gcli.addItems(items);
+system.addItems(items);
 
 var util = require('./lib/gcli/util/util');
 var Requisition = require('./lib/gcli/cli').Requisition;
