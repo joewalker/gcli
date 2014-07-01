@@ -19,7 +19,6 @@
 
 exports.gcliHome = __dirname;
 
-require('./lib/gcli/index');
 var system = require('./lib/gcli/api').createSystem();
 
 /*
@@ -36,6 +35,8 @@ var system = require('./lib/gcli/api').createSystem();
  * - lib/gcli/connectors/direct.js: Test items for connecting to in-process GCLI
  */
 var items = [
+  require('./lib/gcli/index').items,
+
   require('./lib/gcli/cli').items,
   require('./lib/gcli/commands/clear').items,
   // require('./lib/gcli/commands/connect').items,
