@@ -18,7 +18,6 @@
 
 var util = require('./util');
 var Promise = require('../util/promise').Promise;
-var connectors = require('../connectors/connectors');
 
 /**
  * Markup a web page to highlight a collection of elements
@@ -68,7 +67,7 @@ exports.Highlighter = Highlighter;
  * Helper to execute an arbitrary OS-level command
  * @see lib/gcli/util/host.js
  */
-exports.spawn = function(spawnSpec) {
+exports.spawn = function(context, spawnSpec) {
   // Make sure we're only sending strings across XHR
   var cleanArgs = (spawnSpec.args || []).map(function(arg) {
     return '' + arg;
@@ -78,7 +77,7 @@ exports.spawn = function(spawnSpec) {
     return prev;
   }, {});
 
-  return connectors.get().connect().then(function(connection) {
+  return context.system.connectors.get().connect().then(function(connection) {
     return connection.call('system', {
       cmd: '' + spawnSpec.cmd,
       args: cleanArgs,
