@@ -13,6 +13,7 @@
 /.settings.xml.old
 /.idea/
 /.externalToolBuilders/
+/gcli.iml
 
 # A handy place to put stuff that git should ignore:
 /ignore
