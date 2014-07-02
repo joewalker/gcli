@@ -15,6 +15,7 @@
  */
 
 'use strict';
+/* global URL */
 
 var util = require('./util');
 var Promise = require('../util/promise').Promise;
