@@ -15,6 +15,7 @@
   "laxbreak": true,
   "iterator": true,
   "unused":"vars",
+  "esnext": true,
   "globals": {
     "define": false,
     "Components": false,
@@ -23,7 +24,6 @@
     "Proxy": false,
     "info": false,
     "io": false,
-    "ok": false,
-    "URL": false
+    "ok": false
   }
 }
