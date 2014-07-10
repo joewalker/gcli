@@ -16,12 +16,12 @@
 
 'use strict';
 
-var connectors = require('../connectors/connectors');
 var Promise = require('../util/promise').Promise;
 var Status = require('./types').Status;
 
 /**
  * Helper for the parse() function from the file type.
+ * @param context An executionContext to allow us to use the filesystem
  * @param typed i.e. arg.text, the string typed by the user
  * @param options An object describing what type of file is expected:
  * - filetype: One of 'file', 'directory', 'any'
@@ -37,7 +37,7 @@ var Status = require('./types').Status;
  *              array of prediction objects, each of which contains a 'name'
  *              and can contain a boolean 'complete' property
  */
-exports.parse = function(typed, options) {
+exports.parse = function(context, typed, options) {
   var data = {
     typed: typed,
     filetype: options.filetype,
@@ -45,6 +45,7 @@ exports.parse = function(typed, options) {
     matches: options.matches == null ? undefined : options.matches.source
   };
 
+  var connectors = context.system.connectors;
   return connectors.get().connect().then(function(connection) {
     return connection.call('parsefile', data).then(function(reply) {
       reply.status = Status.fromString(reply.status);
