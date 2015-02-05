@@ -19,7 +19,7 @@
 
 exports.gcliHome = __dirname;
 
-var system = require('./lib/gcli/api').createSystem();
+var system = require('./lib/gcli/system').createSystem();
 
 /*
  * GCLI is built from a number of components (called items) composed as
