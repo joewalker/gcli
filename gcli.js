@@ -39,7 +39,7 @@ var items = [
 
   require('./lib/gcli/cli').items,
   require('./lib/gcli/commands/clear').items,
-  // require('./lib/gcli/commands/connect').items,
+  require('./lib/gcli/commands/connect').items,
   require('./lib/gcli/commands/context').items,
   require('./lib/gcli/commands/exec').items,
   require('./lib/gcli/commands/global').items,
@@ -52,14 +52,9 @@ var items = [
   require('./lib/gcli/commands/test').items,
 
   require('./lib/gcli/commands/demo/alert').items,
-  // require('./lib/gcli/commands/demo/bugs').items,
-  // require('./lib/gcli/commands/demo/demo').items,
+  require('./lib/gcli/commands/demo/demo').items,
   require('./lib/gcli/commands/demo/echo').items,
-  // require('./lib/gcli/commands/demo/edit').items,
-  // require('./lib/gcli/commands/demo/git').items,
-  // require('./lib/gcli/commands/demo/hg').items,
   require('./lib/gcli/commands/demo/sleep').items,
-  // require('./lib/gcli/commands/demo/theme').items,
 
   require('./lib/gcli/commands/server/exit').items,
   require('./lib/gcli/commands/server/firefox').items,
