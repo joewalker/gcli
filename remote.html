@@ -30,7 +30,7 @@
       var options = { connector: 'websocket' };
       cnx.connect(options).then(function(system) {
         gcli.createTerminal(system).then(function(terminal) {
-          test.run(terminal);
+          test.run(terminal, true);
         });
       }).then(null, console.error.bind(console));
     });

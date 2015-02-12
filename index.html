@@ -34,8 +34,8 @@
       system.addItems(demo.items);        // Extra demo commands
 
       gcli.createTerminal(system).then(function(terminal) {
-        terminal.language.showIntro();   // Intro text
-        test.run(terminal);              // Run the unit test at each startup
+        terminal.language.showIntro();    // Intro text
+        test.run(terminal, false);        // Run the unit test at each startup
       }).then(null, console.error.bind(console));
     });
   </script>
