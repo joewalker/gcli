@@ -27,8 +27,7 @@
     });
 
     require([ 'gcli/index', 'gcli/test/index', 'gcli/connectors/index' ], function(gcli, test, cnx) {
-      var options = { connector: 'websocket' };
-      cnx.connect(options).then(function(system) {
+      cnx.createSystem({ connector: 'websocket' }).then(function(system) {
         gcli.createTerminal(system).then(function(terminal) {
           test.run(terminal, true);
         });
