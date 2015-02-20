@@ -7,7 +7,7 @@ number of built in types:
 
 * string. This is a JavaScript string
 * number. A JavaScript number
-* boolean. A Javascript boolean
+* boolean. A JavaScript boolean
 * selection. This is an selection from a number of alternatives
 * delegate. This type could change depending on other factors, but is well
   defined when one of the conversion routines is called.
@@ -51,8 +51,7 @@ All types must inherit from Type and have the following methods:
 
 In addition, defining the following functions can be helpful, although Type
 contains default implementations:
-* increment(value)
-* decrement(value)
+* nudge(value, by)
 
 Type, Conversion and Status are all declared by commands.js.
 
