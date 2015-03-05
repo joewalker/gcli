@@ -25,19 +25,18 @@
       paths: { i18n: '../scripts/i18n', text: '../scripts/text' }
     });
 
-    var modules = [ 'gcli/index', 'gcli/demo', 'gcli/test/index' ];
+    var modules = [ 'gcli/index', 'gcli/items/demo', 'gcli/test/index' ];
     require(modules, function(gcli, demo, test) {
-      // Add demo commands. You'll probably want to replace this with
-      // your own set of commands
-      gcli.addItems(demo.items);
+      // Add the commands/types/converters as required
+      var system = gcli.createSystem();
+      system.addItems(gcli.items);        // Common infrastructure: types, etc
+      system.addItems(gcli.commandItems); // Common set of useful commands
+      system.addItems(demo.items);        // Extra demo commands
 
-      // To run commands remotely, 
-      // Hook GCLI into this page, using gcli-root above
-      var options = {};
-      gcli.createTerminal(options).then(function() {
-        // Run the unit test at each startup.
-        test.run(options);
-      }).then(null, console.error);
+      gcli.createTerminal(system).then(function(terminal) {
+        terminal.language.showIntro();    // Intro text
+        test.run(terminal, false);        // Run the unit test at each startup
+      }).catch(console.error.bind(console));
     });
   </script>
 

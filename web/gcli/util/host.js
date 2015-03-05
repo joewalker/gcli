@@ -19,6 +19,7 @@
 
 var util = require('./util');
 var Promise = require('../util/promise').Promise;
+var GcliFront = require('../connectors/remoted').GcliFront;
 
 /**
  * Markup a web page to highlight a collection of elements
@@ -70,22 +71,20 @@ exports.Highlighter = Highlighter;
  */
 exports.spawn = function(context, spawnSpec) {
   // Make sure we're only sending strings across XHR
+  var cmd = '' + spawnSpec.cmd;
   var cleanArgs = (spawnSpec.args || []).map(function(arg) {
     return '' + arg;
   });
+  var cwd = '' + spawnSpec.cwd;
   var cleanEnv = Object.keys(spawnSpec.env || {}).reduce(function(prev, key) {
     prev[key] = '' + spawnSpec.env[key];
     return prev;
   }, {});
 
-  return context.system.connectors.get().connect().then(function(connection) {
-    return connection.call('system', {
-      cmd: '' + spawnSpec.cmd,
-      args: cleanArgs,
-      cwd: '' + spawnSpec.cwd,
-      env: cleanEnv
-    }).then(function(reply) {
-      connection.disconnect();
+  var connector = context.system.connectors.get();
+  return GcliFront.create(connector).then(function(front) {
+    return front.system(cmd, cleanArgs, cwd, cleanEnv).then(function(reply) {
+      front.connection.disconnect().catch(util.errorHandler);
       return reply;
     });
   });

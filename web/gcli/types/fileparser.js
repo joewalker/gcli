@@ -18,6 +18,8 @@
 
 var Promise = require('../util/promise').Promise;
 var Status = require('./types').Status;
+var util = require('../util/util');
+var GcliFront = require('../connectors/remoted').GcliFront;
 
 /**
  * Helper for the parse() function from the file type.
@@ -38,23 +40,19 @@ var Status = require('./types').Status;
  *              and can contain a boolean 'complete' property
  */
 exports.parse = function(context, typed, options) {
-  var data = {
-    typed: typed,
-    filetype: options.filetype,
-    existing: options.existing,
-    matches: options.matches == null ? undefined : options.matches.source
-  };
+  var matches = options.matches == null ? undefined : options.matches.source;
 
-  var connectors = context.system.connectors;
-  return connectors.get().connect().then(function(connection) {
-    return connection.call('parsefile', data).then(function(reply) {
+  var connector = context.system.connectors.get();
+  return GcliFront.create(connector).then(function(front) {
+    return front.parseFile(typed, options.filetype,
+                           options.existing, matches).then(function(reply) {
       reply.status = Status.fromString(reply.status);
       if (reply.predictions != null) {
         reply.predictor = function() {
           return Promise.resolve(reply.predictions);
         };
       }
-      connection.disconnect();
+      front.connection.disconnect().catch(util.errorHandler);
       return reply;
     });
   });

@@ -19,53 +19,16 @@
 
 exports.gcliHome = __dirname;
 
-var system = require('./lib/gcli/api').createSystem();
+var system = require('./lib/gcli/system').createSystem();
 
-/*
- * GCLI is built from a number of components (called items) composed as
- * required for each environment.
- * When adding to or removing from this list, we should keep the basics in sync
- * with the other environments.
- * See:
- * - lib/gcli/index.js: Generic basic set (without commands)
- * - lib/gcli/demo.js: Adds demo commands to basic set for use in web demo
- * - gcli.js: Add commands to basic set for use in Node command line
- * - mozilla/gcli/index.js: From scratch listing for Firefox
- * - lib/gcli/connectors/index.js: Client only items when executing remotely
- * - lib/gcli/connectors/direct.js: Test items for connecting to in-process GCLI
- */
 var items = [
-  require('./lib/gcli/index').items,
+  require('./lib/gcli/items/basic').items,
+  require('./lib/gcli/items/ui').items,
+  require('./lib/gcli/items/remote').items,
+  require('./lib/gcli/items/standard').items,
+  require('./lib/gcli/items/demo').items,
+  require('./lib/gcli/items/server').items,
 
-  require('./lib/gcli/cli').items,
-  require('./lib/gcli/commands/clear').items,
-  // require('./lib/gcli/commands/connect').items,
-  require('./lib/gcli/commands/context').items,
-  require('./lib/gcli/commands/exec').items,
-  require('./lib/gcli/commands/global').items,
-  require('./lib/gcli/commands/help').items,
-  require('./lib/gcli/commands/intro').items,
-  require('./lib/gcli/commands/lang').items,
-  require('./lib/gcli/commands/mocks').items,
-  require('./lib/gcli/commands/pref').items,
-  require('./lib/gcli/commands/preflist').items,
-  require('./lib/gcli/commands/test').items,
-
-  require('./lib/gcli/commands/demo/alert').items,
-  // require('./lib/gcli/commands/demo/bugs').items,
-  // require('./lib/gcli/commands/demo/demo').items,
-  require('./lib/gcli/commands/demo/echo').items,
-  // require('./lib/gcli/commands/demo/edit').items,
-  // require('./lib/gcli/commands/demo/git').items,
-  // require('./lib/gcli/commands/demo/hg').items,
-  require('./lib/gcli/commands/demo/sleep').items,
-  // require('./lib/gcli/commands/demo/theme').items,
-
-  require('./lib/gcli/commands/server/exit').items,
-  require('./lib/gcli/commands/server/firefox').items,
-  require('./lib/gcli/commands/server/orion').items,
-  require('./lib/gcli/commands/server/server').items,
-  require('./lib/gcli/commands/server/standard').items
 ].reduce(function(prev, curr) { return prev.concat(curr); }, []);
 
 system.addItems(items);
@@ -116,7 +79,7 @@ function logResults(output) {
 requisition.updateExec(command)
            .then(logResults)
            .then(extraActions)
-           .then(null, util.errorHandler);
+           .catch(util.errorHandler);
 
 /**
  * Start a NodeJS REPL to execute commands
@@ -133,10 +96,8 @@ function startRepl() {
     if (command.length !== 0) {
       requisition.updateExec(command)
                  .then(logResults)
-                 .then(
-                     function() { callback(); },
-                     function(ex) { util.errorHandler(ex); callback(); }
-                 );
+                 .then(function() { callback(); })
+                 .catch(function(ex) { util.errorHandler(ex); callback(); });
     }
   };
 
