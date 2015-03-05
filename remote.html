@@ -31,7 +31,7 @@
         gcli.createTerminal(system).then(function(terminal) {
           test.run(terminal, true);
         });
-      }).then(null, console.error.bind(console));
+      }).catch(console.error.bind(console));
     });
   </script>
 

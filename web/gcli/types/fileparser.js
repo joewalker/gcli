@@ -52,7 +52,7 @@ exports.parse = function(context, typed, options) {
           return Promise.resolve(reply.predictions);
         };
       }
-      front.connection.disconnect().then(null, util.errorHandler);
+      front.connection.disconnect().catch(util.errorHandler);
       return reply;
     });
   });

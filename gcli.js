@@ -79,7 +79,7 @@ function logResults(output) {
 requisition.updateExec(command)
            .then(logResults)
            .then(extraActions)
-           .then(null, util.errorHandler);
+           .catch(util.errorHandler);
 
 /**
  * Start a NodeJS REPL to execute commands
@@ -96,10 +96,8 @@ function startRepl() {
     if (command.length !== 0) {
       requisition.updateExec(command)
                  .then(logResults)
-                 .then(
-                     function() { callback(); },
-                     function(ex) { util.errorHandler(ex); callback(); }
-                 );
+                 .then(function() { callback(); })
+                 .catch(function(ex) { util.errorHandler(ex); callback(); });
     }
   };
 

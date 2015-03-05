@@ -84,7 +84,7 @@ exports.spawn = function(context, spawnSpec) {
   var connector = context.system.connectors.get();
   return GcliFront.create(connector).then(function(front) {
     return front.system(cmd, cleanArgs, cwd, cleanEnv).then(function(reply) {
-      front.connection.disconnect().then(null, util.errorHandler);
+      front.connection.disconnect().catch(util.errorHandler);
       return reply;
     });
   });

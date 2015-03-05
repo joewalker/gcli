@@ -36,7 +36,7 @@
       gcli.createTerminal(system).then(function(terminal) {
         terminal.language.showIntro();    // Intro text
         test.run(terminal, false);        // Run the unit test at each startup
-      }).then(null, console.error.bind(console));
+      }).catch(console.error.bind(console));
     });
   </script>
 
