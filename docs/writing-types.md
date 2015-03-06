@@ -49,8 +49,9 @@ All types must inherit from Type and have the following methods:
      */
     name: 'example',
 
-In addition, defining the following functions can be helpful, although Type
+In addition, defining the following function can be helpful, although Type
 contains default implementations:
+
 * nudge(value, by)
 
 Type, Conversion and Status are all declared by commands.js.
