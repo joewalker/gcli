@@ -164,7 +164,7 @@ exports.script = {
   useTarget: function(tgt) { },
 
   // Execute some JavaScript
-  eval: function(javascript) {
+  evaluate: function(javascript) {
     try {
       return Promise.resolve({
         input: javascript,
