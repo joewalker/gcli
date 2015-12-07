@@ -17,8 +17,6 @@
 
 'use strict';
 
-exports.gcliHome = __dirname;
-
 var system = require('./lib/gcli/system').createSystem();
 
 var items = [

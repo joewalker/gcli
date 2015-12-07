@@ -16,14 +16,17 @@
 
 'use strict';
 
-function notImplemented() {
-  throw new Error('Not implemented');
-}
+var gcli = require('./lib/gcli/index');
+var demo = require('./lib/gcli/items/demo');
+var test = require('./lib/gcli/test/index');
 
-exports.join = notImplemented;
-exports.sep = notImplemented;
-exports.dirname = notImplemented;
-exports.split = notImplemented;
-exports.ls = notImplemented;
-exports.stat = notImplemented;
-exports.describe = notImplemented;
+// Add the commands/types/converters as required
+var system = gcli.createSystem();
+system.addItems(gcli.items);        // Common infrastructure: types, etc
+system.addItems(gcli.commandItems); // Common set of useful commands
+system.addItems(demo.items);        // Extra demo commands
+
+gcli.createTerminal(system).then(function(terminal) {
+  terminal.language.showIntro();    // Intro text
+  test.run(terminal, false);        // Run the unit test at each startup
+}).catch(console.error.bind(console));
