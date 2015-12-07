@@ -16,7 +16,6 @@
 
 'use strict';
 
-var Promise = require('../util/promise').Promise;
 var Status = require('./types').Status;
 var util = require('../util/util');
 var GcliFront = require('../connectors/remoted').GcliFront;

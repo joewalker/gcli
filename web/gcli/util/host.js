@@ -18,7 +18,6 @@
 /* global URL */
 
 var util = require('./util');
-var Promise = require('../util/promise').Promise;
 var GcliFront = require('../connectors/remoted').GcliFront;
 
 /**
