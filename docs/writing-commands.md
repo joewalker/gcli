@@ -92,7 +92,7 @@ stored in ``browser/locales/en-US/chrome/browser/devtools/gclicommands.propertie
 And you should access them using ``gcli.lookup(...)`` or ``gcli.lookupFormat()``
 
 For examples of existing commands, take a look in
-``browser/devtools/webconsole/GcliCommands.jsm``, which contains most of the
+``devtools/client/webconsole/GcliCommands.jsm``, which contains most of the
 current GCLI commands. If you will be adding a number of new commands, then
 consider starting a new JSM.
 
