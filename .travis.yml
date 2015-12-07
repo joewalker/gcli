@@ -2,9 +2,5 @@
 language: node_js
 node_js:
   - "0.10"
-before_script:
-  - "node gcli.js server start --xhr --websocket &"
 script:
-  - "node gcli.js test && phantomjs ./phantom-test.js"
-after_script:
-  - "phantomjs ./phantom-test.js --shutdown"
+  - "node gcli.js test"
