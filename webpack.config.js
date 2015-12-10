@@ -34,32 +34,14 @@ module.exports = {
     loaders: [
       { test: /\.css$/, loader: 'raw' },
       { test: /\.html$/, loader: 'raw' },
-      { test: /\.json/, loader: 'json' },
+      { test: /\.json$/, loader: 'json' },
     ],
   },
   plugins: [
-    new webpack.IgnorePlugin(/jsdom$/),
-    new webpack.IgnorePlugin(/fs$/),
-    new webpack.IgnorePlugin(/express$/),
     new webpack.IgnorePlugin(/child_process$/),
-    new webpack.IgnorePlugin(/body-parser$/),
-    new webpack.IgnorePlugin(/^text!gcli/),
+    new webpack.IgnorePlugin(/dom-urls$/),
+    new webpack.IgnorePlugin(/fs$/),
+    new webpack.IgnorePlugin(/jsdom$/),
+    new webpack.IgnorePlugin(/path$/),
   ],
 };
-
-var compiler = webpack(module.exports);
-
-compiler.run(function(err, stats) {
-  if (err) {
-    throw new Error(err);
-  }
-
-  console.log(stats.toString({ colors: true }));
-
-  //stats.compilation.errors
-  //        .map(function(s) { return s.message; })
-  //        .forEach(console.log);
-  //stats.compilation.warnings
-  //        .map(function(s) { return s.message; })
-  //        .forEach(console.log);
-});
