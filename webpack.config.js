@@ -39,7 +39,6 @@ module.exports = {
   },
   plugins: [
     new webpack.IgnorePlugin(/fs$/),
-    new webpack.IgnorePlugin(/jsdom$/),
     new webpack.IgnorePlugin(/path$/),
   ],
 };

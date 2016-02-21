@@ -19,6 +19,7 @@
 
 // Patch Node to be more like a browser
 global.URL = require('dom-urls');
+require('jsdom-global')();
 
 global.staticRequire = function(requistingModule, name) {
   return new Promise(function(resolve, reject) {
@@ -54,7 +55,12 @@ system.addItems(items);
 var util = require('./lib/gcli/util/util');
 var Requisition = require('./lib/gcli/cli').Requisition;
 
-var requisition = new Requisition(system);
+var environment = {
+  document: document,
+  window: window
+};
+
+var requisition = new Requisition(system, { environment: environment });
 var command, extraActions;
 
 if (process.argv.length < 3) {

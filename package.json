@@ -13,6 +13,7 @@
     "es6-promise": "3.0.2",
     "express": "4.13.3",
     "jsdom": "6.5.1",
+    "jsdom-global": "1.6.1",
     "json-loader": "0.5.3",
     "morgan": "1.6.1",
     "node-libs-browser": "0.5.3",
