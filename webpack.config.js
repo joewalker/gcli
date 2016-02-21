@@ -38,7 +38,6 @@ module.exports = {
     ],
   },
   plugins: [
-    new webpack.IgnorePlugin(/child_process$/),
     new webpack.IgnorePlugin(/dom-urls$/),
     new webpack.IgnorePlugin(/fs$/),
     new webpack.IgnorePlugin(/jsdom$/),
