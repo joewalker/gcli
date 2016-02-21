@@ -17,6 +17,26 @@
 
 'use strict';
 
+// Patch Node to be more like a browser
+global.URL = require('dom-urls');
+
+global.staticRequire = function(requistingModule, name) {
+  return new Promise(function(resolve, reject) {
+    var path = require('path');
+    var parent = path.dirname(requistingModule.id);
+    var filename = parent + '/' + name;
+
+    var fs = require('fs');
+    fs.readFile(filename, { encoding: 'utf8' }, function(err, data) {
+      if (err) {
+        reject(err);
+      }
+
+      resolve(data);
+    });
+  });
+};
+
 var system = require('./lib/gcli/system').createSystem();
 
 var items = [
