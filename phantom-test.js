@@ -28,7 +28,7 @@ var exitOnComplete = function() {
   });
 
   if (complete === true) {
-    var exitValue = (status == 'Pass' ? 0 : -1);
+    var exitValue = (status === 'Pass' ? 0 : -1);
     phantom.exit(exitValue);
   }
 };
@@ -43,7 +43,8 @@ page.onConsoleMessage = function() {
 
 if (system.args.length === 1) {
   page.open('http://localhost:9999/index.html', pageLoaded);
-} else {
+}
+else {
   if (system.args[1] === '--shutdown') {
     page.open('http://localhost:9999/index.html?shutdown=true', pageLoaded);
   }
