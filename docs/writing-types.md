@@ -83,9 +83,7 @@ This is an example of a very simple new password field type:
       this.input.type = 'password';
       this.input.value = assignment.arg ? assignment.arg.text : '';
 
-      this.onKeyup = function() {
-          this.assignment.setValue(this.input.value);
-      }.bind(this);
+      this.onKeyup = () => this.assignment.setValue(this.input.value);
       this.input.addEventListener('keyup', this.onKeyup, false);
 
       this.onChange = function() {

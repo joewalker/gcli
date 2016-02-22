@@ -48,7 +48,7 @@ var items = [
   require('./lib/gcli/items/demo').items,
   require('./lib/gcli/items/server').items,
 
-].reduce(function(prev, curr) { return prev.concat(curr); }, []);
+].reduce((prev, curr)  => prev.concat(curr), []);
 
 system.addItems(items);
 
@@ -66,7 +66,7 @@ var command, extraActions;
 if (process.argv.length < 3) {
   // No command passed in. Serve GCLI over http and start a local REPL
   command = 'server start';
-  extraActions = function(output) {
+  extraActions = output => {
     if (!output.error) {
       startRepl();
     }
@@ -76,7 +76,7 @@ else {
   // Command passed in. No server/REPL and a process.exit(1) on failure to
   // propagate test errors
   command = process.argv.slice(2).join(' ');
-  extraActions = function(output) {
+  extraActions = output => {
     if (output.error) {
       process.exit(1);
     }
