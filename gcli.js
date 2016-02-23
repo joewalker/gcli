@@ -111,14 +111,14 @@ requisition.updateExec(command)
 function startRepl() {
   const repl = require('repl');
 
-  const gcliEval = function(command, scope, file, callback) {
+  const gcliEval = function(cmd, scope, file, callback) {
     // Why does node wrap the command in '(...)\n'?
-    command = command.replace(/^\((.*)\n\)$/, function(all, part) {
+    cmd = cmd.replace(/^\((.*)\n\)$/, function(all, part) {
       return part;
     });
 
-    if (command.length !== 0) {
-      requisition.updateExec(command)
+    if (cmd.length !== 0) {
+      requisition.updateExec(cmd)
                  .then(logResults)
                  .then(function() { callback(); })
                  .catch(function(ex) { util.errorHandler(ex); callback(); });
