@@ -23,11 +23,11 @@ require('jsdom-global')();
 
 global.staticRequire = function(requistingModule, name) {
   return new Promise(function(resolve, reject) {
-    var path = require('path');
-    var parent = path.dirname(requistingModule.id);
-    var filename = parent + '/' + name;
+    const path = require('path');
+    const parent = path.dirname(requistingModule.id);
+    const filename = parent + '/' + name;
 
-    var fs = require('fs');
+    const fs = require('fs');
     fs.readFile(filename, { encoding: 'utf8' }, function(err, data) {
       if (err) {
         reject(err);
@@ -38,9 +38,9 @@ global.staticRequire = function(requistingModule, name) {
   });
 };
 
-var system = require('./lib/gcli/system').createSystem();
+const system = require('./lib/gcli/system').createSystem();
 
-var items = [
+const items = [
   require('./lib/gcli/items/basic').items,
   require('./lib/gcli/items/ui').items,
   require('./lib/gcli/items/remote').items,
@@ -52,16 +52,16 @@ var items = [
 
 system.addItems(items);
 
-var util = require('./lib/gcli/util/util');
-var Requisition = require('./lib/gcli/cli').Requisition;
+const util = require('./lib/gcli/util/util');
+const Requisition = require('./lib/gcli/cli').Requisition;
 
-var environment = {
+const environment = {
   document: document,
   window: window
 };
 
-var requisition = new Requisition(system, { environment: environment });
-var command, extraActions;
+const requisition = new Requisition(system, { environment: environment });
+let command, extraActions;
 
 if (process.argv.length < 3) {
   // No command passed in. Serve GCLI over http and start a local REPL
@@ -88,7 +88,7 @@ else {
  * depending on the error status
  */
 function logResults(output) {
-  var context = requisition.conversionContext;
+  const context = requisition.conversionContext;
   return output.convert('string', context).then(function(message) {
     if (output.error) {
       console.error(message);
@@ -109,9 +109,9 @@ requisition.updateExec(command)
  * Start a NodeJS REPL to execute commands
  */
 function startRepl() {
-  var repl = require('repl');
+  const repl = require('repl');
 
-  var gcliEval = function(command, scope, file, callback) {
+  const gcliEval = function(command, scope, file, callback) {
     // Why does node wrap the command in '(...)\n'?
     command = command.replace(/^\((.*)\n\)$/, function(all, part) {
       return part;

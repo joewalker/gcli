@@ -25,10 +25,10 @@
       paths: { i18n: '../scripts/i18n', raw: '../scripts/text' }
     });
 
-    var modules = [ 'gcli/index', 'gcli/items/demo', 'gcli/test/index' ];
+    const modules = [ 'gcli/index', 'gcli/items/demo', 'gcli/test/index' ];
     require(modules, function(gcli, demo, test) {
       // Add the commands/types/converters as required
-      var system = gcli.createSystem();
+      const system = gcli.createSystem();
       system.addItems(gcli.items);        // Common infrastructure: types, etc
       system.addItems(gcli.commandItems); // Common set of useful commands
       system.addItems(demo.items);        // Extra demo commands

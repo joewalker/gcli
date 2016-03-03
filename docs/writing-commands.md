@@ -703,7 +703,7 @@ information.
 
     { returnType: "string" }
     ...
-    var deferred = context.defer();
+    const deferred = context.defer();
     setTimeout(function() {
       deferred.resolve("hello");
     }, 500);

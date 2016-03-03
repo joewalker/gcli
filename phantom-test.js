@@ -17,24 +17,24 @@
 
 'use strict';
 
-var page = require('webpage').create();
-var system = require('system');
+const page = require('webpage').create();
+const system = require('system');
 
-var exitOnComplete = function() {
-  var complete = page.evaluate(function() {
+const exitOnComplete = function() {
+  const complete = page.evaluate(function() {
     return document.complete;
   });
-  var status = page.evaluate(function() {
+  const status = page.evaluate(function() {
     return document.testStatus;
   });
 
   if (complete === true) {
-    var exitValue = (status === 'Pass' ? 0 : -1);
+    const exitValue = (status === 'Pass' ? 0 : -1);
     phantom.exit(exitValue);
   }
 };
 
-var pageLoaded = function(status) {
+const pageLoaded = function(status) {
   setInterval(exitOnComplete, 50);
 };
 

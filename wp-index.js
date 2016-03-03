@@ -16,12 +16,12 @@
 
 'use strict';
 
-var gcli = require('./lib/gcli/index');
-var demo = require('./lib/gcli/items/demo');
-var test = require('./lib/gcli/test/index');
+const gcli = require('./lib/gcli/index');
+const demo = require('./lib/gcli/items/demo');
+const test = require('./lib/gcli/test/index');
 
 // Add the commands/types/converters as required
-var system = gcli.createSystem();
+const system = gcli.createSystem();
 system.addItems(gcli.items);        // Common infrastructure: types, etc
 system.addItems(gcli.commandItems); // Common set of useful commands
 system.addItems(demo.items);        // Extra demo commands
